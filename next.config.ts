@@ -7,6 +7,7 @@ const nextConfig: NextConfig = {
     ignoreBuildErrors: true,
   },
   reactStrictMode: false,
+  serverExternalPackages: ["@libsql/client", "@prisma/adapter-libsql"],
 };
 
 export default nextConfig;
