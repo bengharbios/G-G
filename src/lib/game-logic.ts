@@ -68,8 +68,8 @@ export function checkWinCondition(players: Player[]): 'mafia' | 'citizen' | null
   const aliveCitizens = getAliveCitizens(players);
 
   if (aliveMafia.length === 0) return 'citizen';
-  // Mafia wins when they equal or outnumber alive citizens
-  if (aliveMafia.length >= aliveCitizens.length) return 'mafia';
+  // Mafia wins only when they strictly outnumber alive citizens
+  if (aliveMafia.length > aliveCitizens.length) return 'mafia';
   return null;
 }
 
