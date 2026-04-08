@@ -25,8 +25,8 @@ export function shuffleArray<T>(array: T[]): T[] {
 }
 
 // Create players from names and assign roles
-export function createPlayersWithRoles(names: string[], customMafiaCount?: number): Player[] {
-  const deck = generateCardDeck(names.length, customMafiaCount);
+export function createPlayersWithRoles(names: string[]): Player[] {
+  const deck = generateCardDeck(names.length);
   const roles = shuffleArray([...deck]);
   return names.map((name, index) => ({
     id: `player-${index}`,
@@ -62,14 +62,19 @@ export function getAliveCitizens(players: Player[]): Player[] {
   );
 }
 
-// Check win conditions - mafia wins when alive mafia strictly outnumber alive citizens
+// Check win conditions - mafia wins when citizens count <= mafia count
 export function checkWinCondition(players: Player[]): 'mafia' | 'citizen' | null {
   const aliveMafia = getAliveMafia(players);
   const aliveCitizens = getAliveCitizens(players);
 
+  // Count total mafia from all players (including dead) to know original count
+  const totalMafiaCount = players.filter(
+    (p) => p.role && ROLE_CONFIGS[p.role].team === 'mafia'
+  ).length;
+
   if (aliveMafia.length === 0) return 'citizen';
-  // Mafia wins only when they strictly outnumber citizens
-  if (aliveMafia.length > aliveCitizens.length) return 'mafia';
+  // Mafia wins when alive citizens <= total mafia count
+  if (aliveCitizens.length <= totalMafiaCount) return 'mafia';
   return null;
 }
 
@@ -125,7 +130,7 @@ export function processNightActions(
       log.push({
         round,
         phase: 'night',
-        message: `أنقذ الطبيب ${bossTargetPlayer?.name || 'الهدف'}`,
+        message: `أنقذ الاسعاف ${bossTargetPlayer?.name || 'الهدف'}`,
         timestamp: Date.now(),
       });
     } else if (bossTargetPlayer && bossTargetPlayer.isAlive) {
