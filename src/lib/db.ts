@@ -1,5 +1,5 @@
 import { PrismaClient } from '@prisma/client'
-import { PrismaLibSql } from '@prisma/adapter-libsql'
+import { PrismaLibSQL } from '@prisma/adapter-libsql'
 import { createClient } from '@libsql/client'
 
 const globalForPrisma = globalThis as unknown as {
@@ -8,16 +8,19 @@ const globalForPrisma = globalThis as unknown as {
 
 function createPrismaClient() {
   const dbUrl = process.env.TURSO_DATABASE_URL || process.env.DATABASE_URL || ''
-  const authToken = process.env.TURSO_AUTH_TOKEN || ''
 
-  if (dbUrl.includes('libsql://') || dbUrl.includes('turso')) {
+  if (dbUrl.includes('libsql://')) {
     // Turso / libSQL remote database
+    const authToken = process.env.TURSO_AUTH_TOKEN || ''
     const libsql = createClient({
       url: dbUrl,
       authToken: authToken,
     })
-    const adapter = new PrismaLibSql(libsql)
-    return new PrismaClient({ adapter })
+    const adapter = new PrismaLibSQL(libsql)
+    return new PrismaClient({
+      adapter,
+      datasources: { db: { url: dbUrl } },
+    })
   }
 
   // Local SQLite fallback
