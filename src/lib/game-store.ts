@@ -57,6 +57,7 @@ export interface GameStore {
   gameLog: GameLogEntry[];
 
   // UI state
+  firstNightSkipped: boolean;
   currentMafiaViewIndex: number;
   currentDistributionIndex: number;
   showCard: boolean;
@@ -146,6 +147,7 @@ const initialState = {
   discussionTimeLeft: 120,
   goodSonTarget: null as string | null,
   showRolesToHost: false,
+  firstNightSkipped: false,
   dayResults: null as DayResults | null,
   nightEvents: [] as EliminationEvent[],
   nightLog: [] as GameLogEntry[],
@@ -193,6 +195,11 @@ export const useGameStore = create<GameStore>()(
 
       setPhase: (phase) => {
         set((state) => {
+          // First night: skip all role actions, go straight to day discussion
+          if (phase === 'night_start' && !state.firstNightSkipped) {
+            return { phase: 'day_discussion', firstNightSkipped: true, votes: [] };
+          }
+
           // Increment round when starting a new night (after the first one)
           const isNewNight = phase === 'night_start' && state.round > 0 && state.phase !== 'night_start';
           const newRound = isNewNight ? state.round + 1 : state.round;
