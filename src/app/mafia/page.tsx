@@ -218,7 +218,7 @@ function GameTopBar() {
     night_boss_kill: '🔪 شيخ المافيا',
     night_silencer: '🤫 التسكيت',
     night_mafia_sleep: '😴 المافيا تنام',
-    night_medic: '🏥 الاسعاف',
+    night_medic: '🏥 الطبيب',
     night_sniper: '🎯 القناص',
     night_end: '🌅 انتهت الليل',
     day_announcements: '📢 أحداث الليل',

@@ -286,7 +286,7 @@ export default function NightPhase() {
       case 'night_mafia_sleep':
         return '😴 المافيا تنام';
       case 'night_medic':
-        return '🏥 الاسعاف';
+        return '🏥 الطبيب';
       case 'night_sniper':
         return '🎯 القناص';
       case 'night_end':
@@ -599,8 +599,8 @@ export default function NightPhase() {
                     : 'bg-green-950/30 border border-green-500/20 text-green-400'
                   }`}>
                     {pollError ? (<><WifiOff className="w-3.5 h-3.5" /> تعذّر الاتصال</>) 
-                    : remoteNightAction ? (<><Smartphone className="w-3.5 h-3.5" /> وصل اختيار الاسعاف ✓</>)
-                    : (<><Wifi className="w-3.5 h-3.5" /> بانتظار اختيار الاسعاف من جهازه...</>)}
+                    : remoteNightAction ? (<><Smartphone className="w-3.5 h-3.5" /> وصل اختيار الطبيب ✓</>)
+                    : (<><Wifi className="w-3.5 h-3.5" /> بانتظار اختيار الطبيب من جهازه...</>)}
                   </div>
                 )}
                 {remoteNightAction && phase === 'night_medic' && (

@@ -21,6 +21,7 @@ interface GameSetupProps {
 export default function GameSetup({ onStartGame }: GameSetupProps) {
   const startGame = useGameStore((s) => s.startGame);
   const [playerCount, setPlayerCount] = useState(MIN_PLAYERS);
+  const [customMafiaCount, setCustomMafiaCount] = useState<number | undefined>(undefined);
   const [playerNames, setPlayerNames] = useState<string[]>(
     Array.from({ length: MIN_PLAYERS }, (_, i) => `اللاعب ${i + 1}`)
   );
@@ -28,8 +29,8 @@ export default function GameSetup({ onStartGame }: GameSetupProps) {
   const [error, setError] = useState('');
 
   const composition = useMemo(
-    () => getTeamComposition(playerCount),
-    [playerCount]
+    () => getTeamComposition(playerCount, customMafiaCount),
+    [playerCount, customMafiaCount]
   );
 
   const handleCountChange = (newCount: number) => {
@@ -71,7 +72,7 @@ export default function GameSetup({ onStartGame }: GameSetupProps) {
       return;
     }
 
-    startGame(trimmed);
+    startGame(trimmed, customMafiaCount);
     onStartGame();
   };
 
@@ -233,9 +234,30 @@ export default function GameSetup({ onStartGame }: GameSetupProps) {
                 🏆 الصالحون يفوزون بإقصاء كل المافيا
               </p>
               <p className="text-red-400/80 text-center">
-                💀 المافيا تفوز بتبقية{' '}
-                {composition.mafiaCount} مواطنين أو أقل
+                💀 المافيا تفوز بتفوق عددي على المواطنين
               </p>
+            </div>
+
+            {/* Custom mafia count selector */}
+            <div className="mt-3 sm:mt-4 flex items-center justify-center gap-2">
+              <span className="text-[10px] sm:text-xs text-slate-400">عدد المافيا:</span>
+              {([undefined, 2, 3, 4] as const).map((count) => (
+                <motion.button
+                  key={count ?? 'auto'}
+                  whileTap={{ scale: 0.92 }}
+                  onClick={() => {
+                    setCustomMafiaCount(count);
+                    setError('');
+                  }}
+                  className={`px-3 py-1.5 rounded-full text-[10px] sm:text-xs font-bold transition-all ${
+                    (customMafiaCount === count)
+                      ? 'bg-red-900/60 text-red-200 border-2 border-red-500/50'
+                      : 'bg-slate-800/60 text-slate-400 border-2 border-slate-700/50 hover:bg-slate-700/60 hover:text-slate-300'
+                  }`}
+                >
+                  {count === undefined ? 'تلقائي' : `${count} مافيا`}
+                </motion.button>
+              ))}
             </div>
           </CardContent>
         </Card>
@@ -323,7 +345,7 @@ export default function GameSetup({ onStartGame }: GameSetupProps) {
                       <li>
                         🏥{' '}
                         <strong className="text-slate-200">
-                          الاسعاف:
+                          الطبيب:
                         </strong>{' '}
                         ينقذ الضحية إذا خمّن صح
                       </li>

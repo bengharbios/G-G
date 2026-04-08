@@ -71,7 +71,7 @@ export interface GameStore {
   nightLog: GameLogEntry[];
 
   // Actions
-  startGame: (names: string[]) => void;
+  startGame: (names: string[], customMafiaCount?: number) => void;
   setPhase: (phase: GamePhase) => void;
   markCardSeen: (playerId: string) => void;
   setDistributionIndex: (index: number) => void;
@@ -157,8 +157,8 @@ export const useGameStore = create<GameStore>()(
     (set, get) => ({
       ...initialState,
 
-      startGame: (names: string[]) => {
-        const players = createPlayersWithRoles(names);
+      startGame: (names: string[], customMafiaCount?: number) => {
+        const players = createPlayersWithRoles(names, customMafiaCount);
         set({
           players,
           phase: 'card_distribution',
@@ -193,6 +193,11 @@ export const useGameStore = create<GameStore>()(
 
       setPhase: (phase) => {
         set((state) => {
+          // First round: skip night, go straight to day discussion
+          if (phase === 'night_start' && state.round === 1) {
+            phase = 'day_discussion';
+          }
+
           // Increment round when starting a new night (after the first one)
           const isNewNight = phase === 'night_start' && state.round > 0 && state.phase !== 'night_start';
           const newRound = isNewNight ? state.round + 1 : state.round;
@@ -361,8 +366,6 @@ export const useGameStore = create<GameStore>()(
           newRevealedCards[event.playerId] = event.role;
         }
 
-        const winner = checkWinCondition(updatedPlayers);
-
         // Convert voteResults keys from player IDs to names (for player-side display)
         const namedVoteResults: Record<string, number> = {};
         for (const [playerId, count] of Object.entries(voteResults)) {
@@ -370,14 +373,36 @@ export const useGameStore = create<GameStore>()(
           if (player) {
             namedVoteResults[player.name] = count;
           } else {
-            // Fallback: if player not found, try using the key as name directly,
-            // or strip 'player-N' prefix if it's an auto-generated ID
             const fallbackName = playerId.replace(/^player-\d+$/, (match) => {
               const idx = parseInt(match.replace('player-', ''), 10);
               return updatedPlayers[idx]?.name || playerId;
             });
             namedVoteResults[fallbackName] = count;
           }
+        }
+
+        const winner = checkWinCondition(updatedPlayers);
+
+        // If eliminated player is good_son and no winner yet, go to good_son_revenge
+        if (event && event.role === 'good_son' && !winner) {
+          set({
+            players: updatedPlayers,
+            votes: [],
+            eliminatedPlayers: newEliminated,
+            revealedCards: newRevealedCards,
+            gameLog: [...state.gameLog, log],
+            dayResults: {
+              ...state.dayResults,
+              voteEliminated: eliminatedPlayer,
+              voteEvent: event,
+              voteResults: namedVoteResults,
+            },
+            gameWinner: null,
+            selectedTarget: null,
+            phase: 'good_son_revenge',
+          });
+          get().syncToRoom();
+          return;
         }
 
         set({

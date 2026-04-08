@@ -161,7 +161,7 @@ export const ROLE_CONFIGS: Record<RoleType, RoleConfig> = {
   },
   medic: {
     type: 'medic',
-    nameAr: 'الاسعاف',
+    nameAr: 'الطبيب',
     team: 'citizen',
     icon: '🏥',
     description: 'كل ليلة، تخمّن من قتله شيخ المافيا لإنقاذه',
@@ -174,7 +174,7 @@ export const ROLE_CONFIGS: Record<RoleType, RoleConfig> = {
     nameAr: 'قناص الصالحين',
     team: 'citizen',
     icon: '🎯',
-    description: 'لديك رصاصة واحدة فقط طوال اللعبة. إذا قتلت مواطناً، تموت أنت أيضاً',
+    description: 'لديك رصاصة واحدة فقط طوال اللعبة. إذا قتلت مواطناً، تموت أنت أيضاً. إذا قتلت مافياً، ستبقى حياً',
     gradient: 'from-amber-600 via-orange-800 to-red-950',
     borderColor: 'border-amber-400/50',
     textColor: 'text-amber-100',
@@ -199,11 +199,11 @@ export const MIN_PLAYERS = 6;
 export const MAX_PLAYERS = 20;
 
 // Mafia count table based on total players (balanced gameplay)
-export function getMafiaCount(totalPlayers: number): number {
+export function getMafiaCount(totalPlayers: number, customCount?: number): number {
+  if (customCount !== undefined && customCount >= 1) return Math.min(customCount, Math.floor(totalPlayers / 2));
   if (totalPlayers <= 7) return 2;
-  if (totalPlayers <= 11) return 3;
-  if (totalPlayers <= 15) return 4;
-  return 5;
+  if (totalPlayers <= 14) return 3;
+  return 4;
 }
 
 // Special citizen roles (always present if enough players)
@@ -216,8 +216,8 @@ export function getSpecialCitizenRoles(totalPlayers: number): RoleType[] {
 }
 
 // Generate card deck dynamically based on player count
-export function generateCardDeck(totalPlayers: number): RoleType[] {
-  const mafiaCount = getMafiaCount(totalPlayers);
+export function generateCardDeck(totalPlayers: number, customMafiaCount?: number): RoleType[] {
+  const mafiaCount = getMafiaCount(totalPlayers, customMafiaCount);
   const specialCitizens = getSpecialCitizenRoles(totalPlayers);
 
   // Build mafia roles
@@ -247,9 +247,9 @@ export interface TeamComposition {
   plainCitizens: number;
 }
 
-export function getTeamComposition(totalPlayers: number): TeamComposition {
-  const deck = generateCardDeck(totalPlayers);
-  const mafiaCount = getMafiaCount(totalPlayers);
+export function getTeamComposition(totalPlayers: number, customMafiaCount?: number): TeamComposition {
+  const deck = generateCardDeck(totalPlayers, customMafiaCount);
+  const mafiaCount = getMafiaCount(totalPlayers, customMafiaCount);
   const specialCitizens = getSpecialCitizenRoles(totalPlayers);
   const citizenCount = totalPlayers - mafiaCount;
   const plainCitizens = citizenCount - specialCitizens.length;

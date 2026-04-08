@@ -786,7 +786,12 @@ export default function DayPhase() {
 
   const handleFinalizeVotes = () => {
     processVoteResults();
-    setPhase('day_elimination');
+    // processVoteResults may set phase to 'good_son_revenge' automatically
+    // Only set day_elimination if processVoteResults didn't change it
+    const currentPhase = useGameStore.getState().phase;
+    if (currentPhase !== 'good_son_revenge') {
+      setPhase('day_elimination');
+    }
   };
 
   const isDiwaniya = gameMode === 'diwaniya';
@@ -887,7 +892,7 @@ export default function DayPhase() {
                   <CardContent className="pt-4 sm:pt-6 text-center">
                     <Shield className="w-6 h-6 sm:w-8 sm:h-8 text-cyan-400 mx-auto mb-2" />
                     <p className="text-cyan-200 font-bold text-sm sm:text-base">
-                      أنقذ الاسعاف شخصاً الليلة!
+                      أنقذ الطبيب شخصاً الليلة!
                     </p>
                     <p className="text-cyan-300/60 text-xs sm:text-sm mt-1">
                       لم يُقتل أحد
@@ -1544,10 +1549,10 @@ export default function DayPhase() {
               👦
             </motion.span>
             <h2 className="text-xl sm:text-2xl font-black text-green-300 mb-2">
-              الولد الصالح يختار!
+              👦 انتقام الولد الصالح
             </h2>
             <p className="text-slate-400 text-sm sm:text-base">
-              اختر شخصاً ليخرج معك من اللعبة
+              تم إقصاء الولد الصالح! اختر شخصاً ليأخذه معه!
             </p>
           </div>
 
@@ -1588,7 +1593,7 @@ export default function DayPhase() {
             className="w-full bg-gradient-to-l from-green-700 to-green-900 hover:from-green-600 hover:to-green-800 text-white font-bold text-base sm:text-lg py-5 sm:py-6 disabled:opacity-40"
           >
             <AlertTriangle className="w-5 h-5 ml-2" />
-            أخرجه معي!
+            تأكيد الانتقام
           </Button>
         </div>
       </div>
