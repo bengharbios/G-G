@@ -786,7 +786,12 @@ export default function DayPhase() {
 
   const handleFinalizeVotes = () => {
     processVoteResults();
-    setPhase('day_elimination');
+    // processVoteResults may auto-set phase to 'good_son_revenge'
+    // Only set day_elimination if it didn't change
+    const currentPhase = useGameStore.getState().phase;
+    if (currentPhase !== 'good_son_revenge') {
+      setPhase('day_elimination');
+    }
   };
 
   const isDiwaniya = gameMode === 'diwaniya';

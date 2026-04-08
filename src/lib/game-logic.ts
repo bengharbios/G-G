@@ -25,8 +25,8 @@ export function shuffleArray<T>(array: T[]): T[] {
 }
 
 // Create players from names and assign roles
-export function createPlayersWithRoles(names: string[]): Player[] {
-  const deck = generateCardDeck(names.length);
+export function createPlayersWithRoles(names: string[], customMafiaCount?: number): Player[] {
+  const deck = generateCardDeck(names.length, customMafiaCount);
   const roles = shuffleArray([...deck]);
   return names.map((name, index) => ({
     id: `player-${index}`,
@@ -68,8 +68,8 @@ export function checkWinCondition(players: Player[]): 'mafia' | 'citizen' | null
   const aliveCitizens = getAliveCitizens(players);
 
   if (aliveMafia.length === 0) return 'citizen';
-  // Mafia wins only when they strictly outnumber alive citizens
-  if (aliveMafia.length > aliveCitizens.length) return 'mafia';
+  // Mafia wins when they equal or outnumber alive citizens
+  if (aliveMafia.length >= aliveCitizens.length) return 'mafia';
   return null;
 }
 

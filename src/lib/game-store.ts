@@ -72,7 +72,7 @@ export interface GameStore {
   nightLog: GameLogEntry[];
 
   // Actions
-  startGame: (names: string[]) => void;
+  startGame: (names: string[], customMafiaCount?: number) => void;
   setPhase: (phase: GamePhase) => void;
   markCardSeen: (playerId: string) => void;
   setDistributionIndex: (index: number) => void;
@@ -159,8 +159,8 @@ export const useGameStore = create<GameStore>()(
     (set, get) => ({
       ...initialState,
 
-      startGame: (names: string[]) => {
-        const players = createPlayersWithRoles(names);
+      startGame: (names: string[], customMafiaCount?: number) => {
+        const players = createPlayersWithRoles(names, customMafiaCount);
         set({
           players,
           phase: 'card_distribution',
@@ -385,6 +385,28 @@ export const useGameStore = create<GameStore>()(
             });
             namedVoteResults[fallbackName] = count;
           }
+        }
+
+        // If eliminated player is good_son and no winner yet, go to good_son_revenge
+        if (event && event.role === 'good_son' && !winner) {
+          set({
+            players: updatedPlayers,
+            votes: [],
+            eliminatedPlayers: newEliminated,
+            revealedCards: newRevealedCards,
+            gameLog: [...state.gameLog, log],
+            dayResults: {
+              ...state.dayResults,
+              voteEliminated: eliminatedPlayer,
+              voteEvent: event,
+              voteResults: namedVoteResults,
+            },
+            gameWinner: null,
+            selectedTarget: null,
+            phase: 'good_son_revenge',
+          });
+          get().syncToRoom();
+          return;
         }
 
         set({
