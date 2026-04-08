@@ -389,7 +389,7 @@ export default function LandingPage({ onStartGodfather, onStartDiwaniya }: Landi
                     <ul className="space-y-1 text-slate-400 pr-4">
                       <li>🏛️ <strong className="text-slate-200">العمده:</strong> يكشف بطاقته بأمان، صوته ٣ أصوات</li>
                       <li>👦 <strong className="text-slate-200">الولد الصالح:</strong> يُخرج أحداً معه عند الإقصاء</li>
-                      <li>🏥 <strong className="text-slate-200">الاسعاف:</strong> ينقذ الضحية إذا خمّن صح</li>
+                      <li>🏥 <strong className="text-slate-200">الطبيب:</strong> ينقذ الضحية إذا خمّن صح</li>
                       <li>🎯 <strong className="text-slate-200">القناص:</strong> رصاصة واحدة، يقتل معه إذا أخطأ</li>
                     </ul>
                   </div>

@@ -130,7 +130,7 @@ export function processNightActions(
       log.push({
         round,
         phase: 'night',
-        message: `أنقذ الاسعاف ${bossTargetPlayer?.name || 'الهدف'}`,
+        message: `أنقذ الطبيب ${bossTargetPlayer?.name || 'الهدف'}`,
         timestamp: Date.now(),
       });
     } else if (bossTargetPlayer && bossTargetPlayer.isAlive) {

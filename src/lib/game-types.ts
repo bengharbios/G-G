@@ -161,7 +161,7 @@ export const ROLE_CONFIGS: Record<RoleType, RoleConfig> = {
   },
   medic: {
     type: 'medic',
-    nameAr: 'الاسعاف',
+    nameAr: 'الطبيب',
     team: 'citizen',
     icon: '🏥',
     description: 'كل ليلة، تخمّن من قتله شيخ المافيا لإنقاذه',

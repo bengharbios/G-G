@@ -323,7 +323,7 @@ export default function GameSetup({ onStartGame }: GameSetupProps) {
                       <li>
                         🏥{' '}
                         <strong className="text-slate-200">
-                          الاسعاف:
+                          الطبيب:
                         </strong>{' '}
                         ينقذ الضحية إذا خمّن صح
                       </li>

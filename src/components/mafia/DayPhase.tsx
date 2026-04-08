@@ -887,7 +887,7 @@ export default function DayPhase() {
                   <CardContent className="pt-4 sm:pt-6 text-center">
                     <Shield className="w-6 h-6 sm:w-8 sm:h-8 text-cyan-400 mx-auto mb-2" />
                     <p className="text-cyan-200 font-bold text-sm sm:text-base">
-                      أنقذ الاسعاف شخصاً الليلة!
+                      أنقذ الطبيب شخصاً الليلة!
                     </p>
                     <p className="text-cyan-300/60 text-xs sm:text-sm mt-1">
                       لم يُقتل أحد

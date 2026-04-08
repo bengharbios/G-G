@@ -79,7 +79,7 @@ const PHASE_NOTIFICATIONS: Record<string, { title: string; description: string }
   night_boss_kill: { title: '🔪 شيخ المافيا يختار', description: 'لا تفتح عينيك!' },
   night_silencer: { title: '🤫 التسكيت', description: 'لا تفتح عينيك!' },
   night_mafia_sleep: { title: '😴 المافيا تنام', description: 'لا تزال مغمضاً...' },
-  night_medic: { title: '🏥 الاسعاف', description: 'لا تفتح عينيك!' },
+  night_medic: { title: '🏥 الطبيب', description: 'لا تفتح عينيك!' },
   night_sniper: { title: '🎯 القناص', description: 'لا تفتح عينيك!' },
   night_end: { title: '🌅 انتهت الليل', description: 'استعدوا!' },
   day_announcements: { title: '☀️ أحداث الليل', description: 'شوفوا شو صار!' },
@@ -392,7 +392,7 @@ function JoinPageContent() {
       if (results.medicSaved) {
         setTimeout(() => {
           toast({
-            title: '🏥 أنقذ الاسعاف شخصاً!',
+            title: '🏥 أنقذ الطبيب شخصاً!',
             description: 'نجا شخص من الموت هذه الليلة',
           });
         }, 800);
@@ -1208,7 +1208,7 @@ function NightPhase({
   const activePhaseTexts: Record<string, { icon: string; title: string; desc: string }> = {
     night_boss_kill: { icon: '🔪', title: 'شيخ المافيا - دورك!', desc: 'اختر ضحيتك بحكمة!' },
     night_silencer: { icon: '🤫', title: 'مافيا التسكيت - دورك!', desc: 'اختر من تريد تسكيته!' },
-    night_medic: { icon: '🏥', title: 'الاسعاف - دورك!', desc: 'خمّن من قتله المافيا لإنقاذه!' },
+    night_medic: { icon: '🏥', title: 'الطبيب - دورك!', desc: 'خمّن من قتله المافيا لإنقاذه!' },
     night_sniper: { icon: '🎯', title: 'القناص - دورك!', desc: 'عندك رصاصة وحدة! إما تقتل المافيا أو تموت معاه!' },
   };
 
@@ -1612,7 +1612,7 @@ function DayAnnouncementsPhase({ stateData }: { stateData: StateData | null }) {
             transition={{ delay: 0.6 }}
             className="bg-green-950/30 border border-green-500/30 rounded-xl p-4"
           >
-            <p className="text-green-400 font-bold text-sm">🏥 الاسعاف أنقذ شخصاً!</p>
+            <p className="text-green-400 font-bold text-sm">🏥 الطبيب أنقذ شخصاً!</p>
             <p className="text-slate-300 text-sm mt-1">نجا شخص من الموت هذه الليلة</p>
           </motion.div>
         )}
