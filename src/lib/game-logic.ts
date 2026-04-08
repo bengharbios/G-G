@@ -67,14 +67,9 @@ export function checkWinCondition(players: Player[]): 'mafia' | 'citizen' | null
   const aliveMafia = getAliveMafia(players);
   const aliveCitizens = getAliveCitizens(players);
 
-  // Count total mafia from all players (including dead) to know original count
-  const totalMafiaCount = players.filter(
-    (p) => p.role && ROLE_CONFIGS[p.role].team === 'mafia'
-  ).length;
-
   if (aliveMafia.length === 0) return 'citizen';
-  // Mafia wins when alive citizens <= total mafia count
-  if (aliveCitizens.length <= totalMafiaCount) return 'mafia';
+  // Mafia wins only when they strictly outnumber alive citizens
+  if (aliveMafia.length > aliveCitizens.length) return 'mafia';
   return null;
 }
 
