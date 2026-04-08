@@ -193,11 +193,6 @@ export const useGameStore = create<GameStore>()(
 
       setPhase: (phase) => {
         set((state) => {
-          // First round: skip night, go straight to day discussion
-          if (phase === 'night_start' && state.round === 1) {
-            phase = 'day_discussion';
-          }
-
           // Increment round when starting a new night (after the first one)
           const isNewNight = phase === 'night_start' && state.round > 0 && state.phase !== 'night_start';
           const newRound = isNewNight ? state.round + 1 : state.round;
