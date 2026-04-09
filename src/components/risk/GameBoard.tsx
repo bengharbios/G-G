@@ -243,11 +243,13 @@ function ResultModal({
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
       className="fixed inset-0 z-[150] flex items-center justify-center bg-black/80 p-4"
+      onClick={(turnState === 'showing_result') ? onAdvance : undefined}
     >
       <motion.div
         initial={{ scale: 0.8, y: 20 }}
         animate={{ scale: 1, y: 0 }}
         exit={{ scale: 0.8, y: 20 }}
+        onClick={(e) => e.stopPropagation()}
         className="bg-slate-900 border border-slate-700 rounded-2xl p-6 max-w-sm w-full shadow-2xl text-center"
       >
         {/* Card type display */}
@@ -323,7 +325,8 @@ function ResultModal({
           </div>
         )}
 
-        {(card.type === 'bomb' || card.type === 'skip') && turnState !== 'waiting_for_decision' && (
+        {/* Universal continue button for showing_result state (covers bomb, skip, and safe after banking) */}
+        {turnState === 'showing_result' && (
           <motion.button
             whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.98 }}
@@ -535,9 +538,10 @@ export default function GameBoard() {
       </AnimatePresence>
 
       {/* Result Modal */}
-      <AnimatePresence>
+      <AnimatePresence mode="wait">
         {shouldShowModal && lastDrawnCard && !showExplosion && (
           <ResultModal
+            key={`${lastDrawnCard.id}-${turnState}`}
             card={lastDrawnCard}
             currentTeam={currentTeam}
             onContinue={handleContinue}
