@@ -275,3 +275,29 @@ Stage Summary:
 - Key changes: risk2-types.ts (matching logic + gold cards), risk2-store.ts (bank fix), GameBoard.tsx (bomb auto-transition + bank button + gold styling), LandingPage.tsx (rules update), Risk2SpectatorView.tsx (border fix), page.tsx (description update)
 - New assets: risk2_banner.webp, f1.png, f2.png
 - Committed and pushed to main branch
+---
+Task ID: 1-9
+Agent: Main Agent
+Task: Fix all 7 identified issues in Risk2 (المجازفة 2) game
+
+Work Log:
+- Read and analyzed entire risk2 codebase (store, types, components, API routes)
+- Identified root cause of spectator join failure: in-memory Map cleared on server restart
+- Rewrote all 4 API routes to use Turso/SQLite database instead of in-memory Map
+- Added deleteRoomByCode() function to turso.ts
+- Confirmed bomb freeze already fixed (2.5s auto-advance timer in GameBoard)
+- Confirmed matching logic already correct (same NUMBER=loss, same color=OK)
+- Confirmed bank-after-any-card already working (waiting_for_draw state allowed)
+- Updated ×2/×3 multiplier cards with distinct gold styling (glow, ring, shadow)
+- Updated SPECIAL_CARD_INFO labels to Arabic
+- Scraped game images from loveligo.com
+- Pushed all fixes to GitHub (commit caf0aad)
+
+Stage Summary:
+- API routes now use database persistence - rooms survive server restarts
+- Gold multiplier cards are visually distinct with glow effects
+- All game logic confirmed correct: same number=loss, same color=safe
+- Bomb auto-advances after 2.5s
+- Player can bank points after any card draw
+- Spectator view fully functional with database-backed rooms
+- Images scraped from loveligo.com saved to public/images/risk2/
