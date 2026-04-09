@@ -2,27 +2,28 @@
 
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { getCardStats, getGridCols, CARD_INFO } from '@/lib/risk-types';
-import type { RiskCard, RiskTeam, RiskLogEntry, RiskGameConfig, RiskTurnState, CardType } from '@/lib/risk-types';
+import { getCardStats, getGridCols, CARD_COLOR_CONFIG } from '@/lib/risk-types';
+import type { RiskCard, RiskPlayer, RiskLogEntry, RiskGameConfig, RiskTurnState, CardType } from '@/lib/risk-types';
 import { Bomb, Shield, CircleDot, ScrollText, FastForward, Eye } from 'lucide-react';
 
 // ============================================================
-// Types matching RiskRoomState from server
+// Types matching room state from server
 // ============================================================
 interface RiskRoomData {
   code: string;
   hostName: string;
-  teams: RiskTeam[];
-  currentTeamIndex: number;
+  players: RiskPlayer[];
+  currentPlayerIndex: number;
   cards: RiskCard[];
-  config: RiskGameConfig;
+  targetScore: number;
   turnState: RiskTurnState;
   lastDrawnCard: RiskCard | null;
   gameLog: RiskLogEntry[];
-  winner: RiskTeam | 'draw' | null;
-  winReason: string;
+  winner: RiskPlayer | null;
   phase: string;
   spectators: Array<{ id: string; name: string; joinedAt: number }>;
+  roundMultiplier: number;
+  lastMatchInfo: { matched: boolean; matchType: 'color' | 'number' | null; matchWith: RiskCard | null; lostPoints: number; } | null;
 }
 
 // ============================================================
@@ -62,13 +63,12 @@ function Confetti() {
 // Spectator Game Over
 // ============================================================
 function SpectatorGameOver({ room }: { room: RiskRoomData }) {
-  const isDraw = room.winner === 'draw';
-  const sortedTeams = [...room.teams].sort((a, b) => b.score - a.score);
-  const winnerTeam = sortedTeams[0];
+  const sortedPlayers = [...room.players].sort((a, b) => b.score - a.score);
+  const winnerPlayer = sortedPlayers[0];
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center p-4 risk-bg" dir="rtl">
-      {!isDraw && <Confetti />}
+      {winnerPlayer && <Confetti />}
       <div className="relative z-10 w-full max-w-sm sm:max-w-lg mx-auto">
         <motion.div
           initial={{ scale: 0, rotate: -10 }}
@@ -81,30 +81,30 @@ function SpectatorGameOver({ room }: { room: RiskRoomData }) {
             transition={{ duration: 2, repeat: Infinity }}
             className="text-7xl sm:text-8xl mb-3"
           >
-            {isDraw ? '🤝' : '🏆'}
+            🏆
           </motion.div>
           <h1 className="text-3xl sm:text-4xl font-black mb-2 text-transparent bg-clip-text bg-gradient-to-r from-yellow-400 to-amber-300">
-            {isDraw ? 'تعادل! 🤝' : `${winnerTeam.name} فاز! 🎉`}
+            {winnerPlayer ? `${winnerPlayer.name} فاز! 🎉` : 'انتهت اللعبة!'}
           </h1>
-          <p className="text-slate-400 text-xs sm:text-sm">{room.winReason}</p>
+          <p className="text-slate-400 text-xs sm:text-sm">وصل للهدف أولاً!</p>
         </motion.div>
 
-        {/* Team results */}
+        {/* Player results */}
         <div className="space-y-2 mb-4">
-          {sortedTeams.map((team, idx) => (
+          {sortedPlayers.map((player, idx) => (
             <div
-              key={team.id}
+              key={player.id}
               className={`rounded-xl border p-3 ${
                 idx === 0 ? 'ring-2 ring-yellow-400/50 border-yellow-500/30 bg-yellow-950/10' : 'border-slate-700/30 bg-slate-900/50 opacity-80'
               }`}
             >
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <span>{team.emoji}</span>
-                  <span className={`text-sm font-bold ${team.color}`}>{team.name}</span>
+                  <span>{player.emoji}</span>
+                  <span className={`text-sm font-bold ${player.color}`}>{player.name}</span>
                   {idx === 0 && <span className="text-[10px] text-yellow-400">🏆</span>}
                 </div>
-                <p className="text-xl font-black text-white">{team.score}</p>
+                <p className="text-xl font-black text-white">{player.score}</p>
               </div>
             </div>
           ))}
@@ -127,7 +127,7 @@ function StatsBar({ cards }: { cards: RiskCard[] }) {
     <div className="flex items-center justify-center gap-2 sm:gap-3 flex-wrap">
       <div className="flex items-center gap-1 px-2 py-1 rounded-lg bg-slate-800/60 border border-slate-700/30 text-emerald-400">
         <Shield className="w-3.5 h-3.5" />
-        <span className="text-xs font-bold">{stats.safes}</span>
+        <span className="text-xs font-bold">{stats.numbers}</span>
       </div>
       <div className="flex items-center gap-1 px-2 py-1 rounded-lg bg-slate-800/60 border border-slate-700/30 text-red-400">
         <Bomb className="w-3.5 h-3.5" />
@@ -146,24 +146,25 @@ function StatsBar({ cards }: { cards: RiskCard[] }) {
 }
 
 // ============================================================
-// Team Score (read-only)
+// Player Score (read-only)
 // ============================================================
-function TeamScore({ team, isCurrent }: { team: RiskTeam; isCurrent: boolean }) {
+function PlayerScore({ player, isCurrent }: { player: RiskPlayer; isCurrent: boolean }) {
   return (
     <div className={`rounded-xl border p-2.5 sm:p-3 transition-all ${
-      isCurrent ? `ring-2 ${team.id === 'team_0' ? 'ring-violet-500/50' : team.id === 'team_1' ? 'ring-emerald-500/50' : team.id === 'team_2' ? 'ring-amber-500/50' : 'ring-rose-500/50'}`
-        : ''
-    } ${team.id === 'team_0' ? 'border-violet-500/30 bg-violet-950/20' : team.id === 'team_1' ? 'border-emerald-500/30 bg-emerald-950/20' : team.id === 'team_2' ? 'border-amber-500/30 bg-amber-950/20' : 'border-rose-500/30 bg-rose-950/20'}`}>
+      isCurrent ? 'ring-2 border-slate-500/30' : 'border-slate-700/30'
+    } bg-slate-900/40`}
+      style={isCurrent ? { borderColor: `${player.colorHex}60` } : undefined}
+    >
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <span className="text-sm">{team.emoji}</span>
-          <span className={`text-xs sm:text-sm font-bold ${team.color}`}>{team.name}</span>
+          <span className="text-sm">{player.emoji}</span>
+          <span className={`text-xs sm:text-sm font-bold ${player.color}`}>{player.name}</span>
           {isCurrent && <span className="text-[9px] px-1.5 py-0.5 rounded bg-white/10 text-white">◀ الآن</span>}
         </div>
         <div className="text-left">
-          <p className="text-sm sm:text-base font-black text-white">{team.score}</p>
-          {isCurrent && team.roundScore > 0 && (
-            <p className="text-[10px] text-emerald-400 font-bold">+{team.roundScore} جولة</p>
+          <p className="text-sm sm:text-base font-black text-white">{player.score}</p>
+          {isCurrent && player.roundScore > 0 && (
+            <p className="text-[10px] text-emerald-400 font-bold">+{player.roundScore} جولة</p>
           )}
         </div>
       </div>
@@ -175,24 +176,30 @@ function TeamScore({ team, isCurrent }: { team: RiskTeam; isCurrent: boolean }) 
 // Grid Card (read-only)
 // ============================================================
 function GridCardRO({ card }: { card: RiskCard }) {
+  const colorConfig = card.color ? CARD_COLOR_CONFIG[card.color] : null;
+
   return (
     <div className="rounded-lg overflow-hidden">
       {card.revealed ? (
         <div
           className="w-full aspect-square rounded-lg border-2 flex flex-col items-center justify-center"
           style={{
-            borderColor: card.type === 'bomb' ? '#ef444440' : card.type === 'skip' ? '#94a3b840' : '#34d39940',
+            borderColor: card.type === 'bomb' ? '#ef444460' : card.type === 'skip' ? '#94a3b860' : card.type === 'double' ? '#f59e0b60' : card.type === 'triple' ? '#a855f760' : colorConfig ? `${colorConfig.colorHex}60` : '#34d39960',
             background: card.type === 'bomb'
               ? 'linear-gradient(135deg, #1a0a0a, #2a1010)'
               : card.type === 'skip'
                 ? 'linear-gradient(135deg, #1a1a2e, #1e1e30)'
-                : 'linear-gradient(135deg, #0a1a10, #0a2a18)',
+                : card.type === 'double'
+                  ? 'linear-gradient(135deg, #1a1500, #2a2010)'
+                  : card.type === 'triple'
+                    ? 'linear-gradient(135deg, #1a0a20, #2a1030)'
+                    : 'linear-gradient(135deg, #0a1a10, #0a2a18)',
           }}
         >
           <div className="text-xl sm:text-2xl mb-0.5">
-            {card.type === 'bomb' ? '💣' : card.type === 'skip' ? '⏭️' : '✅'}
+            {card.type === 'bomb' ? '💣' : card.type === 'skip' ? '⏭️' : card.type === 'double' ? '✨' : card.type === 'triple' ? '🔥' : `${colorConfig?.emoji || ''}`}
           </div>
-          {card.type === 'safe' && <div className="text-xs sm:text-sm font-black text-emerald-400">+{card.value}</div>}
+          {card.type === 'number' && <div className="text-xs sm:text-sm font-black text-white">+{card.value}</div>}
         </div>
       ) : (
         <div className="w-full aspect-square bg-gradient-to-br from-slate-800 via-slate-700/80 to-slate-800 border-2 border-slate-600/40 rounded-lg flex items-center justify-center">
@@ -208,12 +215,6 @@ function GridCardRO({ card }: { card: RiskCard }) {
 // ============================================================
 function GameLogPanel({ gameLog }: { gameLog: RiskLogEntry[] }) {
   const [isOpen, setIsOpen] = useState(false);
-  const TEAM_COLORS_MAP: Record<string, string> = {
-    team_0: 'bg-violet-950/30 text-violet-300',
-    team_1: 'bg-emerald-950/30 text-emerald-300',
-    team_2: 'bg-amber-950/30 text-amber-300',
-    team_3: 'bg-rose-950/30 text-rose-300',
-  };
 
   return (
     <div className="w-full max-w-2xl mx-auto mt-2">
@@ -230,7 +231,7 @@ function GameLogPanel({ gameLog }: { gameLog: RiskLogEntry[] }) {
       {isOpen && (
         <div className="mt-1 max-h-[40vh] overflow-y-auto bg-slate-900/80 border border-slate-700/30 rounded-xl p-3 space-y-1 risk-scrollbar">
           {gameLog.map((entry) => (
-            <div key={entry.id} className={`flex items-center gap-2 text-[11px] py-1 px-2 rounded-lg ${TEAM_COLORS_MAP[entry.teamId] || 'bg-slate-800/30 text-slate-300'}`}>
+            <div key={entry.id} className="flex items-center gap-2 text-[11px] py-1 px-2 rounded-lg bg-slate-800/30 text-slate-300">
               <span className="font-bold text-slate-500 w-5 text-center">{entry.id}.</span>
               <span className="flex-1">{entry.action}</span>
             </div>
@@ -244,20 +245,23 @@ function GameLogPanel({ gameLog }: { gameLog: RiskLogEntry[] }) {
 // ============================================================
 // Turn State Text
 // ============================================================
-function TurnStateText({ turnState, currentTeam }: { turnState: RiskTurnState; currentTeam: RiskTeam }) {
+function TurnStateText({ turnState, currentPlayer }: { turnState: RiskTurnState; currentPlayer: RiskPlayer }) {
   let text = '';
   switch (turnState) {
     case 'waiting_for_draw':
-      text = `👆 بانتظار ${currentTeam.name} لسحب بطاقة...`;
+      text = `👆 بانتظار ${currentPlayer.name} لسحب بطاقة...`;
       break;
     case 'waiting_for_decision':
-      text = `🤔 ${currentTeam.name} يفكر... (استمر أو احفظ؟)`;
+      text = `🤔 ${currentPlayer.name} يفكر... (استمر أو احفظ؟)`;
       break;
     case 'showing_result':
       text = '📋 عرض النتيجة...';
       break;
     case 'bomb_exploded':
-      text = `💥 قنبلة! ${currentTeam.name} خسر النقاط!`;
+      text = `💥 قنبلة! ${currentPlayer.name} خسر النقاط!`;
+      break;
+    case 'turn_lost':
+      text = `😱 تطابق! ${currentPlayer.name} خسر النقاط!`;
       break;
     default:
       text = '';
@@ -361,8 +365,8 @@ export default function RiskSpectatorView({ roomCode }: { roomCode: string }) {
     return <SpectatorGameOver room={room} />;
   }
 
-  const cols = getGridCols(room.config.totalCards);
-  const currentTeam = room.teams[room.currentTeamIndex];
+  const cols = getGridCols(room.cards.length || 50);
+  const currentPlayer = room.players[room.currentPlayerIndex];
 
   return (
     <div className="flex flex-col items-center px-3 sm:px-4 py-3 sm:py-4" dir="rtl">
@@ -386,13 +390,22 @@ export default function RiskSpectatorView({ roomCode }: { roomCode: string }) {
         <StatsBar cards={room.cards} />
       </div>
 
-      {/* Turn State */}
-      {currentTeam && <TurnStateText turnState={room.turnState} currentTeam={currentTeam} />}
+      {/* Round Multiplier */}
+      {room.roundMultiplier > 1 && (
+        <div className="mb-2">
+          <div className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-amber-950/40 border border-amber-500/30 text-amber-300 text-xs font-bold">
+            {room.roundMultiplier >= 6 ? '🔥' : '✨'} المضاعف: ×{room.roundMultiplier}
+          </div>
+        </div>
+      )}
 
-      {/* Team Scores */}
+      {/* Turn State */}
+      {currentPlayer && <TurnStateText turnState={room.turnState} currentPlayer={currentPlayer} />}
+
+      {/* Player Scores */}
       <div className="w-full max-w-2xl mx-auto grid grid-cols-2 gap-2 sm:gap-3 mb-3">
-        {room.teams.map((team) => (
-          <TeamScore key={team.id} team={team} isCurrent={team.id === currentTeam?.id} />
+        {room.players.map((player) => (
+          <PlayerScore key={player.id} player={player} isCurrent={player.id === currentPlayer?.id} />
         ))}
       </div>
 

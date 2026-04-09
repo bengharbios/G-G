@@ -5,7 +5,7 @@ import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { useRiskStore } from '@/lib/risk-store';
-import type { RiskTeam } from '@/lib/risk-types';
+import type { RiskPlayer } from '@/lib/risk-types';
 import {
   Trophy,
   RotateCcw,
@@ -13,7 +13,7 @@ import {
   ScrollText,
   Shield,
   Bomb,
-  TrendingUp,
+  FastForward,
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 
@@ -60,33 +60,30 @@ function Confetti() {
 }
 
 // ============================================================
-// Team Result Card
+// Player Result Card
 // ============================================================
-function TeamResultCard({
-  team,
+function PlayerResultCard({
+  player,
   isWinner,
   rank,
 }: {
-  team: RiskTeam;
+  player: RiskPlayer;
   isWinner: boolean;
   rank: number;
 }) {
-  const borderColor = team.id === 'team_0' ? 'border-violet-500/30' : team.id === 'team_1' ? 'border-emerald-500/30' : team.id === 'team_2' ? 'border-amber-500/30' : 'border-rose-500/30';
-  const bgColor = team.id === 'team_0' ? 'bg-violet-950/20' : team.id === 'team_1' ? 'bg-emerald-950/20' : team.id === 'team_2' ? 'bg-amber-950/20' : 'bg-rose-950/20';
-
   return (
     <motion.div
       initial={{ opacity: 0, x: isWinner ? 0 : 20 }}
       animate={{ opacity: 1, x: 0 }}
       transition={{ delay: 0.3 + rank * 0.15 }}
-      className={`rounded-xl border p-3 sm:p-4 ${borderColor} ${bgColor} ${isWinner ? 'ring-2 ring-yellow-400/50' : 'opacity-80'}`}
+      className={`rounded-xl border p-3 sm:p-4 bg-slate-900/40 border-slate-700/30 ${isWinner ? 'ring-2 ring-yellow-400/50' : 'opacity-80'}`}
     >
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <span className="text-lg">{team.emoji}</span>
+          <span className="text-lg">{player.emoji}</span>
           <div>
-            <p className={`text-sm font-bold ${team.color}`}>
-              {team.name}
+            <p className={`text-sm font-bold ${player.color}`}>
+              {player.name}
             </p>
             <p className="text-[10px] text-slate-500">
               {isWinner ? '🏆 الفائز!' : `#${rank + 1}`}
@@ -100,7 +97,7 @@ function TeamResultCard({
             transition={{ delay: 0.5 + rank * 0.15, type: 'spring' }}
             className="text-2xl sm:text-3xl font-black text-white"
           >
-            {team.score}
+            {player.score}
           </motion.p>
           <p className="text-[10px] text-slate-500">نقطة</p>
         </div>
@@ -115,25 +112,23 @@ function TeamResultCard({
 export default function RiskGameOver() {
   const router = useRouter();
   const {
-    teams,
+    players,
     gameLog,
     winner,
-    winReason,
-    config,
+    targetScore,
     resetGame,
   } = useRiskStore();
 
-  const isDraw = winner === 'draw';
+  // Sort players by score descending
+  const sortedPlayers = [...players].sort((a, b) => b.score - a.score);
+  const winnerPlayer = sortedPlayers[0];
 
-  // Sort teams by score descending
-  const sortedTeams = [...teams].sort((a, b) => b.score - a.score);
-  const winnerTeam = sortedTeams[0];
-
-  // Stats
-  const totalDraws = gameLog.filter(e => e.cardType === 'safe').length;
-  const totalBombs = gameLog.filter(e => e.cardType === 'bomb').length;
-  const totalSkips = gameLog.filter(e => e.cardType === 'skip').length;
-  const totalPoints = teams.reduce((sum, t) => sum + t.score, 0);
+  // Stats - count action types from game log
+  const totalSaves = gameLog.filter(e => e.action.includes('حفظ')).length;
+  const totalBombs = gameLog.filter(e => e.action.includes('قنبلة')).length;
+  const totalSkips = gameLog.filter(e => e.action.includes('تخطي')).length;
+  const totalMatches = gameLog.filter(e => e.action.includes('تطابق')).length;
+  const totalPoints = players.reduce((sum, p) => sum + p.score, 0);
 
   const handlePlayAgain = () => {
     resetGame();
@@ -145,9 +140,9 @@ export default function RiskGameOver() {
   };
 
   const handleShare = () => {
-    const text = `💣 المجازفة\n🏆 الفائز: ${winnerTeam.name} (${winnerTeam.score} نقطة)\n\n${teams.map(t => `${t.emoji} ${t.name}: ${t.score}`).join('\n')}\n\nالعب الآن: ${window.location.origin}/risk`;
+    const text = `💣 المجازفة\n🏆 الفائز: ${winnerPlayer.name} (${winnerPlayer.score} نقطة)\nالهدف: ${targetScore}\n\n${players.map(p => `${p.emoji} ${p.name}: ${p.score}`).join('\n')}\n\nالعب الآن: ${window.location.origin}/risk`;
     navigator.clipboard.writeText(text).then(() => {
-      // Could show toast, but keeping it simple
+      // Could show toast
     }).catch(() => {
       const ta = document.createElement('textarea');
       ta.value = text;
@@ -162,7 +157,7 @@ export default function RiskGameOver() {
 
   return (
     <div className="min-h-screen flex flex-col items-center p-3 sm:p-4 risk-bg">
-      {!isDraw && <Confetti />}
+      {winner && <Confetti />}
 
       <div className="relative z-10 w-full max-w-sm sm:max-w-lg mx-auto py-6 sm:py-8">
         {/* Winner Banner */}
@@ -177,18 +172,16 @@ export default function RiskGameOver() {
             transition={{ duration: 2, repeat: Infinity }}
             className="text-7xl sm:text-8xl mb-3 sm:mb-4"
           >
-            {isDraw ? '🤝' : '🏆'}
+            🏆
           </motion.div>
           <h1
-            className={`text-3xl sm:text-4xl font-black mb-2 ${
-              isDraw
-                ? 'text-transparent bg-clip-text bg-gradient-to-r from-violet-400 to-purple-300'
-                : 'text-transparent bg-clip-text bg-gradient-to-r from-yellow-400 to-amber-300'
-            }`}
+            className="text-3xl sm:text-4xl font-black mb-2 text-transparent bg-clip-text bg-gradient-to-r from-yellow-400 to-amber-300"
           >
-            {isDraw ? 'تعادل! 🤝' : `${winnerTeam.name} فاز! 🎉`}
+            {winnerPlayer ? `${winnerPlayer.name} فاز! 🎉` : 'انتهت اللعبة!'}
           </h1>
-          <p className="text-slate-400 text-xs sm:text-sm">{winReason}</p>
+          <p className="text-slate-400 text-xs sm:text-sm">
+            وصل للهدف ({targetScore} نقطة) أولاً!
+          </p>
         </motion.div>
 
         {/* Stats Grid */}
@@ -203,8 +196,8 @@ export default function RiskGameOver() {
           <Card className="bg-slate-900/50 border-slate-700/50">
             <CardContent className="pt-3 sm:pt-4 text-center">
               <Shield className="w-4 h-4 sm:w-5 sm:h-5 text-emerald-400 mx-auto mb-1" />
-              <p className="text-xl sm:text-2xl font-black text-slate-200">{totalDraws}</p>
-              <p className="text-[10px] sm:text-xs text-slate-500">آمن</p>
+              <p className="text-xl sm:text-2xl font-black text-slate-200">{totalSaves}</p>
+              <p className="text-[10px] sm:text-xs text-slate-500">حفظ</p>
             </CardContent>
           </Card>
           <Card className="bg-slate-900/50 border-slate-700/50">
@@ -216,20 +209,20 @@ export default function RiskGameOver() {
           </Card>
           <Card className="bg-slate-900/50 border-slate-700/50">
             <CardContent className="pt-3 sm:pt-4 text-center">
-              <TrendingUp className="w-4 h-4 sm:w-5 sm:h-5 text-violet-400 mx-auto mb-1" />
-              <p className="text-xl sm:text-2xl font-black text-slate-200">{totalSkips}</p>
-              <p className="text-[10px] sm:text-xs text-slate-500">تخطي</p>
+              <FastForward className="w-4 h-4 sm:w-5 sm:h-5 text-violet-400 mx-auto mb-1" />
+              <p className="text-xl sm:text-2xl font-black text-slate-200">{totalSkips + totalMatches}</p>
+              <p className="text-[10px] sm:text-xs text-slate-500">خسارة</p>
             </CardContent>
           </Card>
         </div>
 
-        {/* Teams Results */}
+        {/* Players Results */}
         <div className="space-y-2 sm:space-y-3 mb-4 sm:mb-6">
-          {sortedTeams.map((team, idx) => (
-            <TeamResultCard
-              key={team.id}
-              team={team}
-              isWinner={idx === 0 && !isDraw}
+          {sortedPlayers.map((player, idx) => (
+            <PlayerResultCard
+              key={player.id}
+              player={player}
+              isWinner={idx === 0}
               rank={idx}
             />
           ))}
@@ -254,17 +247,7 @@ export default function RiskGameOver() {
                     <span className="text-slate-600 text-[10px] sm:text-xs mt-0.5 shrink-0 w-5 sm:w-6">
                       {entry.id}.
                     </span>
-                    <span
-                      className={
-                        entry.teamId === 'team_0'
-                          ? 'text-violet-400'
-                          : entry.teamId === 'team_1'
-                            ? 'text-emerald-400'
-                            : entry.teamId === 'team_2'
-                              ? 'text-amber-400'
-                              : 'text-rose-400'
-                      }
-                    >
+                    <span className="text-slate-300">
                       {entry.action}
                     </span>
                   </div>

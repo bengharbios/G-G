@@ -273,6 +273,23 @@ export function getGridCols(totalCards: number): number {
 }
 
 // ============================================================
+// Card Info (for display in modals)
+// ============================================================
+
+export const CARD_INFO: Record<CardType, {
+  emoji: string;
+  label: string;
+  desc: string;
+  color: string;
+}> = {
+  number: { emoji: '🃏', label: 'رقم', desc: 'بطاقة رقم آمنة!', color: '#34d399' },
+  bomb:   { emoji: '💣', label: 'قنبلة', desc: 'انفجار! خسرت كل رصيد الجولة!', color: '#ef4444' },
+  skip:   { emoji: '⏭️', label: 'تخطي', desc: 'تم تخطي دورك!', color: '#94a3b8' },
+  double: { emoji: '✨', label: 'دابل', desc: 'مضاعف النقاط ×٢!', color: '#f59e0b' },
+  triple: { emoji: '🔥', label: 'تريبل', desc: 'مضاعف النقاط ×٣!', color: '#a855f7' },
+};
+
+// ============================================================
 // Default player names
 // ============================================================
 

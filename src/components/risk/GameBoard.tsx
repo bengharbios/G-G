@@ -3,8 +3,8 @@
 import { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useRiskStore } from '@/lib/risk-store';
-import { getCardStats, getGridCols, CARD_INFO } from '@/lib/risk-types';
-import type { RiskCard, RiskTeam } from '@/lib/risk-types';
+import { getCardStats, getGridCols, CARD_INFO, CARD_COLOR_CONFIG } from '@/lib/risk-types';
+import type { RiskCard, RiskPlayer } from '@/lib/risk-types';
 import { Bomb, Shield, CircleDot, ScrollText, FastForward, Wallet, Play, AlertTriangle } from 'lucide-react';
 
 // ============================================================
@@ -17,8 +17,8 @@ function StatsBar({ cards }: { cards: RiskCard[] }) {
     <div className="flex items-center justify-center gap-2 sm:gap-3 flex-wrap">
       <div className="flex items-center gap-1 px-2 py-1 rounded-lg bg-slate-800/60 border border-slate-700/30 text-emerald-400">
         <Shield className="w-3.5 h-3.5" />
-        <span className="text-xs font-bold">{stats.safes}</span>
-        <span className="text-[9px] text-slate-500 hidden sm:inline">آمن</span>
+        <span className="text-xs font-bold">{stats.numbers}</span>
+        <span className="text-[9px] text-slate-500 hidden sm:inline">رقم</span>
       </div>
       <div className="flex items-center gap-1 px-2 py-1 rounded-lg bg-slate-800/60 border border-slate-700/30 text-red-400">
         <Bomb className="w-3.5 h-3.5" />
@@ -40,42 +40,28 @@ function StatsBar({ cards }: { cards: RiskCard[] }) {
 }
 
 // ============================================================
-// Team Score Panel
+// Player Score Panel
 // ============================================================
-function TeamScorePanel({
-  team,
+function PlayerScorePanel({
+  player,
   isCurrent,
-  isWinner,
 }: {
-  team: RiskTeam;
+  player: RiskPlayer;
   isCurrent: boolean;
-  isWinner: boolean;
 }) {
   return (
     <motion.div
-      key={team.id}
+      key={player.id}
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       className={`rounded-xl border p-2.5 sm:p-3 transition-all ${
-        isCurrent
-          ? `ring-2 ${team.id === 'team_0' ? 'ring-violet-500/50' : team.id === 'team_1' ? 'ring-emerald-500/50' : team.id === 'team_2' ? 'ring-amber-500/50' : 'ring-rose-500/50'}`
-          : ''
-      } ${
-        isWinner
-          ? 'border-yellow-500/50 bg-yellow-950/10'
-          : team.id === 'team_0'
-            ? 'border-violet-500/30 bg-violet-950/20'
-            : team.id === 'team_1'
-              ? 'border-emerald-500/30 bg-emerald-950/20'
-              : team.id === 'team_2'
-                ? 'border-amber-500/30 bg-amber-950/20'
-                : 'border-rose-500/30 bg-rose-950/20'
-      }`}
+        isCurrent ? `ring-2 ring-${player.color.replace('text-', '')}/50` : ''
+      } bg-slate-900/40 border-slate-700/30`}
     >
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <span className="text-sm">{team.emoji}</span>
-          <span className={`text-xs sm:text-sm font-bold ${team.color}`}>{team.name}</span>
+          <span className="text-sm">{player.emoji}</span>
+          <span className={`text-xs sm:text-sm font-bold ${player.color}`}>{player.name}</span>
           {isCurrent && (
             <motion.span
               initial={{ scale: 0 }}
@@ -87,14 +73,14 @@ function TeamScorePanel({
           )}
         </div>
         <div className="text-left">
-          <p className="text-sm sm:text-base font-black text-white">{team.score}</p>
-          {isCurrent && team.roundScore > 0 && (
+          <p className="text-sm sm:text-base font-black text-white">{player.score}</p>
+          {isCurrent && player.roundScore > 0 && (
             <motion.p
               initial={{ opacity: 0, y: -5 }}
               animate={{ opacity: 1, y: 0 }}
               className="text-[10px] text-emerald-400 font-bold"
             >
-              +{team.roundScore} هذه الجولة
+              +{player.roundScore} جولة
             </motion.p>
           )}
         </div>
@@ -114,6 +100,7 @@ function GridCard({
   onClick?: () => void;
 }) {
   const canClick = !card.revealed && onClick;
+  const colorConfig = card.color ? CARD_COLOR_CONFIG[card.color] : null;
 
   return (
     <motion.button
@@ -133,19 +120,25 @@ function GridCard({
           transition={{ type: 'spring', damping: 15 }}
           className="w-full aspect-square rounded-lg border-2 flex flex-col items-center justify-center relative"
           style={{
-            borderColor: card.type === 'bomb' ? '#ef444440' : card.type === 'skip' ? '#94a3b840' : '#34d39940',
+            borderColor: card.type === 'bomb' ? '#ef444460' : card.type === 'skip' ? '#94a3b860' : card.type === 'double' ? '#f59e0b60' : card.type === 'triple' ? '#a855f760' : colorConfig ? `${colorConfig.colorHex}60` : '#34d39960',
             background: card.type === 'bomb'
               ? 'linear-gradient(135deg, #1a0a0a, #2a1010)'
               : card.type === 'skip'
                 ? 'linear-gradient(135deg, #1a1a2e, #1e1e30)'
-                : 'linear-gradient(135deg, #0a1a10, #0a2a18)',
+                : card.type === 'double'
+                  ? 'linear-gradient(135deg, #1a1500, #2a2010)'
+                  : card.type === 'triple'
+                    ? 'linear-gradient(135deg, #1a0a20, #2a1030)'
+                    : colorConfig
+                      ? `linear-gradient(135deg, #0a1a10, #0a2a18)`
+                      : 'linear-gradient(135deg, #0a1a10, #0a2a18)',
           }}
         >
           <div className="text-xl sm:text-2xl mb-0.5">
-            {card.type === 'bomb' ? '💣' : card.type === 'skip' ? '⏭️' : '✅'}
+            {card.type === 'bomb' ? '💣' : card.type === 'skip' ? '⏭️' : card.type === 'double' ? '✨' : card.type === 'triple' ? '🔥' : `${colorConfig?.emoji || ''}`}
           </div>
-          {card.type === 'safe' && (
-            <div className="text-xs sm:text-sm font-black text-emerald-400">+{card.value}</div>
+          {card.type === 'number' && (
+            <div className="text-xs sm:text-sm font-black text-white">+{card.value}</div>
           )}
         </motion.div>
       ) : (
@@ -222,20 +215,25 @@ function BombExplosion({ onComplete }: { onComplete: () => void }) {
 // ============================================================
 function ResultModal({
   card,
-  currentTeam,
+  currentPlayer,
+  roundMultiplier,
+  lastMatchInfo,
   onContinue,
   onBank,
   onAdvance,
   turnState,
 }: {
   card: RiskCard;
-  currentTeam: RiskTeam;
+  currentPlayer: RiskPlayer;
+  roundMultiplier: number;
+  lastMatchInfo: { matched: boolean; matchType: 'color' | 'number' | null; matchWith: RiskCard | null; lostPoints: number; } | null;
   onContinue: () => void;
   onBank: () => void;
   onAdvance: () => void;
   turnState: string;
 }) {
   const cardInfo = CARD_INFO[card.type];
+  const colorConfig = card.color ? CARD_COLOR_CONFIG[card.color] : null;
 
   return (
     <motion.div
@@ -243,7 +241,7 @@ function ResultModal({
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
       className="fixed inset-0 z-[150] flex items-center justify-center bg-black/80 p-4"
-      onClick={(turnState === 'showing_result') ? onAdvance : undefined}
+      onClick={(turnState === 'showing_result' || turnState === 'turn_lost') ? onAdvance : undefined}
     >
       <motion.div
         initial={{ scale: 0.8, y: 20 }}
@@ -252,89 +250,157 @@ function ResultModal({
         onClick={(e) => e.stopPropagation()}
         className="bg-slate-900 border border-slate-700 rounded-2xl p-6 max-w-sm w-full shadow-2xl text-center"
       >
-        {/* Card type display */}
-        <motion.div
-          initial={{ scale: 0 }}
-          animate={{ scale: 1 }}
-          transition={{ type: 'spring', damping: 10, delay: 0.1 }}
-          className="text-6xl mb-4"
-        >
-          {cardInfo.emoji}
-        </motion.div>
-
-        <h2
-          className="text-xl sm:text-2xl font-black mb-2"
-          style={{ color: cardInfo.color }}
-        >
-          {cardInfo.label}
-        </h2>
-
-        <p className="text-sm text-slate-300 mb-1">{cardInfo.desc}</p>
-
-        {card.type === 'safe' && (
-          <motion.p
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="text-lg font-black text-emerald-400 mb-4"
-          >
-            +{card.value} نقاط!
-          </motion.p>
-        )}
-
-        {card.type === 'bomb' && (
-          <motion.p
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            className="text-sm text-red-400 font-bold mb-4"
-          >
-            {currentTeam.name} خسرت {currentTeam.roundScore} نقطة!
-          </motion.p>
-        )}
-
-        {card.type === 'skip' && (
-          <motion.p
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            className="text-sm text-slate-400 mb-4"
-          >
-            تم تخطي دور {currentTeam.name}
-          </motion.p>
-        )}
-
-        {/* Action buttons based on card type */}
-        {card.type === 'safe' && turnState === 'waiting_for_decision' && (
-          <div className="space-y-2">
+        {/* Turn lost state */}
+        {turnState === 'turn_lost' && lastMatchInfo && (
+          <>
+            <motion.div
+              initial={{ scale: 0 }}
+              animate={{ scale: 1 }}
+              transition={{ type: 'spring', damping: 10, delay: 0.1 }}
+              className="text-6xl mb-4"
+            >
+              😱
+            </motion.div>
+            <h2 className="text-xl sm:text-2xl font-black mb-2 text-red-400">
+              تطابق!
+            </h2>
+            <p className="text-sm text-slate-300 mb-1">
+              {lastMatchInfo.matchType === 'color'
+                ? `اللون ${lastMatchInfo.matchWith?.color ? CARD_COLOR_CONFIG[lastMatchInfo.matchWith.color].labelAr : ''} تكرر!`
+                : `الرقم ${lastMatchInfo.matchWith?.number} تكرر!`}
+            </p>
+            <motion.p
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              className="text-sm text-red-400 font-bold mb-4"
+            >
+              {currentPlayer.name} خسر {lastMatchInfo.lostPoints} نقطة!
+            </motion.p>
             <motion.button
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
-              onClick={onContinue}
-              className="w-full py-3 rounded-xl font-bold text-sm bg-gradient-to-l from-emerald-600 to-green-700 hover:from-emerald-500 hover:to-green-600 text-white transition-all cursor-pointer flex items-center justify-center gap-2"
+              onClick={onAdvance}
+              className="w-full py-3 rounded-xl font-bold text-sm bg-gradient-to-l from-red-600 to-rose-700 hover:from-red-500 hover:to-rose-600 text-white transition-all cursor-pointer flex items-center justify-center gap-2"
             >
-              <Play className="w-4 h-4" />
-              استمر ▶
+              متابعة ▶
             </motion.button>
-            <motion.button
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
-              onClick={onBank}
-              className="w-full py-3 rounded-xl font-bold text-sm bg-gradient-to-l from-amber-600 to-yellow-700 hover:from-amber-500 hover:to-yellow-600 text-white transition-all cursor-pointer flex items-center justify-center gap-2"
-            >
-              <Wallet className="w-4 h-4" />
-              احفظ 💰 ({currentTeam.roundScore + card.value} نقطة)
-            </motion.button>
-          </div>
+          </>
         )}
 
-        {/* Universal continue button for showing_result state (covers bomb, skip, and safe after banking) */}
-        {turnState === 'showing_result' && (
-          <motion.button
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.98 }}
-            onClick={onAdvance}
-            className="w-full py-3 rounded-xl font-bold text-sm bg-gradient-to-l from-violet-600 to-purple-700 hover:from-violet-500 hover:to-purple-600 text-white transition-all cursor-pointer flex items-center justify-center gap-2"
-          >
-            متابعة ▶
-          </motion.button>
+        {/* Showing result state */}
+        {turnState !== 'turn_lost' && (
+          <>
+            {/* Card type display */}
+            <motion.div
+              initial={{ scale: 0 }}
+              animate={{ scale: 1 }}
+              transition={{ type: 'spring', damping: 10, delay: 0.1 }}
+              className="text-6xl mb-4"
+            >
+              {cardInfo.emoji}
+            </motion.div>
+
+            <h2
+              className="text-xl sm:text-2xl font-black mb-2"
+              style={{ color: cardInfo.color }}
+            >
+              {cardInfo.label}
+            </h2>
+
+            <p className="text-sm text-slate-300 mb-1">{cardInfo.desc}</p>
+
+            {card.type === 'number' && (
+              <motion.p
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="text-lg font-black text-emerald-400 mb-1"
+              >
+                +{card.value} {roundMultiplier > 1 ? `×${roundMultiplier} = ${card.value * roundMultiplier}` : ''}
+              </motion.p>
+            )}
+
+            {card.type === 'number' && colorConfig && (
+              <p className="text-xs text-slate-500 mb-4">
+                {colorConfig.emoji} {colorConfig.labelAr}
+              </p>
+            )}
+
+            {card.type === 'bomb' && (
+              <motion.p
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                className="text-sm text-red-400 font-bold mb-4"
+              >
+                {currentPlayer.name} خسر {currentPlayer.roundScore} نقطة!
+              </motion.p>
+            )}
+
+            {card.type === 'skip' && (
+              <motion.p
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                className="text-sm text-slate-400 mb-4"
+              >
+                تم تخطي دور {currentPlayer.name}
+              </motion.p>
+            )}
+
+            {card.type === 'double' && (
+              <motion.p
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                className="text-sm text-amber-400 font-bold mb-4"
+              >
+                المضاعف الآن: ×{roundMultiplier}
+              </motion.p>
+            )}
+
+            {card.type === 'triple' && (
+              <motion.p
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                className="text-sm text-purple-400 font-bold mb-4"
+              >
+                المضاعف الآن: ×{roundMultiplier}
+              </motion.p>
+            )}
+
+            {/* Action buttons for number cards: continue or bank */}
+            {card.type === 'number' && turnState === 'waiting_for_decision' && (
+              <div className="space-y-2">
+                <motion.button
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                  onClick={onContinue}
+                  className="w-full py-3 rounded-xl font-bold text-sm bg-gradient-to-l from-emerald-600 to-green-700 hover:from-emerald-500 hover:to-green-600 text-white transition-all cursor-pointer flex items-center justify-center gap-2"
+                >
+                  <Play className="w-4 h-4" />
+                  استمر ▶
+                </motion.button>
+                <motion.button
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                  onClick={onBank}
+                  className="w-full py-3 rounded-xl font-bold text-sm bg-gradient-to-l from-amber-600 to-yellow-700 hover:from-amber-500 hover:to-yellow-600 text-white transition-all cursor-pointer flex items-center justify-center gap-2"
+                >
+                  <Wallet className="w-4 h-4" />
+                  احفظ 💰 ({currentPlayer.roundScore} نقطة)
+                </motion.button>
+              </div>
+            )}
+
+            {/* Universal continue button for showing_result state */}
+            {turnState === 'showing_result' && (
+              <motion.button
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+                onClick={onAdvance}
+                className="w-full py-3 rounded-xl font-bold text-sm bg-gradient-to-l from-violet-600 to-purple-700 hover:from-violet-500 hover:to-purple-600 text-white transition-all cursor-pointer flex items-center justify-center gap-2"
+              >
+                متابعة ▶
+              </motion.button>
+            )}
+          </>
         )}
       </motion.div>
     </motion.div>
@@ -354,13 +420,6 @@ function GameLogPanel() {
       logEndRef.current.scrollIntoView({ behavior: 'smooth' });
     }
   }, [gameLog, isOpen]);
-
-  const TEAM_COLORS_MAP: Record<string, string> = {
-    team_0: 'bg-violet-950/30 text-violet-300',
-    team_1: 'bg-emerald-950/30 text-emerald-300',
-    team_2: 'bg-amber-950/30 text-amber-300',
-    team_3: 'bg-rose-950/30 text-rose-300',
-  };
 
   return (
     <div className="w-full max-w-2xl mx-auto mt-2">
@@ -382,9 +441,7 @@ function GameLogPanel() {
             gameLog.map((entry) => (
               <div
                 key={entry.id}
-                className={`flex items-center gap-2 text-[11px] py-1 px-2 rounded-lg ${
-                  TEAM_COLORS_MAP[entry.teamId] || 'bg-slate-800/30 text-slate-300'
-                }`}
+                className="flex items-center gap-2 text-[11px] py-1 px-2 rounded-lg bg-slate-800/30 text-slate-300"
               >
                 <span className="font-bold text-slate-500 w-5 text-center">{entry.id}.</span>
                 <span className="flex-1">{entry.action}</span>
@@ -403,33 +460,37 @@ function GameLogPanel() {
 // ============================================================
 export default function GameBoard() {
   const {
-    teams,
-    currentTeamIndex,
+    players,
+    currentPlayerIndex,
     cards,
     turnState,
     lastDrawnCard,
+    roundMultiplier,
+    lastMatchInfo,
     drawCard,
     continueTurn,
     bankPoints,
     advanceTurn,
-    config,
   } = useRiskStore();
 
   // Explosion shows when bomb explodes (auto-transitions to showing_result)
   const showExplosion = turnState === 'bomb_exploded';
 
   const handleExplosionComplete = () => {
-    // Explosion animation completed, transition to showing_result so modal appears
     const state = useRiskStore.getState();
     if (state.turnState === 'bomb_exploded') {
       useRiskStore.setState({ turnState: 'showing_result' });
     }
   };
 
-  const cols = getGridCols(config.totalCards);
-  const currentTeam = teams[currentTeamIndex];
+  const cols = getGridCols(cards.length || 50);
+  const currentPlayer = players[currentPlayerIndex];
 
-  const shouldShowModal = (turnState === 'waiting_for_decision' || turnState === 'showing_result') && !showExplosion && !!lastDrawnCard;
+  const shouldShowModal = (
+    (turnState === 'waiting_for_decision' || turnState === 'showing_result' || turnState === 'turn_lost') &&
+    !showExplosion &&
+    !!lastDrawnCard
+  );
 
   const handleDrawCard = (cardId: string) => {
     drawCard(cardId);
@@ -447,7 +508,7 @@ export default function GameBoard() {
     advanceTurn();
   };
 
-  if (!currentTeam) return null;
+  if (!currentPlayer) return null;
 
   return (
     <div className="flex flex-col items-center px-3 sm:px-4 py-3 sm:py-4" dir="rtl">
@@ -463,31 +524,44 @@ export default function GameBoard() {
         <StatsBar cards={cards} />
       </div>
 
-      {/* Team Turn Indicator */}
+      {/* Round Multiplier Badge */}
+      {roundMultiplier > 1 && (
+        <div className="mb-2">
+          <motion.div
+            initial={{ scale: 0 }}
+            animate={{ scale: 1 }}
+            className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-amber-950/40 border border-amber-500/30 text-amber-300 text-xs font-bold"
+          >
+            {roundMultiplier >= 6 ? '🔥' : '✨'} المضاعف: ×{roundMultiplier}
+          </motion.div>
+        </div>
+      )}
+
+      {/* Player Turn Indicator */}
       <div className="mb-3">
         <motion.div
-          key={currentTeamIndex}
+          key={currentPlayerIndex}
           initial={{ opacity: 0, scale: 0.8 }}
           animate={{ opacity: 1, scale: 1 }}
-          className={`text-center py-1.5 px-4 rounded-xl border-2 ${currentTeam.id === 'team_0' ? 'bg-violet-950/40 border-violet-500/50 text-violet-300' : currentTeam.id === 'team_1' ? 'bg-emerald-950/40 border-emerald-500/50 text-emerald-300' : currentTeam.id === 'team_2' ? 'bg-amber-950/40 border-amber-500/50 text-amber-300' : 'bg-rose-950/40 border-rose-500/50 text-rose-300'}`}
+          className="text-center py-1.5 px-4 rounded-xl border-2 bg-slate-900/40 border-slate-700/30"
+          style={{ borderColor: `${currentPlayer.colorHex}60` }}
         >
-          <p className="text-xs sm:text-sm font-bold">
-            {currentTeam.emoji} دور {currentTeam.name}
-            {currentTeam.roundScore > 0 && (
-              <span className="text-emerald-400 mr-2">(+{currentTeam.roundScore} جولة)</span>
+          <p className="text-xs sm:text-sm font-bold" style={{ color: currentPlayer.colorHex }}>
+            {currentPlayer.emoji} دور {currentPlayer.name}
+            {currentPlayer.roundScore > 0 && (
+              <span className="text-emerald-400 mr-2">(+{currentPlayer.roundScore} جولة)</span>
             )}
           </p>
         </motion.div>
       </div>
 
-      {/* Team Scores */}
+      {/* Player Scores */}
       <div className="w-full max-w-2xl mx-auto grid grid-cols-2 gap-2 sm:gap-3 mb-3">
-        {teams.map((team) => (
-          <TeamScorePanel
-            key={team.id}
-            team={team}
-            isCurrent={team.id === currentTeam.id}
-            isWinner={false}
+        {players.map((player) => (
+          <PlayerScorePanel
+            key={player.id}
+            player={player}
+            isCurrent={player.id === currentPlayer.id}
           />
         ))}
       </div>
@@ -504,7 +578,7 @@ export default function GameBoard() {
           >
             <p className="text-xs sm:text-sm font-bold flex items-center justify-center gap-2">
               <AlertTriangle className="w-4 h-4" />
-              اختر بطاقة — {currentTeam.name}
+              اختر بطاقة — {currentPlayer.name}
             </p>
           </motion.div>
         )}
@@ -540,11 +614,13 @@ export default function GameBoard() {
 
       {/* Result Modal */}
       <AnimatePresence mode="wait">
-        {shouldShowModal && currentTeam && (
+        {shouldShowModal && currentPlayer && (
           <ResultModal
             key={`modal-${lastDrawnCard!.id}-${turnState}`}
             card={lastDrawnCard!}
-            currentTeam={currentTeam}
+            currentPlayer={currentPlayer}
+            roundMultiplier={roundMultiplier}
+            lastMatchInfo={lastMatchInfo}
             onContinue={handleContinue}
             onBank={handleBank}
             onAdvance={handleAdvance}
