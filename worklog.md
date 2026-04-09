@@ -173,3 +173,22 @@ Stage Summary:
 - Room code sharing for diwaniya mode
 - RTL throughout, responsive mobile design
 
+---
+Task ID: 1
+Agent: Main Agent
+Task: Fix Vercel build failure - CARD_INFO export missing from risk-types.ts
+
+Work Log:
+- Investigated Vercel build error: `CARD_INFO` not found in `@/lib/risk-types`
+- Found root cause: `risk-types.ts` was rewritten for new risk2 game mechanics, but old risk UI components (GameBoard, RiskSpectatorView, RiskGameOver) still referenced old types (RiskTeam, CARD_INFO, stats.safes, card.type==='safe', config.totalCards, entry.teamId)
+- Added `CARD_INFO` constant to `risk-types.ts` mapping all CardType values to display info
+- Rewrote `GameBoard.tsx`: teams→players, currentTeam→currentPlayer, safe→number, fixed stats/config, added roundMultiplier/lastMatchInfo support
+- Rewrote `RiskSpectatorView.tsx`: updated all type references, fixed stats display, removed dead CARD_INFO import
+- Rewrote `RiskGameOver.tsx`: players instead of teams, removed winReason/config references, fixed log entries to use action text parsing
+- Ran ESLint on all modified files - 0 errors
+- Committed and pushed to GitHub (commit 020186e)
+
+Stage Summary:
+- Build error fixed by updating all 4 files
+- All risk game components now use correct types from rewritten risk-types.ts
+- GitHub push successful: 58a3353..020186e main -> main
