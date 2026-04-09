@@ -72,7 +72,7 @@ export default function GameSetup() {
   const totalCards = 45 + totalSpecialCards;
 
   const addPlayer = () => {
-    if (playerNames.length >= 10) return;
+    if (playerNames.length >= 20) return;
     setPlayerNames([...playerNames, '']);
   };
 
@@ -254,7 +254,7 @@ export default function GameSetup() {
             ))}
           </div>
 
-          {playerNames.length < 10 && (
+          {playerNames.length < 20 && (
             <button
               onClick={addPlayer}
               className="w-full mt-3 py-2 rounded-xl border border-dashed border-slate-700/50 text-slate-400 text-xs hover:border-orange-500/30 hover:text-orange-400 transition-colors cursor-pointer flex items-center justify-center gap-1"
