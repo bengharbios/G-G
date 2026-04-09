@@ -80,8 +80,8 @@ export const CARD_COLORS: Record<CardColor, { bg: string; border: string; text: 
 export const SPECIAL_CARD_INFO: Record<string, { emoji: string; label: string; desc: string; color: string; bg: string; border: string }> = {
   bomb:   { emoji: '💣', label: 'قنبلة',       desc: 'انفجار! خسرت كل رصيد الجولة!',     color: '#ef4444', bg: 'from-red-900/40 to-red-950/60', border: 'border-red-500/40' },
   skip:   { emoji: '⏭️', label: 'تخطي',        desc: 'تم تخطي دورك! خسرت رصيد الجولة!',        color: '#94a3b8', bg: 'from-slate-800/60 to-slate-900/60', border: 'border-slate-600/40' },
-  double: { emoji: '✨', label: '×2 ضعف',     desc: 'رصيد الجولة × 2! يمكنك المتابعة أو الحفظ', color: '#fbbf24', bg: 'from-yellow-700/40 to-amber-900/60', border: 'border-yellow-500/50' },
-  triple: { emoji: '🔥', label: '×3 ثلاثة أضعاف', desc: 'رصيد الجولة × 3! يمكنك المتابعة أو الحفظ', color: '#f59e0b', bg: 'from-amber-700/40 to-yellow-900/60', border: 'border-amber-500/50' },
+  double: { emoji: '✨', label: '×2 مضاعف',     desc: 'رصيد الجولة × 2! يمكنك المتابعة أو الحفظ', color: '#fcd34d', bg: 'from-yellow-600/50 to-amber-700/60', border: 'border-yellow-400/60' },
+  triple: { emoji: '🔥', label: '×3 ثلاثي', desc: 'رصيد الجولة × 3! يمكنك المتابعة أو الحفظ', color: '#fbbf24', bg: 'from-amber-500/50 to-yellow-600/60', border: 'border-amber-400/60' },
 };
 
 // ============================================================

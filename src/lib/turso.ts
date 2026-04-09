@@ -390,3 +390,16 @@ export async function deletePlayer(id: string): Promise<void> {
     args: [id],
   });
 }
+
+export async function deleteRoomByCode(code: string): Promise<void> {
+  await ensureTables();
+  const c = getClient();
+  await c.execute({
+    sql: 'DELETE FROM RoomPlayer WHERE roomId IN (SELECT id FROM Room WHERE code = ?)',
+    args: [code],
+  });
+  await c.execute({
+    sql: 'DELETE FROM Room WHERE code = ?',
+    args: [code],
+  });
+}

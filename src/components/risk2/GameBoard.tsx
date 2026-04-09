@@ -26,11 +26,11 @@ function StatsBar({ cards }: { cards: Risk2Card[] }) {
         <SkipForward className="w-3 h-3" />
         <span className="text-[10px] sm:text-xs font-bold">{stats.skips}</span>
       </div>
-      <div className="flex items-center gap-1 px-2 py-1 rounded-lg bg-yellow-900/30 border border-yellow-500/40 text-yellow-400">
+      <div className="flex items-center gap-1 px-2 py-1 rounded-lg bg-yellow-900/40 border border-yellow-400/50 text-yellow-300">
         <span className="text-[10px] font-bold">×2</span>
         <span className="text-[10px] sm:text-xs font-bold">{stats.doubles}</span>
       </div>
-      <div className="flex items-center gap-1 px-2 py-1 rounded-lg bg-amber-900/30 border border-amber-500/40 text-amber-400">
+      <div className="flex items-center gap-1 px-2 py-1 rounded-lg bg-amber-900/40 border border-amber-400/50 text-amber-300">
         <span className="text-[10px] font-bold">×3</span>
         <span className="text-[10px] sm:text-xs font-bold">{stats.triples}</span>
       </div>
@@ -137,7 +137,9 @@ function DrawnThisTurn({ cards }: { cards: Risk2Card[] }) {
         <div className="flex-1 h-px bg-slate-800/50" />
       </div>
       <div className="flex items-center gap-1.5 flex-wrap">
-        {cards.map((card) => (
+        {cards.map((card) => {
+          const isGold = card.type === 'double' || card.type === 'triple';
+          return (
           <motion.div
             key={card.id}
             initial={{ scale: 0, rotate: -10 }}
@@ -149,7 +151,7 @@ function DrawnThisTurn({ cards }: { cards: Risk2Card[] }) {
                   ? 'bg-red-950/40 border-red-500/40'
                   : card.type === 'skip'
                     ? 'bg-slate-800/60 border-slate-600/40'
-                    : `bg-gradient-to-br ${SPECIAL_CARD_INFO[card.type].bg} ${SPECIAL_CARD_INFO[card.type].border}`
+                    : `bg-gradient-to-br ${SPECIAL_CARD_INFO[card.type].bg} ${SPECIAL_CARD_INFO[card.type].border} ${isGold ? 'shadow-md shadow-yellow-500/20' : ''}`
             }`}
           >
             {card.type === 'number' ? (
@@ -157,10 +159,11 @@ function DrawnThisTurn({ cards }: { cards: Risk2Card[] }) {
                 {card.number}
               </span>
             ) : (
-              <span className="text-sm">{SPECIAL_CARD_INFO[card.type].emoji}</span>
+              <span className={`text-sm ${isGold ? 'drop-shadow-[0_0_4px_rgba(251,191,36,0.5)]' : ''}`}>{SPECIAL_CARD_INFO[card.type].emoji}</span>
             )}
           </motion.div>
-        ))}
+          );
+        })}
       </div>
     </motion.div>
   );
@@ -190,14 +193,15 @@ function GridCard({ card, onClick }: { card: Risk2Card; onClick?: () => void }) 
     }
 
     const specialInfo = SPECIAL_CARD_INFO[card.type];
+    const isGold = card.type === 'double' || card.type === 'triple';
     return (
       <motion.div
         initial={{ rotateY: 180, opacity: 0 }}
         animate={{ rotateY: 0, opacity: 1 }}
         transition={{ type: 'spring', damping: 15 }}
-        className={`w-full aspect-square rounded-lg border-2 bg-gradient-to-br ${specialInfo.bg} ${specialInfo.border} flex flex-col items-center justify-center`}
+        className={`w-full aspect-square rounded-lg border-2 bg-gradient-to-br ${specialInfo.bg} ${specialInfo.border} flex flex-col items-center justify-center ${isGold ? 'shadow-lg shadow-yellow-500/30 ring-1 ring-yellow-400/30' : ''}`}
       >
-        <span className="text-xl sm:text-2xl">{specialInfo.emoji}</span>
+        <span className={`text-xl sm:text-2xl ${isGold ? 'drop-shadow-[0_0_6px_rgba(251,191,36,0.5)]' : ''}`}>{specialInfo.emoji}</span>
         <span className="text-[8px] font-bold mt-0.5" style={{ color: specialInfo.color }}>
           {specialInfo.label}
         </span>
@@ -254,6 +258,7 @@ function ResultModal({
   let title = '';
   let desc = '';
   let color = '#fff';
+  const isGold = card.type === 'double' || card.type === 'triple';
 
   if (card.type === 'number') {
     const colorInfo = CARD_COLORS[card.color as CardColor];
@@ -286,7 +291,7 @@ function ResultModal({
         animate={{ scale: 1, y: 0 }}
         exit={{ scale: 0.8, y: 20 }}
         onClick={(e) => e.stopPropagation()}
-        className="bg-slate-900 border border-slate-700 rounded-2xl p-6 max-w-sm w-full shadow-2xl text-center"
+        className={`bg-slate-900 border rounded-2xl p-6 max-w-sm w-full shadow-2xl text-center ${isGold ? 'border-yellow-500/40 shadow-yellow-500/10' : 'border-slate-700'}`}
       >
         {/* Card Display */}
         <motion.div
@@ -297,7 +302,7 @@ function ResultModal({
         >
           {card.type === 'number'
             ? <span className="text-4xl" style={{ color }}><span className="text-2xl">{CARD_COLORS[card.color as CardColor].emoji}</span> {card.number}</span>
-            : <span>{SPECIAL_CARD_INFO[card.type].emoji}</span>
+            : <span className={isGold ? 'drop-shadow-[0_0_10px_rgba(251,191,36,0.6)]' : ''}>{SPECIAL_CARD_INFO[card.type].emoji}</span>
           }
         </motion.div>
 

@@ -239,7 +239,9 @@ function DrawnThisTurn({ cards }: { cards: Risk2Card[] }) {
         <div className="flex-1 h-px bg-slate-800/50" />
       </div>
       <div className="flex items-center gap-1.5 flex-wrap">
-        {cards.map((card) => (
+        {cards.map((card) => {
+          const isGold = card.type === 'double' || card.type === 'triple';
+          return (
           <div
             key={card.id}
             className={`w-10 h-12 sm:w-11 sm:h-13 rounded-lg flex flex-col items-center justify-center border-2 ${
@@ -249,7 +251,7 @@ function DrawnThisTurn({ cards }: { cards: Risk2Card[] }) {
                   ? 'bg-red-950/40 border-red-500/40'
                   : card.type === 'skip'
                     ? 'bg-slate-800/60 border-slate-600/40'
-                    : 'bg-yellow-900/30 border-yellow-500/40'
+                    : `bg-gradient-to-br ${SPECIAL_CARD_INFO[card.type].bg} ${SPECIAL_CARD_INFO[card.type].border} ${isGold ? 'shadow-md shadow-yellow-500/20' : ''}`
             }`}
           >
             {card.type === 'number' ? (
@@ -257,10 +259,11 @@ function DrawnThisTurn({ cards }: { cards: Risk2Card[] }) {
                 {card.number}
               </span>
             ) : (
-              <span className="text-sm">{SPECIAL_CARD_INFO[card.type].emoji}</span>
+              <span className={`text-sm ${isGold ? 'drop-shadow-[0_0_4px_rgba(251,191,36,0.5)]' : ''}`}>{SPECIAL_CARD_INFO[card.type].emoji}</span>
             )}
           </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );
@@ -283,9 +286,10 @@ function GridCard({ card }: { card: Risk2Card }) {
     }
 
     const specialInfo = SPECIAL_CARD_INFO[card.type];
+    const isGold = card.type === 'double' || card.type === 'triple';
     return (
-      <div className={`w-full aspect-square rounded-lg border-2 bg-gradient-to-br ${specialInfo.bg} ${specialInfo.border} flex flex-col items-center justify-center`}>
-        <span className="text-xl sm:text-2xl">{specialInfo.emoji}</span>
+      <div className={`w-full aspect-square rounded-lg border-2 bg-gradient-to-br ${specialInfo.bg} ${specialInfo.border} flex flex-col items-center justify-center ${isGold ? 'shadow-lg shadow-yellow-500/30 ring-1 ring-yellow-400/30' : ''}`}>
+        <span className={`text-xl sm:text-2xl ${isGold ? 'drop-shadow-[0_0_6px_rgba(251,191,36,0.5)]' : ''}`}>{specialInfo.emoji}</span>
         <span className="text-[8px] font-bold mt-0.5" style={{ color: specialInfo.color }}>
           {specialInfo.label}
         </span>

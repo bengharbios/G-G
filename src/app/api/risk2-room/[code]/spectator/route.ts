@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { rooms } from '../../rooms';
+import { getRoomByCode, updateRoom } from '@/lib/turso';
 
 // Extract room code from URL pathname: /api/risk2-room/{CODE}/spectator
 function extractCode(req: NextRequest): string | null {
@@ -15,10 +15,12 @@ export async function POST(req: NextRequest) {
   const code = extractCode(req);
   if (!code) return NextResponse.json({ error: 'Code required' }, { status: 400 });
 
-  const room = rooms.get(code);
-  if (!room) return NextResponse.json({ error: 'Room not found' }, { status: 404 });
-
   try {
+    const room = await getRoomByCode(code);
+    if (!room || room.gameType !== 'risk2') {
+      return NextResponse.json({ error: 'Room not found' }, { status: 404 });
+    }
+
     const { name } = await req.json();
     if (!name) return NextResponse.json({ error: 'Name required' }, { status: 400 });
 
@@ -28,11 +30,22 @@ export async function POST(req: NextRequest) {
       joinedAt: Date.now(),
     };
 
-    room.spectators.push(spectator);
-    room.lastHeartbeat = Date.now();
+    // Parse existing state and add spectator
+    let stateData: Record<string, unknown> = {};
+    try {
+      stateData = JSON.parse(room.stateJson || '{}');
+    } catch {}
 
-    return NextResponse.json({ ok: true, spectatorId: spectator.id, spectatorCount: room.spectators.length });
-  } catch {
-    return NextResponse.json({ error: 'Invalid request' }, { status: 400 });
+    const spectators = Array.isArray(stateData.spectators) ? [...stateData.spectators, spectator] : [spectator];
+
+    await updateRoom(code, {
+      stateJson: JSON.stringify({ ...stateData, spectators }),
+      hostLastSeen: new Date().toISOString(),
+    });
+
+    return NextResponse.json({ ok: true, spectatorId: spectator.id, spectatorCount: spectators.length });
+  } catch (err) {
+    console.error('Error joining spectator:', err);
+    return NextResponse.json({ error: 'Failed to join' }, { status: 500 });
   }
 }

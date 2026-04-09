@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { rooms } from '../../rooms';
+import { getRoomByCode, updateRoom } from '@/lib/turso';
 
 // Extract room code from URL pathname: /api/risk2-room/{CODE}/heartbeat
 function extractCode(req: NextRequest): string | null {
@@ -15,9 +15,19 @@ export async function POST(req: NextRequest) {
   const code = extractCode(req);
   if (!code) return NextResponse.json({ error: 'Code required' }, { status: 400 });
 
-  const room = rooms.get(code);
-  if (!room) return NextResponse.json({ error: 'Room not found' }, { status: 404 });
+  try {
+    const room = await getRoomByCode(code);
+    if (!room || room.gameType !== 'risk2') {
+      return NextResponse.json({ error: 'Room not found' }, { status: 404 });
+    }
 
-  room.lastHeartbeat = Date.now();
-  return NextResponse.json({ ok: true });
+    await updateRoom(code, {
+      hostLastSeen: new Date().toISOString(),
+    });
+
+    return NextResponse.json({ ok: true });
+  } catch (err) {
+    console.error('Error updating heartbeat:', err);
+    return NextResponse.json({ error: 'Failed' }, { status: 500 });
+  }
 }

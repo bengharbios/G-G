@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { rooms } from '../rooms';
+import { getRoomByCode, updateRoom, deleteRoomByCode } from '@/lib/turso';
 
 // Extract room code from URL pathname: /api/risk2-room/{CODE}
 function extractCode(req: NextRequest): string | null {
@@ -15,11 +15,29 @@ export async function GET(req: NextRequest) {
   const code = extractCode(req);
   if (!code) return NextResponse.json({ error: 'Code required' }, { status: 400 });
 
-  const room = rooms.get(code);
-  if (!room) return NextResponse.json({ error: 'Room not found' }, { status: 404 });
+  try {
+    const room = await getRoomByCode(code);
+    if (!room || room.gameType !== 'risk2') {
+      return NextResponse.json({ error: 'Room not found' }, { status: 404 });
+    }
 
-  // Return room.data (the actual game state) so spectator can access flat properties
-  return NextResponse.json({ ok: true, room: room.data });
+    // Parse stateJson to get game data
+    let stateData: Record<string, unknown> = {};
+    try {
+      stateData = JSON.parse(room.stateJson || '{}');
+    } catch {}
+
+    // Merge database fields with state data
+    const responseData = {
+      phase: room.phase,
+      ...stateData,
+    };
+
+    return NextResponse.json({ ok: true, room: responseData });
+  } catch (err) {
+    console.error('Error getting risk2 room:', err);
+    return NextResponse.json({ error: 'Failed to get room' }, { status: 500 });
+  }
 }
 
 // PUT /api/risk2-room/[code] — Update room state
@@ -27,16 +45,36 @@ export async function PUT(req: NextRequest) {
   const code = extractCode(req);
   if (!code) return NextResponse.json({ error: 'Code required' }, { status: 400 });
 
-  const room = rooms.get(code);
-  if (!room) return NextResponse.json({ error: 'Room not found' }, { status: 404 });
-
   try {
+    // Check room exists
+    const room = await getRoomByCode(code);
+    if (!room || room.gameType !== 'risk2') {
+      return NextResponse.json({ error: 'Room not found' }, { status: 404 });
+    }
+
     const data = await req.json();
-    room.data = { ...room.data, ...data };
-    room.lastHeartbeat = Date.now();
+
+    // Separate phase from other data
+    const { phase, ...stateData } = data;
+
+    // Merge new state with existing state
+    let existingState: Record<string, unknown> = {};
+    try {
+      existingState = JSON.parse(room.stateJson || '{}');
+    } catch {}
+
+    const mergedState = { ...existingState, ...stateData, lastHeartbeat: Date.now() };
+
+    await updateRoom(code, {
+      ...(phase ? { phase } : {}),
+      stateJson: JSON.stringify(mergedState),
+      hostLastSeen: new Date().toISOString(),
+    });
+
     return NextResponse.json({ ok: true });
-  } catch {
-    return NextResponse.json({ error: 'Invalid request' }, { status: 400 });
+  } catch (err) {
+    console.error('Error updating risk2 room:', err);
+    return NextResponse.json({ error: 'Failed to update room' }, { status: 500 });
   }
 }
 
@@ -45,6 +83,11 @@ export async function DELETE(req: NextRequest) {
   const code = extractCode(req);
   if (!code) return NextResponse.json({ error: 'Code required' }, { status: 400 });
 
-  rooms.delete(code);
-  return NextResponse.json({ ok: true });
+  try {
+    await deleteRoomByCode(code);
+    return NextResponse.json({ ok: true });
+  } catch (err) {
+    console.error('Error deleting risk2 room:', err);
+    return NextResponse.json({ error: 'Failed to delete room' }, { status: 500 });
+  }
 }

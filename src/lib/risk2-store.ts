@@ -138,34 +138,42 @@ export const useRisk2Store = create<Risk2State>()(
         const cards = generateDeck();
         const code = state.gameMode === 'diwaniya' ? generateRoomCode() : null;
 
-        if (state.gameMode === 'diwaniya' && code) {
-          const fullState = {
-            players,
-            cards,
-            deckNumber: 1,
-            config,
-            turnState: 'waiting_for_draw' as Risk2TurnState,
-            lastDrawnCard: null,
-            drawnThisTurn: [],
-            matchReason: '',
-            gameLog: [] as Risk2LogEntry[],
-            winner: null,
-            winReason: '',
-            currentPlayerIndex: 0,
-            phase: 'playing' as Risk2GamePhase,
-          };
+        const fullState = {
+          players,
+          cards,
+          deckNumber: 1,
+          config,
+          turnState: 'waiting_for_draw' as Risk2TurnState,
+          lastDrawnCard: null,
+          drawnThisTurn: [],
+          matchReason: '',
+          gameLog: [] as Risk2LogEntry[],
+          winner: null,
+          winReason: '',
+          currentPlayerIndex: 0,
+          phase: 'playing' as Risk2GamePhase,
+        };
 
+        if (state.gameMode === 'diwaniya' && code) {
+          // Create room first, then sync game state
           fetch('/api/risk2-room', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ code, hostName: 'العراب' }),
-          }).then(() => {
+          }).then((res) => {
+            if (!res.ok) {
+              console.error('Failed to create room:', res.status);
+              return;
+            }
+            // Room created in DB — now sync game state
             return fetch(`/api/risk2-room/${code}`, {
               method: 'PUT',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify(fullState),
             });
-          }).catch(() => {});
+          }).catch((err) => {
+            console.error('Room sync error:', err);
+          });
         }
 
         set({
