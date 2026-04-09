@@ -247,3 +247,31 @@ Stage Summary:
 - Spectator API data nesting fixed: spectators can now see game state
 - Consistent gold theming for multiplier cards across all components
 - Committed as d309856, pushed to GitHub
+
+---
+Task ID: 1
+Agent: Main Agent
+Task: Fix all risk2 game issues - matching logic, bomb freeze, gold multipliers, bank button, images
+
+Work Log:
+- Analyzed uploaded TikTok screenshots using VLM to understand game mechanics
+- Fixed matching logic in risk2-types.ts: same NUMBER = LOSS (any color), same COLOR = OK
+- Made ×2/×3 multiplier cards GOLD colored with dedicated border colors
+- Added auto-transition for bomb_exploded state (2.5s timeout with explosion animation overlay)
+- Added persistent bank button on game board (visible when roundScore > 0)
+- Modified bankPoints() to allow banking in waiting_for_draw state
+- Updated SPECIAL_CARD_INFO with border property for all special cards
+- Updated rules text in LandingPage.tsx to reflect correct matching logic
+- Updated home page description and features for risk2
+- Scraped images from loveligo.com (f1.png, f2.png, risk thumbnails)
+- Generated risk2 banner image using AI image generation
+- Fixed spectator view card borders for special cards
+- Verified API routes work correctly (POST/GET/PUT/DELETE)
+- Confirmed Risk2SpectatorView component exists and is functional
+- Pushed all changes to GitHub (commit 90a5e2f)
+
+Stage Summary:
+- All 7 identified issues have been fixed
+- Key changes: risk2-types.ts (matching logic + gold cards), risk2-store.ts (bank fix), GameBoard.tsx (bomb auto-transition + bank button + gold styling), LandingPage.tsx (rules update), Risk2SpectatorView.tsx (border fix), page.tsx (description update)
+- New assets: risk2_banner.webp, f1.png, f2.png
+- Committed and pushed to main branch
