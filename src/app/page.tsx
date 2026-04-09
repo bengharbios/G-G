@@ -120,7 +120,7 @@ const games: GameData[] = [
     description:
       'ادفع حظك! اسحب البطاقات واجمع النقاط، لكن احذر القنابل! لعبة استراتيجية ومجازفة ممتعة.',
     href: '/risk',
-    bgImage: null,
+    bgImage: '/images/risk/risk_1.webp',
     themeColor: 'text-violet-400',
     themeBorder: 'border-violet-500/30 hover:border-violet-500/60',
     themeBg: 'from-violet-950/80 to-purple-900/40',
@@ -138,7 +138,7 @@ const games: GameData[] = [
     description:
       'كاشف البطاقات! اختر أرقام بألوان مختلفة واحفظ نقاطك. 50 بطاقة و5 بطاقات خاصة وقواعد مطابقة الألوان.',
     href: '/risk2',
-    bgImage: null,
+    bgImage: '/images/risk/risk_2.webp',
     themeColor: 'text-orange-400',
     themeBorder: 'border-orange-500/30 hover:border-orange-500/60',
     themeBg: 'from-orange-950/80 to-red-900/40',

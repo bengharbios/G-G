@@ -18,7 +18,8 @@ export async function GET(req: NextRequest) {
   const room = rooms.get(code);
   if (!room) return NextResponse.json({ error: 'Room not found' }, { status: 404 });
 
-  return NextResponse.json({ ok: true, room });
+  // Return room.data (the actual game state) so spectator can access flat properties
+  return NextResponse.json({ ok: true, room: room.data });
 }
 
 // PUT /api/risk2-room/[code] — Update room state

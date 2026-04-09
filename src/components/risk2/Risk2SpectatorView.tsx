@@ -249,9 +249,7 @@ function DrawnThisTurn({ cards }: { cards: Risk2Card[] }) {
                   ? 'bg-red-950/40 border-red-500/40'
                   : card.type === 'skip'
                     ? 'bg-slate-800/60 border-slate-600/40'
-                    : card.type === 'double'
-                      ? 'bg-amber-950/40 border-amber-500/40'
-                      : 'bg-purple-950/40 border-purple-500/40'
+                    : 'bg-yellow-900/30 border-yellow-500/40'
             }`}
           >
             {card.type === 'number' ? (

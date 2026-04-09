@@ -252,10 +252,9 @@ export const useRisk2Store = create<Risk2State>()(
           }
 
           case 'skip': {
-            // Skip turn — player loses their turn but round points are NOT reset
-            // (they simply don't get to continue drawing)
+            // Skip turn — player loses their turn AND accumulated round points
             newTurnState = 'showing_result';
-            newLog = addLog(state, currentPlayer.name, '⏭️ تم تخطي الدور!', 'skip');
+            newLog = addLog(state, currentPlayer.name, '⏭️ تم تخطي الدور! خسر رصيد الجولة', 'skip');
             break;
           }
 

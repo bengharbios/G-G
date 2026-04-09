@@ -79,7 +79,7 @@ export const CARD_COLORS: Record<CardColor, { bg: string; border: string; text: 
 // ============================================================
 export const SPECIAL_CARD_INFO: Record<string, { emoji: string; label: string; desc: string; color: string; bg: string }> = {
   bomb:   { emoji: '💣', label: 'قنبلة',    desc: 'انفجار! خسرت كل رصيد الجولة!',     color: '#ef4444', bg: 'from-red-900/40 to-red-950/60' },
-  skip:   { emoji: '⏭️', label: 'تخطي',     desc: 'تم تخطي دورك!',                     color: '#94a3b8', bg: 'from-slate-800/60 to-slate-900/60' },
+  skip:   { emoji: '⏭️', label: 'تخطي',     desc: 'تم تخطي دورك! خسرت رصيد الجولة!',        color: '#94a3b8', bg: 'from-slate-800/60 to-slate-900/60' },
   double: { emoji: '✨', label: 'ضعف',       desc: 'رصيد الجولة × 2! يمكنك المتابعة أو الحفظ', color: '#fbbf24', bg: 'from-yellow-800/40 to-yellow-950/60' },
   triple: { emoji: '🔥', label: 'ثلاثة أضعاف', desc: 'رصيد الجولة × 3! يمكنك المتابعة أو الحفظ', color: '#fbbf24', bg: 'from-yellow-800/40 to-yellow-950/60' },
 };

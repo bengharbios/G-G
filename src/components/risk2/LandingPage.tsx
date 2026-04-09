@@ -154,8 +154,8 @@ export default function LandingPage({ onStartLocal, onStartDiwaniya, onJoinSpect
               <ul className="list-disc list-inside space-y-1 text-xs text-slate-400">
                 <li className="flex items-center gap-1"><Bomb className="w-3 h-3 text-red-400" /> <b>💣 قنبلة (×2)</b> — خسر كل رصيد الجولة</li>
                 <li className="flex items-center gap-1"><SkipForward className="w-3 h-3 text-slate-400" /> <b>⏭️ تخطي</b> — انتهى دورك</li>
-                <li className="flex items-center gap-1"><span className="text-amber-400">×2</span> <b>ضعف</b> — رصيد الجولة × 2</li>
-                <li className="flex items-center gap-1"><span className="text-purple-400">×3</span> <b>ثلاثة أضعاف</b> — رصيد الجولة × 3</li>
+                <li className="flex items-center gap-1"><span className="text-amber-400">✨</span> <b>ضعف (×2)</b> — رصيد الجولة × 2، يمكنك المتابعة أو الحفظ</li>
+                <li className="flex items-center gap-1"><span className="text-amber-400">🔥</span> <b>ثلاثة أضعاف (×3)</b> — رصيد الجولة × 3، يمكنك المتابعة أو الحفظ</li>
               </ul>
             </div>
           </div>

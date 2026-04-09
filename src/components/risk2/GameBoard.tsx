@@ -144,9 +144,7 @@ function DrawnThisTurn({ cards }: { cards: Risk2Card[] }) {
                   ? 'bg-red-950/40 border-red-500/40'
                   : card.type === 'skip'
                     ? 'bg-slate-800/60 border-slate-600/40'
-                    : card.type === 'double'
-                      ? 'bg-amber-950/40 border-amber-500/40'
-                      : 'bg-purple-950/40 border-purple-500/40'
+                    : 'bg-yellow-900/30 border-yellow-500/40'
             }`}
           >
             {card.type === 'number' ? (
@@ -243,7 +241,7 @@ function ResultModal({
   deckNumber: number;
 }) {
   const handleBackdropClick = () => {
-    if (turnState === 'showing_result' || turnState === 'turn_lost') {
+    if (turnState === 'showing_result' || turnState === 'turn_lost' || turnState === 'bomb_exploded') {
       onAdvance();
     }
   };
@@ -317,8 +315,8 @@ function ResultModal({
           </motion.p>
         )}
 
-        {/* Action Buttons */}
-        {card.type === 'number' && turnState === 'waiting_for_decision' && (
+        {/* Action Buttons — show for waiting_for_decision (number + multiplier cards) */}
+        {turnState === 'waiting_for_decision' && (
           <div className="space-y-2">
             <motion.button
               whileHover={{ scale: 1.02 }}
@@ -341,8 +339,8 @@ function ResultModal({
           </div>
         )}
 
-        {/* Universal continue for showing_result / turn_lost */}
-        {(turnState === 'showing_result' || turnState === 'turn_lost') && (
+        {/* Universal continue for showing_result / turn_lost / bomb_exploded */}
+        {(turnState === 'showing_result' || turnState === 'turn_lost' || turnState === 'bomb_exploded') && (
           <motion.button
             whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.98 }}
@@ -458,7 +456,7 @@ export default function GameBoard() {
     }
   }, [deckNumber, prevDeckNumber]);
 
-  const shouldShowModal = (turnState === 'waiting_for_decision' || turnState === 'showing_result' || turnState === 'turn_lost') && !!lastDrawnCard;
+  const shouldShowModal = (turnState === 'waiting_for_decision' || turnState === 'showing_result' || turnState === 'turn_lost' || turnState === 'bomb_exploded') && !!lastDrawnCard;
 
   if (!currentPlayer) return null;
 
