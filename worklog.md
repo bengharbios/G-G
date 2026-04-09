@@ -301,3 +301,30 @@ Stage Summary:
 - Player can bank points after any card draw
 - Spectator view fully functional with database-backed rooms
 - Images scraped from loveligo.com saved to public/images/risk2/
+---
+Task ID: 10
+Agent: Main Agent
+Task: Add pre-game special card config + 3D card flip animation for Risk2
+
+Work Log:
+- Updated Risk2GameConfig interface in risk2-types.ts to include bombCount, skipCount, doubleCount, tripleCount
+- Added DEFAULT_CONFIG constant with default values (2 bombs, 1 skip, 1 ×2, 1 ×3)
+- Rewrote generateDeck() to accept Partial<Risk2GameConfig> for custom card counts
+- Updated risk2-store.ts: initialState, startGame (passes config to generateDeck), advanceTurn (passes config when regenerating deck), migrate function
+- Rewrote GameSetup.tsx with CounterStepper component for each special card type (bomb/skip/×2/×3) with +/- buttons, min/max validation (0-5), and live total card count display
+- Rewrote GameBoard.tsx FlipCard component with proper CSS 3D card flip animation:
+  - Front face: decorative pattern with diamond center, dashed inner border
+  - Back face: color-coded number cards (with corner number + color dot) and special cards with gradient backgrounds
+  - Uses perspective: 800px, transform-style: preserve-3d, backface-visibility: hidden
+  - Smooth 0.6s cubic-bezier transition on flip
+  - Hover glow effect on clickable cards
+- Added flip-card CSS classes to globals.css (.flip-card, .flip-card-inner, .flip-card-front, .flip-card-back, .is-flipped)
+- Updated LandingPage.tsx rules to mention configurable special cards
+
+Stage Summary:
+- 6 files modified: risk2-types.ts, risk2-store.ts, GameSetup.tsx, GameBoard.tsx, LandingPage.tsx, globals.css
+- Players can now configure 0-5 of each special card type before starting
+- Card flip animation uses proper CSS 3D transforms with perspective
+- Face-down cards have elegant decorative pattern
+- Revealed cards show color-coded faces with gradient backgrounds for specials
+- Dev server runs clean, /risk2 returns 200

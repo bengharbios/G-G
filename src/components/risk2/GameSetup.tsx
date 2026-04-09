@@ -5,7 +5,54 @@ import { motion } from 'framer-motion';
 import { useRisk2Store } from '@/lib/risk2-store';
 import { TARGET_SCORE_OPTIONS } from '@/lib/risk2-types';
 import type { Risk2Player } from '@/lib/risk2-types';
-import { Plus, Trash2, Play, ArrowRight } from 'lucide-react';
+import { Plus, Trash2, Play, ArrowRight, Bomb, SkipForward, Sparkles, Flame } from 'lucide-react';
+
+// ============================================================
+// Counter Stepper — for adjusting card counts
+// ============================================================
+function CounterStepper({
+  label,
+  emoji,
+  value,
+  min,
+  max,
+  onChange,
+  color,
+}: {
+  label: string;
+  emoji: string;
+  value: number;
+  min: number;
+  max: number;
+  onChange: (v: number) => void;
+  color: string;
+}) {
+  return (
+    <div className={`flex items-center gap-2 px-3 py-2 rounded-xl border ${color}`}>
+      <span className="text-lg">{emoji}</span>
+      <span className="text-xs font-bold text-slate-300 flex-1">{label}</span>
+      <div className="flex items-center gap-1">
+        <motion.button
+          whileTap={{ scale: 0.85 }}
+          onClick={() => onChange(Math.max(min, value - 1))}
+          disabled={value <= min}
+          className="w-7 h-7 rounded-lg bg-slate-800/80 border border-slate-600/50 text-slate-300 font-bold text-sm flex items-center justify-center hover:bg-slate-700/80 transition-colors cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"
+        >
+          −
+        </motion.button>
+        <span className="w-8 text-center text-sm font-black text-white">{value}</span>
+        <motion.button
+          whileTap={{ scale: 0.85 }}
+          onClick={() => onChange(Math.min(max, value + 1))}
+          disabled={value >= max}
+          className="w-7 h-7 rounded-lg bg-slate-800/80 border border-slate-600/50 text-slate-300 font-bold text-sm flex items-center justify-center hover:bg-slate-700/80 transition-colors cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"
+        >
+          +
+        </motion.button>
+      </div>
+    </div>
+  );
+}
 
 // ============================================================
 // Game Setup — المجازفة 2
@@ -14,8 +61,15 @@ export default function GameSetup() {
   const { startGame, gameMode, setPhase } = useRisk2Store();
 
   const [targetScore, setTargetScore] = useState(50);
+  const [bombCount, setBombCount] = useState(2);
+  const [skipCount, setSkipCount] = useState(1);
+  const [doubleCount, setDoubleCount] = useState(1);
+  const [tripleCount, setTripleCount] = useState(1);
   const [playerNames, setPlayerNames] = useState<string[]>(['', '']);
   const [error, setError] = useState('');
+
+  const totalSpecialCards = bombCount + skipCount + doubleCount + tripleCount;
+  const totalCards = 45 + totalSpecialCards;
 
   const addPlayer = () => {
     if (playerNames.length >= 10) return;
@@ -60,7 +114,10 @@ export default function GameSetup() {
       joinOrder: i,
     }));
 
-    startGame({ targetScore }, players);
+    startGame(
+      { targetScore, bombCount, skipCount, doubleCount, tripleCount },
+      players,
+    );
   };
 
   return (
@@ -76,12 +133,12 @@ export default function GameSetup() {
         </p>
       </motion.div>
 
-      <div className="w-full max-w-md space-y-5">
+      <div className="w-full max-w-md space-y-4">
         {/* Target Score */}
         <motion.div
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.1 }}
+          transition={{ delay: 0.05 }}
           className="bg-slate-800/40 border border-slate-700/30 rounded-2xl p-4"
         >
           <h3 className="text-sm font-bold text-slate-300 mb-3">🏆 الهدف</h3>
@@ -103,6 +160,58 @@ export default function GameSetup() {
           <p className="text-[10px] text-slate-500 mt-2 text-center">
             أول لاعب يصل إلى {targetScore} نقطة يفوز!
           </p>
+        </motion.div>
+
+        {/* Special Card Counts */}
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.1 }}
+          className="bg-slate-800/40 border border-slate-700/30 rounded-2xl p-4"
+        >
+          <h3 className="text-sm font-bold text-slate-300 mb-3">🃏 البطاقات الخاصة</h3>
+          <div className="space-y-2">
+            <CounterStepper
+              label="قنبلة"
+              emoji="💣"
+              value={bombCount}
+              min={0}
+              max={5}
+              onChange={setBombCount}
+              color="bg-red-950/20 border-red-500/30"
+            />
+            <CounterStepper
+              label="تخطي"
+              emoji="⏭️"
+              value={skipCount}
+              min={0}
+              max={5}
+              onChange={setSkipCount}
+              color="bg-slate-800/40 border-slate-600/30"
+            />
+            <CounterStepper
+              label="مضاعف ×2"
+              emoji="✨"
+              value={doubleCount}
+              min={0}
+              max={5}
+              onChange={setDoubleCount}
+              color="bg-yellow-950/30 border-yellow-500/30"
+            />
+            <CounterStepper
+              label="مضاعف ×3"
+              emoji="🔥"
+              value={tripleCount}
+              min={0}
+              max={5}
+              onChange={setTripleCount}
+              color="bg-amber-950/30 border-amber-500/30"
+            />
+          </div>
+          <div className="mt-3 flex items-center justify-between text-[10px] text-slate-500 px-1">
+            <span>إجمالي البطاقات: {totalCards}</span>
+            <span>45 رقم + {totalSpecialCards} خاصة</span>
+          </div>
         </motion.div>
 
         {/* Players */}

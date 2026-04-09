@@ -52,6 +52,10 @@ export interface Risk2LogEntry {
 // ============================================================
 export interface Risk2GameConfig {
   targetScore: number;
+  bombCount: number;
+  skipCount: number;
+  doubleCount: number;
+  tripleCount: number;
 }
 
 // ============================================================
@@ -90,14 +94,26 @@ export const SPECIAL_CARD_INFO: Record<string, { emoji: string; label: string; d
 export const TARGET_SCORE_OPTIONS = [50, 60, 70, 100];
 
 // ============================================================
-// Generate 50-card deck
+// Default config
 // ============================================================
-export function generateDeck(): Risk2Card[] {
+export const DEFAULT_CONFIG: Risk2GameConfig = {
+  targetScore: 50,
+  bombCount: 2,
+  skipCount: 1,
+  doubleCount: 1,
+  tripleCount: 1,
+};
+
+// ============================================================
+// Generate deck with configurable special card counts
+// ============================================================
+export function generateDeck(config?: Partial<Risk2GameConfig>): Risk2Card[] {
+  const cfg = { ...DEFAULT_CONFIG, ...config };
   const cards: Risk2Card[] = [];
   let idx = 0;
   const colors: CardColor[] = ['red', 'blue', 'green', 'yellow', 'purple'];
 
-  // 45 number cards: 1-9 × 5 colors
+  // Number cards: 1-9 × 5 colors = 45 always
   for (const color of colors) {
     for (let num = 1; num <= 9; num++) {
       cards.push({
@@ -112,12 +128,19 @@ export function generateDeck(): Risk2Card[] {
     }
   }
 
-  // 5 special cards: 2 bombs, 1 skip, 1 double, 1 triple
-  cards.push({ id: `card_${idx}`, type: 'bomb',   number: 0, color: null, revealed: false, index: idx }); idx++;
-  cards.push({ id: `card_${idx}`, type: 'bomb',   number: 0, color: null, revealed: false, index: idx }); idx++;
-  cards.push({ id: `card_${idx}`, type: 'skip',   number: 0, color: null, revealed: false, index: idx }); idx++;
-  cards.push({ id: `card_${idx}`, type: 'double', number: 0, color: null, revealed: false, index: idx }); idx++;
-  cards.push({ id: `card_${idx}`, type: 'triple', number: 0, color: null, revealed: false, index: idx }); idx++;
+  // Special cards based on config
+  for (let i = 0; i < cfg.bombCount; i++) {
+    cards.push({ id: `card_${idx}`, type: 'bomb', number: 0, color: null, revealed: false, index: idx }); idx++;
+  }
+  for (let i = 0; i < cfg.skipCount; i++) {
+    cards.push({ id: `card_${idx}`, type: 'skip', number: 0, color: null, revealed: false, index: idx }); idx++;
+  }
+  for (let i = 0; i < cfg.doubleCount; i++) {
+    cards.push({ id: `card_${idx}`, type: 'double', number: 0, color: null, revealed: false, index: idx }); idx++;
+  }
+  for (let i = 0; i < cfg.tripleCount; i++) {
+    cards.push({ id: `card_${idx}`, type: 'triple', number: 0, color: null, revealed: false, index: idx }); idx++;
+  }
 
   // Fisher-Yates shuffle
   for (let i = cards.length - 1; i > 0; i--) {

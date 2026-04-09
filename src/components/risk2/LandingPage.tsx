@@ -133,7 +133,7 @@ export default function LandingPage({ onStartLocal, onStartDiwaniya, onJoinSpect
             <div>
               <h4 className="font-bold text-slate-200 mb-1">🎴 البطاقات</h4>
               <ul className="list-disc list-inside space-y-1 text-xs text-slate-400">
-                <li>50 بطاقة: 45 رقم (1-9 × 5 ألوان) + 5 بطاقات خاصة</li>
+                <li>45 بطاقة رقم (1-9 × 5 ألوان) + بطاقات خاصة قابلة للتخصيص</li>
                 <li>5 ألوان: 🔴 أحمر، 🔵 أزرق، 🟢 أخضر، 🟡 أصفر، 🟣 بنفسجي</li>
               </ul>
             </div>
@@ -152,11 +152,12 @@ export default function LandingPage({ onStartLocal, onStartDiwaniya, onJoinSpect
             </div>
             <div>
               <h4 className="font-bold text-slate-200 mb-1">🃏 البطاقات الخاصة</h4>
+              <p className="text-[10px] text-slate-500 mb-2">يمكنك تخصيص عدد كل نوع قبل بدء اللعبة!</p>
               <ul className="list-disc list-inside space-y-1 text-xs text-slate-400">
-                <li className="flex items-center gap-1"><Bomb className="w-3 h-3 text-red-400" /> <b>💣 قنبلة (×2)</b> — خسر كل رصيد الجولة</li>
+                <li className="flex items-center gap-1"><Bomb className="w-3 h-3 text-red-400" /> <b>💣 قنبلة</b> — خسر كل رصيد الجولة</li>
                 <li className="flex items-center gap-1"><SkipForward className="w-3 h-3 text-slate-400" /> <b>⏭️ تخطي</b> — انتهى دورك</li>
-                <li className="flex items-center gap-1"><span className="text-yellow-400">✨</span> <b className="text-yellow-400">ضعف (×2)</b> — رصيد الجولة × 2، لا تؤثر على المطابقة</li>
-                <li className="flex items-center gap-1"><span className="text-amber-400">🔥</span> <b className="text-amber-400">ثلاثة أضعاف (×3)</b> — رصيد الجولة × 3، لا تؤثر على المطابقة</li>
+                <li className="flex items-center gap-1"><span className="text-yellow-400">✨</span> <b className="text-yellow-400">مضاعف ×2</b> — رصيد الجولة × 2، لا تؤثر على المطابقة</li>
+                <li className="flex items-center gap-1"><span className="text-amber-400">🔥</span> <b className="text-amber-400">مضاعف ×3</b> — رصيد الجولة × 3، لا تؤثر على المطابقة</li>
               </ul>
             </div>
           </div>

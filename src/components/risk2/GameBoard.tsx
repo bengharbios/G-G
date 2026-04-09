@@ -144,7 +144,7 @@ function DrawnThisTurn({ cards }: { cards: Risk2Card[] }) {
             key={card.id}
             initial={{ scale: 0, rotate: -10 }}
             animate={{ scale: 1, rotate: 0 }}
-            className={`w-10 h-12 sm:w-11 sm:h-13 rounded-lg flex flex-col items-center justify-center border-2 ${
+            className={`w-10 h-12 sm:w-11 sm:h-[52px] rounded-lg flex flex-col items-center justify-center border-2 ${
               card.type === 'number'
                 ? `${CARD_COLORS[card.color as CardColor].bg} ${CARD_COLORS[card.color as CardColor].border}`
                 : card.type === 'bomb'
@@ -170,59 +170,70 @@ function DrawnThisTurn({ cards }: { cards: Risk2Card[] }) {
 }
 
 // ============================================================
-// Grid Card
+// Flip Card — 3D CSS card flip animation
 // ============================================================
-function GridCard({ card, onClick }: { card: Risk2Card; onClick?: () => void }) {
+function FlipCard({ card, onClick }: { card: Risk2Card; onClick?: () => void }) {
   const canClick = !card.revealed && onClick;
-
-  if (card.revealed) {
-    if (card.type === 'number') {
-      const colorInfo = CARD_COLORS[card.color as CardColor];
-      return (
-        <motion.div
-          initial={{ rotateY: 180, opacity: 0 }}
-          animate={{ rotateY: 0, opacity: 1 }}
-          transition={{ type: 'spring', damping: 15 }}
-          className={`w-full aspect-square rounded-lg border-2 flex items-center justify-center ${colorInfo.bg} ${colorInfo.border}`}
-        >
-          <span className={`text-lg sm:text-xl font-black ${colorInfo.text}`}>
-            {card.number}
-          </span>
-        </motion.div>
-      );
-    }
-
-    const specialInfo = SPECIAL_CARD_INFO[card.type];
-    const isGold = card.type === 'double' || card.type === 'triple';
-    return (
-      <motion.div
-        initial={{ rotateY: 180, opacity: 0 }}
-        animate={{ rotateY: 0, opacity: 1 }}
-        transition={{ type: 'spring', damping: 15 }}
-        className={`w-full aspect-square rounded-lg border-2 bg-gradient-to-br ${specialInfo.bg} ${specialInfo.border} flex flex-col items-center justify-center ${isGold ? 'shadow-lg shadow-yellow-500/30 ring-1 ring-yellow-400/30' : ''}`}
-      >
-        <span className={`text-xl sm:text-2xl ${isGold ? 'drop-shadow-[0_0_6px_rgba(251,191,36,0.5)]' : ''}`}>{specialInfo.emoji}</span>
-        <span className="text-[8px] font-bold mt-0.5" style={{ color: specialInfo.color }}>
-          {specialInfo.label}
-        </span>
-      </motion.div>
-    );
-  }
 
   return (
     <motion.button
-      whileTap={canClick ? { scale: 0.9 } : undefined}
+      whileTap={canClick ? { scale: 0.92 } : undefined}
       onClick={onClick}
       disabled={!canClick}
-      className={`w-full aspect-square rounded-lg bg-gradient-to-br from-slate-800 via-slate-700/80 to-slate-800 border-2 border-slate-600/40 flex items-center justify-center transition-all ${
-        canClick
-          ? 'cursor-pointer hover:ring-2 hover:ring-orange-400/50 hover:scale-[1.03] active:scale-95'
-          : 'cursor-default'
-      }`}
+      className={`flip-card cursor-pointer ${canClick ? 'hover:z-10' : 'cursor-default'}`}
+      style={{ perspective: '800px' }}
     >
-      <span className="text-slate-600 text-[9px] sm:text-[10px] font-bold">
-        {card.index + 1}
-      </span>
+      <div
+        className={`relative w-full flip-card-inner ${card.revealed ? 'is-flipped' : ''}`}
+        style={{ transitionDelay: '0.05s' }}
+      >
+        {/* FRONT — Face-down (the back of the card) */}
+        <div className="flip-card-front absolute inset-0 rounded-xl border-2 border-slate-600/50 bg-gradient-to-br from-slate-800 via-slate-700/90 to-slate-800 flex items-center justify-center overflow-hidden">
+          {/* Decorative pattern */}
+          <div className="absolute inset-1 rounded-lg border border-slate-600/20 bg-gradient-to-br from-slate-700/30 to-slate-800/30" />
+          <div className="absolute inset-2 rounded-md border border-dashed border-slate-500/10" />
+          {/* Center diamond */}
+          <div className="relative z-10 w-5 h-5 rotate-45 border border-slate-500/30 bg-slate-700/40 flex items-center justify-center">
+            <div className="w-2 h-2 rotate-0 bg-slate-500/20 rounded-full" />
+          </div>
+          {canClick && (
+            <div className="absolute inset-0 rounded-xl hover:ring-2 hover:ring-orange-400/50 hover:border-orange-500/30 transition-all" />
+          )}
+        </div>
+
+        {/* BACK — Revealed face */}
+        <div className="flip-card-back rounded-xl border-2 overflow-hidden">
+          {card.type === 'number' ? (
+            <div className={`w-full h-full flex flex-col items-center justify-center ${CARD_COLORS[card.color as CardColor].bg} ${CARD_COLORS[card.color as CardColor].border}`}>
+              {/* Corner number top-left */}
+              <span className={`absolute top-0.5 left-1 text-[8px] font-bold ${CARD_COLORS[card.color as CardColor].text} opacity-60`}>
+                {card.number}
+              </span>
+              {/* Center number */}
+              <span className={`text-xl sm:text-2xl font-black ${CARD_COLORS[card.color as CardColor].text}`}>
+                {card.number}
+              </span>
+              {/* Color dot */}
+              <div className="mt-0.5 w-2 h-2 rounded-full" style={{ backgroundColor: CARD_COLORS[card.color as CardColor].hex }} />
+            </div>
+          ) : (
+            (() => {
+              const isGold = card.type === 'double' || card.type === 'triple';
+              const info = SPECIAL_CARD_INFO[card.type];
+              return (
+                <div className={`w-full h-full flex flex-col items-center justify-center bg-gradient-to-br ${info.bg} ${info.border} ${isGold ? 'ring-1 ring-yellow-400/30 shadow-lg shadow-yellow-500/20' : ''}`}>
+                  <span className={`text-2xl sm:text-3xl ${isGold ? 'drop-shadow-[0_0_8px_rgba(251,191,36,0.6)]' : ''}`}>
+                    {info.emoji}
+                  </span>
+                  <span className="text-[8px] font-bold mt-0.5" style={{ color: info.color }}>
+                    {info.label}
+                  </span>
+                </div>
+              );
+            })()
+          )}
+        </div>
+      </div>
     </motion.button>
   );
 }
@@ -498,7 +509,7 @@ export default function GameBoard() {
         <h1 className="text-xl sm:text-2xl font-black text-transparent bg-clip-text bg-gradient-to-r from-orange-400 via-red-300 to-amber-400">
           🎴 المجازفة 2
         </h1>
-        <p className="text-[10px] text-slate-500">الهدف: {config.targetScore} نقطة</p>
+        <p className="text-[10px] text-slate-500">الهدف: {config.targetScore} نقطة | {cards.length} بطاقة</p>
       </div>
 
       {/* Stats Bar */}
@@ -545,11 +556,17 @@ export default function GameBoard() {
         </div>
       )}
 
-      {/* Card Grid */}
+      {/* Card Grid with 3D Flip */}
       <div className="w-full max-w-lg mx-auto mb-3">
-        <div className="grid gap-1 sm:gap-1.5" style={{ gridTemplateColumns: `repeat(${cols}, 1fr)` }}>
+        <div
+          className="grid gap-1.5 sm:gap-2"
+          style={{
+            gridTemplateColumns: `repeat(${cols}, 1fr)`,
+            perspective: '1200px',
+          }}
+        >
           {cards.map((card) => (
-            <GridCard
+            <FlipCard
               key={card.id}
               card={card}
               onClick={

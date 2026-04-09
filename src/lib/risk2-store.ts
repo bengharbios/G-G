@@ -61,7 +61,7 @@ const initialState = {
   currentPlayerIndex: 0,
   cards: [] as Risk2Card[],
   deckNumber: 1,
-  config: { targetScore: 50 } as Risk2GameConfig,
+  config: { targetScore: 50, bombCount: 2, skipCount: 1, doubleCount: 1, tripleCount: 1 } as Risk2GameConfig,
   turnState: 'waiting_for_draw' as Risk2TurnState,
   lastDrawnCard: null as Risk2Card | null,
   drawnThisTurn: [] as Risk2Card[],
@@ -135,7 +135,7 @@ export const useRisk2Store = create<Risk2State>()(
 
       startGame: (config: Risk2GameConfig, players: Risk2Player[]) => {
         const state = get();
-        const cards = generateDeck();
+        const cards = generateDeck(config);
         const code = state.gameMode === 'diwaniya' ? generateRoomCode() : null;
 
         const fullState = {
@@ -387,7 +387,7 @@ export const useRisk2Store = create<Risk2State>()(
         let newCards = state.cards;
         let newDeckNumber = state.deckNumber;
         if (newCards.every(c => c.revealed)) {
-          newCards = generateDeck();
+          newCards = generateDeck(state.config);
           newDeckNumber = state.deckNumber + 1;
         }
 
@@ -454,6 +454,7 @@ export const useRisk2Store = create<Risk2State>()(
         gameMode: 'classic' as Risk2GameMode,
         roomCode: null,
         hostName: null,
+        config: { targetScore: 50, bombCount: 2, skipCount: 1, doubleCount: 1, tripleCount: 1 },
       }),
       partialize: (state) => ({
         phase: state.phase,
