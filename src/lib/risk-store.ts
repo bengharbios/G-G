@@ -1,10 +1,11 @@
 // ============================================================
-// المجازفة (Risk) - Zustand Store (العراب / Classic mode)
+// المجازفة (Risk) - Zustand Store
+// Color/Number matching mechanics, 50-card deck, individual players
 // ============================================================
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import type { RiskTeam, RiskGamePhase, RiskCard, RiskLogEntry, RiskTurnState, RiskGameConfig, CardType } from './risk-types';
-import { generateCardDeck, getGridCols, getCardStats, isGameOver, findWinner, TEAM_COLORS, DEFAULT_TEAM_NAMES } from './risk-types';
+import type { RiskPlayer, RiskGamePhase, RiskCard, RiskLogEntry, RiskTurnState, RiskGameConfig } from './risk-types';
+import { generateDeck, checkMatch, getGridCols, PLAYER_COLORS, DEFAULT_PLAYER_NAMES, CARD_COLOR_CONFIG } from './risk-types';
 
 export type RiskGameMode = 'classic' | 'diwaniya';
 
@@ -19,25 +20,35 @@ interface RiskState {
   roomCode: string | null;
   hostName: string | null;
 
-  // Teams
-  teams: RiskTeam[];
-  currentTeamIndex: number;
+  // Players
+  players: RiskPlayer[];
+  currentPlayerIndex: number;
 
   // Cards
   cards: RiskCard[];
-  config: RiskGameConfig;
+  deckCount: number; // Track how many decks have been generated
+
+  // Config
+  targetScore: number;
 
   // Turn state
   turnState: RiskTurnState;
   lastDrawnCard: RiskCard | null;
+  drawnThisTurn: RiskCard[];     // Cards drawn in current turn (for matching check)
+  roundMultiplier: number;       // 1, 2, or 3 (from double/triple)
+  lastMatchInfo: {               // Info about the match that caused turn loss
+    matched: boolean;
+    matchType: 'color' | 'number' | null;
+    matchWith: RiskCard | null;
+    lostPoints: number;
+  } | null;
 
   // Game Log
   gameLog: RiskLogEntry[];
   logCounter: number;
 
   // Game Over
-  winner: RiskTeam | 'draw' | null;
-  winReason: string;
+  winner: RiskPlayer | null;
 
   // Actions
   setPhase: (phase: RiskGamePhase) => void;
@@ -49,12 +60,12 @@ interface RiskState {
   drawCard: (cardId: string) => void;
   continueTurn: () => void;
   bankPoints: () => void;
-  advanceTurn: () => void;
+  endTurn: () => void;
   closeModal: () => void;
   resetGame: () => void;
 
   // Helpers
-  getCurrentTeam: () => RiskTeam;
+  getCurrentPlayer: () => RiskPlayer;
   getGridCols: () => number;
 }
 
@@ -63,22 +74,19 @@ const initialState = {
   gameMode: 'classic' as RiskGameMode,
   roomCode: null as string | null,
   hostName: null as string | null,
-  teams: [] as RiskTeam[],
-  currentTeamIndex: 0,
+  players: [] as RiskPlayer[],
+  currentPlayerIndex: 0,
   cards: [] as RiskCard[],
-  config: {
-    teamCount: 2,
-    bombCount: 3,
-    skipCount: 2,
-    totalCards: 40,
-    teamNames: DEFAULT_TEAM_NAMES,
-  } as RiskGameConfig,
+  deckCount: 0,
+  targetScore: 50,
   turnState: 'waiting_for_draw' as RiskTurnState,
   lastDrawnCard: null as RiskCard | null,
+  drawnThisTurn: [] as RiskCard[],
+  roundMultiplier: 1,
+  lastMatchInfo: null as { matched: boolean; matchType: 'color' | 'number' | null; matchWith: RiskCard | null; lostPoints: number; } | null,
   gameLog: [] as RiskLogEntry[],
   logCounter: 0,
-  winner: null as RiskTeam | 'draw' | null,
-  winReason: '',
+  winner: null as RiskPlayer | null,
 };
 
 function generateRoomCode(): string {
@@ -90,32 +98,28 @@ function generateRoomCode(): string {
   return code;
 }
 
-function createTeams(config: RiskGameConfig): RiskTeam[] {
-  return config.teamNames.slice(0, config.teamCount).map((name, i) => ({
-    id: `team_${i}`,
-    name: name || DEFAULT_TEAM_NAMES[i],
+function createPlayers(config: RiskGameConfig): RiskPlayer[] {
+  return config.playerNames.map((name, i) => ({
+    id: `player_${i}`,
+    name: name || DEFAULT_PLAYER_NAMES[i],
     score: 0,
     roundScore: 0,
-    color: TEAM_COLORS[i].color,
-    colorHex: TEAM_COLORS[i].colorHex,
-    emoji: TEAM_COLORS[i].emoji,
+    color: PLAYER_COLORS[i % PLAYER_COLORS.length].color,
+    colorHex: PLAYER_COLORS[i % PLAYER_COLORS.length].colorHex,
+    emoji: PLAYER_COLORS[i % PLAYER_COLORS.length].emoji,
   }));
 }
 
-function addLog(
+function addLogEntry(
   state: Pick<RiskState, 'logCounter'>,
-  team: RiskTeam,
+  player: RiskPlayer,
   action: string,
-  cardType: CardType,
-  cardValue: number
 ): RiskLogEntry {
   return {
     id: state.logCounter + 1,
-    teamId: team.id,
-    teamName: team.name,
+    playerId: player.id,
+    playerName: player.name,
     action,
-    cardType,
-    cardValue,
     timestamp: Date.now(),
   };
 }
@@ -129,16 +133,19 @@ function syncToRoom(state: RiskState, updates: Record<string, unknown>) {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      teams: state.teams,
-      currentTeamIndex: state.currentTeamIndex,
+      players: state.players,
+      currentPlayerIndex: state.currentPlayerIndex,
       cards: state.cards,
-      config: state.config,
+      targetScore: state.targetScore,
       turnState: state.turnState,
       lastDrawnCard: state.lastDrawnCard,
+      drawnThisTurn: state.drawnThisTurn,
+      roundMultiplier: state.roundMultiplier,
+      lastMatchInfo: state.lastMatchInfo,
       gameLog: state.gameLog,
       winner: state.winner,
-      winReason: state.winReason,
       phase: state.phase,
+      deckCount: state.deckCount,
       ...updates,
     }),
   }).catch(() => {});
@@ -156,22 +163,25 @@ export const useRiskStore = create<RiskState>()(
 
       startGame: (config: RiskGameConfig) => {
         const state = get();
-        const teams = createTeams(config);
-        const cards = generateCardDeck(config);
+        const players = createPlayers(config);
+        const cards = generateDeck();
         const code = state.gameMode === 'diwaniya' ? generateRoomCode() : null;
 
         if (state.gameMode === 'diwaniya' && code) {
           const fullState = {
-            teams,
+            players,
             cards,
-            config,
+            targetScore: config.targetScore,
             turnState: 'waiting_for_draw' as RiskTurnState,
             lastDrawnCard: null,
+            drawnThisTurn: [] as RiskCard[],
+            roundMultiplier: 1,
+            lastMatchInfo: null,
             gameLog: [] as RiskLogEntry[],
             winner: null,
-            winReason: '',
-            currentTeamIndex: 0,
+            currentPlayerIndex: 0,
             phase: 'playing' as RiskGamePhase,
+            deckCount: 1,
           };
 
           fetch('/api/risk-room', {
@@ -189,17 +199,20 @@ export const useRiskStore = create<RiskState>()(
 
         set({
           phase: 'playing',
-          teams,
+          players,
           cards,
-          config,
+          targetScore: config.targetScore,
           turnState: 'waiting_for_draw',
           lastDrawnCard: null,
-          currentTeamIndex: 0,
+          drawnThisTurn: [],
+          roundMultiplier: 1,
+          lastMatchInfo: null,
+          currentPlayerIndex: 0,
           gameLog: [],
           logCounter: 0,
           winner: null,
-          winReason: '',
           roomCode: code,
+          deckCount: 1,
         });
       },
 
@@ -216,43 +229,111 @@ export const useRiskStore = create<RiskState>()(
         const newCards = [...state.cards];
         newCards[cardIndex] = { ...card, revealed: true };
 
-        const currentTeam = state.teams[state.currentTeamIndex];
-        const newTeams = [...state.teams];
+        const currentPlayer = state.players[state.currentPlayerIndex];
+        const newPlayers = [...state.players];
         let newLog: RiskLogEntry;
         let newTurnState: RiskTurnState;
-        let newWinner: RiskTeam | 'draw' | null = null;
-        let newWinReason = '';
+        let newWinner: RiskPlayer | null = null;
+        const newDrawnThisTurn = [...state.drawnThisTurn, newCards[cardIndex]];
+        let newRoundMultiplier = state.roundMultiplier;
+        let newMatchInfo: RiskState['lastMatchInfo'] = null;
 
         switch (card.type) {
-          case 'safe': {
-            // Add value to round score
-            newTeams[state.currentTeamIndex] = {
-              ...newTeams[state.currentTeamIndex],
-              roundScore: currentTeam.roundScore + card.value,
-            };
-            newLog = addLog(state, currentTeam, `سحب بطاقة آمنة (+${card.value})`, 'safe', card.value);
-            newTurnState = 'waiting_for_decision';
-            break;
-          }
-          case 'bomb': {
-            // Lose all round score
-            newTeams[state.currentTeamIndex] = {
-              ...newTeams[state.currentTeamIndex],
-              roundScore: 0,
-            };
-            newLog = addLog(state, currentTeam, `💣 قنبلة! خسر ${currentTeam.roundScore} نقطة من الجولة`, 'bomb', 0);
-            newTurnState = 'bomb_exploded';
+          case 'number': {
+            // Check for matching color or number with previously drawn cards
+            const { matched, matchType, matchWith } = checkMatch(card, state.drawnThisTurn);
 
-            // Check game over
-            if (isGameOver(newCards)) {
-              const winnerResult = findWinner(newTeams);
-              newWinner = winnerResult;
-              newWinReason = winnerResult === 'draw' ? 'تعادل بين الفرق!' : `${winnerResult.name} فاز بأعلى نقاط!`;
+            if (matched) {
+              // Match found — lose all round points
+              const lostPoints = currentPlayer.roundScore;
+              newPlayers[state.currentPlayerIndex] = {
+                ...currentPlayer,
+                roundScore: 0,
+              };
+
+              const matchColor = matchType === 'color' && matchWith?.color
+                ? CARD_COLOR_CONFIG[matchWith.color].labelAr
+                : '';
+              const matchNum = matchType === 'number' ? `${matchWith?.number}` : '';
+              const newCardInfo = card.color
+                ? CARD_COLOR_CONFIG[card.color].labelAr
+                : '';
+
+              newLog = addLogEntry(
+                state,
+                currentPlayer,
+                `❌ تطابق! (${
+                  matchType === 'color'
+                    ? `${matchColor} = ${newCardInfo}`
+                    : `رقم ${matchNum}`
+                }) — خسر ${lostPoints} نقطة`,
+              );
+              newTurnState = 'turn_lost';
+              newMatchInfo = { matched: true, matchType, matchWith, lostPoints };
+            } else {
+              // No match — add value × multiplier to round score
+              const addedValue = card.value * state.roundMultiplier;
+              newPlayers[state.currentPlayerIndex] = {
+                ...currentPlayer,
+                roundScore: currentPlayer.roundScore + addedValue,
+              };
+              newLog = addLogEntry(
+                state,
+                currentPlayer,
+                `🃏 سحب ${card.value} (${CARD_COLOR_CONFIG[card.color!].emoji} ${CARD_COLOR_CONFIG[card.color!].labelAr})${state.roundMultiplier > 1 ? ` ×${state.roundMultiplier} = ${addedValue}` : ` (+${addedValue})`}`,
+              );
+              newTurnState = 'waiting_for_decision';
             }
             break;
           }
+
+          case 'bomb': {
+            // Lose all round points, turn ends
+            const lostPoints = currentPlayer.roundScore;
+            newPlayers[state.currentPlayerIndex] = {
+              ...currentPlayer,
+              roundScore: 0,
+            };
+            newLog = addLogEntry(
+              state,
+              currentPlayer,
+              `💣 قنبلة! خسر ${lostPoints} نقطة من الجولة`,
+            );
+            newTurnState = 'bomb_exploded';
+            break;
+          }
+
           case 'skip': {
-            newLog = addLog(state, currentTeam, '⏭️ تخطي! انتقل الدور', 'skip', 0);
+            // Turn skipped
+            newLog = addLogEntry(
+              state,
+              currentPlayer,
+              '⏭️ تخطي! تم تخطي الدور',
+            );
+            newTurnState = 'showing_result';
+            break;
+          }
+
+          case 'double': {
+            // Double the round multiplier
+            newRoundMultiplier = state.roundMultiplier * 2;
+            newLog = addLogEntry(
+              state,
+              currentPlayer,
+              `✨ دابل! المضاعف = ×${newRoundMultiplier}`,
+            );
+            newTurnState = 'showing_result';
+            break;
+          }
+
+          case 'triple': {
+            // Triple the round multiplier
+            newRoundMultiplier = state.roundMultiplier * 3;
+            newLog = addLogEntry(
+              state,
+              currentPlayer,
+              `🔥 تريبل! المضاعف = ×${newRoundMultiplier}`,
+            );
             newTurnState = 'showing_result';
             break;
           }
@@ -260,16 +341,18 @@ export const useRiskStore = create<RiskState>()(
 
         const newState: Partial<RiskState> = {
           cards: newCards,
-          teams: newTeams,
+          players: newPlayers,
           lastDrawnCard: newCards[cardIndex],
           turnState: newTurnState,
           gameLog: [...state.gameLog, newLog],
           logCounter: state.logCounter + 1,
+          drawnThisTurn: newDrawnThisTurn,
+          roundMultiplier: newRoundMultiplier,
+          lastMatchInfo: newMatchInfo,
         };
 
         if (newWinner !== null) {
           newState.winner = newWinner;
-          newState.winReason = newWinReason;
         }
 
         set(newState);
@@ -287,81 +370,89 @@ export const useRiskStore = create<RiskState>()(
         const state = get();
         if (state.turnState !== 'waiting_for_decision') return;
 
-        const currentTeam = state.teams[state.currentTeamIndex];
-        const newTeams = [...state.teams];
-        newTeams[state.currentTeamIndex] = {
-          ...currentTeam,
-          score: currentTeam.score + currentTeam.roundScore,
+        const currentPlayer = state.players[state.currentPlayerIndex];
+        const newPlayers = [...state.players];
+        const bankedAmount = currentPlayer.roundScore;
+        newPlayers[state.currentPlayerIndex] = {
+          ...currentPlayer,
+          score: currentPlayer.score + currentPlayer.roundScore,
           roundScore: 0,
         };
 
-        const newLog = addLog(state, currentTeam, `💰 حفظ ${currentTeam.roundScore} نقاط! (المجموع: ${currentTeam.score + currentTeam.roundScore})`, 'safe', currentTeam.roundScore);
+        const newLog = addLogEntry(
+          state,
+          currentPlayer,
+          `💰 حفظ ${bankedAmount} نقاط! (المجموع: ${currentPlayer.score + currentPlayer.roundScore})`,
+        );
 
-        set({
-          teams: newTeams,
-          turnState: 'showing_result',
+        // Check if player reached target score
+        let newWinner: RiskPlayer | null = null;
+        if (currentPlayer.score + currentPlayer.roundScore >= state.targetScore) {
+          newWinner = newPlayers[state.currentPlayerIndex];
+        }
+
+        const updates: Partial<RiskState> = {
+          players: newPlayers,
+          turnState: newWinner ? 'showing_result' : 'showing_result',
           gameLog: [...state.gameLog, newLog],
           logCounter: state.logCounter + 1,
-        });
+          winner: newWinner,
+        };
 
-        syncToRoom(get(), {
-          teams: newTeams,
-          turnState: 'showing_result',
-        });
+        set(updates);
+        syncToRoom(get(), updates);
       },
 
-      advanceTurn: () => {
+      endTurn: () => {
         const state = get();
-        if (state.turnState !== 'showing_result' && state.turnState !== 'bomb_exploded') return;
 
-        // Check game over
+        // Check if game is over
         if (state.winner !== null) {
           set({
             phase: 'game_over',
             turnState: 'waiting_for_draw',
             lastDrawnCard: null,
+            drawnThisTurn: [],
+            roundMultiplier: 1,
+            lastMatchInfo: null,
           });
           syncToRoom(get(), {
             phase: 'game_over',
             turnState: 'waiting_for_draw',
+            drawnThisTurn: [],
+            roundMultiplier: 1,
           });
           return;
         }
 
-        if (isGameOver(state.cards)) {
-          const winnerResult = findWinner(state.teams);
-          set({
-            phase: 'game_over',
-            winner: winnerResult,
-            winReason: winnerResult === 'draw' ? 'تعادل بين الفرق!' : `${winnerResult.name} فاز بأعلى نقاط!`,
-            turnState: 'waiting_for_draw',
-            lastDrawnCard: null,
-          });
-          syncToRoom(get(), {
-            phase: 'game_over',
-            winner: winnerResult,
-            winReason: winnerResult === 'draw' ? 'تعادل!' : `${(winnerResult as RiskTeam).name} فاز!`,
-          });
-          return;
+        // Check if all cards are revealed → generate new deck
+        let newCards = state.cards;
+        let newDeckCount = state.deckCount;
+        if (state.cards.every(c => c.revealed)) {
+          newCards = generateDeck();
+          newDeckCount += 1;
         }
 
-        // Advance to next team
-        const nextTeamIndex = (state.currentTeamIndex + 1) % state.teams.length;
-        set({
-          currentTeamIndex: nextTeamIndex,
-          lastDrawnCard: null,
-          turnState: 'waiting_for_draw',
-        });
+        // Advance to next player
+        const nextPlayerIndex = (state.currentPlayerIndex + 1) % state.players.length;
 
-        syncToRoom(get(), {
-          currentTeamIndex: nextTeamIndex,
+        const updates: Partial<RiskState> = {
+          currentPlayerIndex: nextPlayerIndex,
           lastDrawnCard: null,
           turnState: 'waiting_for_draw',
-        });
+          drawnThisTurn: [],
+          roundMultiplier: 1,
+          lastMatchInfo: null,
+          cards: newCards,
+          deckCount: newDeckCount,
+        };
+
+        set(updates);
+        syncToRoom(get(), updates);
       },
 
       closeModal: () => {
-        set({ lastDrawnCard: null });
+        set({ lastDrawnCard: null, lastMatchInfo: null });
       },
 
       resetGame: () => {
@@ -373,7 +464,7 @@ export const useRiskStore = create<RiskState>()(
           ...initialState,
           cards: [],
           gameLog: [],
-          teams: [],
+          players: [],
           logCounter: 0,
           lastDrawnCard: null,
           gameMode: 'classic',
@@ -382,45 +473,53 @@ export const useRiskStore = create<RiskState>()(
         });
       },
 
-      getCurrentTeam: () => {
+      getCurrentPlayer: () => {
         const state = get();
-        return state.teams[state.currentTeamIndex];
+        return state.players[state.currentPlayerIndex];
       },
 
       getGridCols: () => {
         const state = get();
-        return getGridCols(state.config.totalCards);
+        return getGridCols(state.cards.length || 50);
       },
     }),
     {
-      name: 'risk-game-storage',
-      version: 1,
+      name: 'risk-game-storage-v2',
+      version: 2,
       migrate: () => ({
         ...initialState,
         cards: [] as RiskCard[],
         gameLog: [] as RiskLogEntry[],
-        teams: [] as RiskTeam[],
+        players: [] as RiskPlayer[],
         logCounter: 0,
         lastDrawnCard: null,
+        drawnThisTurn: [] as RiskCard[],
+        roundMultiplier: 1,
+        lastMatchInfo: null,
         gameMode: 'classic' as RiskGameMode,
         roomCode: null,
         hostName: null,
+        winner: null,
+        deckCount: 0,
       }) as RiskState,
       partialize: (state) => ({
         phase: state.phase,
         gameMode: state.gameMode,
         roomCode: state.roomCode,
         hostName: state.hostName,
-        teams: state.teams,
-        currentTeamIndex: state.currentTeamIndex,
+        players: state.players,
+        currentPlayerIndex: state.currentPlayerIndex,
         cards: state.cards,
-        config: state.config,
+        targetScore: state.targetScore,
         turnState: state.turnState,
         lastDrawnCard: state.lastDrawnCard,
+        drawnThisTurn: state.drawnThisTurn,
+        roundMultiplier: state.roundMultiplier,
+        lastMatchInfo: state.lastMatchInfo,
         gameLog: state.gameLog,
         logCounter: state.logCounter,
         winner: state.winner,
-        winReason: state.winReason,
+        deckCount: state.deckCount,
       }),
     }
   )

@@ -1,0 +1,557 @@
+'use client';
+
+import { useState, useRef, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { useRisk2Store } from '@/lib/risk2-store';
+import { CARD_COLORS, SPECIAL_CARD_INFO, getCardStats, getGridCols } from '@/lib/risk2-types';
+import type { Risk2Card, Risk2Player, CardColor } from '@/lib/risk2-types';
+import { Bomb, SkipForward, Wallet, Play, AlertTriangle, ScrollText, RotateCcw, Sparkles } from 'lucide-react';
+
+// ============================================================
+// Stats Bar
+// ============================================================
+function StatsBar({ cards }: { cards: Risk2Card[] }) {
+  const stats = getCardStats(cards);
+  return (
+    <div className="flex items-center justify-center gap-1.5 sm:gap-2 flex-wrap">
+      <div className="flex items-center gap-1 px-2 py-1 rounded-lg bg-slate-800/60 border border-slate-700/30 text-emerald-400">
+        <span className="text-[10px] sm:text-xs font-bold">{stats.numbers}</span>
+        <span className="text-[8px] text-slate-500 hidden sm:inline">رقم</span>
+      </div>
+      <div className="flex items-center gap-1 px-2 py-1 rounded-lg bg-slate-800/60 border border-slate-700/30 text-red-400">
+        <Bomb className="w-3 h-3" />
+        <span className="text-[10px] sm:text-xs font-bold">{stats.bombs}</span>
+      </div>
+      <div className="flex items-center gap-1 px-2 py-1 rounded-lg bg-slate-800/60 border border-slate-700/30 text-slate-400">
+        <SkipForward className="w-3 h-3" />
+        <span className="text-[10px] sm:text-xs font-bold">{stats.skips}</span>
+      </div>
+      <div className="flex items-center gap-1 px-2 py-1 rounded-lg bg-slate-800/60 border border-slate-700/30 text-amber-400">
+        <span className="text-[10px] font-bold">×2</span>
+        <span className="text-[10px] sm:text-xs font-bold">{stats.doubles}</span>
+      </div>
+      <div className="flex items-center gap-1 px-2 py-1 rounded-lg bg-slate-800/60 border border-slate-700/30 text-purple-400">
+        <span className="text-[10px] font-bold">×3</span>
+        <span className="text-[10px] sm:text-xs font-bold">{stats.triples}</span>
+      </div>
+      <div className="flex items-center gap-1 px-2 py-1 rounded-lg bg-slate-800/60 border border-slate-700/30 text-slate-300">
+        <span className="text-[10px] sm:text-xs font-bold">{stats.hidden}</span>
+        <span className="text-[8px] text-slate-500 hidden sm:inline">متبقي</span>
+      </div>
+    </div>
+  );
+}
+
+// ============================================================
+// Scoreboard
+// ============================================================
+function Scoreboard({ players, currentPlayerIndex, targetScore }: {
+  players: Risk2Player[];
+  currentPlayerIndex: number;
+  targetScore: number;
+}) {
+  const sorted = [...players].sort((a, b) => b.score - a.score);
+
+  return (
+    <div className="w-full max-w-lg mx-auto space-y-1.5">
+      {sorted.map((player, idx) => {
+        const isCurrent = players.indexOf(player) === currentPlayerIndex;
+        const progress = Math.min((player.score / targetScore) * 100, 100);
+
+        return (
+          <motion.div
+            key={player.id}
+            layout
+            className={`flex items-center gap-2 px-3 py-2 rounded-xl transition-all ${
+              isCurrent
+                ? 'bg-orange-950/30 border border-orange-500/40 shadow-lg shadow-orange-500/10'
+                : 'bg-slate-800/30 border border-slate-700/20'
+            }`}
+          >
+            <span className="text-[10px] text-slate-500 w-4 text-center font-bold">
+              {idx + 1}
+            </span>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2">
+                <span className={`text-xs font-bold truncate ${isCurrent ? 'text-orange-300' : 'text-slate-300'}`}>
+                  {player.name}
+                </span>
+                {isCurrent && (
+                  <motion.span
+                    initial={{ scale: 0 }}
+                    animate={{ scale: 1 }}
+                    className="text-[8px] px-1.5 py-0.5 rounded bg-orange-500/20 text-orange-300 font-bold shrink-0"
+                  >
+                    ◀ الآن
+                  </motion.span>
+                )}
+                {player.roundScore > 0 && (
+                  <motion.span
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    className="text-[9px] px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-bold shrink-0"
+                  >
+                    +{player.roundScore}
+                  </motion.span>
+                )}
+              </div>
+              <div className="mt-1 h-1 rounded-full bg-slate-800/80 overflow-hidden">
+                <motion.div
+                  initial={{ width: 0 }}
+                  animate={{ width: `${progress}%` }}
+                  className={`h-full rounded-full transition-all ${
+                    progress >= 100 ? 'bg-yellow-400' : isCurrent ? 'bg-orange-500' : 'bg-slate-600'
+                  }`}
+                />
+              </div>
+            </div>
+            <span className={`text-sm font-black shrink-0 ${progress >= 100 ? 'text-yellow-400' : 'text-white'}`}>
+              {player.score}
+            </span>
+          </motion.div>
+        );
+      })}
+    </div>
+  );
+}
+
+// ============================================================
+// Drawn This Turn Display
+// ============================================================
+function DrawnThisTurn({ cards }: { cards: Risk2Card[] }) {
+  if (cards.length === 0) return null;
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: -10 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="w-full max-w-lg mx-auto"
+    >
+      <div className="flex items-center gap-2 mb-1.5">
+        <span className="text-[10px] text-slate-500 font-bold">بطاقات هذه الجولة:</span>
+        <div className="flex-1 h-px bg-slate-800/50" />
+      </div>
+      <div className="flex items-center gap-1.5 flex-wrap">
+        {cards.map((card) => (
+          <motion.div
+            key={card.id}
+            initial={{ scale: 0, rotate: -10 }}
+            animate={{ scale: 1, rotate: 0 }}
+            className={`w-10 h-12 sm:w-11 sm:h-13 rounded-lg flex flex-col items-center justify-center border-2 ${
+              card.type === 'number'
+                ? `${CARD_COLORS[card.color as CardColor].bg} ${CARD_COLORS[card.color as CardColor].border}`
+                : card.type === 'bomb'
+                  ? 'bg-red-950/40 border-red-500/40'
+                  : card.type === 'skip'
+                    ? 'bg-slate-800/60 border-slate-600/40'
+                    : card.type === 'double'
+                      ? 'bg-amber-950/40 border-amber-500/40'
+                      : 'bg-purple-950/40 border-purple-500/40'
+            }`}
+          >
+            {card.type === 'number' ? (
+              <span className={`text-base font-black ${CARD_COLORS[card.color as CardColor].text}`}>
+                {card.number}
+              </span>
+            ) : (
+              <span className="text-sm">{SPECIAL_CARD_INFO[card.type].emoji}</span>
+            )}
+          </motion.div>
+        ))}
+      </div>
+    </motion.div>
+  );
+}
+
+// ============================================================
+// Grid Card
+// ============================================================
+function GridCard({ card, onClick }: { card: Risk2Card; onClick?: () => void }) {
+  const canClick = !card.revealed && onClick;
+
+  if (card.revealed) {
+    if (card.type === 'number') {
+      const colorInfo = CARD_COLORS[card.color as CardColor];
+      return (
+        <motion.div
+          initial={{ rotateY: 180, opacity: 0 }}
+          animate={{ rotateY: 0, opacity: 1 }}
+          transition={{ type: 'spring', damping: 15 }}
+          className={`w-full aspect-square rounded-lg border-2 flex items-center justify-center ${colorInfo.bg} ${colorInfo.border}`}
+        >
+          <span className={`text-lg sm:text-xl font-black ${colorInfo.text}`}>
+            {card.number}
+          </span>
+        </motion.div>
+      );
+    }
+
+    const specialInfo = SPECIAL_CARD_INFO[card.type];
+    return (
+      <motion.div
+        initial={{ rotateY: 180, opacity: 0 }}
+        animate={{ rotateY: 0, opacity: 1 }}
+        transition={{ type: 'spring', damping: 15 }}
+        className={`w-full aspect-square rounded-lg border-2 bg-gradient-to-br ${specialInfo.bg} border-white/10 flex flex-col items-center justify-center`}
+      >
+        <span className="text-xl sm:text-2xl">{specialInfo.emoji}</span>
+        <span className="text-[8px] font-bold mt-0.5" style={{ color: specialInfo.color }}>
+          {specialInfo.label}
+        </span>
+      </motion.div>
+    );
+  }
+
+  return (
+    <motion.button
+      whileTap={canClick ? { scale: 0.9 } : undefined}
+      onClick={onClick}
+      disabled={!canClick}
+      className={`w-full aspect-square rounded-lg bg-gradient-to-br from-slate-800 via-slate-700/80 to-slate-800 border-2 border-slate-600/40 flex items-center justify-center transition-all ${
+        canClick
+          ? 'cursor-pointer hover:ring-2 hover:ring-orange-400/50 hover:scale-[1.03] active:scale-95'
+          : 'cursor-default'
+      }`}
+    >
+      <span className="text-slate-600 text-[9px] sm:text-[10px] font-bold">
+        {card.index + 1}
+      </span>
+    </motion.button>
+  );
+}
+
+// ============================================================
+// Result Modal
+// ============================================================
+function ResultModal({
+  card,
+  currentPlayer,
+  matchReason,
+  turnState,
+  onContinue,
+  onBank,
+  onAdvance,
+  deckNumber,
+}: {
+  card: Risk2Card;
+  currentPlayer: Risk2Player;
+  matchReason: string;
+  turnState: string;
+  onContinue: () => void;
+  onBank: () => void;
+  onAdvance: () => void;
+  deckNumber: number;
+}) {
+  const handleBackdropClick = () => {
+    if (turnState === 'showing_result' || turnState === 'turn_lost') {
+      onAdvance();
+    }
+  };
+
+  let title = '';
+  let desc = '';
+  let color = '#fff';
+
+  if (card.type === 'number') {
+    const colorInfo = CARD_COLORS[card.color as CardColor];
+    if (turnState === 'turn_lost') {
+      title = '❌ خسرت الدور!';
+      desc = matchReason;
+      color = '#ef4444';
+    } else {
+      title = `${card.number} ${colorInfo.emoji}`;
+      desc = `${colorInfo.label} — آمن!`;
+      color = colorInfo.hex;
+    }
+  } else {
+    const info = SPECIAL_CARD_INFO[card.type];
+    title = `${info.emoji} ${info.label}`;
+    desc = info.desc;
+    color = info.color;
+  }
+
+  return (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      className="fixed inset-0 z-[150] flex items-center justify-center bg-black/80 p-4"
+      onClick={handleBackdropClick}
+    >
+      <motion.div
+        initial={{ scale: 0.8, y: 20 }}
+        animate={{ scale: 1, y: 0 }}
+        exit={{ scale: 0.8, y: 20 }}
+        onClick={(e) => e.stopPropagation()}
+        className="bg-slate-900 border border-slate-700 rounded-2xl p-6 max-w-sm w-full shadow-2xl text-center"
+      >
+        {/* Card Display */}
+        <motion.div
+          initial={{ scale: 0 }}
+          animate={{ scale: 1 }}
+          transition={{ type: 'spring', damping: 10, delay: 0.1 }}
+          className="text-5xl mb-3"
+        >
+          {card.type === 'number'
+            ? <span className="text-4xl" style={{ color }}><span className="text-2xl">{CARD_COLORS[card.color as CardColor].emoji}</span> {card.number}</span>
+            : <span>{SPECIAL_CARD_INFO[card.type].emoji}</span>
+          }
+        </motion.div>
+
+        <h2 className="text-xl font-black mb-2" style={{ color }}>
+          {title}
+        </h2>
+
+        <p className="text-sm text-slate-300 mb-1">{desc}</p>
+
+        <p className="text-xs text-slate-500 mb-4">{currentPlayer.name}</p>
+
+        {/* Score Info */}
+        {card.type === 'number' && turnState === 'turn_lost' && (
+          <motion.p
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            className="text-sm text-red-400 font-bold mb-4"
+          >
+            خسرت {currentPlayer.roundScore === 0 && matchReason ? '' : 'جميع'} نقاط الجولة!
+          </motion.p>
+        )}
+
+        {/* Action Buttons */}
+        {card.type === 'number' && turnState === 'waiting_for_decision' && (
+          <div className="space-y-2">
+            <motion.button
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+              onClick={onContinue}
+              className="w-full py-3 rounded-xl font-bold text-sm bg-gradient-to-l from-emerald-600 to-green-700 hover:from-emerald-500 hover:to-green-600 text-white transition-all cursor-pointer flex items-center justify-center gap-2"
+            >
+              <Play className="w-4 h-4" />
+              استمر ▶
+            </motion.button>
+            <motion.button
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+              onClick={onBank}
+              className="w-full py-3 rounded-xl font-bold text-sm bg-gradient-to-l from-amber-600 to-yellow-700 hover:from-amber-500 hover:to-yellow-600 text-white transition-all cursor-pointer flex items-center justify-center gap-2"
+            >
+              <Wallet className="w-4 h-4" />
+              احفظ 💰 ({currentPlayer.roundScore} نقطة)
+            </motion.button>
+          </div>
+        )}
+
+        {/* Universal continue for showing_result / turn_lost */}
+        {(turnState === 'showing_result' || turnState === 'turn_lost') && (
+          <motion.button
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
+            onClick={onAdvance}
+            className="w-full py-3 rounded-xl font-bold text-sm bg-gradient-to-l from-orange-600 to-red-700 hover:from-orange-500 hover:to-red-600 text-white transition-all cursor-pointer flex items-center justify-center gap-2"
+          >
+            متابعة ▶
+          </motion.button>
+        )}
+      </motion.div>
+    </motion.div>
+  );
+}
+
+// ============================================================
+// New Deck Notification
+// ============================================================
+function NewDeckNotification({ deckNumber }: { deckNumber: number }) {
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: -10 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -10 }}
+      className="w-full max-w-lg mx-auto text-center py-2 px-4 rounded-xl border bg-orange-950/30 border-orange-500/30 text-orange-300 mb-2"
+    >
+      <p className="text-xs font-bold flex items-center justify-center gap-2">
+        <Sparkles className="w-4 h-4" />
+        مجموعة جديدة #{deckNumber} من البطاقات!
+        <Sparkles className="w-4 h-4" />
+      </p>
+    </motion.div>
+  );
+}
+
+// ============================================================
+// Game Log Panel
+// ============================================================
+function GameLogPanel() {
+  const { gameLog } = useRisk2Store();
+  const [isOpen, setIsOpen] = useState(false);
+  const logEndRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (isOpen && logEndRef.current) {
+      logEndRef.current.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [gameLog, isOpen]);
+
+  return (
+    <div className="w-full max-w-lg mx-auto mt-2">
+      <button
+        onClick={() => setIsOpen(!isOpen)}
+        className="w-full flex items-center justify-between px-4 py-2 bg-slate-800/80 border border-slate-700/50 rounded-xl text-xs font-bold text-slate-300 hover:bg-slate-700/80 transition-all cursor-pointer"
+      >
+        <span className="flex items-center gap-2">
+          <ScrollText className="w-3.5 h-3.5" />
+          سجل اللعبة ({gameLog.length})
+        </span>
+        <span className="text-slate-500">{isOpen ? '▲' : '▼'}</span>
+      </button>
+      {isOpen && (
+        <div className="mt-1 max-h-[40vh] overflow-y-auto bg-slate-900/80 border border-slate-700/30 rounded-xl p-3 space-y-1">
+          {gameLog.length === 0 ? (
+            <p className="text-center text-slate-600 text-xs py-4">لا تحركات بعد...</p>
+          ) : (
+            gameLog.map((entry) => (
+              <div key={entry.id} className="flex items-center gap-2 text-[11px] py-1 px-2 rounded-lg bg-slate-800/30 text-slate-300">
+                <span className="font-bold text-slate-500 w-5 text-center">{entry.id}.</span>
+                <span className="flex-1">{entry.action}</span>
+              </div>
+            ))
+          )}
+          <div ref={logEndRef} />
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ============================================================
+// Main GameBoard
+// ============================================================
+export default function GameBoard() {
+  const {
+    players,
+    currentPlayerIndex,
+    cards,
+    turnState,
+    lastDrawnCard,
+    drawnThisTurn,
+    matchReason,
+    deckNumber,
+    config,
+    drawCard,
+    continueTurn,
+    bankPoints,
+    advanceTurn,
+  } = useRisk2Store();
+
+  const cols = getGridCols(cards.length);
+  const currentPlayer = players[currentPlayerIndex];
+
+  // Check if deck was just regenerated
+  const [prevDeckNumber, setPrevDeckNumber] = useState(deckNumber);
+  const [showNewDeck, setShowNewDeck] = useState(false);
+
+  useEffect(() => {
+    if (deckNumber > prevDeckNumber) {
+      setShowNewDeck(true);
+      const timer = setTimeout(() => setShowNewDeck(false), 3000);
+      setPrevDeckNumber(deckNumber);
+      return () => clearTimeout(timer);
+    }
+  }, [deckNumber, prevDeckNumber]);
+
+  const shouldShowModal = (turnState === 'waiting_for_decision' || turnState === 'showing_result' || turnState === 'turn_lost') && !!lastDrawnCard;
+
+  if (!currentPlayer) return null;
+
+  return (
+    <div className="flex flex-col items-center px-3 sm:px-4 py-3 sm:py-4" dir="rtl">
+      {/* Title */}
+      <div className="text-center mb-3">
+        <h1 className="text-xl sm:text-2xl font-black text-transparent bg-clip-text bg-gradient-to-r from-orange-400 via-red-300 to-amber-400">
+          🎴 المجازفة 2
+        </h1>
+        <p className="text-[10px] text-slate-500">الهدف: {config.targetScore} نقطة</p>
+      </div>
+
+      {/* Stats Bar */}
+      <div className="mb-2 w-full">
+        <StatsBar cards={cards} />
+      </div>
+
+      {/* Scoreboard */}
+      <div className="w-full mb-3">
+        <Scoreboard
+          players={players}
+          currentPlayerIndex={currentPlayerIndex}
+          targetScore={config.targetScore}
+        />
+      </div>
+
+      {/* New Deck Notification */}
+      <AnimatePresence>
+        {showNewDeck && <NewDeckNotification deckNumber={deckNumber} />}
+      </AnimatePresence>
+
+      {/* Turn Instruction */}
+      <AnimatePresence mode="wait">
+        {turnState === 'waiting_for_draw' && (
+          <motion.div
+            key="waiting_draw"
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 10 }}
+            className="w-full max-w-lg mx-auto text-center py-2 px-4 rounded-xl border mb-3 bg-orange-950/30 border-orange-500/30 text-orange-300"
+          >
+            <p className="text-xs sm:text-sm font-bold flex items-center justify-center gap-2">
+              <AlertTriangle className="w-4 h-4" />
+              اختر بطاقة — {currentPlayer.name}
+            </p>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Drawn This Turn */}
+      {(turnState !== 'waiting_for_draw' || drawnThisTurn.length > 0) && (
+        <div className="mb-3">
+          <DrawnThisTurn cards={drawnThisTurn} />
+        </div>
+      )}
+
+      {/* Card Grid */}
+      <div className="w-full max-w-lg mx-auto mb-3">
+        <div className="grid gap-1 sm:gap-1.5" style={{ gridTemplateColumns: `repeat(${cols}, 1fr)` }}>
+          {cards.map((card) => (
+            <GridCard
+              key={card.id}
+              card={card}
+              onClick={
+                turnState === 'waiting_for_draw' && !card.revealed
+                  ? () => drawCard(card.id)
+                  : undefined
+              }
+            />
+          ))}
+        </div>
+      </div>
+
+      {/* Game Log */}
+      <GameLogPanel />
+
+      {/* Result Modal */}
+      <AnimatePresence mode="wait">
+        {shouldShowModal && (
+          <ResultModal
+            key={`modal-${lastDrawnCard!.id}-${turnState}`}
+            card={lastDrawnCard!}
+            currentPlayer={currentPlayer}
+            matchReason={matchReason}
+            turnState={turnState}
+            onContinue={continueTurn}
+            onBank={bankPoints}
+            onAdvance={advanceTurn}
+            deckNumber={deckNumber}
+          />
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}

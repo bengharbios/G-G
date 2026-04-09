@@ -13,7 +13,7 @@ interface LandingPageProps {
   onJoinSpectator?: (code: string, name: string) => void;
 }
 
-const FLOATING_EMOJIS = ['💣', '✅', '💰', '⏭️', '🃏', '💣', '✅', '💰', '💣', '🃏'];
+const FLOATING_EMOJIS = ['💣', '🔴', '✨', '🔥', '🃏', '💣', '🟣', '💰', '💣', '🃏'];
 
 export default function LandingPage({ onStartLocal, onStartDiwaniya, onJoinSpectator }: LandingPageProps) {
   const [selectedMode, setSelectedMode] = useState<'classic' | 'diwaniya' | null>(null);
@@ -142,7 +142,7 @@ export default function LandingPage({ onStartLocal, onStartDiwaniya, onJoinSpect
                             🎮 العراب
                           </h3>
                           <p className="text-[10px] sm:text-xs text-slate-400 leading-relaxed">
-                            فرق على جهاز واحد — العراب يتحكم باللعبة
+                            لاعبين على جهاز واحد — العراب يتحكم باللعبة
                           </p>
                         </div>
                       </div>
@@ -212,11 +212,11 @@ export default function LandingPage({ onStartLocal, onStartDiwaniya, onJoinSpect
                       </div>
                       <div className="flex items-center gap-2 text-xs text-slate-300">
                         <Users className="w-4 h-4 text-violet-400 shrink-0" />
-                        <span>2-4 فرق تتنافس على النقاط</span>
+                        <span>لاعبين فرديين يتنافسون على النقاط</span>
                       </div>
                       <div className="flex items-center gap-2 text-xs text-slate-300">
                         <Zap className="w-4 h-4 text-violet-400 shrink-0" />
-                        <span>اسحب البطاقات واجمع النقاط — احذر القنابل!</span>
+                        <span>اسحب البطاقات واحذر التطابق في اللون أو الرقم!</span>
                       </div>
                     </div>
                   )}
@@ -368,24 +368,34 @@ export default function LandingPage({ onStartLocal, onStartDiwaniya, onJoinSpect
               <Card className="bg-slate-900/80 border-slate-700/50">
                 <CardContent className="pt-4 text-xs sm:text-sm text-slate-300 space-y-3">
                   <div>
-                    <h4 className="font-bold text-violet-400 mb-1">🃏 البطاقات:</h4>
+                    <h4 className="font-bold text-violet-400 mb-1">🃏 البطاقات (50 بطاقة):</h4>
                     <ul className="space-y-1 text-slate-400 pr-4">
-                      <li>✅ بطاقة آمنة — حصلت على نقاط (1-5)</li>
-                      <li>💣 قنبلة — خسرت جميع نقاط الجولة!</li>
-                      <li>⏭️ تخطي — انتقل الدور للفريق التالي</li>
+                      <li>🔢 ٤٥ بطاقة أرقام — الأرقام ١-٩ بـ ٥ ألوان (أحمر، أزرق، أخضر، أصفر، بنفسجي)</li>
+                      <li>💣 ٢ بطاقة قنبلة — خسرت جميع نقاط الجولة!</li>
+                      <li>⏭️ ١ بطاقة تخطي — تم تخطي دورك</li>
+                      <li>✨ ١ بطاقة دابل — مضاعف النقاط ×٢</li>
+                      <li>🔥 ١ بطاقة تريبل — مضاعف النقاط ×٣</li>
                     </ul>
                   </div>
                   <div>
                     <h4 className="font-bold text-emerald-400 mb-1">🎯 طريقة اللعب:</h4>
                     <ul className="space-y-1 text-slate-400 pr-4">
-                      <li>كل فريق يسحب بطاقة بالدور</li>
+                      <li>كل لاعب يسحب بطاقة بالدور ونجمع النقاط</li>
+                      <li>⚠️ إذا البطاقة المربوطة نفس <strong className="text-red-400">اللون</strong> أو نفس <strong className="text-red-400">الرقم</strong> لبطاقة سابقة في نفس الجولة → <strong className="text-red-400">خسرت كل نقاط الجولة!</strong></li>
                       <li>بعد سحب بطاقة آمنة: اختر &quot;استمر&quot; أو &quot;احفظ&quot;</li>
-                      <li>&quot;استمر&quot; = سحب بطاقة أخرى (مخاطرة أكبر!)</li>
+                      <li>&quot;استمر&quot; = سحب بطاقة أخرى (مخاطرة!)</li>
                       <li>&quot;احفظ&quot; = إضافة نقاط الجولة للنقاط الكلية</li>
                     </ul>
                   </div>
+                  <div>
+                    <h4 className="font-bold text-amber-400 mb-1">🏆 الفوز:</h4>
+                    <ul className="space-y-1 text-slate-400 pr-4">
+                      <li>اللاعب الأول الذي يوصل للهدف يفوز!</li>
+                      <li>الهدف الافتراضي: ٥٠ نقطة (يمكن تغييره)</li>
+                    </ul>
+                  </div>
                   <div className="pt-2 border-t border-slate-700/50">
-                    <p className="text-violet-400/80 text-xs">🏆 الفريق الذي يجمع أعلى نقاط بعد كشف كل البطاقات يفوز</p>
+                    <p className="text-violet-400/80 text-xs">💡 عندما تخلص كل الـ ٥٠ بطاقة، يتم إنشاء مجموعة جديدة تلقائياً</p>
                   </div>
                 </CardContent>
               </Card>
