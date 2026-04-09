@@ -309,7 +309,7 @@ function ResultModal({
           <motion.button
             whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.98 }}
-            onClick={onClose}
+            onClick={onAction}
             className="w-full py-3 rounded-xl font-bold text-sm bg-gradient-to-l from-amber-600 to-orange-700 hover:from-amber-500 hover:to-orange-600 text-white transition-all cursor-pointer"
           >
             متابعة ▶
