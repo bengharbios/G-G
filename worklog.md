@@ -103,3 +103,26 @@ Stage Summary:
 - Fixed: spectator auto-joins without seeing redundant name form
 - File changed: src/app/join/prison/[code]/page.tsx
 - Flow: enter name → auto-join API → redirect with spectatorId → spectator view (no intermediate form)
+---
+Task ID: 3
+Agent: Main Agent
+Task: Fix copy code button + add copy link button in prison and tobol games
+
+Work Log:
+- Investigated all copy-to-clipboard implementations across games (prison, tobol, tabot, mafia, diwaniya)
+- Found prison copy button used bare `navigator.clipboard.writeText()` without feedback or error handling
+- Found same issue in tobol/page.tsx and tobol/GameBoard.tsx
+- Fixed all three files:
+  1. src/app/prison/page.tsx - copyCode + copyLink with .then()/.catch() fallback + visual feedback (Check/Copy icons)
+  2. src/app/tobol/page.tsx - same pattern
+  3. src/components/tobol/GameBoard.tsx - same pattern for RoomCodeBanner
+- Added copy link button (🔗 نسخ رابط الانضمام) to both prison and tobol GameTopBar
+- Link format: `${window.location.origin}/join/prison/${roomCode}` and `/join/tobol/${roomCode}`
+- Used document.execCommand('copy') as fallback for non-HTTPS contexts
+- Added icons: Copy, Check, Link2 from lucide-react
+- Visual feedback: icon toggles Copy→Check for 2 seconds, text changes to "تم!" / "✅ تم نسخ الرابط!"
+
+Stage Summary:
+- Copy code button now works reliably with fallback for non-HTTPS
+- New copy link button added for sharing full join URL
+- Fixed in 3 files: prison/page.tsx, tobol/page.tsx, tobol/GameBoard.tsx

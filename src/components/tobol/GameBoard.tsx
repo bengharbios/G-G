@@ -148,9 +148,21 @@ function NotificationBar() {
 function RoomCodeBanner({ code }: { code: string }) {
   const [copied, setCopied] = useState(false);
   const copy = () => {
-    navigator.clipboard.writeText(code);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+    navigator.clipboard.writeText(code).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }).catch(() => {
+      const ta = document.createElement('textarea');
+      ta.value = code;
+      ta.style.position = 'fixed';
+      ta.style.opacity = '0';
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand('copy');
+      document.body.removeChild(ta);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
   };
   return (
     <div className="bg-gradient-to-l from-red-900/50 to-blue-900/50 border border-red-500/30 rounded-xl p-2.5 sm:p-3 mx-3 sm:mx-4 mt-2">

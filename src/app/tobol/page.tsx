@@ -10,7 +10,7 @@ import GameBoard from '@/components/tobol/GameBoard';
 import TobolGameOver from '@/components/tobol/TobolGameOver';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Home as HomeIcon, RotateCcw, Eye } from 'lucide-react';
+import { Home as HomeIcon, RotateCcw, Eye, Copy, Check, Link2 } from 'lucide-react';
 
 // ============================================================
 // Hydration guard
@@ -137,6 +137,8 @@ function GameTopBar() {
   const [showViewers, setShowViewers] = useState(false);
   const [spectators, setSpectators] = useState<{ id: string; name: string; joinedAt: number }[]>([]);
   const [viewerCount, setViewerCount] = useState(0);
+  const [copiedCode, setCopiedCode] = useState(false);
+  const [copiedLink, setCopiedLink] = useState(false);
 
   const isGameOver = phase === 'game_over';
 
@@ -171,6 +173,45 @@ function GameTopBar() {
   const handleReset = () => {
     resetGame();
     setShowResetConfirm(false);
+  };
+
+  const copyCode = () => {
+    if (!roomCode) return;
+    navigator.clipboard.writeText(roomCode).then(() => {
+      setCopiedCode(true);
+      setTimeout(() => setCopiedCode(false), 2000);
+    }).catch(() => {
+      const ta = document.createElement('textarea');
+      ta.value = roomCode;
+      ta.style.position = 'fixed';
+      ta.style.opacity = '0';
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand('copy');
+      document.body.removeChild(ta);
+      setCopiedCode(true);
+      setTimeout(() => setCopiedCode(false), 2000);
+    });
+  };
+
+  const copyLink = () => {
+    if (!roomCode) return;
+    const link = `${window.location.origin}/join/tobol/${roomCode}`;
+    navigator.clipboard.writeText(link).then(() => {
+      setCopiedLink(true);
+      setTimeout(() => setCopiedLink(false), 2000);
+    }).catch(() => {
+      const ta = document.createElement('textarea');
+      ta.value = link;
+      ta.style.position = 'fixed';
+      ta.style.opacity = '0';
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand('copy');
+      document.body.removeChild(ta);
+      setCopiedLink(true);
+      setTimeout(() => setCopiedLink(false), 2000);
+    });
   };
 
   return (
@@ -259,18 +300,26 @@ function GameTopBar() {
       {/* Room Code Banner (Diwaniya) */}
       {gameMode === 'diwaniya' && roomCode && (
         <div className="bg-gradient-to-l from-red-900/50 to-blue-900/50 border-b border-red-500/30 py-2 px-4">
-          <div className="max-w-md mx-auto flex items-center justify-between">
-            <div>
-              <p className="text-[10px] sm:text-xs text-red-300">كود الغرفة - شاركه مع المشاهدين:</p>
-              <p className="text-xl sm:text-2xl font-mono font-bold text-white tracking-widest">{roomCode}</p>
+          <div className="max-w-md mx-auto">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-[10px] sm:text-xs text-red-300">📺 شارك هذا الكود مع المشاهدين:</p>
+                <p className="text-xl sm:text-2xl font-mono font-bold text-white tracking-widest">{roomCode}</p>
+              </div>
+              <button
+                onClick={copyCode}
+                className="flex items-center gap-1.5 text-xs bg-red-800/50 text-red-200 px-3 py-1.5 rounded-lg hover:bg-red-700/50 transition-colors cursor-pointer"
+              >
+                {copiedCode ? <Check className="w-4 h-4 text-green-400" /> : <Copy className="w-4 h-4" />}
+                {copiedCode ? 'تم!' : 'نسخ الكود'}
+              </button>
             </div>
             <button
-              onClick={() => {
-                navigator.clipboard.writeText(roomCode);
-              }}
-              className="text-xs bg-red-800/50 text-red-200 px-3 py-1.5 rounded-lg hover:bg-red-700/50"
+              onClick={copyLink}
+              className="w-full mt-2 flex items-center justify-center gap-1.5 text-xs bg-blue-800/30 text-blue-200 px-3 py-2 rounded-lg hover:bg-blue-700/30 transition-colors cursor-pointer"
             >
-              📋 نسخ
+              <Link2 className="w-3.5 h-3.5" />
+              {copiedLink ? '✅ تم نسخ الرابط!' : '🔗 نسخ رابط الانضمام'}
             </button>
           </div>
         </div>
