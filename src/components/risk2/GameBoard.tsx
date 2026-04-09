@@ -43,7 +43,7 @@ function StatsBar({ cards }: { cards: Risk2Card[] }) {
 }
 
 // ============================================================
-// Scoreboard
+// Scoreboard — compact when > 4 players, expandable
 // ============================================================
 function Scoreboard({ players, currentPlayerIndex, targetScore }: {
   players: Risk2Player[];
@@ -51,71 +51,102 @@ function Scoreboard({ players, currentPlayerIndex, targetScore }: {
   targetScore: number;
 }) {
   const sorted = [...players].sort((a, b) => b.score - a.score);
+  const isMany = players.length > 4;
+  const [expanded, setExpanded] = useState(!isMany);
+
+  // Always show current player at top when collapsed
+  const currentPlayer = players[currentPlayerIndex];
+
+  // Compact single-line view for collapsed mode with many players
+  if (isMany && !expanded) {
+    return (
+      <div className="w-full max-w-lg mx-auto">
+        <button
+          onClick={() => setExpanded(true)}
+          className="w-full flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-800/40 border border-slate-700/20 hover:bg-slate-800/60 transition-colors cursor-pointer"
+        >
+          <span className="text-[10px] text-slate-500 font-bold">👥</span>
+          <span className="text-[10px] text-slate-400 flex-1 text-right">{currentPlayer?.name}</span>
+          <span className="text-[10px] text-orange-300 font-bold">◀ الآن</span>
+          {currentPlayer?.roundScore > 0 && (
+            <span className="text-[9px] text-emerald-300 font-bold">+{currentPlayer.roundScore}</span>
+          )}
+          <span className="text-xs font-black text-white">{currentPlayer?.score}</span>
+          <span className="text-[9px] text-slate-500">|</span>
+          <span className="text-[9px] text-slate-400">{sorted.map(p => `${p.name}: ${p.score}`).join(' · ')}</span>
+        </button>
+      </div>
+    );
+  }
 
   return (
-    <div className="w-full max-w-lg mx-auto space-y-1.5">
-      {sorted.map((player, idx) => {
-        const isCurrent = players.indexOf(player) === currentPlayerIndex;
-        const progress = Math.min((player.score / targetScore) * 100, 100);
+    <div className="w-full max-w-lg mx-auto">
+      {isMany && (
+        <button
+          onClick={() => setExpanded(false)}
+          className="w-full text-[9px] text-slate-500 text-left mb-1 hover:text-slate-400 transition-colors cursor-pointer"
+        >
+          ▲ طي النتائج
+        </button>
+      )}
+      <div className={isMany ? 'grid grid-cols-2 gap-1' : 'space-y-1'}>
+        {sorted.map((player, idx) => {
+          const isCurrent = players.indexOf(player) === currentPlayerIndex;
+          const progress = Math.min((player.score / targetScore) * 100, 100);
 
-        return (
-          <motion.div
-            key={player.id}
-            layout
-            className={`flex items-center gap-2 px-3 py-2 rounded-xl transition-all ${
-              isCurrent
-                ? 'bg-orange-950/30 border border-orange-500/40 shadow-lg shadow-orange-500/10'
-                : 'bg-slate-800/30 border border-slate-700/20'
-            }`}
-          >
-            <span className="text-[10px] text-slate-500 w-4 text-center font-bold">
-              {idx + 1}
-            </span>
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2">
-                <span className={`text-xs font-bold truncate ${isCurrent ? 'text-orange-300' : 'text-slate-300'}`}>
-                  {player.name}
-                </span>
-                {isCurrent && (
-                  <motion.span
-                    initial={{ scale: 0 }}
-                    animate={{ scale: 1 }}
-                    className="text-[8px] px-1.5 py-0.5 rounded bg-orange-500/20 text-orange-300 font-bold shrink-0"
-                  >
-                    ◀ الآن
-                  </motion.span>
-                )}
-                {player.roundScore > 0 && (
-                  <motion.span
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    className="text-[9px] px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-bold shrink-0"
-                  >
-                    +{player.roundScore}
-                  </motion.span>
-                )}
-                {player.multiplier > 1 && (
-                  <span className="text-[9px] px-1.5 py-0.5 rounded bg-yellow-500/20 text-yellow-300 font-bold shrink-0">
-                    ×{player.multiplier}
+          return (
+            <motion.div
+              key={player.id}
+              layout
+              className={`flex items-center gap-1.5 px-2 py-1.5 rounded-lg transition-all ${
+                isCurrent
+                  ? 'bg-orange-950/30 border border-orange-500/40'
+                  : 'bg-slate-800/30 border border-slate-700/20'
+              }`}
+            >
+              <span className="text-[9px] text-slate-500 w-3 text-center font-bold">
+                {idx + 1}
+              </span>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-1">
+                  <span className={`text-[10px] font-bold truncate ${isCurrent ? 'text-orange-300' : 'text-slate-300'}`}>
+                    {player.name}
                   </span>
+                  {isCurrent && (
+                    <span className="text-[7px] px-1 py-0 rounded bg-orange-500/20 text-orange-300 font-bold shrink-0">
+                      ◀
+                    </span>
+                  )}
+                  {player.roundScore > 0 && (
+                    <span className="text-[8px] text-emerald-300 font-bold shrink-0">
+                      +{player.roundScore}
+                    </span>
+                  )}
+                  {player.multiplier > 1 && (
+                    <span className="text-[8px] text-yellow-300 font-bold shrink-0">
+                      ×{player.multiplier}
+                    </span>
+                  )}
+                </div>
+                {!isMany && (
+                  <div className="mt-0.5 h-1 rounded-full bg-slate-800/80 overflow-hidden">
+                    <motion.div
+                      initial={{ width: 0 }}
+                      animate={{ width: `${progress}%` }}
+                      className={`h-full rounded-full transition-all ${
+                        progress >= 100 ? 'bg-yellow-400' : isCurrent ? 'bg-orange-500' : 'bg-slate-600'
+                      }`}
+                    />
+                  </div>
                 )}
               </div>
-              <div className="mt-1 h-1 rounded-full bg-slate-800/80 overflow-hidden">
-                <motion.div
-                  initial={{ width: 0 }}
-                  animate={{ width: `${progress}%` }}
-                  className={`h-full rounded-full transition-all ${
-                    progress >= 100 ? 'bg-yellow-400' : isCurrent ? 'bg-orange-500' : 'bg-slate-600'
-                  }`}
-                />
-              </div>
-            </div>
-            <span className={`text-sm font-black shrink-0 ${progress >= 100 ? 'text-yellow-400' : 'text-white'}`}>
-              {player.score}
-            </span>
-          </motion.div>
-        );
-      })}
+              <span className={`text-xs font-black shrink-0 ${progress >= 100 ? 'text-yellow-400' : 'text-white'}`}>
+                {player.score}
+              </span>
+            </motion.div>
+          );
+        })}
+      </div>
     </div>
   );
 }
@@ -422,7 +453,7 @@ function GameLogPanel() {
   }, [gameLog, isOpen]);
 
   return (
-    <div className="w-full max-w-lg mx-auto mt-2">
+    <div className="w-full max-w-lg mx-auto mt-1">
       <button
         onClick={() => setIsOpen(!isOpen)}
         className="w-full flex items-center justify-between px-4 py-2 bg-slate-800/80 border border-slate-700/50 rounded-xl text-xs font-bold text-slate-300 hover:bg-slate-700/80 transition-all cursor-pointer"
@@ -503,22 +534,20 @@ export default function GameBoard() {
   if (!currentPlayer) return null;
 
   return (
-    <div className="flex flex-col items-center px-3 sm:px-4 py-3 sm:py-4" dir="rtl">
-      {/* Title */}
-      <div className="text-center mb-3">
-        <h1 className="text-xl sm:text-2xl font-black text-transparent bg-clip-text bg-gradient-to-r from-orange-400 via-red-300 to-amber-400">
-          🎴 المجازفة 2
-        </h1>
-        <p className="text-[10px] text-slate-500">الهدف: {config.targetScore} نقطة | {cards.length} بطاقة</p>
-      </div>
-
-      {/* Stats Bar */}
-      <div className="mb-2 w-full">
+    <div className="flex flex-col items-center px-3 sm:px-4 py-2 sm:py-3" dir="rtl">
+      {/* Title + Stats in one row */}
+      <div className="w-full max-w-lg mx-auto flex items-center justify-between gap-2 mb-2">
+        <div>
+          <h1 className="text-base sm:text-lg font-black text-transparent bg-clip-text bg-gradient-to-r from-orange-400 via-red-300 to-amber-400">
+            🎴 المجازفة 2
+          </h1>
+          <p className="text-[9px] text-slate-500">الهدف: {config.targetScore} | {cards.length} بطاقة</p>
+        </div>
         <StatsBar cards={cards} />
       </div>
 
       {/* Scoreboard */}
-      <div className="w-full mb-3">
+      <div className="w-full mb-2">
         <Scoreboard
           players={players}
           currentPlayerIndex={currentPlayerIndex}
@@ -539,7 +568,7 @@ export default function GameBoard() {
             initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 10 }}
-            className="w-full max-w-lg mx-auto text-center py-2 px-4 rounded-xl border mb-3 bg-orange-950/30 border-orange-500/30 text-orange-300"
+            className="w-full max-w-lg mx-auto text-center py-1.5 px-4 rounded-xl border mb-2 bg-orange-950/30 border-orange-500/30 text-orange-300"
           >
             <p className="text-xs sm:text-sm font-bold flex items-center justify-center gap-2">
               <AlertTriangle className="w-4 h-4" />
@@ -551,13 +580,13 @@ export default function GameBoard() {
 
       {/* Drawn This Turn */}
       {(turnState !== 'waiting_for_draw' || drawnThisTurn.length > 0) && (
-        <div className="mb-3">
+        <div className="mb-2">
           <DrawnThisTurn cards={drawnThisTurn} />
         </div>
       )}
 
       {/* Card Grid with 3D Flip */}
-      <div className="w-full max-w-lg mx-auto mb-3">
+      <div className="w-full max-w-lg mx-auto mb-2">
         <div
           className="grid gap-1.5 sm:gap-2"
           style={{
@@ -585,7 +614,7 @@ export default function GameBoard() {
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 10 }}
-            className="w-full max-w-lg mx-auto mb-3"
+            className="w-full max-w-lg mx-auto mb-2"
           >
             <motion.button
               whileHover={{ scale: 1.02 }}
