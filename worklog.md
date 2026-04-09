@@ -224,3 +224,26 @@ Stage Summary:
 - 7 files modified/created: rooms.ts (new), route.ts (root), [code]/route.ts, spectator/route.ts, heartbeat/route.ts, Risk2SpectatorView.tsx (new), join page
 - Store file (risk2-store.ts) requires no changes — syncToRoom/resetGame/startGame already use correct URL patterns
 - Spectator flow: Landing page → /join/risk2/{CODE}?name={NAME} → auto-join → redirect with spectatorId → Risk2SpectatorView
+
+---
+Task ID: 5
+Agent: Main Agent
+Task: Fix risk2 critical bugs: bomb freeze, multiplier cards, spectator API, gold colors, images
+
+Work Log:
+- **Bomb freeze fix**: `shouldShowModal` in GameBoard.tsx didn't include `bomb_exploded` turn state, so no modal rendered when bomb was drawn → game stuck. Added `bomb_exploded` to shouldShowModal, backdrop click handler, and advance button condition.
+- **Multiplier cards fix**: When ×2/×3 cards were drawn, `turnState` was set to `waiting_for_decision`, but the ResultModal only showed continue/bank buttons for `card.type === 'number'`. Changed condition to show buttons for ALL `waiting_for_decision` states, allowing players to bank after multiplier cards.
+- **Matching logic verification**: Confirmed `checkMatch()` in risk2-types.ts already checks both same color AND same number → no code changes needed.
+- **Spectator API fix**: GET `/api/risk2-room/[code]` was returning `{ ok: true, room }` where room = `{ data: {...}, spectators: [...], lastHeartbeat: ... }`. Spectator view expected flat properties like `room.players`. Fixed to return `{ ok: true, room: room.data }`.
+- **Gold multiplier colors**: Changed DrawnThisTurn in both GameBoard.tsx and Risk2SpectatorView.tsx to use consistent gold color (`bg-yellow-900/30 border-yellow-500/40`) for both ×2 and ×3 cards instead of amber for ×2 and purple for ×3.
+- **LandingPage rules update**: Updated multiplier card descriptions to show gold emojis (✨, 🔥) and mention "يمكنك المتابعة أو الحفظ" option.
+- **Skip card fix**: Fixed misleading comment and log message to indicate skip card DOES lose round points.
+- **Images**: Scraped game thumbnails from loveligo.com/game/risk, downloaded risk_1.webp and risk_2.webp, set as bgImage for risk/risk2 game cards on homepage.
+
+Stage Summary:
+- 7 files modified, 2 image files added
+- Bomb freeze fixed: game no longer gets stuck on bomb draw
+- Multiplier cards now allow banking: player can save score after ×2/×3
+- Spectator API data nesting fixed: spectators can now see game state
+- Consistent gold theming for multiplier cards across all components
+- Committed as d309856, pushed to GitHub
