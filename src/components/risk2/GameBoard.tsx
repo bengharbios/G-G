@@ -67,13 +67,15 @@ function Scoreboard({ players, currentPlayerIndex, targetScore }: {
         >
           <span className="text-[10px] text-slate-500 font-bold">👥</span>
           <span className="text-[10px] text-slate-400 flex-1 text-right">{currentPlayer?.name}</span>
-          <span className="text-[10px] text-orange-300 font-bold">◀ الآن</span>
           {currentPlayer?.roundScore > 0 && (
             <span className="text-[9px] text-emerald-300 font-bold">+{currentPlayer.roundScore}</span>
           )}
+          {currentPlayer?.multiplier > 1 && (
+            <span className="text-[8px] text-yellow-300 font-bold">×{currentPlayer.multiplier}</span>
+          )}
           <span className="text-xs font-black text-white">{currentPlayer?.score}</span>
-          <span className="text-[9px] text-slate-500">|</span>
-          <span className="text-[9px] text-slate-400">{sorted.map(p => `${p.name}: ${p.score}`).join(' · ')}</span>
+          <span className="text-[10px] text-orange-300 font-bold">◀ الآن</span>
+          <span className="text-[9px] text-slate-500 mr-auto">▼ {players.length} لاعبين</span>
         </button>
       </div>
     );
