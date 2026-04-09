@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { use, useSyncExternalStore } from 'react';
+import { useState, useEffect, useRef, useCallback, useSyncExternalStore } from 'react';
+import { use, useSearchParams } from 'react';
 import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -23,16 +23,10 @@ function useHydrated() {
 // ============================================================
 // Join Form Component
 // ============================================================
-function JoinForm({ code }: { code: string }) {
+function JoinForm({ code, initialName }: { code: string; initialName: string }) {
   const [error, setError] = useState('');
   const [attempts, setAttempts] = useState(0);
-
-  const [name, setName] = useState(() => {
-    if (typeof window === 'undefined') return '';
-    const searchParams = new URLSearchParams(window.location.search);
-    const queryName = searchParams.get('name');
-    return queryName ? decodeURIComponent(queryName) : '';
-  });
+  const [name, setName] = useState(initialName);
   const [loading, setLoading] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -211,25 +205,53 @@ function JoinForm({ code }: { code: string }) {
 export default function JoinPrisonPage({ params }: { params: Promise<{ code: string }> }) {
   const { code } = use(params);
   const mounted = useHydrated();
+  const searchParams = useSearchParams();
+  const spectatorId = searchParams.get('spectatorId');
+  const queryName = searchParams.get('name');
 
-  // Check if already joined as spectator
-  const [spectatorId, setSpectatorId] = useState<string | null>(null);
+  // Auto-join when name is in URL but no spectatorId yet
+  const [autoJoining, setAutoJoining] = useState(false);
+  const autoJoinAttempted = useRef(false);
+
+  const attemptAutoJoin = useCallback(() => {
+    if (!queryName || spectatorId || autoJoinAttempted.current) return;
+    const trimmedName = decodeURIComponent(queryName).trim();
+    if (!trimmedName) return;
+    autoJoinAttempted.current = true;
+    setAutoJoining(true);
+    fetch(`/api/prison-room/${code}/spectator`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: trimmedName }),
+    })
+      .then(res => {
+        if (!res.ok) throw new Error();
+        return res.json();
+      })
+      .then(data => {
+        if (data.success && data.spectatorId) {
+          window.location.href = `/join/prison/${code}?spectatorId=${data.spectatorId}&name=${encodeURIComponent(trimmedName)}`;
+        } else {
+          setAutoJoining(false);
+        }
+      })
+      .catch(() => {
+        setAutoJoining(false);
+      });
+  }, [code, queryName, spectatorId]);
 
   useEffect(() => {
-    if (typeof window === 'undefined') return;
-    const searchParams = new URLSearchParams(window.location.search);
-    const sid = searchParams.get('spectatorId');
-    if (sid) {
-      setSpectatorId(sid);
+    if (mounted) {
+      attemptAutoJoin();
     }
-  }, []);
+  }, [mounted, attemptAutoJoin]);
 
-  if (!mounted) {
+  if (!mounted || autoJoining) {
     return (
       <div className="min-h-screen flex items-center justify-center prison-bg">
         <div className="text-center">
           <div className="text-5xl mb-4 animate-bounce">🔒</div>
-          <p className="text-slate-400">جاري التحميل...</p>
+          <p className="text-slate-400">{autoJoining ? 'جاري الانضمام كمشاهد...' : 'جاري التحميل...'}</p>
         </div>
       </div>
     );
@@ -240,10 +262,10 @@ export default function JoinPrisonPage({ params }: { params: Promise<{ code: str
     return <PrisonSpectatorView roomCode={code} />;
   }
 
-  // Otherwise show join form
+  // Otherwise show join form (fallback for direct navigation without name)
   return (
     <div className="min-h-screen flex flex-col items-center justify-center p-4 prison-bg" dir="rtl">
-      <JoinForm code={code} />
+      <JoinForm code={code} initialName={queryName ? decodeURIComponent(queryName) : ''} />
     </div>
   );
 }

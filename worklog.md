@@ -85,3 +85,21 @@ Stage Summary:
 - Room code sharing for diwaniya mode
 - All images stored at /public/img/prison/
 - Game features: imprison opponents, self-imprison, execution, free teammates, skip turn
+---
+Task ID: 2
+Agent: Main Agent
+Task: Fix double name prompt in prison Diwaniya spectator join flow
+
+Work Log:
+- Investigated join flow: Landing page → /join/prison/{CODE}?name={NAME} → JoinForm (asks name again)
+- Root cause: JoinForm always rendered even when ?name= was in URL from landing page
+- Fix: Added auto-join logic in JoinPrisonPage that auto-calls spectator API when ?name= present but no ?spectatorId=
+- Shows loading state "جاري الانضمام كمشاهد..." during auto-join
+- Falls back to JoinForm (with name pre-filled) on API error
+- Restructured component to use useSearchParams + ref-based approach to avoid extra lint issues
+- JoinForm now accepts initialName prop for pre-filling
+
+Stage Summary:
+- Fixed: spectator auto-joins without seeing redundant name form
+- File changed: src/app/join/prison/[code]/page.tsx
+- Flow: enter name → auto-join API → redirect with spectatorId → spectator view (no intermediate form)
