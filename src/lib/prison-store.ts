@@ -245,6 +245,13 @@ export const usePrisonStore = create<PrisonState>()(
             );
             newState.players = newPlayers;
             newState.interactionState = 'showing_result';
+
+            // Check game end after imprisonment
+            const uniformGameEnd = checkGameEnd(newPlayers, newGrid);
+            if (uniformGameEnd.ended) {
+              newState.winner = uniformGameEnd.winner;
+              newState.winReason = uniformGameEnd.reason;
+            }
             break;
           }
           case 'skull': {
@@ -304,18 +311,23 @@ export const usePrisonStore = create<PrisonState>()(
         const target = state.players.find(p => p.id === targetId);
         const newLog = addLog(state, state.currentTeam, target?.name || '', 'تم سجنه!', 'open');
 
+        // Check game end after imprisonment
+        const gameEndCheck = checkGameEnd(newPlayers, state.grid);
+
         set({
           players: newPlayers,
           interactionState: 'showing_result',
           selectedTargetId: targetId,
           gameLog: [...state.gameLog, newLog],
           logCounter: state.logCounter + 1,
+          ...(gameEndCheck.ended ? { winner: gameEndCheck.winner, winReason: gameEndCheck.reason } : {}),
         });
 
         syncToRoom(get(), {
           players: newPlayers,
           interactionState: 'showing_result',
           selectedTargetId: targetId,
+          ...(gameEndCheck.ended ? { winner: gameEndCheck.winner, winReason: gameEndCheck.reason } : {}),
         });
       },
 
@@ -363,36 +375,67 @@ export const usePrisonStore = create<PrisonState>()(
         const state = get();
         if (state.interactionState !== 'showing_result') return;
 
+        // First check if game should end (winner was set during reveal/imprison)
+        if (state.winner !== null) {
+          set({
+            phase: 'game_over',
+            interactionState: 'game_over',
+            revealedCell: null,
+            currentPlayerId: null,
+          });
+          syncToRoom(get(), {
+            phase: 'game_over',
+            interactionState: 'game_over',
+          });
+          return;
+        }
+
+        // Check game end condition
+        const gameEndCheck = checkGameEnd(state.players, state.grid);
+        if (gameEndCheck.ended) {
+          set({
+            phase: 'game_over',
+            winner: gameEndCheck.winner,
+            winReason: gameEndCheck.reason,
+            interactionState: 'game_over',
+            revealedCell: null,
+            currentPlayerId: null,
+          });
+          syncToRoom(get(), {
+            phase: 'game_over',
+            winner: gameEndCheck.winner,
+            winReason: gameEndCheck.reason,
+            interactionState: 'game_over',
+          });
+          return;
+        }
+
         const opponentTeam: PrisonTeam = state.currentTeam === 'alpha' ? 'beta' : 'alpha';
 
         // Check if there are active players on the next team
         const nextTeamActive = state.players.some(p => p.team === opponentTeam && p.status === 'active');
-        const currentTeamActive = state.players.some(p => p.team === state.currentTeam && p.status === 'active');
 
         let nextTeam = opponentTeam;
-        if (!nextTeamActive && !currentTeamActive) {
-          // Both teams have no active players - check game end
-          const gameEndCheck = checkGameEnd(state.players, state.grid);
-          if (gameEndCheck.ended) {
-            set({
-              phase: 'game_over',
-              winner: gameEndCheck.winner,
-              winReason: gameEndCheck.reason,
-              interactionState: 'game_over',
-              revealedCell: null,
-              currentPlayerId: null,
-            });
-            syncToRoom(get(), {
-              phase: 'game_over',
-              winner: gameEndCheck.winner,
-              winReason: gameEndCheck.reason,
-              interactionState: 'game_over',
-            });
-            return;
-          }
-        } else if (!nextTeamActive) {
+        if (!nextTeamActive) {
           // Opponent team has no active players, current team continues
           nextTeam = state.currentTeam;
+        }
+
+        // Final check: if next team also has no active players (shouldn't happen due to checkGameEnd above)
+        if (!state.players.some(p => p.team === nextTeam && p.status === 'active')) {
+          set({
+            phase: 'game_over',
+            winner: 'draw',
+            winReason: 'لا يوجد لاعبون نشطون في الفريقين!',
+            interactionState: 'game_over',
+            revealedCell: null,
+            currentPlayerId: null,
+          });
+          syncToRoom(get(), {
+            phase: 'game_over',
+            interactionState: 'game_over',
+          });
+          return;
         }
 
         set({

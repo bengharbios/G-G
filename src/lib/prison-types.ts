@@ -188,20 +188,19 @@ export function getTeamAliveCount(players: PrisonPlayer[], team: PrisonTeam): nu
 }
 
 export function checkGameEnd(players: PrisonPlayer[], grid: GridCell[]): { ended: boolean; winner: PrisonTeam | 'draw' | null; reason: string } {
-  const alphaAlive = players.filter(p => p.team === 'alpha' && p.status !== 'executed').length;
-  const betaAlive = players.filter(p => p.team === 'beta' && p.status !== 'executed').length;
+  const alphaActive = players.filter(p => p.team === 'alpha' && p.status === 'active').length;
+  const betaActive = players.filter(p => p.team === 'beta' && p.status === 'active').length;
 
-  // A team loses if all its players are executed
-  if (alphaAlive === 0) return { ended: true, winner: 'beta', reason: 'تم إعدام جميع لاعبي فريق ألفا' };
-  if (betaAlive === 0) return { ended: true, winner: 'alpha', reason: 'تم إعدام جميع لاعبي فريق بيتا' };
+  // A team loses if ALL its players are either executed OR imprisoned (no one can play)
+  if (alphaActive === 0 && betaActive > 0) return { ended: true, winner: 'beta', reason: 'تم سجن/إعدام جميع لاعبي فريق أ' };
+  if (betaActive === 0 && alphaActive > 0) return { ended: true, winner: 'alpha', reason: 'تم سجن/إعدام جميع لاعبي فريق ب' };
+  if (alphaActive === 0 && betaActive === 0) return { ended: true, winner: 'draw', reason: 'تم سجن/إعدام لاعبي الفريقين!' };
 
   // All cells revealed
   const allRevealed = grid.every(c => c.status === 'revealed');
   if (allRevealed) {
-    const alphaActive = players.filter(p => p.team === 'alpha' && p.status === 'active').length;
-    const betaActive = players.filter(p => p.team === 'beta' && p.status === 'active').length;
-    if (alphaActive > betaActive) return { ended: true, winner: 'alpha', reason: 'فريق ألفا لديه لاعبين أحرار أكثر' };
-    if (betaActive > alphaActive) return { ended: true, winner: 'beta', reason: 'فريق بيتا لديه لاعبين أحرار أكثر' };
+    if (alphaActive > betaActive) return { ended: true, winner: 'alpha', reason: 'فريق أ لديه لاعبين أحرار أكثر' };
+    if (betaActive > alphaActive) return { ended: true, winner: 'beta', reason: 'فريق ب لديه لاعبين أحرار أكثر' };
     return { ended: true, winner: 'draw', reason: 'تعادل! عدد اللاعبين الأحرار متساوٍ' };
   }
 
