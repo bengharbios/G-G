@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { db } from '@/lib/db';
+import * as turso from '@/lib/turso';
 
 export async function POST(
   request: NextRequest,
@@ -17,10 +17,7 @@ export async function POST(
       );
     }
 
-    const room = await db.room.findUnique({
-      where: { code: code.toUpperCase() },
-      include: { players: true },
-    });
+    const room = await turso.getRoomWithPlayers(code.toUpperCase());
 
     if (!room) {
       return NextResponse.json(
@@ -37,10 +34,7 @@ export async function POST(
     if (existingPlayer) {
       // Player is re-joining after page refresh
       // Return their existing data so they can continue playing
-      const updatedRoom = await db.room.findUnique({
-        where: { code: code.toUpperCase() },
-        include: { players: true },
-      });
+      const updatedRoom = await turso.getRoomWithPlayers(code.toUpperCase());
 
       return NextResponse.json({
         player: existingPlayer,
@@ -66,19 +60,15 @@ export async function POST(
     }
 
     // Create player as pending (hasJoined = false)
-    const player = await db.roomPlayer.create({
-      data: {
-        roomId: room.id,
-        name: name.trim(),
-        hasJoined: false,
-      },
+    const player = await turso.createPlayer({
+      id: turso.generateId(),
+      roomId: room.id,
+      name: name.trim(),
+      hasJoined: false,
     });
 
     // Fetch updated room with players
-    const updatedRoom = await db.room.findUnique({
-      where: { code: code.toUpperCase() },
-      include: { players: true },
-    });
+    const updatedRoom = await turso.getRoomWithPlayers(code.toUpperCase());
 
     return NextResponse.json({ player, room: updatedRoom });
   } catch (error) {
@@ -107,10 +97,7 @@ export async function PATCH(
       );
     }
 
-    const room = await db.room.findUnique({
-      where: { code: code.toUpperCase() },
-      include: { players: true },
-    });
+    const room = await turso.getRoomWithPlayers(code.toUpperCase());
 
     if (!room) {
       return NextResponse.json(
@@ -135,16 +122,10 @@ export async function PATCH(
       // Approve up to available slots
       const toApprove = pendingPlayers.slice(0, availableSlots);
       for (const p of toApprove) {
-        await db.roomPlayer.update({
-          where: { id: p.id },
-          data: { hasJoined: true },
-        });
+        await turso.updatePlayer(p.id, { hasJoined: true });
       }
 
-      const updatedRoom = await db.room.findUnique({
-        where: { code: code.toUpperCase() },
-        include: { players: true },
-      });
+      const updatedRoom = await turso.getRoomWithPlayers(code.toUpperCase());
 
       return NextResponse.json({ room: updatedRoom });
     }
@@ -173,14 +154,9 @@ export async function PATCH(
         );
       }
 
-      await db.roomPlayer.update({
-        where: { id: playerId },
-        data: { hasJoined: true },
-      });
+      await turso.updatePlayer(playerId, { hasJoined: true });
     } else if (action === 'reject') {
-      await db.roomPlayer.delete({
-        where: { id: playerId },
-      });
+      await turso.deletePlayer(playerId);
     } else {
       return NextResponse.json(
         { error: 'إجراء غير صالح' },
@@ -188,10 +164,7 @@ export async function PATCH(
       );
     }
 
-    const updatedRoom = await db.room.findUnique({
-      where: { code: code.toUpperCase() },
-      include: { players: true },
-    });
+    const updatedRoom = await turso.getRoomWithPlayers(code.toUpperCase());
 
     return NextResponse.json({ room: updatedRoom });
   } catch (error) {

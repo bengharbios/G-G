@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { db } from '@/lib/db';
+import * as turso from '@/lib/turso';
 
 const CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 
@@ -34,7 +34,7 @@ export async function POST(request: NextRequest) {
     // Generate unique code
     let code = generateCode();
     let attempts = 0;
-    while (await db.room.findUnique({ where: { code } }) && attempts < 10) {
+    while (await turso.getRoomByCode(code) && attempts < 10) {
       code = generateCode();
       attempts++;
     }
@@ -46,15 +46,14 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const room = await db.room.create({
-      data: {
-        code,
-        hostName: hostName.trim(),
-        playerCount: count,
-        phase: 'waiting',
-        stateJson: '{}',
-        gameType: gameType || null,
-      },
+    const room = await turso.createRoom({
+      id: turso.generateId(),
+      code,
+      hostName: hostName.trim(),
+      playerCount: count,
+      phase: 'waiting',
+      stateJson: '{}',
+      gameType: gameType || null,
     });
 
     return NextResponse.json({ room, code });

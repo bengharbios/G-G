@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { db } from '@/lib/db';
+import * as turso from '@/lib/turso';
 
 export async function POST(
   request: NextRequest,
@@ -17,10 +17,7 @@ export async function POST(
       );
     }
 
-    const room = await db.room.findUnique({
-      where: { code: code.toUpperCase() },
-      include: { players: true },
-    });
+    const room = await turso.getRoomWithPlayers(code.toUpperCase());
 
     if (!room) {
       return NextResponse.json(
@@ -63,13 +60,10 @@ export async function POST(
     }
 
     // Mark target as eliminated by good son
-    await db.roomPlayer.update({
-      where: { id: targetPlayer.id },
-      data: {
-        isAlive: false,
-        eliminatedBy: 'good_son',
-        eliminatedRound: room.round || 1,
-      },
+    await turso.updatePlayer(targetPlayer.id, {
+      isAlive: false,
+      eliminatedBy: 'good_son',
+      eliminatedRound: room.round || 1,
     });
 
     return NextResponse.json({

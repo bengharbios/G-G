@@ -1,4 +1,40 @@
 ---
+Task ID: 1
+Agent: Main Agent
+Task: Completely replace Prisma with direct @libsql/client usage (fix Vercel build failures)
+
+Work Log:
+- Analyzed all 9 API route files to catalog every Prisma operation used
+- Created new src/lib/turso.ts with direct @libsql/client (no Prisma dependency)
+  - Connection: supports TURSO_DATABASE_URL (remote) and DATABASE_URL (local SQLite)
+  - Auto-creates Room and RoomPlayer tables via CREATE TABLE IF NOT EXISTS
+  - Boolean<->integer conversion for SQLite (isAlive, isSilenced, hasRevealedMayor, hasJoined)
+  - Date->ISO string conversion for hostLastSeen and other datetime fields
+  - Helper functions: getRoomByCode, getRoomWithPlayers, createRoom, updateRoom, updateRoomWithPlayers, createPlayer, updatePlayer, updatePlayersByRoomId, updatePlayersByName, deletePlayer, generateId
+  - Dynamic SET clause building for update functions
+  - Parameterized queries throughout for SQL injection prevention
+- Updated all 9 API route files:
+  1. src/app/api/room/route.ts (POST create room)
+  2. src/app/api/room/[code]/join/route.ts (POST join, PATCH approve/reject)
+  3. src/app/api/room/[code]/heartbeat/route.ts (POST heartbeat)
+  4. src/app/api/room/[code]/start/route.ts (POST start game)
+  5. src/app/api/room/[code]/vote/route.ts (POST vote)
+  6. src/app/api/room/[code]/night-action/route.ts (POST night action)
+  7. src/app/api/room/[code]/mayor-reveal/route.ts (POST mayor reveal)
+  8. src/app/api/room/[code]/good-son-revenge/route.ts (POST good son revenge)
+  9. src/app/api/room/[code]/route.ts (GET/PUT/DELETE room)
+- Minimal route changes: Date→toISOString() in heartbeat and DELETE, removed .toISOString() call on hostLastSeen in GET (already a string now), added generateId() for createRoom/createPlayer
+- Updated package.json: removed @prisma/adapter-libsql, @prisma/client, prisma deps; removed db:push, db:generate, db:migrate, db:reset scripts; removed postinstall script
+- Deleted src/lib/db.ts (old Prisma client)
+- Ran bun install (3 packages removed)
+- Verified: no import errors, dev server starts cleanly, lint shows only pre-existing UI errors (not related to migration)
+
+Stage Summary:
+- Complete Prisma→@libsql/client migration for all room API routes
+- Zero Prisma dependencies remain in the project
+- All game logic, validation, and business rules preserved exactly as before
+- Tables auto-create on first connection (no migration tooling needed)
+---
 Task ID: 2
 Agent: main
 Task: Fix Vercel deployment - replace Prisma with direct @libsql/client for Turso

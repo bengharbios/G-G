@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { db } from '@/lib/db';
+import * as turso from '@/lib/turso';
 import { generateCardDeck } from '@/lib/game-types';
 
 export async function POST(
@@ -9,10 +9,7 @@ export async function POST(
   try {
     const { code } = await params;
 
-    const room = await db.room.findUnique({
-      where: { code: code.toUpperCase() },
-      include: { players: true },
-    });
+    const room = await turso.getRoomWithPlayers(code.toUpperCase());
 
     if (!room) {
       return NextResponse.json(
@@ -59,31 +56,22 @@ export async function POST(
 
     // Assign roles to approved players
     for (let i = 0; i < approvedPlayers.length; i++) {
-      await db.roomPlayer.update({
-        where: { id: approvedPlayers[i].id },
-        data: {
-          role: shuffled[i],
-          isAlive: true,
-          isSilenced: false,
-          hasRevealedMayor: false,
-        },
+      await turso.updatePlayer(approvedPlayers[i].id, {
+        role: shuffled[i],
+        isAlive: true,
+        isSilenced: false,
+        hasRevealedMayor: false,
       });
     }
 
     // Update room phase
-    await db.room.update({
-      where: { code: code.toUpperCase() },
-      data: {
-        phase: 'card_distribution',
-        round: 1,
-        playerCount: approvedPlayers.length,
-      },
+    await turso.updateRoom(code.toUpperCase(), {
+      phase: 'card_distribution',
+      round: 1,
+      playerCount: approvedPlayers.length,
     });
 
-    const updatedRoom = await db.room.findUnique({
-      where: { code: code.toUpperCase() },
-      include: { players: true },
-    });
+    const updatedRoom = await turso.getRoomWithPlayers(code.toUpperCase());
 
     return NextResponse.json({ room: updatedRoom });
   } catch (error) {

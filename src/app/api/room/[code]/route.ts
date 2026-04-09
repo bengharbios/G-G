@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { db } from '@/lib/db';
+import * as turso from '@/lib/turso';
 
 export async function GET(
   request: NextRequest,
@@ -10,10 +10,7 @@ export async function GET(
     const { searchParams } = new URL(request.url);
     const playerId = searchParams.get('playerId');
 
-    const room = await db.room.findUnique({
-      where: { code: code.toUpperCase() },
-      include: { players: true },
-    });
+    const room = await turso.getRoomWithPlayers(code.toUpperCase());
 
     if (!room) {
       return NextResponse.json(
@@ -45,7 +42,7 @@ export async function GET(
       players: sanitizedPlayers,
       isEnded: isEnded || undefined,
       // Ensure hostLastSeen is always sent as ISO string
-      hostLastSeen: room.hostLastSeen?.toISOString() || new Date().toISOString(),
+      hostLastSeen: room.hostLastSeen || new Date().toISOString(),
     });
   } catch (error) {
     console.error('Error fetching room:', error);
@@ -65,9 +62,7 @@ export async function PUT(
     const body = await request.json();
     const { phase, round, stateJson, resultsJson, gameWinner, players } = body;
 
-    const room = await db.room.findUnique({
-      where: { code: code.toUpperCase() },
-    });
+    const room = await turso.getRoomByCode(code.toUpperCase());
 
     if (!room) {
       return NextResponse.json(
@@ -85,50 +80,42 @@ export async function PUT(
     if (gameWinner !== undefined) updateData.gameWinner = gameWinner;
 
     // Update room
-    const updatedRoom = await db.room.update({
-      where: { code: code.toUpperCase() },
-      data: updateData,
-    });
+    const updatedRoom = await turso.updateRoom(code.toUpperCase(), updateData);
+
+    if (!updatedRoom) {
+      return NextResponse.json(
+        { error: 'الغرفة غير موجودة' },
+        { status: 404 }
+      );
+    }
 
     // Clear all voteTargets when entering a new voting round (prevents stale votes from showing)
     if (phase === 'day_voting') {
-      await db.roomPlayer.updateMany({
-        where: { roomId: updatedRoom.id },
-        data: { voteTarget: null },
-      });
+      await turso.updatePlayersByRoomId(updatedRoom.id, { voteTarget: null });
     }
 
     // Clear all night actions when starting a new night (prevents stale night choices)
     if (phase === 'night_start') {
-      await db.roomPlayer.updateMany({
-        where: { roomId: updatedRoom.id },
-        data: { nightActionTarget: null, nightActionType: null },
+      await turso.updatePlayersByRoomId(updatedRoom.id, {
+        nightActionTarget: null,
+        nightActionType: null,
       });
     }
 
     // Update players if provided
     if (players && Array.isArray(players)) {
       for (const playerData of players) {
-        await db.roomPlayer.updateMany({
-          where: {
-            roomId: updatedRoom.id,
-            name: playerData.name,
-          },
-          data: {
-            role: playerData.role,
-            isAlive: playerData.isAlive,
-            isSilenced: playerData.isSilenced,
-            hasRevealedMayor: playerData.hasRevealedMayor,
-          },
+        await turso.updatePlayersByName(updatedRoom.id, playerData.name, {
+          role: playerData.role,
+          isAlive: playerData.isAlive,
+          isSilenced: playerData.isSilenced,
+          hasRevealedMayor: playerData.hasRevealedMayor,
         });
       }
     }
 
     // Fetch updated room with players
-    const finalRoom = await db.room.findUnique({
-      where: { code: code.toUpperCase() },
-      include: { players: true },
-    });
+    const finalRoom = await turso.getRoomWithPlayers(code.toUpperCase());
 
     return NextResponse.json(finalRoom);
   } catch (error) {
@@ -147,9 +134,7 @@ export async function DELETE(
   try {
     const { code } = await params;
 
-    const room = await db.room.findUnique({
-      where: { code: code.toUpperCase() },
-    });
+    const room = await turso.getRoomByCode(code.toUpperCase());
 
     if (!room) {
       return NextResponse.json(
@@ -159,28 +144,22 @@ export async function DELETE(
     }
 
     // Mark room as ended by resetting to setup phase
-    await db.room.update({
-      where: { code: code.toUpperCase() },
-      data: {
-        phase: 'setup',
-        round: 0,
-        gameWinner: null,
-        stateJson: '{}',
-        resultsJson: null,
-        hostLastSeen: new Date(0), // Set to epoch so players detect disconnect
-      },
+    await turso.updateRoom(code.toUpperCase(), {
+      phase: 'setup',
+      round: 0,
+      gameWinner: null,
+      stateJson: '{}',
+      resultsJson: null,
+      hostLastSeen: new Date(0).toISOString(),
     });
 
     // Reset all players
-    await db.roomPlayer.updateMany({
-      where: { roomId: room.id },
-      data: {
-        role: null,
-        isAlive: true,
-        isSilenced: false,
-        hasRevealedMayor: false,
-        voteTarget: null,
-      },
+    await turso.updatePlayersByRoomId(room.id, {
+      role: null,
+      isAlive: true,
+      isSilenced: false,
+      hasRevealedMayor: false,
+      voteTarget: null,
     });
 
     return NextResponse.json({ success: true, message: 'تم إنهاء اللعبة' });

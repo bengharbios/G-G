@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { db } from '@/lib/db';
+import * as turso from '@/lib/turso';
 
 export async function POST(
   request: NextRequest,
@@ -25,10 +25,7 @@ export async function POST(
       );
     }
 
-    const room = await db.room.findUnique({
-      where: { code: code.toUpperCase() },
-      include: { players: true },
-    });
+    const room = await turso.getRoomWithPlayers(code.toUpperCase());
 
     if (!room) {
       return NextResponse.json(
@@ -64,10 +61,7 @@ export async function POST(
 
     // If clearing vote (skip)
     if (clearVote) {
-      await db.roomPlayer.update({
-        where: { id: voter.id },
-        data: { voteTarget: null },
-      });
+      await turso.updatePlayer(voter.id, { voteTarget: null });
       return NextResponse.json({ success: true });
     }
 
@@ -96,10 +90,7 @@ export async function POST(
     }
 
     // Update vote target
-    await db.roomPlayer.update({
-      where: { id: voter.id },
-      data: { voteTarget: targetId },
-    });
+    await turso.updatePlayer(voter.id, { voteTarget: targetId });
 
     return NextResponse.json({ success: true });
   } catch (error) {

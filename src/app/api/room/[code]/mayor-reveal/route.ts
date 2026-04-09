@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { db } from '@/lib/db';
+import * as turso from '@/lib/turso';
 
 export async function POST(
   request: NextRequest,
@@ -24,10 +24,7 @@ export async function POST(
       );
     }
 
-    const room = await db.room.findUnique({
-      where: { code: code.toUpperCase() },
-      include: { players: true },
-    });
+    const room = await turso.getRoomWithPlayers(code.toUpperCase());
 
     if (!room) {
       return NextResponse.json(
@@ -73,10 +70,7 @@ export async function POST(
 
     // If reveal is true, set hasRevealedMayor
     if (reveal) {
-      await db.roomPlayer.update({
-        where: { id: player.id },
-        data: { hasRevealedMayor: true },
-      });
+      await turso.updatePlayer(player.id, { hasRevealedMayor: true });
     }
 
     return NextResponse.json({ success: true, reveal, playerName: player.name });

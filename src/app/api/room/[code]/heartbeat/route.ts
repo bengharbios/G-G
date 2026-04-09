@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { db } from '@/lib/db';
+import * as turso from '@/lib/turso';
 
 // Host heartbeat endpoint - called every 5s by the host device
 // Updates hostLastSeen so players can detect if host disconnected
@@ -10,9 +10,7 @@ export async function POST(
   try {
     const { code } = await params;
 
-    const room = await db.room.findUnique({
-      where: { code: code.toUpperCase() },
-    });
+    const room = await turso.getRoomByCode(code.toUpperCase());
 
     if (!room) {
       return NextResponse.json(
@@ -22,9 +20,8 @@ export async function POST(
     }
 
     // Update hostLastSeen timestamp
-    await db.room.update({
-      where: { code: code.toUpperCase() },
-      data: { hostLastSeen: new Date() },
+    await turso.updateRoom(code.toUpperCase(), {
+      hostLastSeen: new Date().toISOString(),
     });
 
     return NextResponse.json({ ok: true });

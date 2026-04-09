@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { db } from '@/lib/db';
+import * as turso from '@/lib/turso';
 
 // Map: night phase → required role
 const PHASE_ROLE_MAP: Record<string, string> = {
@@ -42,10 +42,7 @@ export async function POST(
       );
     }
 
-    const room = await db.room.findUnique({
-      where: { code: code.toUpperCase() },
-      include: { players: true },
-    });
+    const room = await turso.getRoomWithPlayers(code.toUpperCase());
 
     if (!room) {
       return NextResponse.json(
@@ -156,12 +153,9 @@ export async function POST(
     }
 
     // Update the player's night action (use actingPlayer.id which works for both playerId and playerName lookups)
-    await db.roomPlayer.update({
-      where: { id: actingPlayer.id },
-      data: {
-        nightActionTarget: actionType === 'sniper_hold' ? null : targetName || null,
-        nightActionType: actionType,
-      },
+    await turso.updatePlayer(actingPlayer.id, {
+      nightActionTarget: actionType === 'sniper_hold' ? null : targetName || null,
+      nightActionType: actionType,
     });
 
     return NextResponse.json({ success: true });
