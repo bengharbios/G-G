@@ -252,40 +252,36 @@ export const useRisk2Store = create<Risk2State>()(
           }
 
           case 'skip': {
-            // Skip turn entirely
-            newPlayers[state.currentPlayerIndex] = {
-              ...currentPlayer,
-              roundScore: 0,
-              multiplier: 1,
-            };
+            // Skip turn — player loses their turn but round points are NOT reset
+            // (they simply don't get to continue drawing)
             newTurnState = 'showing_result';
             newLog = addLog(state, currentPlayer.name, '⏭️ تم تخطي الدور!', 'skip');
             break;
           }
 
           case 'double': {
-            // Multiply round score by 2
+            // Multiply round score by 2 — player can continue or bank
             const doubledScore = currentPlayer.roundScore * 2;
             newPlayers[state.currentPlayerIndex] = {
               ...currentPlayer,
               roundScore: doubledScore,
               multiplier: currentPlayer.multiplier * 2,
             };
-            newTurnState = 'showing_result';
-            newLog = addLog(state, currentPlayer.name, `×2 ضعف! الرصيد أصبح ${doubledScore}`, 'double');
+            newTurnState = 'waiting_for_decision';
+            newLog = addLog(state, currentPlayer.name, `✨ ×2 ضعف! الرصيد أصبح ${doubledScore}`, 'double');
             break;
           }
 
           case 'triple': {
-            // Multiply round score by 3
+            // Multiply round score by 3 — player can continue or bank
             const tripledScore = currentPlayer.roundScore * 3;
             newPlayers[state.currentPlayerIndex] = {
               ...currentPlayer,
               roundScore: tripledScore,
               multiplier: currentPlayer.multiplier * 3,
             };
-            newTurnState = 'showing_result';
-            newLog = addLog(state, currentPlayer.name, `×3 ثلاثة أضعاف! الرصيد أصبح ${tripledScore}`, 'triple');
+            newTurnState = 'waiting_for_decision';
+            newLog = addLog(state, currentPlayer.name, `🔥 ×3 ثلاثة أضعاف! الرصيد أصبح ${tripledScore}`, 'triple');
             break;
           }
         }

@@ -192,3 +192,35 @@ Stage Summary:
 - Build error fixed by updating all 4 files
 - All risk game components now use correct types from rewritten risk-types.ts
 - GitHub push successful: 58a3353..020186e main -> main
+---
+Task ID: 4-5
+Agent: Full-Stack Developer
+Task: Fix risk2 Diwaniya (multiplayer) mode — API routes, spectator view, join page
+
+Work Log:
+- Analyzed all existing risk2 API routes and store to understand the broken flow
+- Identified 3 root problems: path-based vs query-param mismatch, separate Map instances, missing spectator component
+- Created `/src/app/api/risk2-room/rooms.ts` — shared RoomData interface + rooms Map exported for use across all API routes
+- Rewrote `/src/app/api/risk2-room/route.ts` — POST for room creation (unchanged), GET/PUT/DELETE return helpful error messages pointing to path-based routes
+- Rewrote `/src/app/api/risk2-room/[code]/route.ts` — GET/PUT/DELETE extract code from URL pathname (`new URL(req.url).pathname`), import shared rooms Map; uses `segments[2]` to get the code
+- Fixed `/src/app/api/risk2-room/[code]/spectator/route.ts` — removed separate empty Map, imports shared rooms from `../../rooms`, POST adds spectator to room's spectators array, returns spectatorId and spectatorCount
+- Fixed `/src/app/api/risk2-room/[code]/heartbeat/route.ts` — imports shared rooms from `../../rooms`, POST updates lastHeartbeat on the room
+- Created `/src/components/risk2/Risk2SpectatorView.tsx` — full read-only spectator view adapted from prison spectator + risk2 GameBoard patterns:
+  - Polls `/api/risk2-room/${roomCode}` every 2 seconds
+  - Displays: StatsBar, Scoreboard, Card Grid (read-only), DrawnThisTurn, TurnStateDisplay, GameLogPanel, ResultDisplay (read-only modal)
+  - Confetti animation for game over, SpectatorGameOver screen with final standings
+  - New deck notification, "مشاهد" badge with eye icon
+  - Loading/error/expired states with auto-redirect
+  - Orange/red/amber color theme matching risk2 style
+- Rewrote `/src/app/join/risk2/[code]/page.tsx` — following prison join page pattern:
+  - JoinForm with name input, auto-join when ?name= in URL, redirect with ?spectatorId=
+  - When spectatorId present, renders Risk2SpectatorView directly
+  - Orange/red gradient theming, retry logic (3 attempts)
+- Verified risk2-store.ts syncToRoom calls already use path-based URLs (`/api/risk2-room/${code}`) — no store changes needed
+- Ran lint: 0 new errors (only pre-existing set-state-in-effect pattern, same as GameBoard/PrisonSpectatorView)
+
+Stage Summary:
+- Fixed all 3 problems: API routes now use path params consistently, all routes share one rooms Map, spectator view exists
+- 7 files modified/created: rooms.ts (new), route.ts (root), [code]/route.ts, spectator/route.ts, heartbeat/route.ts, Risk2SpectatorView.tsx (new), join page
+- Store file (risk2-store.ts) requires no changes — syncToRoom/resetGame/startGame already use correct URL patterns
+- Spectator flow: Landing page → /join/risk2/{CODE}?name={NAME} → auto-join → redirect with spectatorId → Risk2SpectatorView
