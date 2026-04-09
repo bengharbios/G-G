@@ -407,6 +407,7 @@ export default function GameBoard() {
     currentTeamIndex,
     cards,
     turnState,
+    lastDrawnCard,
     drawCard,
     continueTurn,
     bankPoints,
@@ -414,21 +415,21 @@ export default function GameBoard() {
     config,
   } = useRiskStore();
 
-  // Explosion shows when bomb explodes (modal shows after explosion)
+  // Explosion shows when bomb explodes (auto-transitions to showing_result)
   const showExplosion = turnState === 'bomb_exploded';
 
   const handleExplosionComplete = () => {
-    // Explosion animation completed, modal will show via shouldShowModal
+    // Explosion animation completed, transition to showing_result so modal appears
+    const state = useRiskStore.getState();
+    if (state.turnState === 'bomb_exploded') {
+      useRiskStore.setState({ turnState: 'showing_result' });
+    }
   };
 
   const cols = getGridCols(config.totalCards);
   const currentTeam = teams[currentTeamIndex];
 
-  // Get the most recently revealed card for the modal
-  const recentlyRevealed = cards.filter(c => c.revealed);
-  const lastDrawnCard = recentlyRevealed.length > 0 ? recentlyRevealed[recentlyRevealed.length - 1] : null;
-
-  const shouldShowModal = (turnState === 'waiting_for_decision' || turnState === 'showing_result') && !showExplosion;
+  const shouldShowModal = (turnState === 'waiting_for_decision' || turnState === 'showing_result') && !showExplosion && !!lastDrawnCard;
 
   const handleDrawCard = (cardId: string) => {
     drawCard(cardId);
@@ -539,10 +540,10 @@ export default function GameBoard() {
 
       {/* Result Modal */}
       <AnimatePresence mode="wait">
-        {shouldShowModal && lastDrawnCard && !showExplosion && (
+        {shouldShowModal && currentTeam && (
           <ResultModal
-            key={`${lastDrawnCard.id}-${turnState}`}
-            card={lastDrawnCard}
+            key={`modal-${lastDrawnCard!.id}-${turnState}`}
+            card={lastDrawnCard!}
             currentTeam={currentTeam}
             onContinue={handleContinue}
             onBank={handleBank}
