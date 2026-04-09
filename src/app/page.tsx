@@ -113,6 +113,24 @@ const games: GameData[] = [
     category: 'استراتيجية',
   },
   {
+    id: 'risk',
+    title: 'المجازفة',
+    titleEn: 'Risk',
+    emoji: '💣',
+    description:
+      'ادفع حظك! اسحب البطاقات واجمع النقاط، لكن احذر القنابل! لعبة استراتيجية ومجازفة ممتعة.',
+    href: '/risk',
+    bgImage: null,
+    themeColor: 'text-violet-400',
+    themeBorder: 'border-violet-500/30 hover:border-violet-500/60',
+    themeBg: 'from-violet-950/80 to-purple-900/40',
+    themeBadge: 'bg-violet-500/20 border-violet-500/40 text-violet-300',
+    features: ['العراب', 'الديوانية', '2-4 فرق', 'قنابل ومجازفة'],
+    status: 'available',
+    players: '2-8 لاعب',
+    category: 'مجازفة',
+  },
+  {
     id: 'words',
     title: 'لعبة الكلمات',
     titleEn: 'Word Game',
@@ -222,9 +240,9 @@ const floatingEmojis = [
   { emoji: '🥁', x: '10%', y: '20%', delay: 0, duration: 6 },
   { emoji: '🕵️', x: '85%', y: '15%', delay: 1, duration: 7 },
   { emoji: '🪦', x: '15%', y: '70%', delay: 2, duration: 5 },
-  { emoji: '🔒', x: '75%', y: '75%', delay: 0.5, duration: 8 },
-  { emoji: '🎨', x: '90%', y: '50%', delay: 1.5, duration: 6.5 },
-  { emoji: '⚔️', x: '5%', y: '45%', delay: 3, duration: 7.5 },
+  { emoji: '💣', x: '75%', y: '75%', delay: 0.5, duration: 8 },
+  { emoji: '🔒', x: '90%', y: '50%', delay: 1.5, duration: 6.5 },
+  { emoji: '🎨', x: '5%', y: '45%', delay: 3, duration: 7.5 },
 ];
 
 // ─── Animation Variants ───────────────────────────────────────────────────────

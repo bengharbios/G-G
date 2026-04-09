@@ -126,3 +126,50 @@ Stage Summary:
 - Copy code button now works reliably with fallback for non-HTTPS
 - New copy link button added for sharing full join URL
 - Fixed in 3 files: prison/page.tsx, tobol/page.tsx, tobol/GameBoard.tsx
+---
+Task ID: 4
+Agent: Main Agent
+Task: Add new game "المجازفة" (Risk) - Push Your Luck minesweeper card game
+
+Work Log:
+- Studied existing game patterns (prison, tobol) for architecture consistency
+- Created src/lib/risk-types.ts - Card types (safe/bomb/skip), Team interface, GameState, grid generation, helpers
+- Created src/lib/risk-store.ts - Zustand store with full game logic (العراب mode)
+  - Phase management: landing → setup → playing → game_over
+  - drawCard: reveal card, handle bomb/safe/skip with round score tracking
+  - continueTurn/bankPoints: decision-making after safe card
+  - advanceTurn: next team rotation, game end checking
+  - Room sync for diwaniya mode
+- Created src/lib/risk-room-store.ts - Turso-based room storage (الديوانية mode)
+  - Same pattern as prison-room-store using turso.ts
+  - Spectator management (add/heartbeat/remove)
+  - Auto-cleanup expired rooms (5 min TTL)
+- Created 4 API routes:
+  1. src/app/api/risk-room/route.ts (POST create, GET by code)
+  2. src/app/api/risk-room/[code]/route.ts (GET/PUT/DELETE)
+  3. src/app/api/risk-room/[code]/spectator/route.ts (POST/PUT/DELETE)
+  4. src/app/api/risk-room/[code]/heartbeat/route.ts (POST)
+- Created 5 UI components:
+  1. src/components/risk/LandingPage.tsx - Mode selection (عراب/ديوانية), join spectator, rules
+  2. src/components/risk/GameSetup.tsx - Team names (2-4), bomb/skip/card count config
+  3. src/components/risk/GameBoard.tsx - Card grid, team scores, stats, bomb explosion animation
+  4. src/components/risk/RiskGameOver.tsx - Winner, confetti, stats, game log
+  5. src/components/risk/RiskSpectatorView.tsx - Read-only game view with 2s polling
+- Created main page: src/app/risk/page.tsx (BrandedHeader/Footer, GameTopBar, copy code/link, heartbeat)
+- Created join page: src/app/join/risk/[code]/page.tsx (auto-join with spectator redirect)
+- Added risk-bg, risk-scrollbar, risk-card-hover, pulse-glow-bomb CSS to globals.css
+- Updated homepage: added risk game card (💣 المجازفة) to games grid, updated floating emoji
+- Purple/violet + emerald theme (not blue/indigo as specified)
+- Zero risk-specific TypeScript compilation errors
+- Zero risk-specific lint errors (1 pre-existing pattern match from prison join page)
+
+Stage Summary:
+- Complete "المجازفة" Push Your Luck card game with العراب (local) and الديوانية (spectator) modes
+- 3 card types: safe (+1 to +5 points), bomb (lose round points), skip (pass turn)
+- 2-4 team support with customizable team names
+- Configurable: 40-100 cards, 1-10 bombs, 0-5 skips
+- Card flip animations, bomb explosion effects with Framer Motion
+- Real-time spectator mode with 2s polling via Turso
+- Room code sharing for diwaniya mode
+- RTL throughout, responsive mobile design
+

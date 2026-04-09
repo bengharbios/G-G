@@ -638,3 +638,52 @@
     box-shadow: 0 0 25px rgba(245, 158, 11, 0.5), 0 0 50px rgba(245, 158, 11, 0.2);
   }
 }
+
+/* ============================================================ */
+/* RISK (المجازفة) GAME CUSTOM STYLES                              */
+/* ============================================================ */
+
+.risk-bg {
+  background: linear-gradient(180deg, #0a0a17 0%, #12081e 30%, #0d0a18 60%, #080612 100%);
+  background-image: radial-gradient(circle at top, #1e1030 0%, #0a0a17 70%);
+}
+
+.risk-scrollbar::-webkit-scrollbar {
+  width: 6px;
+}
+
+.risk-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.risk-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 10px;
+}
+
+.risk-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.15);
+}
+
+/* Risk card hover glow */
+.risk-card-hover {
+  transition: all 0.2s ease;
+}
+
+.risk-card-hover:hover {
+  box-shadow: 0 0 20px rgba(167, 139, 250, 0.3), 0 0 40px rgba(167, 139, 250, 0.1);
+}
+
+/* Risk bomb pulse */
+.pulse-glow-bomb {
+  animation: pulseBomb 2s ease-in-out infinite;
+}
+
+@keyframes pulseBomb {
+  0%, 100% {
+    box-shadow: 0 0 15px rgba(239, 68, 68, 0.3), 0 0 30px rgba(239, 68, 68, 0.1);
+  }
+  50% {
+    box-shadow: 0 0 25px rgba(239, 68, 68, 0.5), 0 0 50px rgba(239, 68, 68, 0.2);
+  }
+}
