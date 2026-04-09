@@ -98,9 +98,9 @@ const games: GameData[] = [
     id: 'prison',
     title: 'السجن',
     titleEn: 'The Prison',
-    emoji: '🏢',
+    emoji: '🔒',
     description:
-      'سجن مليء بالمفاجآت! حبس خصومك، حرر أصدقائك، وتجنب الإعدام في لعبة الاستراتيجية والحوظ.',
+      'سجن مليء بالمفاجآت! حبس خصومك، حرر أصدقائك، وتجنب الإعدام في لعبة الاستراتيجية والحظ.',
     href: '/prison',
     bgImage: null,
     themeColor: 'text-amber-400',
@@ -222,7 +222,7 @@ const floatingEmojis = [
   { emoji: '🥁', x: '10%', y: '20%', delay: 0, duration: 6 },
   { emoji: '🕵️', x: '85%', y: '15%', delay: 1, duration: 7 },
   { emoji: '🪦', x: '15%', y: '70%', delay: 2, duration: 5 },
-  { emoji: '📝', x: '75%', y: '75%', delay: 0.5, duration: 8 },
+  { emoji: '🔒', x: '75%', y: '75%', delay: 0.5, duration: 8 },
   { emoji: '🎨', x: '90%', y: '50%', delay: 1.5, duration: 6.5 },
   { emoji: '⚔️', x: '5%', y: '45%', delay: 3, duration: 7.5 },
 ];

@@ -18,3 +18,34 @@ Stage Summary:
 - Commit d63b497: "استبدال Prisma بـ @libsql/client مباشرة للاتصال بـ Turso"
 - 11 files changed: new turso.ts + 10 route files updated
 - No more Prisma adapter dependency - uses @libsql/client directly as Turso recommends for Next.js
+---
+Task ID: 1
+Agent: Main Agent
+Task: Add new game "السجن" (The Prison) with العراب + الديوانية modes
+
+Work Log:
+- Studied reference game at https://q-kio.com/the-cell-control.html?room=3801
+- Extracted game mechanics: 5 item types (open/uniform/skull/key/skip), 3 grid sizes (9/16/20)
+- Downloaded all game images (skull, open, uniform, key, skip, instructions) via browser automation
+- Studied Tobol architecture as blueprint for implementation
+- Created src/lib/prison-types.ts - Types, configs, grid generator, helper functions
+- Created src/lib/prison-store.ts - Zustand store with full game logic (العراب mode)
+- Created src/lib/prison-room-store.ts - In-memory room storage (الديوانية mode)
+- Created 4 API routes: /api/prison-room/, /api/prison-room/[code]/, heartbeat, spectator
+- Created 5 UI components: LandingPage, GameSetup, GameBoard, PrisonGameOver, PrisonSpectatorView
+- Created main page: src/app/prison/page.tsx (with BrandedHeader/Footer, GameTopBar, heartbeat)
+- Created join page: src/app/join/prison/[code]/page.tsx (with spectator redirect logic)
+- Added prison-bg and prison-scrollbar CSS to globals.css
+- Updated homepage: added prison game card, updated floating emoji
+- Cleaned up old duplicate files (PrisonGameBoard.tsx, PrisonSetup.tsx)
+- Verified: zero prison-related lint errors, /prison returns 200
+
+Stage Summary:
+- Complete prison game with العراب (local) and الديوانية (spectator) modes
+- 5 cell item types with different game effects
+- Two-team turn-based gameplay with player selection
+- 3 grid size options (9/16/20 cells)
+- Real-time spectator mode with 2s polling
+- Room code sharing for diwaniya mode
+- All images stored at /public/img/prison/
+- Game features: imprison opponents, self-imprison, execution, free teammates, skip turn

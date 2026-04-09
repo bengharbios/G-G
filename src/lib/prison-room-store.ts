@@ -1,6 +1,5 @@
 // ============================================================
-// Shared in-memory Prison room storage
-// Uses globalThis (works in both CJS and ESM/Turbopack)
+// السجن (The Prison) - In-memory Room Store (الديوانية mode)
 // ============================================================
 
 export interface SpectatorInfo {
@@ -15,37 +14,46 @@ export interface PrisonRoomState {
   hostName: string;
   createdAt: number;
   hostLastSeen: number;
-  gridSize: number;
-  cols: number;
-  phase: string; // 'waiting' | 'playing' | 'game_over'
-  currentTeam: string; // 'alpha' | 'beta'
-  currentRound: number;
-  cells: Array<{ id: number; type: string; status: string }>;
+  alphaName: string;
+  betaName: string;
+  currentTeam: 'alpha' | 'beta';
   players: Array<{
     id: string;
     name: string;
     team: string;
-    role: string;
     status: string;
-    avatar: string;
-    originalTeam?: string;
+    uniformCount: number;
   }>;
-  teamAlphaName: string;
-  teamBetaName: string;
-  lastRevealedCell: { id: number; type: string; status: string } | null;
-  revealResult: {
-    cellType: string;
-    targetPlayer: { id: string; name: string } | null;
-    message: string;
-    teamName: string;
+  gridSize: number;
+  grid: Array<{
+    id: string;
+    index: number;
+    type: string;
+    status: string;
+  }>;
+  interactionState: string;
+  revealedCell: {
+    id: string;
+    index: number;
+    type: string;
+    status: string;
   } | null;
-  roundLog: Array<{ round: number; message: string; timestamp: number; type: string }>;
-  winner: string | null; // 'alpha' | 'beta' | 'draw' | null
+  selectedTargetId: string | null;
+  currentPlayerId: string | null;
+  gameLog: Array<{
+    id: number;
+    team: string;
+    playerName: string;
+    action: string;
+    itemType: string;
+    timestamp: number;
+  }>;
+  winner: string | null;
   winReason: string;
+  phase: string;
   spectators: SpectatorInfo[];
 }
 
-// globalThis works in ALL JavaScript environments (CJS, ESM, browser, Turbopack)
 const G = globalThis as Record<string, unknown>;
 const STORAGE_KEY = '__prison_rooms_v1';
 
@@ -66,20 +74,20 @@ export function createPrisonRoom(code: string, hostName: string): PrisonRoomStat
     hostName,
     createdAt: Date.now(),
     hostLastSeen: Date.now(),
-    gridSize: 9,
-    cols: 3,
-    phase: 'waiting',
+    alphaName: 'فريق أ',
+    betaName: 'فريق ب',
     currentTeam: 'alpha',
-    currentRound: 1,
-    cells: [],
     players: [],
-    teamAlphaName: 'فريق السجناء',
-    teamBetaName: 'فريق الحراس',
-    lastRevealedCell: null,
-    revealResult: null,
-    roundLog: [],
+    gridSize: 16,
+    grid: [],
+    interactionState: 'waiting_for_player',
+    revealedCell: null,
+    selectedTargetId: null,
+    currentPlayerId: null,
+    gameLog: [],
     winner: null,
     winReason: '',
+    phase: 'playing',
     spectators: [],
   };
   getRooms().set(code, room);

@@ -1,10 +1,17 @@
 'use client';
 
-import { useState, useEffect, useRef, useCallback, Suspense } from 'react';
-import { useParams, useSearchParams } from 'next/navigation';
-import { useSyncExternalStore } from 'react';
+import { useState, useEffect } from 'react';
+import { use, useSyncExternalStore } from 'react';
+import { motion } from 'framer-motion';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Card, CardContent } from '@/components/ui/card';
+import { Lock, Users, Loader2 } from 'lucide-react';
 import PrisonSpectatorView from '@/components/prison/PrisonSpectatorView';
 
+// ============================================================
+// Hydration guard
+// ============================================================
 function useHydrated() {
   return useSyncExternalStore(
     () => () => {},
@@ -13,278 +20,230 @@ function useHydrated() {
   );
 }
 
-function PrisonJoinContent() {
-  const params = useParams();
-  const searchParams = useSearchParams();
-  const codeParam = params?.code;
-  const code = typeof codeParam === 'string' ? codeParam : '';
-  const name = searchParams?.get('name') || '';
-  const mounted = useHydrated();
-
-  const [spectatorName, setSpectatorName] = useState('');
-  const [spectatorId, setSpectatorId] = useState('');
-  const [connected, setConnected] = useState(false);
-  const [connecting, setConnecting] = useState(false);
+// ============================================================
+// Join Form Component
+// ============================================================
+function JoinForm({ code }: { code: string }) {
   const [error, setError] = useState('');
-  const [gameOver, setGameOver] = useState(false);
-  const [inputName, setInputName] = useState('');
-  const [nameError, setNameError] = useState('');
-  const connectAttempted = useRef(false);
+  const [attempts, setAttempts] = useState(0);
 
-  // Send heartbeat to keep spectator alive
-  useEffect(() => {
-    if (!spectatorId || !code) return;
-    const beat = () => {
-      fetch(`/api/prison-room/${code}/spectator`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ spectatorId }),
-      }).catch(() => {});
-    };
-    beat();
-    const iv = setInterval(beat, 5000);
-    return () => clearInterval(iv);
-  }, [spectatorId, code]);
+  const [name, setName] = useState(() => {
+    if (typeof window === 'undefined') return '';
+    const searchParams = new URLSearchParams(window.location.search);
+    const queryName = searchParams.get('name');
+    return queryName ? decodeURIComponent(queryName) : '';
+  });
+  const [loading, setLoading] = useState(false);
 
-  // Cleanup spectator on unmount
-  useEffect(() => {
-    if (!spectatorId || !code) return;
-    return () => {
-      fetch(`/api/prison-room/${code}/spectator?id=${spectatorId}`, { method: 'DELETE' }).catch(() => {});
-    };
-  }, [spectatorId, code]);
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
 
-  // Connect function with retry logic using async/await
-  const connectAsSpectator = useCallback(async (sName: string) => {
-    if (!code) {
-      setError('كود الغرفة مفقود');
+    if (!name.trim()) {
+      setError('يجب إدخال اسمك');
       return;
     }
-    setConnecting(true);
+
+    setLoading(true);
     setError('');
 
-    const MAX_RETRIES = 3;
-    const RETRY_DELAY = 2000;
+    try {
+      const res = await fetch(`/api/prison-room/${code}/spectator`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: name.trim() }),
+      });
 
-    for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
-      try {
-        const res = await fetch(`/api/prison-room/${code}`);
-
-        if (!res.ok) {
-          if (res.status === 404) {
-            setError('الغرفة غير موجودة أو انتهت صلاحيتها');
-            setConnecting(false);
-            return;
-          }
-          if (attempt < MAX_RETRIES) {
-            await new Promise(r => setTimeout(r, RETRY_DELAY));
-            continue;
-          }
-          setError('فشل في الاتصال بالغرفة');
-          setConnecting(false);
-          return;
-        }
-
-        const data = await res.json();
-
-        // Check if game is already over
-        if (data.room?.phase === 'game_over') {
-          setGameOver(true);
-          setSpectatorName(sName);
-          setConnected(true);
-          return;
-        }
-
-        // Register as spectator
-        const specRes = await fetch(`/api/prison-room/${code}/spectator`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ name: sName }),
-        });
-
-        if (!specRes.ok) {
-          if (attempt < MAX_RETRIES) {
-            await new Promise(r => setTimeout(r, RETRY_DELAY));
-            continue;
-          }
-          setError('فشل التسجيل كمشاهد');
-          setConnecting(false);
-          return;
-        }
-
-        const specData = await specRes.json();
-
-        if (specData.success) {
-          setSpectatorId(specData.spectatorId || '');
-          setSpectatorName(sName);
-          setConnected(true);
-          return;
+      if (!res.ok) {
+        if (res.status === 404) {
+          setError('الغرفة غير موجودة أو انتهت صلاحيتها');
         } else {
-          setError('فشل التسجيل كمشاهد');
-          setConnecting(false);
-          return;
+          const data = await res.json().catch(() => null);
+          setError(data?.error || 'حدث خطأ غير متوقع');
         }
-      } catch {
-        if (attempt < MAX_RETRIES) {
-          await new Promise(r => setTimeout(r, RETRY_DELAY));
-          continue;
+        setLoading(false);
+
+        if (attempts < 3) {
+          setAttempts((prev) => prev + 1);
         }
-        setError('تعذر الاتصال بالخادم');
-        setConnecting(false);
         return;
       }
+
+      const data = await res.json();
+      if (data.success) {
+        // Redirect with spectatorId to show spectator view
+        window.location.href = `/join/prison/${code}?spectatorId=${data.spectatorId}&name=${encodeURIComponent(name.trim())}`;
+        return;
+      }
+
+      setError('حدث خطأ غير متوقع');
+      setLoading(false);
+    } catch {
+      setError('تعذر الاتصال بالخادم');
+      setLoading(false);
+
+      if (attempts < 3) {
+        setAttempts((prev) => prev + 1);
+      }
     }
-  }, [code]);
-
-  // Auto-connect when hydrated with name in URL
-  useEffect(() => {
-    if (!mounted || !name || connectAttempted.current) return;
-    connectAttempted.current = true;
-    setSpectatorName(name);
-    connectAsSpectator(name);
-  }, [mounted, name, connectAsSpectator]);
-
-  const handleConnect = () => {
-    if (!inputName.trim()) { setNameError('يجب إدخال اسمك'); return; }
-    if (inputName.trim().length < 2) { setNameError('الاسم قصير جداً'); return; }
-    setNameError('');
-    connectAsSpectator(inputName.trim());
   };
 
-  // Before hydration
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: -20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.5 }}
+      className="w-full max-w-sm mx-auto"
+    >
+      {/* Header */}
+      <div className="text-center mb-6">
+        <motion.div
+          initial={{ scale: 0.5 }}
+          animate={{ scale: 1 }}
+          transition={{ duration: 0.6, delay: 0.2, type: 'spring' }}
+          className="text-5xl mb-3"
+        >
+          🔒
+        </motion.div>
+        <h1 className="text-2xl sm:text-3xl font-black text-transparent bg-clip-text bg-gradient-to-r from-amber-400 to-orange-400 mb-2">
+          الانضمام كمشاهد
+        </h1>
+        <p className="text-xs text-slate-400">أدخل اسمك وانضم لمراقبة اللعبة</p>
+      </div>
+
+      {/* Room Code Display */}
+      <Card className="bg-gradient-to-bl from-amber-950/40 via-slate-900/80 to-slate-900/80 border-amber-500/30 mb-6">
+        <CardContent className="pt-5 sm:pt-6">
+          <div className="text-center mb-4">
+            <div className="inline-flex items-center gap-2 mb-2">
+              <Lock className="w-5 h-5 text-amber-400" />
+              <h2 className="text-lg sm:text-xl font-bold text-amber-300">
+                كود الغرفة
+              </h2>
+            </div>
+            <p className="text-3xl sm:text-4xl font-mono font-bold text-white tracking-[0.3em]">
+              {code}
+            </p>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Join Form */}
+      <Card className="bg-slate-900/80 border-slate-700/50 mb-6">
+        <CardContent className="pt-5 sm:pt-6">
+          <div className="text-center mb-4">
+            <div className="inline-flex items-center gap-2">
+              <Users className="w-5 h-5 text-cyan-400" />
+              <h3 className="text-base font-bold text-cyan-300">معلومات المشاهد</h3>
+            </div>
+          </div>
+
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div>
+              <label className="text-xs text-slate-400 mb-1 block">اسمك</label>
+              <Input
+                value={name}
+                onChange={(e) => {
+                  setName(e.target.value);
+                  setError('');
+                }}
+                placeholder="أدخل اسمك هنا..."
+                className="bg-slate-800/50 border-slate-700/50 text-slate-200 placeholder:text-slate-500 text-right h-12 focus:border-cyan-500/50"
+                dir="rtl"
+                maxLength={20}
+                disabled={loading}
+                autoFocus
+              />
+            </div>
+
+            {error && (
+              <motion.p
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                className="text-red-400 text-xs text-center"
+              >
+                ⚠️ {error}
+              </motion.p>
+            )}
+
+            {attempts > 0 && attempts < 3 && !error && (
+              <p className="text-slate-500 text-[10px] text-center">
+                محاولة {attempts} من 3
+              </p>
+            )}
+
+            <Button
+              type="submit"
+              disabled={loading || !name.trim() || attempts >= 3}
+              className="w-full bg-gradient-to-l from-cyan-600 to-teal-700 hover:from-cyan-500 hover:to-teal-600 text-white font-bold text-base sm:text-lg py-5 sm:py-6 transition-all duration-300 disabled:opacity-50"
+            >
+              {loading ? (
+                <>
+                  <Loader2 className="w-4 h-4 ml-2 animate-spin" />
+                  جاري الانضمام...
+                </>
+              ) : (
+                <>
+                  <Users className="w-4 h-4 ml-2" />
+                  انضمام
+                </>
+              )}
+            </Button>
+          </form>
+        </CardContent>
+      </Card>
+
+      {/* Back Link */}
+      <div className="text-center">
+        <a
+          href="/prison"
+          className="text-xs text-slate-500 hover:text-slate-300 transition-colors"
+        >
+          ← العودة لصفحة اللعبة
+        </a>
+      </div>
+    </motion.div>
+  );
+}
+
+// ============================================================
+// Main Page Component
+// ============================================================
+export default function JoinPrisonPage({ params }: { params: Promise<{ code: string }> }) {
+  const { code } = use(params);
+  const mounted = useHydrated();
+
+  // Check if already joined as spectator
+  const [spectatorId, setSpectatorId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const searchParams = new URLSearchParams(window.location.search);
+    const sid = searchParams.get('spectatorId');
+    if (sid) {
+      setSpectatorId(sid);
+    }
+  }, []);
+
   if (!mounted) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-[#060e0a]" dir="rtl">
+      <div className="min-h-screen flex items-center justify-center prison-bg">
         <div className="text-center">
-          <div className="text-5xl mb-4 animate-bounce">👁️</div>
+          <div className="text-5xl mb-4 animate-bounce">🔒</div>
           <p className="text-slate-400">جاري التحميل...</p>
         </div>
       </div>
     );
   }
 
-  // Connecting
-  if (connecting) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-[#060e0a]" dir="rtl">
-        <div className="text-center">
-          <div className="text-5xl mb-4 animate-bounce">👁️</div>
-          <p className="text-slate-400">جاري الاتصال بالغرفة...</p>
-          {code && <p className="text-slate-500 text-xs mt-2 font-mono">كود: {code}</p>}
-        </div>
-      </div>
-    );
+  // If spectatorId is present, show spectator view
+  if (spectatorId) {
+    return <PrisonSpectatorView roomCode={code} />;
   }
 
-  // Connected → spectator view
-  if (connected && spectatorName && !error) {
-    return (
-      <div className="flex flex-col min-h-screen bg-[#060e0a]" dir="rtl">
-        <div className="sticky top-0 z-50 border-b border-emerald-800/50 bg-slate-950/90 backdrop-blur-sm">
-          <div className="max-w-md mx-auto flex items-center justify-between px-3 py-1.5">
-            <div className="flex items-center gap-2">
-              <span className="text-lg">👁️</span>
-              <div>
-                <p className="text-xs font-bold text-emerald-300">{spectatorName}</p>
-                <p className="text-[9px] text-slate-500">مشاهد • غرفة {code}</p>
-              </div>
-            </div>
-            {gameOver && (
-              <span className="text-[10px] font-bold text-yellow-300 bg-yellow-950/40 border border-yellow-500/30 px-2 py-0.5 rounded-lg">
-                🏁 انتهت اللعبة
-              </span>
-            )}
-            <a href="/" className="text-xs text-slate-400 hover:text-red-400 transition-colors">خروج ✕</a>
-          </div>
-        </div>
-        <main className="flex-1"><PrisonSpectatorView roomCode={code} /></main>
-      </div>
-    );
-  }
-
-  // Error
-  if (error) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-[#060e0a]" dir="rtl">
-        <div className="text-center max-w-sm mx-auto p-4">
-          <div className="text-5xl mb-4">💔</div>
-          <p className="text-red-400 text-lg font-bold mb-2">{error}</p>
-          {code && <p className="text-slate-500 text-xs mb-4">كود: <span className="font-mono text-white">{code}</span></p>}
-          <button
-            onClick={() => { setError(''); connectAsSpectator(spectatorName || inputName || name); }}
-            className="block mx-auto text-sm text-emerald-400 hover:text-emerald-300 underline mb-3 cursor-pointer"
-          >
-            إعادة المحاولة
-          </button>
-          <a href="/" className="text-sm text-emerald-400 hover:text-emerald-300 underline">العودة للرئيسية</a>
-        </div>
-      </div>
-    );
-  }
-
-  // Name entry form (no code or no name in URL)
+  // Otherwise show join form
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center p-3 sm:p-4 bg-[#060e0a]" dir="rtl">
-      <div className="w-full max-w-sm sm:max-w-md mx-auto">
-        <div className="text-center mb-6">
-          <div className="text-6xl mb-3">👁️</div>
-          <h1 className="text-2xl sm:text-3xl font-black text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 via-amber-300 to-emerald-400 mb-2">
-            مشاهدة لعبة السجن
-          </h1>
-          {code ? (
-            <p className="text-slate-400 text-xs sm:text-sm font-bold">
-              الغرفة: <span className="font-mono text-white tracking-wider">{code}</span>
-            </p>
-          ) : (
-            <p className="text-yellow-400 text-xs">⚠️ كود الغرفة غير موجود في الرابط</p>
-          )}
-        </div>
-
-        {code ? (
-          <div className="bg-slate-900/80 border border-emerald-500/30 rounded-2xl p-5 sm:p-6">
-            <div className="space-y-3">
-              <div>
-                <label className="text-xs text-slate-400 mb-1 block">اسمك كمشاهد</label>
-                <input
-                  value={inputName}
-                  onChange={(e) => { setInputName(e.target.value); setNameError(''); }}
-                  onKeyDown={(e) => e.key === 'Enter' && handleConnect()}
-                  placeholder="اسمك..."
-                  className="w-full bg-slate-800/50 border border-emerald-500/30 text-slate-200 placeholder:text-slate-500 text-right h-12 text-lg rounded-lg px-3 outline-none focus:border-emerald-400/50"
-                  dir="rtl" maxLength={20} autoFocus
-                />
-              </div>
-              {nameError && <p className="text-red-400 text-xs text-center">⚠️ {nameError}</p>}
-              <button onClick={handleConnect}
-                className="w-full bg-gradient-to-l from-emerald-600 to-teal-800 hover:from-emerald-500 hover:to-teal-700 text-white font-bold text-base sm:text-lg py-4 rounded-xl transition-all cursor-pointer">
-                👁️ انضم للمشاهدة
-              </button>
-            </div>
-          </div>
-        ) : (
-          <div className="bg-slate-900/80 border border-yellow-500/30 rounded-2xl p-5 sm:p-6 text-center">
-            <p className="text-yellow-300 text-sm mb-3">الكود غير موجود في الرابط</p>
-            <p className="text-slate-400 text-xs mb-4">تأكد من استخدام الرابط الصحيح</p>
-            <a href="/" className="text-sm text-emerald-400 hover:text-emerald-300 underline">العودة للرئيسية</a>
-          </div>
-        )}
-
-        <div className="text-center mt-4">
-          <a href="/" className="text-xs text-slate-500 hover:text-slate-300 transition-colors">← العودة للرئيسية</a>
-        </div>
-      </div>
+    <div className="min-h-screen flex flex-col items-center justify-center p-4 prison-bg" dir="rtl">
+      <JoinForm code={code} />
     </div>
-  );
-}
-
-export default function PrisonJoinPage() {
-  return (
-    <Suspense fallback={
-      <div className="min-h-screen flex items-center justify-center bg-[#060e0a]">
-        <div className="text-center"><div className="text-5xl mb-4 animate-bounce">👁️</div><p className="text-slate-400">جاري التحميل...</p></div>
-      </div>
-    }>
-      <PrisonJoinContent />
-    </Suspense>
   );
 }

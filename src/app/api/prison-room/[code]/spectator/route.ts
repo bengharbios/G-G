@@ -22,7 +22,6 @@ export async function POST(
       return NextResponse.json({ error: 'Room not found' }, { status: 404 });
     }
 
-    // Find the newly added spectator to return their ID
     const spectator = room.spectators.find(s => s.name === name.trim());
 
     return NextResponse.json({

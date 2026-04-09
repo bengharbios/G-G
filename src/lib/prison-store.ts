@@ -1,458 +1,514 @@
-// ════════════════════════════════════════════════════════════════
-// PRISON GAME — STATE MANAGEMENT (v1.0 — Room Sync for Diwaniya)
-// Zustand Store with Persist
-// ════════════════════════════════════════════════════════════════
-
+// ============================================================
+// السجن (The Prison) - Zustand Store (العراب / Classic mode)
+// ============================================================
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import {
-  GamePhase,
-  PrisonTeam,
-  PrisonPlayer,
-  Cell,
-  RevealResult,
-  GameLogEntry,
-  CellType,
-  createCells,
-  createPlayer,
-  checkGameOver,
-  getOpposingTeam,
-  getActiveMembers,
-  getImprisonedMembers,
-  hasImprisonedPlayers,
-  shuffleArray,
-  CELL_CONFIG,
-  GRID_CONFIGS,
-} from './prison-types';
-import { syncPrisonRoomState, endPrisonRoomSession } from './prison-sync';
+import type { PrisonTeam, PrisonGamePhase, GridCell, PrisonPlayer, PrisonLogEntry, InteractionState, CellItemType } from './prison-types';
+import { generateGrid, checkGameEnd, getActivePlayers, getImprisonedPlayers } from './prison-types';
+import { CELL_ITEMS } from './prison-types';
 
-// ── Store Interface ────────────────────────────────────────────
+export type PrisonGameMode = 'classic' | 'diwaniya';
 
-export interface PrisonStore {
-  // Phase
-  phase: GamePhase;
+interface PrisonState {
+  // Game Phase
+  phase: PrisonGamePhase;
 
-  // Grid
-  gridSize: number;
+  // Game Mode
+  gameMode: PrisonGameMode;
+
+  // Diwaniya
+  roomCode: string | null;
+  hostName: string | null;
 
   // Teams
-  teamAlphaName: string;
-  teamBetaName: string;
+  alphaName: string;
+  betaName: string;
+  currentTeam: PrisonTeam;
 
   // Players
   players: PrisonPlayer[];
-  currentTeam: PrisonTeam;
+  currentPlayerId: string | null;
 
-  // Cells
-  cells: Cell[];
-  lastRevealedCell: Cell | null;
-  revealResult: RevealResult | null;
+  // Grid
+  gridSize: number;
+  grid: GridCell[];
 
-  // Rounds & Log
-  currentRound: number;
-  roundLog: GameLogEntry[];
+  // Interaction
+  interactionState: InteractionState;
+  revealedCell: GridCell | null;
+  selectedTargetId: string | null;
+
+  // Game Log
+  gameLog: PrisonLogEntry[];
+  logCounter: number;
+
+  // Game Over
   winner: PrisonTeam | 'draw' | null;
   winReason: string;
 
-  // Diwaniya mode
-  gameMode: 'local' | 'diwaniya' | null;
-  roomCode: string | null;
-
-  // ── Actions ──────────────────────────────────────────────────
-  setPhase: (phase: GamePhase) => void;
-  setGameMode: (mode: 'local' | 'diwaniya' | null) => void;
+  // Actions
+  setPhase: (phase: PrisonGamePhase) => void;
+  setGameMode: (mode: PrisonGameMode) => void;
   setRoomCode: (code: string | null) => void;
-  setupGame: (
-    gridSize: number,
-    alphaName: string,
-    betaName: string,
-    alphaPlayers: { name: string; role: string }[],
-    betaPlayers: { name: string; role: string }[],
-    firstTeam: PrisonTeam
-  ) => void;
-  revealCell: (cellId: number) => void;
-  advanceTurn: () => void;
-  resetGame: () => void;
-  syncToRoom: () => void;
-}
+  setHostName: (name: string | null) => void;
+  setTeamNames: (alpha: string, beta: string) => void;
+  setGridSize: (size: number) => void;
+  setPlayers: (players: PrisonPlayer[]) => void;
 
-// ── Initial State ──────────────────────────────────────────────
+  startGame: () => void;
+  selectPlayer: (playerId: string) => void;
+  revealCell: (cellId: string) => void;
+  imprisonOpponent: (targetId: string) => void;
+  imprisonSelf: () => void;
+  executePlayer: () => void;
+  freeTeammate: (targetId: string) => void;
+  skipTurn: () => void;
+  advanceTurn: () => void;
+  closeModal: () => void;
+  resetGame: () => void;
+}
 
 const initialState = {
-  phase: 'landing' as GamePhase,
-  gridSize: 9,
-  teamAlphaName: '',
-  teamBetaName: '',
-  players: [] as PrisonPlayer[],
+  phase: 'landing' as PrisonGamePhase,
+  gameMode: 'classic' as PrisonGameMode,
+  roomCode: null as string | null,
+  hostName: null as string | null,
+  alphaName: 'فريق أ',
+  betaName: 'فريق ب',
   currentTeam: 'alpha' as PrisonTeam,
-  cells: [] as Cell[],
-  lastRevealedCell: null as Cell | null,
-  revealResult: null as RevealResult | null,
-  currentRound: 1,
-  roundLog: [] as GameLogEntry[],
+  players: [] as PrisonPlayer[],
+  currentPlayerId: null as string | null,
+  gridSize: 16,
+  grid: [] as GridCell[],
+  interactionState: 'waiting_for_player' as InteractionState,
+  revealedCell: null as GridCell | null,
+  selectedTargetId: null as string | null,
+  gameLog: [] as PrisonLogEntry[],
+  logCounter: 0,
   winner: null as PrisonTeam | 'draw' | null,
   winReason: '',
-  gameMode: null as 'local' | 'diwaniya' | null,
-  roomCode: null as string | null,
 };
 
-// ── Helpers ────────────────────────────────────────────────────
-
-function makeLog(round: number, message: string, type: GameLogEntry['type'] = 'info'): GameLogEntry {
-  return { round, message, timestamp: Date.now(), type };
+function generateRoomCode(): string {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  let code = '';
+  for (let i = 0; i < 6; i++) {
+    code += chars[Math.floor(Math.random() * chars.length)];
+  }
+  return code;
 }
 
-function pickRandom<T>(arr: T[]): T | null {
-  if (arr.length === 0) return null;
-  return arr[Math.floor(Math.random() * arr.length)];
+function addLog(
+  state: PrisonState,
+  team: PrisonTeam,
+  playerName: string,
+  action: string,
+  itemType: CellItemType
+): PrisonLogEntry {
+  return {
+    id: state.logCounter + 1,
+    team,
+    playerName,
+    action,
+    itemType,
+    timestamp: Date.now(),
+  };
 }
 
-// ── Store ──────────────────────────────────────────────────────
-
-export const usePrisonStore = create<PrisonStore>()(
+export const usePrisonStore = create<PrisonState>()(
   persist(
     (set, get) => ({
       ...initialState,
 
-      setPhase: (phase) => {
-        set({ phase });
-        get().syncToRoom();
-      },
+      setPhase: (phase) => set({ phase }),
+      setGameMode: (gameMode) => set({ gameMode }),
+      setRoomCode: (roomCode) => set({ roomCode }),
+      setHostName: (hostName) => set({ hostName }),
+      setTeamNames: (alphaName, betaName) => set({ alphaName, betaName }),
+      setGridSize: (gridSize) => set({ gridSize }),
+      setPlayers: (players) => set({ players }),
 
-      setGameMode: (mode) => set({ gameMode: mode }),
-      setRoomCode: (code) => set({ roomCode: code }),
-
-      syncToRoom: () => {
+      startGame: () => {
         const state = get();
-        if (!state.roomCode) return;
+        const grid = generateGrid(state.gridSize);
+        const code = state.gameMode === 'diwaniya' ? generateRoomCode() : null;
 
-        const syncData = {
-          phase: state.phase,
-          round: state.currentRound,
-          stateJson: JSON.stringify({
-            gridSize: state.gridSize,
-            teamAlphaName: state.teamAlphaName,
-            teamBetaName: state.teamBetaName,
-            players: state.players,
-            currentTeam: state.currentTeam,
-            cells: state.cells,
-            lastRevealedCell: state.lastRevealedCell,
-            revealResult: state.revealResult,
-            currentRound: state.currentRound,
-            roundLog: state.roundLog,
-            winner: state.winner,
-            winReason: state.winReason,
-          }),
-        };
-
-        syncPrisonRoomState(state.roomCode, syncData);
-      },
-
-      setupGame: (gridSize, alphaName, betaName, alphaPlayers, betaPlayers, firstTeam) => {
-        const alpha: PrisonPlayer[] = alphaPlayers.map((p, i) =>
-          createPlayer(p.name, 'alpha', i, p.role as PrisonPlayer['role'])
-        );
-        const beta: PrisonPlayer[] = betaPlayers.map((p, i) =>
-          createPlayer(p.name, 'beta', i + alphaPlayers.length, p.role as PrisonPlayer['role'])
-        );
-
-        const aName = alphaName || 'فريق السجناء';
-        const bName = betaName || 'فريق الحراس';
-        const startTeamName = firstTeam === 'alpha' ? aName : bName;
-        const cells = createCells(gridSize);
+        if (state.gameMode === 'diwaniya' && code) {
+          // Create room via API
+          fetch('/api/prison-room', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ code, hostName: 'العراب' }),
+          }).then(() => {
+            // Set initial room state
+            return fetch(`/api/prison-room/${code}`, {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                alphaName: state.alphaName,
+                betaName: state.betaName,
+                currentTeam: state.currentTeam,
+                players: state.players,
+                gridSize: state.gridSize,
+                grid,
+                interactionState: 'waiting_for_player',
+                revealedCell: null,
+                gameLog: [],
+                winner: null,
+                winReason: '',
+                phase: 'playing',
+              }),
+            });
+          }).catch(() => {});
+        }
 
         set({
           phase: 'playing',
-          gridSize,
-          teamAlphaName: aName,
-          teamBetaName: bName,
-          players: [...alpha, ...beta],
-          currentTeam: firstTeam,
-          cells,
-          lastRevealedCell: null,
-          revealResult: null,
-          currentRound: 1,
+          grid,
+          interactionState: 'waiting_for_player',
+          revealedCell: null,
+          selectedTargetId: null,
+          currentPlayerId: null,
+          gameLog: [],
+          logCounter: 0,
           winner: null,
           winReason: '',
-          roundLog: [
-            makeLog(1, `🔒 بدأت لعبة السجن! "${aName}" ضد "${bName}"`, 'system'),
-            makeLog(1, `🎯 الفريق البادئ: "${startTeamName}" — اختروا زنزانة... 👑`, 'action'),
-          ],
+          roomCode: code,
         });
-        get().syncToRoom();
       },
 
-      revealCell: (cellId: number) => {
+      selectPlayer: (playerId: string) => {
         const state = get();
         if (state.phase !== 'playing') return;
+        if (state.interactionState !== 'waiting_for_player') return;
 
-        const cellIndex = state.cells.findIndex(c => c.id === cellId);
+        const player = state.players.find(p => p.id === playerId);
+        if (!player || player.status !== 'active') return;
+        if (player.team !== state.currentTeam) return;
+
+        set({
+          currentPlayerId: playerId,
+          interactionState: 'waiting_for_cell',
+        });
+
+        // Sync to room
+        syncToRoom(get(), { currentPlayerId: playerId, interactionState: 'waiting_for_cell' });
+      },
+
+      revealCell: (cellId: string) => {
+        const state = get();
+        if (state.phase !== 'playing') return;
+        if (state.interactionState !== 'waiting_for_cell') return;
+
+        const cellIndex = state.grid.findIndex(c => c.id === cellId);
         if (cellIndex === -1) return;
+        if (state.grid[cellIndex].status === 'revealed') return;
 
-        const cell = state.cells[cellIndex];
-        if (cell.status !== 'hidden') return;
+        const cell = state.grid[cellIndex];
+        const newGrid = [...state.grid];
+        newGrid[cellIndex] = { ...cell, status: 'revealed' };
 
-        const team = state.currentTeam;
-        const enemyTeam = getOpposingTeam(team);
-        const teamName = team === 'alpha' ? state.teamAlphaName : state.teamBetaName;
-        const enemyTeamName = enemyTeam === 'alpha' ? state.teamAlphaName : state.teamBetaName;
-        const round = state.currentRound;
+        const currentPlayer = state.players.find(p => p.id === state.currentPlayerId);
+        if (!currentPlayer) return;
 
-        // Mark cell as revealed
-        const updatedCells = state.cells.map(c =>
-          c.id === cellId ? { ...c, status: 'revealed' as const } : c
-        );
+        const itemInfo = CELL_ITEMS[cell.type];
+        const opponentTeam: PrisonTeam = state.currentTeam === 'alpha' ? 'beta' : 'alpha';
 
-        let updatedPlayers = [...state.players];
-        let targetPlayer: PrisonPlayer | null = null;
-        let message = '';
-        let logType: GameLogEntry['type'] = 'info';
+        const newLog = addLog(state, state.currentTeam, currentPlayer.name, `فتح زنزانة ${itemInfo.title}`, cell.type);
 
-        const config = CELL_CONFIG[cell.type];
+        let newState: Partial<PrisonState> = {
+          grid: newGrid,
+          revealedCell: newGrid[cellIndex],
+          gameLog: [...state.gameLog, newLog],
+          logCounter: state.logCounter + 1,
+        };
 
         switch (cell.type) {
           case 'open': {
-            // Imprison a random active enemy
-            const activeEnemies = getActiveMembers(updatedPlayers, enemyTeam);
-            if (activeEnemies.length > 0) {
-              targetPlayer = pickRandom(activeEnemies);
-              if (targetPlayer) {
-                updatedPlayers = updatedPlayers.map(p =>
-                  p.id === targetPlayer!.id ? { ...p, status: 'imprisoned' as const } : p
-                );
-                // Update the reference in targetPlayer to reflect new status
-                targetPlayer = { ...targetPlayer, status: 'imprisoned' };
-                message = `${config.emoji} زنزانة فارغة! تم سجن ${targetPlayer.name} من "${enemyTeamName}"`;
-                logType = 'danger';
-              }
+            // Imprison an opponent player - check if there are active opponents
+            const activeOpponents = state.players.filter(p => p.team === opponentTeam && p.status === 'active');
+            if (activeOpponents.length > 0) {
+              newState.interactionState = 'picking_opponent_jail';
             } else {
-              message = `${config.emoji} زنزانة فارغة! لكن لا يوجد خصم نشط ليُسجن`;
-              logType = 'info';
+              // No active opponents, skip effect
+              newState.interactionState = 'showing_result';
+              newState.selectedTargetId = null;
             }
             break;
           }
-
           case 'uniform': {
-            // Convert a random active enemy to current team
-            const activeEnemies = getActiveMembers(updatedPlayers, enemyTeam);
-            if (activeEnemies.length > 0) {
-              targetPlayer = pickRandom(activeEnemies);
-              if (targetPlayer) {
-                updatedPlayers = updatedPlayers.map(p =>
-                  p.id === targetPlayer!.id
-                    ? { ...p, team, status: 'converted' as const, originalTeam: targetPlayer!.team }
-                    : p
-                );
-                targetPlayer = { ...targetPlayer, team, status: 'converted', originalTeam: enemyTeam };
-                message = `${config.emoji} ملابس السجن! ${targetPlayer.name} من "${enemyTeamName}" انضم لفريق "${teamName}"`;
-                logType = 'danger';
-              }
-            } else {
-              message = `${config.emoji} ملابس السجن! لكن لا يوجد خصم نشط لتحويله`;
-              logType = 'info';
-            }
+            // Current player gets imprisoned
+            const newPlayers = state.players.map(p =>
+              p.id === state.currentPlayerId
+                ? { ...p, status: 'imprisoned' as const, uniformCount: p.uniformCount + 1 }
+                : p
+            );
+            newState.players = newPlayers;
+            newState.interactionState = 'showing_result';
             break;
           }
-
           case 'skull': {
-            // Kill a random active enemy
-            const activeEnemies = getActiveMembers(updatedPlayers, enemyTeam);
-            if (activeEnemies.length > 0) {
-              targetPlayer = pickRandom(activeEnemies);
-              if (targetPlayer) {
-                updatedPlayers = updatedPlayers.map(p =>
-                  p.id === targetPlayer!.id ? { ...p, status: 'killed' as const } : p
-                );
-                targetPlayer = { ...targetPlayer, status: 'killed' };
-                message = `${config.emoji} إعدام! ${targetPlayer.name} من "${enemyTeamName}" قُتل`;
-                logType = 'danger';
-              }
-            } else {
-              message = `${config.emoji} إعدام! لكن لا يوجد خصم نشط ليُقتل`;
-              logType = 'info';
+            // Current player is executed
+            const newPlayers = state.players.map(p =>
+              p.id === state.currentPlayerId
+                ? { ...p, status: 'executed' as const }
+                : p
+            );
+            newState.players = newPlayers;
+            newState.interactionState = 'showing_result';
+
+            // Check game end after execution
+            const gameEndCheck = checkGameEnd(newPlayers, newGrid);
+            if (gameEndCheck.ended) {
+              newState.winner = gameEndCheck.winner;
+              newState.winReason = gameEndCheck.reason;
             }
             break;
           }
-
           case 'key': {
-            // Free a random imprisoned teammate
-            const imprisonedTeammates = getImprisonedMembers(updatedPlayers, team);
+            // Free a teammate - check if there are imprisoned teammates
+            const imprisonedTeammates = state.players.filter(
+              p => p.team === state.currentTeam && p.status === 'imprisoned'
+            );
             if (imprisonedTeammates.length > 0) {
-              targetPlayer = pickRandom(imprisonedTeammates);
-              if (targetPlayer) {
-                updatedPlayers = updatedPlayers.map(p =>
-                  p.id === targetPlayer!.id ? { ...p, status: 'active' as const } : p
-                );
-                targetPlayer = { ...targetPlayer, status: 'active' };
-                message = `${config.emoji} مفتاح الحرية! تم تحرير ${targetPlayer.name} من "${teamName}"`;
-                logType = 'success';
-              }
+              newState.interactionState = 'picking_teammate_free';
             } else {
-              message = `${config.emoji} مفتاح الحرية! لكن لا يوجد زميل محبوس في فريق "${teamName}"`;
-              logType = 'info';
+              // No imprisoned teammates, skip effect
+              newState.interactionState = 'showing_result';
+              newState.selectedTargetId = null;
             }
             break;
           }
-
           case 'skip': {
-            // Nothing happens
-            message = `${config.emoji} زنزانة ممتلئة... تخطي! لا شيء يحدث`;
-            logType = 'info';
+            // Skip turn - nothing happens
+            newState.interactionState = 'showing_result';
+            newState.selectedTargetId = null;
             break;
           }
-
-          default:
-            message = `${config.emoji} حدث غير معروف`;
-            logType = 'info';
-            break;
         }
 
-        // Build reveal result
-        const revealResult: RevealResult = {
-          cellId: cell.id,
-          cellType: cell.type,
-          targetPlayer: targetPlayer
-            ? { id: targetPlayer.id, name: targetPlayer.name, team: targetPlayer.team, role: targetPlayer.role, status: targetPlayer.status, avatar: targetPlayer.avatar }
-            : null,
-          targetTeam: team,
-          message,
-        };
+        set(newState);
+        syncToRoom(get(), newState);
+      },
 
-        // Check game over
-        const { over, winner, reason } = checkGameOver(updatedPlayers);
+      imprisonOpponent: (targetId: string) => {
+        const state = get();
+        if (state.interactionState !== 'picking_opponent_jail') return;
 
-        // Check if all cells revealed
-        const allCellsRevealed = updatedCells.every(c => c.status === 'revealed');
+        const newPlayers = state.players.map(p =>
+          p.id === targetId
+            ? { ...p, status: 'imprisoned' as const, uniformCount: p.uniformCount + 1 }
+            : p
+        );
 
-        if (over) {
-          set({
-            cells: updatedCells,
-            players: updatedPlayers,
-            lastRevealedCell: updatedCells[cellIndex],
-            revealResult,
-            phase: 'game_over' as GamePhase,
-            winner,
-            winReason: reason,
-            roundLog: [
-              ...state.roundLog,
-              makeLog(round, message, logType),
-              makeLog(round, `🏆 انتهت اللعبة! ${reason}`, 'system'),
-            ],
-          });
-        } else if (allCellsRevealed) {
-          // All cells revealed but no team eliminated — decide by active members
-          const alphaActive = getActiveMembers(updatedPlayers, 'alpha').length;
-          const betaActive = getActiveMembers(updatedPlayers, 'beta').length;
-          let finalWinner: PrisonTeam | 'draw' = 'draw';
-          let finalReason = 'انتهت جميع الزنزانات!';
-          if (alphaActive > betaActive) {
-            finalWinner = 'alpha';
-            finalReason = `انتهت جميع الزنزانات! فريق "${state.teamAlphaName}" فاز بأكثر الأعضاء النشطين`;
-          } else if (betaActive > alphaActive) {
-            finalWinner = 'beta';
-            finalReason = `انتهت جميع الزنزانات! فريق "${state.teamBetaName}" فاز بأكثر الأعضاء النشطين`;
-          } else {
-            finalWinner = 'draw';
-            finalReason = 'انتهت جميع الزنزانات! تعادل بالأعضاء النشطين';
-          }
+        const target = state.players.find(p => p.id === targetId);
+        const newLog = addLog(state, state.currentTeam, target?.name || '', 'تم سجنه!', 'open');
 
-          set({
-            cells: updatedCells,
-            players: updatedPlayers,
-            lastRevealedCell: updatedCells[cellIndex],
-            revealResult,
-            phase: 'game_over' as GamePhase,
-            winner: finalWinner,
-            winReason: finalReason,
-            roundLog: [
-              ...state.roundLog,
-              makeLog(round, message, logType),
-              makeLog(round, `🏆 انتهت اللعبة! ${finalReason}`, 'system'),
-            ],
-          });
-        } else {
-          set({
-            cells: updatedCells,
-            players: updatedPlayers,
-            lastRevealedCell: updatedCells[cellIndex],
-            revealResult,
-            roundLog: [
-              ...state.roundLog,
-              makeLog(round, message, logType),
-            ],
-          });
-        }
+        set({
+          players: newPlayers,
+          interactionState: 'showing_result',
+          selectedTargetId: targetId,
+          gameLog: [...state.gameLog, newLog],
+          logCounter: state.logCounter + 1,
+        });
 
-        get().syncToRoom();
+        syncToRoom(get(), {
+          players: newPlayers,
+          interactionState: 'showing_result',
+          selectedTargetId: targetId,
+        });
+      },
+
+      imprisonSelf: () => {
+        // Handled in revealCell for uniform type
+      },
+
+      executePlayer: () => {
+        // Handled in revealCell for skull type
+      },
+
+      freeTeammate: (targetId: string) => {
+        const state = get();
+        if (state.interactionState !== 'picking_teammate_free') return;
+
+        const newPlayers = state.players.map(p =>
+          p.id === targetId
+            ? { ...p, status: 'active' as const }
+            : p
+        );
+
+        const target = state.players.find(p => p.id === targetId);
+        const newLog = addLog(state, state.currentTeam, target?.name || '', 'تم تحريره!', 'key');
+
+        set({
+          players: newPlayers,
+          interactionState: 'showing_result',
+          selectedTargetId: targetId,
+          gameLog: [...state.gameLog, newLog],
+          logCounter: state.logCounter + 1,
+        });
+
+        syncToRoom(get(), {
+          players: newPlayers,
+          interactionState: 'showing_result',
+          selectedTargetId: targetId,
+        });
+      },
+
+      skipTurn: () => {
+        // Handled in revealCell for skip type
       },
 
       advanceTurn: () => {
         const state = get();
-        if (state.phase !== 'playing') return;
+        if (state.interactionState !== 'showing_result') return;
 
-        // Check if all cells revealed
-        const allCellsRevealed = state.cells.every(c => c.status === 'revealed');
-        if (allCellsRevealed) return; // Game over already handled in revealCell
+        const opponentTeam: PrisonTeam = state.currentTeam === 'alpha' ? 'beta' : 'alpha';
 
-        // Check game over from current state
-        const { over } = checkGameOver(state.players);
-        if (over) return; // Game over already handled in revealCell
+        // Check if there are active players on the next team
+        const nextTeamActive = state.players.some(p => p.team === opponentTeam && p.status === 'active');
+        const currentTeamActive = state.players.some(p => p.team === state.currentTeam && p.status === 'active');
 
-        const nextTeam = getOpposingTeam(state.currentTeam);
-        const nextRound = state.currentTeam === 'beta' ? state.currentRound + 1 : state.currentRound;
-
-        // Check if next team has active members
-        const nextActive = getActiveMembers(state.players, nextTeam);
-        if (nextActive.length === 0) {
-          // Stay on current team — skip to next round
-          const currentTeamName = state.currentTeam === 'alpha' ? state.teamAlphaName : state.teamBetaName;
-          set({
-            currentRound: nextRound,
-            lastRevealedCell: null,
-            revealResult: null,
-            roundLog: [
-              ...state.roundLog,
-              makeLog(nextRound, `⏭️ لا يوجد أعضاء نشطون في الفريق الخصم — دور "${currentTeamName}" مرة أخرى`, 'info'),
-            ],
-          });
-          get().syncToRoom();
-          return;
+        let nextTeam = opponentTeam;
+        if (!nextTeamActive && !currentTeamActive) {
+          // Both teams have no active players - check game end
+          const gameEndCheck = checkGameEnd(state.players, state.grid);
+          if (gameEndCheck.ended) {
+            set({
+              phase: 'game_over',
+              winner: gameEndCheck.winner,
+              winReason: gameEndCheck.reason,
+              interactionState: 'game_over',
+              revealedCell: null,
+              currentPlayerId: null,
+            });
+            syncToRoom(get(), {
+              phase: 'game_over',
+              winner: gameEndCheck.winner,
+              winReason: gameEndCheck.reason,
+              interactionState: 'game_over',
+            });
+            return;
+          }
+        } else if (!nextTeamActive) {
+          // Opponent team has no active players, current team continues
+          nextTeam = state.currentTeam;
         }
-
-        const teamName = nextTeam === 'alpha' ? state.teamAlphaName : state.teamBetaName;
 
         set({
           currentTeam: nextTeam,
-          currentRound: nextRound,
-          lastRevealedCell: null,
-          revealResult: null,
-          roundLog: [
-            ...state.roundLog,
-            makeLog(nextRound, `🔄 دور فريق "${teamName}" — اختروا زنزانة... 👑`, 'info'),
-          ],
+          currentPlayerId: null,
+          revealedCell: null,
+          selectedTargetId: null,
+          interactionState: 'waiting_for_player',
         });
-        get().syncToRoom();
+
+        syncToRoom(get(), {
+          currentTeam: nextTeam,
+          currentPlayerId: null,
+          revealedCell: null,
+          selectedTargetId: null,
+          interactionState: 'waiting_for_player',
+        });
+      },
+
+      closeModal: () => {
+        const state = get();
+
+        // If game should end (from skull execution)
+        if (state.winner !== null) {
+          set({
+            phase: 'game_over',
+            interactionState: 'game_over',
+            revealedCell: null,
+            currentPlayerId: null,
+          });
+          syncToRoom(get(), {
+            phase: 'game_over',
+            interactionState: 'game_over',
+          });
+        } else {
+          set({ revealedCell: null, selectedTargetId: null });
+          syncToRoom(get(), { revealedCell: null, selectedTargetId: null });
+        }
       },
 
       resetGame: () => {
         const state = get();
-        // End room session if in diwaniya mode
-        if (state.roomCode && state.gameMode === 'diwaniya') {
-          endPrisonRoomSession(state.roomCode);
+        if (state.gameMode === 'diwaniya' && state.roomCode) {
+          fetch(`/api/prison-room/${state.roomCode}`, { method: 'DELETE' }).catch(() => {});
         }
-        if (typeof window !== 'undefined') {
-          localStorage.removeItem('prison-game-storage');
-        }
-        set({ ...initialState });
+        set({
+          ...initialState,
+          grid: [],
+          gameLog: [],
+          players: [],
+          logCounter: 0,
+          revealedCell: null,
+          currentPlayerId: null,
+          selectedTargetId: null,
+        });
       },
     }),
     {
       name: 'prison-game-storage',
       version: 1,
-      migrate: (persisted: unknown, version: number) => {
-        if (version < 1) return { ...initialState } as PrisonStore;
-        return persisted as PrisonStore;
-      },
+      migrate: () => ({
+        ...initialState,
+        grid: [],
+        gameLog: [],
+        players: [],
+        logCounter: 0,
+        revealedCell: null,
+        currentPlayerId: null,
+        selectedTargetId: null,
+        gameMode: 'classic',
+        roomCode: null,
+        hostName: null,
+      }),
+      partialize: (state) => ({
+        phase: state.phase,
+        gameMode: state.gameMode,
+        roomCode: state.roomCode,
+        hostName: state.hostName,
+        alphaName: state.alphaName,
+        betaName: state.betaName,
+        currentTeam: state.currentTeam,
+        players: state.players,
+        currentPlayerId: state.currentPlayerId,
+        gridSize: state.gridSize,
+        grid: state.grid,
+        interactionState: state.interactionState,
+        revealedCell: state.revealedCell,
+        selectedTargetId: state.selectedTargetId,
+        gameLog: state.gameLog,
+        logCounter: state.logCounter,
+        winner: state.winner,
+        winReason: state.winReason,
+      }),
     }
   )
 );
+
+// ============================================================
+// Room sync helper
+// ============================================================
+function syncToRoom(state: PrisonState, updates: Record<string, unknown>) {
+  if (state.gameMode !== 'diwaniya' || !state.roomCode) return;
+  fetch(`/api/prison-room/${state.roomCode}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      ...updates,
+      alphaName: state.alphaName,
+      betaName: state.betaName,
+      currentTeam: state.currentTeam,
+      players: state.players,
+      gridSize: state.gridSize,
+      grid: state.grid,
+      gameLog: state.gameLog,
+      winner: state.winner,
+      winReason: state.winReason,
+    }),
+  }).catch(() => {});
+}
