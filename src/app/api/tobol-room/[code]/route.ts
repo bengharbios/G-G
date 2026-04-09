@@ -10,7 +10,7 @@ export async function GET(
     return NextResponse.json({ error: 'Missing code' }, { status: 400 });
   }
 
-  const room = getTobolRoom(code);
+  const room = await getTobolRoom(code);
   if (!room) {
     return NextResponse.json({ error: 'Room not found' }, { status: 404 });
   }
@@ -28,7 +28,7 @@ export async function PUT(
   }
 
   const body = await request.json();
-  const room = updateTobolRoom(code, body);
+  const room = await updateTobolRoom(code, body);
   if (!room) {
     return NextResponse.json({ error: 'Room not found' }, { status: 404 });
   }
@@ -45,6 +45,6 @@ export async function DELETE(
     return NextResponse.json({ error: 'Missing code' }, { status: 400 });
   }
 
-  deleteTobolRoom(code);
+  await deleteTobolRoom(code);
   return NextResponse.json({ success: true });
 }

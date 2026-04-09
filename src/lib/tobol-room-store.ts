@@ -1,7 +1,9 @@
 // ============================================================
-// Shared in-memory Tobol room storage
-// Uses globalThis (works in both CJS and ESM/Turbopack)
+// طبول الحرب (Tobol) - Room Store using Turso (NOT in-memory)
+// Uses the Room table with gameType='tobol' and stateJson
 // ============================================================
+
+import * as turso from './turso';
 
 export interface SpectatorInfo {
   id: string;
@@ -29,27 +31,31 @@ export interface TobolRoomState {
   spectators: SpectatorInfo[];
 }
 
-// globalThis works in ALL JavaScript environments (CJS, ESM, browser, Turbopack)
-const G = globalThis as Record<string, unknown>;
-const STORAGE_KEY = '__tobol_rooms_v2';
+const ROOM_TTL_MS = 5 * 60 * 1000; // 5 minutes
 
-function getRooms(): Map<string, TobolRoomState> {
-  if (!G[STORAGE_KEY]) {
-    G[STORAGE_KEY] = new Map<string, TobolRoomState>();
-  }
-  return G[STORAGE_KEY] as Map<string, TobolRoomState>;
+// ============================================================
+// Helpers
+// ============================================================
+
+function packState(state: Partial<TobolRoomState>): string {
+  return JSON.stringify(state);
+}
+
+function unpackState(json: string): Partial<TobolRoomState> {
+  try { return JSON.parse(json); } catch { return {}; }
 }
 
 // ============================================================
-// Room CRUD
+// Room CRUD (async — Turso)
 // ============================================================
 
-export function createTobolRoom(code: string, hostName: string): TobolRoomState {
-  const room: TobolRoomState = {
+export async function createTobolRoom(code: string, hostName: string): Promise<TobolRoomState> {
+  const now = Date.now();
+  const state: TobolRoomState = {
     code,
     hostName,
-    createdAt: Date.now(),
-    hostLastSeen: Date.now(),
+    createdAt: now,
+    hostLastSeen: now,
     redName: 'الجيش الأحمر',
     blueName: 'الجيش الأزرق',
     redScore: 350,
@@ -63,72 +69,110 @@ export function createTobolRoom(code: string, hostName: string): TobolRoomState 
     phase: 'playing',
     spectators: [],
   };
-  getRooms().set(code, room);
-  return room;
+
+  await turso.createRoom({
+    id: `tobol_${code}`,
+    code,
+    hostName,
+    playerCount: 0,
+    phase: 'playing',
+    stateJson: packState(state),
+    gameType: 'tobol',
+  });
+
+  return state;
 }
 
-export function getTobolRoom(code: string): TobolRoomState | null {
-  const room = getRooms().get(code);
-  if (!room) return null;
+export async function getTobolRoom(code: string): Promise<TobolRoomState | null> {
+  const room = await turso.getRoomByCode(code);
+  if (!room || room.gameType !== 'tobol') return null;
 
   // Room expires after 5 minutes without heartbeat
-  if (Date.now() - room.hostLastSeen > 300000) {
-    getRooms().delete(code);
+  const lastSeen = new Date(room.hostLastSeen).getTime();
+  if (Date.now() - lastSeen > ROOM_TTL_MS) {
+    await deleteTobolRoom(code);
     return null;
   }
 
-  // Clean stale spectators (not seen for 30 seconds)
-  room.spectators = room.spectators.filter(s => Date.now() - s.lastSeen < 30000);
+  const state = unpackState(room.stateJson) as TobolRoomState;
 
-  return room;
+  // Clean stale spectators
+  if (state.spectators) {
+    state.spectators = state.spectators.filter(s => Date.now() - s.lastSeen < 30000);
+  }
+
+  return state;
 }
 
-export function updateTobolRoom(code: string, data: Partial<TobolRoomState>): TobolRoomState | null {
-  const room = getRooms().get(code);
-  if (!room) return null;
-  Object.assign(room, data, { hostLastSeen: Date.now() });
-  return room;
+export async function updateTobolRoom(code: string, data: Partial<TobolRoomState>): Promise<TobolRoomState | null> {
+  const existing = await getTobolRoom(code);
+  if (!existing) return null;
+
+  const merged: TobolRoomState = { ...existing, ...data, hostLastSeen: Date.now() };
+  await turso.updateRoom(code, {
+    stateJson: packState(merged),
+    hostLastSeen: new Date().toISOString(),
+    phase: merged.phase,
+  });
+
+  return merged;
 }
 
-export function heartbeatTobolRoom(code: string): boolean {
-  const room = getRooms().get(code);
-  if (!room) return false;
-  room.hostLastSeen = Date.now();
+export async function heartbeatTobolRoom(code: string): Promise<boolean> {
+  const room = await turso.getRoomByCode(code);
+  if (!room || room.gameType !== 'tobol') return false;
+
+  await turso.updateRoom(code, { hostLastSeen: new Date().toISOString() });
   return true;
 }
 
-export function deleteTobolRoom(code: string): boolean {
-  return getRooms().delete(code);
+export async function deleteTobolRoom(code: string): Promise<boolean> {
+  try {
+    const room = await turso.getRoomByCode(code);
+    if (!room || room.gameType !== 'tobol') return false;
+
+    await turso.updateRoom(code, { phase: 'deleted', stateJson: '{}' });
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 // ============================================================
 // Spectator management
 // ============================================================
 
-export function addSpectator(code: string, name: string): TobolRoomState | null {
-  const room = getRooms().get(code);
+export async function addSpectator(code: string, name: string): Promise<TobolRoomState | null> {
+  const room = await getTobolRoom(code);
   if (!room) return null;
 
   const id = `spec_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
   room.spectators = room.spectators.filter(s => s.name !== name);
   room.spectators.push({ id, name, joinedAt: Date.now(), lastSeen: Date.now() });
-  return room;
+
+  return updateTobolRoom(code, { spectators: room.spectators });
 }
 
-export function heartbeatSpectator(code: string, spectatorId: string): boolean {
-  const room = getRooms().get(code);
+export async function heartbeatSpectator(code: string, spectatorId: string): Promise<boolean> {
+  const room = await getTobolRoom(code);
   if (!room) return false;
+
   const spec = room.spectators.find(s => s.id === spectatorId);
   if (!spec) return false;
   spec.lastSeen = Date.now();
+
+  await updateTobolRoom(code, { spectators: room.spectators });
   return true;
 }
 
-export function removeSpectator(code: string, spectatorId: string): boolean {
-  const room = getRooms().get(code);
+export async function removeSpectator(code: string, spectatorId: string): Promise<boolean> {
+  const room = await getTobolRoom(code);
   if (!room) return false;
+
   const idx = room.spectators.findIndex(s => s.id === spectatorId);
   if (idx === -1) return false;
   room.spectators.splice(idx, 1);
+
+  await updateTobolRoom(code, { spectators: room.spectators });
   return true;
 }

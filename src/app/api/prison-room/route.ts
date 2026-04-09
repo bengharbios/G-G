@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createPrisonRoom, getPrisonRoom } from '@/lib/prison-room-store';
+import { createPrisonRoom, getPrisonRoom, updatePrisonRoom, deletePrisonRoom } from '@/lib/prison-room-store';
 
 export async function POST(request: NextRequest) {
   try {
@@ -8,7 +8,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Missing code' }, { status: 400 });
     }
 
-    const room = createPrisonRoom(code, hostName || 'العراب');
+    const room = await createPrisonRoom(code, hostName || 'العراب');
     return NextResponse.json({ success: true, code: room.code });
   } catch {
     return NextResponse.json({ error: 'Failed to create room' }, { status: 500 });
@@ -23,7 +23,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'Missing code' }, { status: 400 });
   }
 
-  const room = getPrisonRoom(code);
+  const room = await getPrisonRoom(code);
   if (!room) {
     return NextResponse.json({ error: 'Room not found' }, { status: 404 });
   }

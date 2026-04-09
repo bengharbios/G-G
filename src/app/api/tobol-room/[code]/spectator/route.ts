@@ -17,12 +17,11 @@ export async function POST(
       return NextResponse.json({ error: 'Missing name' }, { status: 400 });
     }
 
-    const room = addSpectator(code, name.trim());
+    const room = await addSpectator(code, name.trim());
     if (!room) {
       return NextResponse.json({ error: 'Room not found' }, { status: 404 });
     }
 
-    // Find the newly added spectator to return their ID
     const spectator = room.spectators.find(s => s.name === name.trim());
 
     return NextResponse.json({
@@ -51,7 +50,7 @@ export async function PUT(
       return NextResponse.json({ error: 'Missing spectatorId' }, { status: 400 });
     }
 
-    const ok = heartbeatSpectator(code, spectatorId);
+    const ok = await heartbeatSpectator(code, spectatorId);
     if (!ok) {
       return NextResponse.json({ error: 'Spectator not found' }, { status: 404 });
     }
@@ -79,7 +78,7 @@ export async function DELETE(
       return NextResponse.json({ error: 'Missing spectatorId' }, { status: 400 });
     }
 
-    removeSpectator(code, spectatorId);
+    await removeSpectator(code, spectatorId);
     return NextResponse.json({ success: true });
   } catch {
     return NextResponse.json({ error: 'Failed' }, { status: 500 });

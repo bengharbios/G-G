@@ -10,7 +10,7 @@ export async function POST(
     return NextResponse.json({ error: 'Missing code' }, { status: 400 });
   }
 
-  const ok = heartbeatTobolRoom(code);
+  const ok = await heartbeatTobolRoom(code);
   if (!ok) {
     return NextResponse.json({ error: 'Room not found' }, { status: 404 });
   }
