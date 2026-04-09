@@ -164,7 +164,7 @@ function StatsBar({ cards }: { cards: Risk2Card[] }) {
 }
 
 // ============================================================
-// Scoreboard (read-only)
+// Scoreboard (read-only, collapsible when many players)
 // ============================================================
 function Scoreboard({ players, currentPlayerIndex, targetScore }: {
   players: Risk2Player[];
@@ -172,56 +172,100 @@ function Scoreboard({ players, currentPlayerIndex, targetScore }: {
   targetScore: number;
 }) {
   const sorted = [...players].sort((a, b) => b.score - a.score);
+  const isMany = players.length > 4;
+  const [expanded, setExpanded] = useState(!isMany);
+  const currentPlayer = players[currentPlayerIndex];
+
+  // Collapsed: show only current player + their score
+  if (isMany && !expanded) {
+    return (
+      <div className="w-full max-w-lg mx-auto">
+        <button
+          onClick={() => setExpanded(true)}
+          className="w-full flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-800/40 border border-slate-700/20 hover:bg-slate-800/60 transition-colors cursor-pointer"
+        >
+          <span className="text-[10px] text-slate-500 font-bold">👥</span>
+          <span className="text-[10px] text-slate-400 flex-1 text-right">{currentPlayer?.name}</span>
+          {currentPlayer?.roundScore > 0 && (
+            <span className="text-[9px] text-emerald-300 font-bold">+{currentPlayer.roundScore}</span>
+          )}
+          {currentPlayer?.multiplier > 1 && (
+            <span className="text-[8px] text-yellow-300 font-bold">×{currentPlayer.multiplier}</span>
+          )}
+          <span className="text-xs font-black text-white">{currentPlayer?.score}</span>
+          <span className="text-[10px] text-orange-300 font-bold">◀ الآن</span>
+          <span className="text-[9px] text-slate-500 mr-auto">▼ {players.length} لاعبين</span>
+        </button>
+      </div>
+    );
+  }
 
   return (
-    <div className="w-full max-w-lg mx-auto space-y-1.5">
-      {sorted.map((player, idx) => {
-        const isCurrent = players.indexOf(player) === currentPlayerIndex;
-        const progress = Math.min((player.score / targetScore) * 100, 100);
+    <div className="w-full max-w-lg mx-auto">
+      {isMany && (
+        <button
+          onClick={() => setExpanded(false)}
+          className="w-full text-[9px] text-slate-500 text-left mb-1 hover:text-slate-400 transition-colors cursor-pointer"
+        >
+          ▲ طي النتائج
+        </button>
+      )}
+      <div className={isMany ? 'grid grid-cols-2 gap-1' : 'space-y-1'}>
+        {sorted.map((player, idx) => {
+          const isCurrent = players.indexOf(player) === currentPlayerIndex;
+          const progress = Math.min((player.score / targetScore) * 100, 100);
 
-        return (
-          <div
-            key={player.id}
-            className={`flex items-center gap-2 px-3 py-2 rounded-xl ${
-              isCurrent
-                ? 'bg-orange-950/30 border border-orange-500/40 shadow-lg shadow-orange-500/10'
-                : 'bg-slate-800/30 border border-slate-700/20'
-            }`}
-          >
-            <span className="text-[10px] text-slate-500 w-4 text-center font-bold">
-              {idx + 1}
-            </span>
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2">
-                <span className={`text-xs font-bold truncate ${isCurrent ? 'text-orange-300' : 'text-slate-300'}`}>
-                  {player.name}
-                </span>
-                {isCurrent && (
-                  <span className="text-[8px] px-1.5 py-0.5 rounded bg-orange-500/20 text-orange-300 font-bold shrink-0">
-                    ◀ الآن
+          return (
+            <div
+              key={player.id}
+              className={`flex items-center gap-1.5 px-2 py-1.5 rounded-lg transition-all ${
+                isCurrent
+                  ? 'bg-orange-950/30 border border-orange-500/40'
+                  : 'bg-slate-800/30 border border-slate-700/20'
+              }`}
+            >
+              <span className="text-[9px] text-slate-500 w-3 text-center font-bold">
+                {idx + 1}
+              </span>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-1">
+                  <span className={`text-[10px] font-bold truncate ${isCurrent ? 'text-orange-300' : 'text-slate-300'}`}>
+                    {player.name}
                   </span>
-                )}
-                {player.roundScore > 0 && (
-                  <span className="text-[9px] px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-bold shrink-0">
-                    +{player.roundScore}
-                  </span>
+                  {isCurrent && (
+                    <span className="text-[7px] px-1 py-0 rounded bg-orange-500/20 text-orange-300 font-bold shrink-0">
+                      ◀
+                    </span>
+                  )}
+                  {player.roundScore > 0 && (
+                    <span className="text-[8px] text-emerald-300 font-bold shrink-0">
+                      +{player.roundScore}
+                    </span>
+                  )}
+                  {player.multiplier > 1 && (
+                    <span className="text-[8px] text-yellow-300 font-bold shrink-0">
+                      ×{player.multiplier}
+                    </span>
+                  )}
+                </div>
+                {!isMany && (
+                  <div className="mt-0.5 h-1 rounded-full bg-slate-800/80 overflow-hidden">
+                    <div
+                      className={`h-full rounded-full transition-all ${
+                        progress >= 100 ? 'bg-yellow-400' : isCurrent ? 'bg-orange-500' : 'bg-slate-600'
+                      }`}
+                      style={{ width: `${progress}%` }}
+                    />
+                  </div>
                 )}
               </div>
-              <div className="mt-1 h-1 rounded-full bg-slate-800/80 overflow-hidden">
-                <div
-                  className={`h-full rounded-full transition-all ${
-                    progress >= 100 ? 'bg-yellow-400' : isCurrent ? 'bg-orange-500' : 'bg-slate-600'
-                  }`}
-                  style={{ width: `${progress}%` }}
-                />
-              </div>
+              <span className={`text-xs font-black shrink-0 ${progress >= 100 ? 'text-yellow-400' : 'text-white'}`}>
+                {player.score}
+              </span>
             </div>
-            <span className={`text-sm font-black shrink-0 ${progress >= 100 ? 'text-yellow-400' : 'text-white'}`}>
-              {player.score}
-            </span>
-          </div>
-        );
-      })}
+          );
+        })}
+      </div>
     </div>
   );
 }
