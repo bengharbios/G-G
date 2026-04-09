@@ -314,7 +314,7 @@ export const useRisk2Store = create<Risk2State>()(
 
       bankPoints: () => {
         const state = get();
-        if (state.turnState !== 'waiting_for_decision') return;
+        if (state.turnState !== 'waiting_for_decision' && state.turnState !== 'waiting_for_draw') return;
 
         const currentPlayer = state.players[state.currentPlayerIndex];
         if (!currentPlayer) return;

@@ -35,7 +35,7 @@ export default function LandingPage({ onStartLocal, onStartDiwaniya, onJoinSpect
         <h1 className="text-3xl sm:text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-orange-400 via-red-300 to-amber-400 mb-2">
           🎴 المجازفة 2
         </h1>
-        <p className="text-sm text-slate-400">كاشف البطاقات — لون مختلف ورقم مختلف!</p>
+        <p className="text-sm text-slate-400">كاشف البطاقات — تجنب تكرار الأرقام!</p>
       </motion.div>
 
       {/* Mode Selection */}
@@ -145,8 +145,9 @@ export default function LandingPage({ onStartLocal, onStartDiwaniya, onJoinSpect
               <h4 className="font-bold text-slate-200 mb-1">⚙️ آليات اللعب</h4>
               <ul className="list-disc list-inside space-y-1 text-xs text-slate-400">
                 <li>اختر بطاقة → تُضاف لرصيدك المؤقت</li>
-                <li>يمكنك إنهاء دورك في أي لحظة لحفظ النقاط</li>
-                <li>⚠️ إذا تكرر <span className="text-red-400 font-bold">نفس اللون</span> أو <span className="text-red-400 font-bold">نفس الرقم</span> → خسرت كل رصيد الجولة!</li>
+                <li>يمكنك <span className="text-amber-400 font-bold">حفظ النقاط</span> في أي لحظة من زر الحفظ</li>
+                <li>⚠️ إذا تكرر <span className="text-red-400 font-bold">نفس الرقم</span> بلون مختلف → خسرت كل رصيد الجولة!</li>
+                <li>✅ نفس اللون برقم مختلف → <span className="text-emerald-400 font-bold">آمن</span>، أكمل اللعب!</li>
               </ul>
             </div>
             <div>
@@ -154,8 +155,8 @@ export default function LandingPage({ onStartLocal, onStartDiwaniya, onJoinSpect
               <ul className="list-disc list-inside space-y-1 text-xs text-slate-400">
                 <li className="flex items-center gap-1"><Bomb className="w-3 h-3 text-red-400" /> <b>💣 قنبلة (×2)</b> — خسر كل رصيد الجولة</li>
                 <li className="flex items-center gap-1"><SkipForward className="w-3 h-3 text-slate-400" /> <b>⏭️ تخطي</b> — انتهى دورك</li>
-                <li className="flex items-center gap-1"><span className="text-amber-400">✨</span> <b>ضعف (×2)</b> — رصيد الجولة × 2، يمكنك المتابعة أو الحفظ</li>
-                <li className="flex items-center gap-1"><span className="text-amber-400">🔥</span> <b>ثلاثة أضعاف (×3)</b> — رصيد الجولة × 3، يمكنك المتابعة أو الحفظ</li>
+                <li className="flex items-center gap-1"><span className="text-yellow-400">✨</span> <b className="text-yellow-400">ضعف (×2)</b> — رصيد الجولة × 2، لا تؤثر على المطابقة</li>
+                <li className="flex items-center gap-1"><span className="text-amber-400">🔥</span> <b className="text-amber-400">ثلاثة أضعاف (×3)</b> — رصيد الجولة × 3، لا تؤثر على المطابقة</li>
               </ul>
             </div>
           </div>

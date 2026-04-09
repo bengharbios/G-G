@@ -26,11 +26,11 @@ function StatsBar({ cards }: { cards: Risk2Card[] }) {
         <SkipForward className="w-3 h-3" />
         <span className="text-[10px] sm:text-xs font-bold">{stats.skips}</span>
       </div>
-      <div className="flex items-center gap-1 px-2 py-1 rounded-lg bg-slate-800/60 border border-slate-700/30 text-amber-400">
+      <div className="flex items-center gap-1 px-2 py-1 rounded-lg bg-yellow-900/30 border border-yellow-500/40 text-yellow-400">
         <span className="text-[10px] font-bold">×2</span>
         <span className="text-[10px] sm:text-xs font-bold">{stats.doubles}</span>
       </div>
-      <div className="flex items-center gap-1 px-2 py-1 rounded-lg bg-slate-800/60 border border-slate-700/30 text-purple-400">
+      <div className="flex items-center gap-1 px-2 py-1 rounded-lg bg-amber-900/30 border border-amber-500/40 text-amber-400">
         <span className="text-[10px] font-bold">×3</span>
         <span className="text-[10px] sm:text-xs font-bold">{stats.triples}</span>
       </div>
@@ -94,6 +94,11 @@ function Scoreboard({ players, currentPlayerIndex, targetScore }: {
                     +{player.roundScore}
                   </motion.span>
                 )}
+                {player.multiplier > 1 && (
+                  <span className="text-[9px] px-1.5 py-0.5 rounded bg-yellow-500/20 text-yellow-300 font-bold shrink-0">
+                    ×{player.multiplier}
+                  </span>
+                )}
               </div>
               <div className="mt-1 h-1 rounded-full bg-slate-800/80 overflow-hidden">
                 <motion.div
@@ -144,7 +149,7 @@ function DrawnThisTurn({ cards }: { cards: Risk2Card[] }) {
                   ? 'bg-red-950/40 border-red-500/40'
                   : card.type === 'skip'
                     ? 'bg-slate-800/60 border-slate-600/40'
-                    : 'bg-yellow-900/30 border-yellow-500/40'
+                    : `bg-gradient-to-br ${SPECIAL_CARD_INFO[card.type].bg} ${SPECIAL_CARD_INFO[card.type].border}`
             }`}
           >
             {card.type === 'number' ? (
@@ -190,7 +195,7 @@ function GridCard({ card, onClick }: { card: Risk2Card; onClick?: () => void }) 
         initial={{ rotateY: 180, opacity: 0 }}
         animate={{ rotateY: 0, opacity: 1 }}
         transition={{ type: 'spring', damping: 15 }}
-        className={`w-full aspect-square rounded-lg border-2 bg-gradient-to-br ${specialInfo.bg} border-white/10 flex flex-col items-center justify-center`}
+        className={`w-full aspect-square rounded-lg border-2 bg-gradient-to-br ${specialInfo.bg} ${specialInfo.border} flex flex-col items-center justify-center`}
       >
         <span className="text-xl sm:text-2xl">{specialInfo.emoji}</span>
         <span className="text-[8px] font-bold mt-0.5" style={{ color: specialInfo.color }}>
@@ -311,7 +316,18 @@ function ResultModal({
             animate={{ opacity: 1 }}
             className="text-sm text-red-400 font-bold mb-4"
           >
-            خسرت {currentPlayer.roundScore === 0 && matchReason ? '' : 'جميع'} نقاط الجولة!
+            خسرت جميع نقاط الجولة!
+          </motion.p>
+        )}
+
+        {/* Bomb info */}
+        {card.type === 'bomb' && (
+          <motion.p
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            className="text-sm text-red-400 font-bold mb-4"
+          >
+            💣 انفجار! خسرت جميع نقاط الجولة!
           </motion.p>
         )}
 
@@ -456,6 +472,16 @@ export default function GameBoard() {
     }
   }, [deckNumber, prevDeckNumber]);
 
+  // Auto-advance bomb after 2.5 seconds
+  useEffect(() => {
+    if (turnState === 'bomb_exploded') {
+      const timer = setTimeout(() => {
+        advanceTurn();
+      }, 2500);
+      return () => clearTimeout(timer);
+    }
+  }, [turnState, advanceTurn]);
+
   const shouldShowModal = (turnState === 'waiting_for_decision' || turnState === 'showing_result' || turnState === 'turn_lost' || turnState === 'bomb_exploded') && !!lastDrawnCard;
 
   if (!currentPlayer) return null;
@@ -531,12 +557,32 @@ export default function GameBoard() {
         </div>
       </div>
 
+      {/* Bank button on the game board (always visible when player has round score > 0 and it's their turn) */}
+      {turnState === 'waiting_for_draw' && currentPlayer.roundScore > 0 && (
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 10 }}
+            className="w-full max-w-lg mx-auto mb-3"
+          >
+            <motion.button
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+              onClick={bankPoints}
+              className="w-full py-3 rounded-xl font-bold text-sm bg-gradient-to-l from-amber-600 to-yellow-700 hover:from-amber-500 hover:to-yellow-600 text-white transition-all cursor-pointer flex items-center justify-center gap-2 shadow-lg shadow-yellow-500/20"
+            >
+              <Wallet className="w-4 h-4" />
+              احفظ النقاط 💰 ({currentPlayer.roundScore} نقطة)
+            </motion.button>
+          </motion.div>
+        )}
+
       {/* Game Log */}
       <GameLogPanel />
 
       {/* Result Modal */}
       <AnimatePresence mode="wait">
-        {shouldShowModal && (
+        {shouldShowModal && turnState !== 'bomb_exploded' && (
           <ResultModal
             key={`modal-${lastDrawnCard!.id}-${turnState}`}
             card={lastDrawnCard!}
@@ -548,6 +594,51 @@ export default function GameBoard() {
             onAdvance={advanceTurn}
             deckNumber={deckNumber}
           />
+        )}
+      </AnimatePresence>
+
+      {/* Bomb explosion overlay (auto-dismisses) */}
+      <AnimatePresence>
+        {turnState === 'bomb_exploded' && lastDrawnCard && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[150] flex items-center justify-center bg-black/80 p-4 pointer-events-none"
+          >
+            <motion.div
+              initial={{ scale: 0, rotate: -20 }}
+              animate={{ scale: 1, rotate: 0 }}
+              exit={{ scale: 0, rotate: 20 }}
+              transition={{ type: 'spring', damping: 8 }}
+              className="bg-slate-900 border border-red-500/40 rounded-2xl p-6 max-w-sm w-full shadow-2xl shadow-red-500/20 text-center"
+            >
+              <motion.div
+                animate={{
+                  scale: [1, 1.3, 1],
+                  rotate: [0, -5, 5, 0],
+                }}
+                transition={{ duration: 0.5, repeat: 3 }}
+                className="text-6xl mb-3"
+              >
+                💣
+              </motion.div>
+              <h2 className="text-xl font-black text-red-400 mb-2">
+                انفجار!
+              </h2>
+              <p className="text-sm text-slate-300 mb-1">
+                {currentPlayer.name} خسر جميع نقاط الجولة!
+              </p>
+              <motion.p
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ delay: 1 }}
+                className="text-xs text-slate-500 mt-3"
+              >
+                جاري الانتقال تلقائياً...
+              </motion.p>
+            </motion.div>
+          </motion.div>
         )}
       </AnimatePresence>
     </div>

@@ -284,7 +284,7 @@ function GridCard({ card }: { card: Risk2Card }) {
 
     const specialInfo = SPECIAL_CARD_INFO[card.type];
     return (
-      <div className={`w-full aspect-square rounded-lg border-2 bg-gradient-to-br ${specialInfo.bg} border-white/10 flex flex-col items-center justify-center`}>
+      <div className={`w-full aspect-square rounded-lg border-2 bg-gradient-to-br ${specialInfo.bg} ${specialInfo.border} flex flex-col items-center justify-center`}>
         <span className="text-xl sm:text-2xl">{specialInfo.emoji}</span>
         <span className="text-[8px] font-bold mt-0.5" style={{ color: specialInfo.color }}>
           {specialInfo.label}

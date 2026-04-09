@@ -77,11 +77,11 @@ export const CARD_COLORS: Record<CardColor, { bg: string; border: string; text: 
 // ============================================================
 // Special Card Info
 // ============================================================
-export const SPECIAL_CARD_INFO: Record<string, { emoji: string; label: string; desc: string; color: string; bg: string }> = {
-  bomb:   { emoji: '💣', label: 'قنبلة',    desc: 'انفجار! خسرت كل رصيد الجولة!',     color: '#ef4444', bg: 'from-red-900/40 to-red-950/60' },
-  skip:   { emoji: '⏭️', label: 'تخطي',     desc: 'تم تخطي دورك! خسرت رصيد الجولة!',        color: '#94a3b8', bg: 'from-slate-800/60 to-slate-900/60' },
-  double: { emoji: '✨', label: 'ضعف',       desc: 'رصيد الجولة × 2! يمكنك المتابعة أو الحفظ', color: '#fbbf24', bg: 'from-yellow-800/40 to-yellow-950/60' },
-  triple: { emoji: '🔥', label: 'ثلاثة أضعاف', desc: 'رصيد الجولة × 3! يمكنك المتابعة أو الحفظ', color: '#fbbf24', bg: 'from-yellow-800/40 to-yellow-950/60' },
+export const SPECIAL_CARD_INFO: Record<string, { emoji: string; label: string; desc: string; color: string; bg: string; border: string }> = {
+  bomb:   { emoji: '💣', label: 'قنبلة',       desc: 'انفجار! خسرت كل رصيد الجولة!',     color: '#ef4444', bg: 'from-red-900/40 to-red-950/60', border: 'border-red-500/40' },
+  skip:   { emoji: '⏭️', label: 'تخطي',        desc: 'تم تخطي دورك! خسرت رصيد الجولة!',        color: '#94a3b8', bg: 'from-slate-800/60 to-slate-900/60', border: 'border-slate-600/40' },
+  double: { emoji: '✨', label: '×2 ضعف',     desc: 'رصيد الجولة × 2! يمكنك المتابعة أو الحفظ', color: '#fbbf24', bg: 'from-yellow-700/40 to-amber-900/60', border: 'border-yellow-500/50' },
+  triple: { emoji: '🔥', label: '×3 ثلاثة أضعاف', desc: 'رصيد الجولة × 3! يمكنك المتابعة أو الحفظ', color: '#f59e0b', bg: 'from-amber-700/40 to-yellow-900/60', border: 'border-amber-500/50' },
 };
 
 // ============================================================
@@ -136,6 +136,8 @@ export function generateDeck(): Risk2Card[] {
 
 // ============================================================
 // Check if a drawn card matches any previously drawn card this turn
+// Rule: Same NUMBER (different color) = LOSS. Same COLOR = OK (continue).
+// Multiplier/special cards are excluded from matching.
 // ============================================================
 export function checkMatch(newCard: Risk2Card, drawnCards: Risk2Card[]): MatchResult {
   if (newCard.type !== 'number') return { matched: false, reason: '', matchCard: null };
@@ -143,17 +145,11 @@ export function checkMatch(newCard: Risk2Card, drawnCards: Risk2Card[]): MatchRe
   for (const existing of drawnCards) {
     if (existing.type !== 'number') continue;
 
-    if (existing.color === newCard.color) {
-      return {
-        matched: true,
-        reason: `نفس اللون! ${CARD_COLORS[newCard.color!].emoji}`,
-        matchCard: existing,
-      };
-    }
+    // Same NUMBER → LOSS (regardless of color)
     if (existing.number === newCard.number) {
       return {
         matched: true,
-        reason: `نفس الرقم! (${newCard.number})`,
+        reason: `نفس الرقم! (${newCard.number}) ${CARD_COLORS[existing.color!].emoji} = ${CARD_COLORS[newCard.color!].emoji}`,
         matchCard: existing,
       };
     }
