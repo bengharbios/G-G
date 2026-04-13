@@ -1,13 +1,32 @@
 'use client';
 
-import { useState, useCallback, useEffect, useRef } from 'react';
-import { useSyncExternalStore } from 'react';
+import { useSyncExternalStore, useState, useCallback, useEffect, useRef } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { Home as HomeIcon, RotateCcw, Zap, Plus, Minus, ChevronLeft, Play, SkipForward, CheckCircle, XCircle } from 'lucide-react';
+import {
+  Home as HomeIcon,
+  RotateCcw,
+  Plus,
+  Minus,
+  Play,
+  Crown,
+  Home,
+  Zap,
+  Users,
+  Info,
+  ChevronLeft,
+  CheckCircle,
+  XCircle,
+  SkipForward,
+  Clock,
+  Trophy,
+  Eye,
+  EyeOff,
+  ArrowLeft,
+} from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 // ============================================================
@@ -22,296 +41,853 @@ function useHydrated() {
 }
 
 // ============================================================
-// Survey Questions Data
+// Types
 // ============================================================
-interface SurveyAnswer {
+type GamePhase =
+  | 'landing'
+  | 'godfather_setup'
+  | 'diwaniya_setup'
+  | 'faceoff'
+  | 'gameboard'
+  | 'steal'
+  | 'round_result'
+  | 'fast_money_intro'
+  | 'fast_money'
+  | 'fast_money_results'
+  | 'game_over';
+
+interface Answer {
   text: string;
   points: number;
   revealed: boolean;
 }
 
-interface SurveyQuestion {
+interface Question {
   question: string;
-  answers: SurveyAnswer[];
+  answers: Answer[];
 }
 
-const SURVEY_QUESTIONS: SurveyQuestion[] = [
+// ============================================================
+// Questions Database (80+ Arabic Survey Questions)
+// ============================================================
+const ALL_QUESTIONS: Question[] = [
+  // --- 65 questions from provided list ---
   {
-    question: 'شيء تفكر فيه قبل ما تنام',
+    question: "اذكر شيئاً تأكله مع البسكويت:",
     answers: [
-      { text: 'المستقبل', points: 35, revealed: false },
-      { text: 'الأكل', points: 22, revealed: false },
-      { text: 'العائلة', points: 18, revealed: false },
-      { text: 'المال', points: 15, revealed: false },
-      { text: 'المشاكل', points: 10, revealed: false },
+      { text: "شوربة", points: 28, revealed: false },
+      { text: "جبنة", points: 24, revealed: false },
+      { text: "زبدة فول سوداني", points: 21, revealed: false },
+      { text: "شطة/فلفل", points: 16, revealed: false },
+      { text: "لحوم مقطعة", points: 11, revealed: false },
     ],
   },
   {
-    question: 'أكثر شيء يزعجك في المطعم',
+    question: "اذكر شيئاً يفعله الناس غالباً في الليل:",
     answers: [
-      { text: 'التأخير', points: 30, revealed: false },
-      { text: 'الخدمة السيئة', points: 25, revealed: false },
-      { text: 'الضجيج', points: 18, revealed: false },
-      { text: 'الأكل البارد', points: 15, revealed: false },
-      { text: 'الفاتورة', points: 12, revealed: false },
+      { text: "قراءة كتاب", points: 26, revealed: false },
+      { text: "استخدام الهاتف", points: 23, revealed: false },
+      { text: "لعب ألعاب لوحية", points: 20, revealed: false },
+      { text: "لعب ألعاب فيديو", points: 17, revealed: false },
+      { text: "تأمل", points: 14, revealed: false },
     ],
   },
   {
-    question: 'سبب يجعلك تضحك',
+    question: "اذكر أشياء ساخنة:",
     answers: [
-      { text: 'مقاطع مضحكة', points: 28, revealed: false },
-      { text: 'أصحابي', points: 25, revealed: false },
-      { text: 'مواقف محرجة', points: 20, revealed: false },
-      { text: 'النكت', points: 15, revealed: false },
-      { text: 'تذكر موقف', points: 12, revealed: false },
+      { text: "نار", points: 26, revealed: false },
+      { text: "قهوة", points: 24, revealed: false },
+      { text: "شاي", points: 21, revealed: false },
+      { text: "موقد", points: 16, revealed: false },
+      { text: "مدفأة", points: 13, revealed: false },
     ],
   },
   {
-    question: 'أكلة لا تستطيع مقاومتها',
+    question: "اذكر شيئاً مفتوناً به الكثير من الأطفال:",
     answers: [
-      { text: 'البيتزا', points: 30, revealed: false },
-      { text: 'الشوكولاتة', points: 25, revealed: false },
-      { text: 'البرجر', points: 20, revealed: false },
-      { text: 'الكيك', points: 15, revealed: false },
-      { text: 'الآيس كريم', points: 10, revealed: false },
+      { text: "ألعاب فيديو/كمبيوتر", points: 41, revealed: false },
+      { text: "حلويات/وجبات سريعة", points: 29, revealed: false },
+      { text: "تلفزيون", points: 20, revealed: false },
+      { text: "موسيقى", points: 5, revealed: false },
     ],
   },
   {
-    question: 'أول شيء تعمله الصبح',
+    question: "اذكر شيئاً يخاف منه بعض الناس ركوبه:",
     answers: [
-      { text: 'الموبايل', points: 40, revealed: false },
-      { text: 'القهوة/الشاي', points: 25, revealed: false },
-      { text: 'غسل الوجه', points: 15, revealed: false },
-      { text: 'الإفطار', points: 12, revealed: false },
-      { text: 'الصلاة', points: 8, revealed: false },
+      { text: "طائرة", points: 44, revealed: false },
+      { text: "دراجة نارية", points: 21, revealed: false },
+      { text: "أفعوانية", points: 16, revealed: false },
+      { text: "قارب", points: 4, revealed: false },
+      { text: "حصان", points: 4, revealed: false },
+      { text: "مصعد", points: 3, revealed: false },
     ],
   },
   {
-    question: 'شيء تخبّيه عن أصحابك',
+    question: "اذكر مكاناً ذا طاقة عالية يذهب إليه الناس:",
     answers: [
-      { text: 'المشاعر', points: 28, revealed: false },
-      { text: 'سر شخصي', points: 25, revealed: false },
-      { text: 'الأكل', points: 20, revealed: false },
-      { text: 'عمرك الحقيقي', points: 15, revealed: false },
-      { text: 'علاقة عاطفية', points: 12, revealed: false },
+      { text: "ملعب رياضي", points: 28, revealed: false },
+      { text: "حفل موسيقي", points: 27, revealed: false },
+      { text: "بار/نادي", points: 15, revealed: false },
+      { text: "سينما", points: 8, revealed: false },
+      { text: "مدينة ملاهي", points: 6, revealed: false },
     ],
   },
   {
-    question: 'أكثر شيء يخوّفك',
+    question: "اذكر شيئاً شائعاً يخاف منه الناس:",
     answers: [
-      { text: 'الظلام', points: 28, revealed: false },
-      { text: 'الفشل', points: 25, revealed: false },
-      { text: 'الموت', points: 18, revealed: false },
-      { text: 'الحشرات', points: 15, revealed: false },
-      { text: 'الوحدة', points: 14, revealed: false },
+      { text: "الارتفاعات", points: 50, revealed: false },
+      { text: "العناكب", points: 25, revealed: false },
+      { text: "التحدث أمام الجمهور", points: 15, revealed: false },
+      { text: "الطيران", points: 10, revealed: false },
     ],
   },
   {
-    question: 'شيء لازم يكون في كل بيت',
+    question: "اذكر شيئاً يفقده الرجال طوال الوقت:",
     answers: [
-      { text: 'التلفزيون', points: 30, revealed: false },
-      { text: 'الفراش', points: 22, revealed: false },
-      { text: 'المطبخ', points: 18, revealed: false },
-      { text: 'الواي فاي', points: 18, revealed: false },
-      { text: 'الثلاجة', points: 12, revealed: false },
+      { text: "المفاتيح", points: 50, revealed: false },
+      { text: "الهاتف", points: 25, revealed: false },
+      { text: "المحفظة", points: 15, revealed: false },
+      { text: "النظارات الشمسية", points: 10, revealed: false },
     ],
   },
   {
-    question: 'أكثر وحدة تستاهل هدية',
+    question: "اذكر حيواناً له رقبة طويلة:",
     answers: [
-      { text: 'الأم', points: 45, revealed: false },
-      { text: 'الأب', points: 22, revealed: false },
-      { text: 'الحبيب/ة', points: 15, revealed: false },
-      { text: 'صديق مقرّب', points: 10, revealed: false },
-      { text: 'الأخ/الأخت', points: 8, revealed: false },
+      { text: "زرافة", points: 78, revealed: false },
+      { text: "نعامة", points: 10, revealed: false },
+      { text: "بجعة", points: 3, revealed: false },
+      { text: "كركي", points: 3, revealed: false },
+      { text: "بطة", points: 2, revealed: false },
     ],
   },
   {
-    question: 'شيء لازم تعمله كل يوم',
+    question: "اذكر مكاناً تجد فيه النساء مفاتيحهن:",
     answers: [
-      { text: 'الأكل', points: 30, revealed: false },
-      { text: 'الموبايل', points: 25, revealed: false },
-      { text: 'النوم', points: 20, revealed: false },
-      { text: 'الشاور', points: 15, revealed: false },
-      { text: 'الرياضة', points: 10, revealed: false },
+      { text: "في المنزل", points: 55, revealed: false },
+      { text: "في المول", points: 17, revealed: false },
+      { text: "في حقيبة اليد", points: 10, revealed: false },
+      { text: "في السيارة", points: 7, revealed: false },
+      { text: "في بار", points: 6, revealed: false },
     ],
   },
   {
-    question: 'سبب تتأخر فيه عن العمل',
+    question: "اذكر مكاناً تقابل فيه الناس شريك حياتهم:",
     answers: [
-      { text: 'السهر', points: 35, revealed: false },
-      { text: 'الزحام', points: 25, revealed: false },
-      { text: 'النوم ثاني', points: 20, revealed: false },
-      { text: 'ما لقيت مفتاح', points: 12, revealed: false },
-      { text: 'إحساس بالتعب', points: 8, revealed: false },
+      { text: "المدرسة/الجامعة", points: 56, revealed: false },
+      { text: "الكنيسة/المسجد", points: 26, revealed: false },
+      { text: "مناسبات عائلية", points: 9, revealed: false },
+      { text: "طبيب/طبيبة أسنان", points: 4, revealed: false },
+      { text: "العمل", points: 2, revealed: false },
     ],
   },
   {
-    question: 'أكثر شي تشتريه من السوبرماركت',
+    question: "إذا كان عليك إنفاق ألف دولار في ساعة، ماذا تشتري؟",
     answers: [
-      { text: 'الماء', points: 25, revealed: false },
-      { text: 'الخبز', points: 22, revealed: false },
-      { text: 'الحليب', points: 18, revealed: false },
-      { text: 'الفواكه', points: 17, revealed: false },
-      { text: 'الشيبس', points: 10, revealed: false },
-      { text: 'المشروبات', points: 8, revealed: false },
+      { text: "أطفال", points: 16, revealed: false },
+      { text: "سيارة", points: 14, revealed: false },
+      { text: "منزل", points: 10, revealed: false },
+      { text: "حيوان أليف", points: 10, revealed: false },
+      { text: "كمبيوتر", points: 9, revealed: false },
     ],
   },
   {
-    question: 'أول شي تفكر فيه لما تصحى',
+    question: "ما الذي يضعه الناس في البيتزا ولا يجب أن يكون هناك؟",
     answers: [
-      { text: 'أيك أعمل اليوم', points: 30, revealed: false },
-      { text: 'متى أنام ثاني', points: 22, revealed: false },
-      { text: 'الموبايل', points: 20, revealed: false },
-      { text: 'الأكل', points: 15, revealed: false },
-      { text: 'العمل', points: 13, revealed: false },
+      { text: "أناناس", points: 44, revealed: false },
+      { text: "سردين/سمك", points: 21, revealed: false },
+      { text: "باذنجان", points: 2, revealed: false },
     ],
   },
   {
-    question: 'كلمة يقولونها كويتيين كثير',
+    question: "ما هو الشيء الذي يجب أن يفعله الناس بعد الأكل؟",
     answers: [
-      { text: 'يا حبيبي', points: 28, revealed: false },
-      { text: 'والله', points: 25, revealed: false },
-      { text: 'يمّه', points: 22, revealed: false },
-      { text: 'مشكور', points: 13, revealed: false },
-      { text: 'عادي', points: 12, revealed: false },
+      { text: "غسل الأسنان", points: 26, revealed: false },
+      { text: "تمشيط الشعر", points: 23, revealed: false },
+      { text: "عصر البثور", points: 19, revealed: false },
+      { text: "تفقد الملابس", points: 17, revealed: false },
+      { text: "التدرب على الرقص", points: 15, revealed: false },
     ],
   },
   {
-    question: 'شيء تبيه بالديوانية',
+    question: "اذكر شيئاً يخاف منه الأطفال تحت السرير:",
     answers: [
-      { text: 'الشاي', points: 35, revealed: false },
-      { text: 'الدخلة', points: 25, revealed: false },
-      { text: 'التلفزيون', points: 18, revealed: false },
-      { text: 'أصحابي', points: 12, revealed: false },
-      { text: 'الهواء', points: 10, revealed: false },
+      { text: "تحت السرير", points: 45, revealed: false },
+      { text: "داخل الخزانة", points: 36, revealed: false },
+      { text: "في القبو", points: 7, revealed: false },
+      { text: "في العلية", points: 2, revealed: false },
+      { text: "تحت الدرج", points: 2, revealed: false },
+    ],
+  },
+  {
+    question: "اذكر شيئاً تفقدره عندما تنقطع الكهرباء:",
+    answers: [
+      { text: "التلفزيون", points: 50, revealed: false },
+      { text: "الراديو", points: 23, revealed: false },
+      { text: "المكنسة الكهربائية", points: 13, revealed: false },
+      { text: "الإضاءة", points: 4, revealed: false },
+    ],
+  },
+  {
+    question: "اذكر مناسبة يرتدي فيها الناس ملابس خاصة:",
+    answers: [
+      { text: "التخرج", points: 32, revealed: false },
+      { text: "الزفاف", points: 26, revealed: false },
+      { text: "العطلات", points: 20, revealed: false },
+      { text: "حفل ميلاد", points: 14, revealed: false },
+      { text: "حفل بكالوريوس", points: 8, revealed: false },
+    ],
+  },
+  {
+    question: "ما الشيء الذي يخيف الناس في الأفعوانية؟",
+    answers: [
+      { text: "السرعة", points: 77, revealed: false },
+      { text: "الارتفاع", points: 8, revealed: false },
+      { text: "السقوط", points: 3, revealed: false },
+      { text: "الزلاقة", points: 3, revealed: false },
+    ],
+  },
+  {
+    question: "ما أول شيء تفعله في الصباح؟",
+    answers: [
+      { text: "الهاتف", points: 59, revealed: false },
+      { text: "طعام/شراب", points: 12, revealed: false },
+      { text: "قهوة", points: 12, revealed: false },
+      { text: "طفل يبكي", points: 11, revealed: false },
+      { text: "سجائر", points: 2, revealed: false },
+    ],
+  },
+  {
+    question: "اذكر آلة موسيقية يسهل العزف عليها:",
+    answers: [
+      { text: "جيتار", points: 69, revealed: false },
+      { text: "بانجو", points: 21, revealed: false },
+      { text: "قيثارة", points: 4, revealed: false },
+      { text: "بيانو", points: 2, revealed: false },
+    ],
+  },
+  {
+    question: "ما هو الشيء الذي يكره الناس تنظيفه؟",
+    answers: [
+      { text: "الحمام", points: 45, revealed: false },
+      { text: "غسل الأطباق", points: 25, revealed: false },
+      { text: "تنظيف الأرضية", points: 20, revealed: false },
+      { text: "الغسيل", points: 10, revealed: false },
+    ],
+  },
+  {
+    question: "ما نوع المشروبات التي تسبب المتاعب؟",
+    answers: [
+      { text: "قهوة", points: 37, revealed: false },
+      { text: "بيرة", points: 28, revealed: false },
+      { text: "شاي", points: 17, revealed: false },
+      { text: "مشاكل", points: 8, revealed: false },
+    ],
+  },
+  {
+    question: "اذكر مهنة تبدأ بحرف السين:",
+    answers: [
+      { text: "سائق", points: 62, revealed: false },
+      { text: "قاضي", points: 19, revealed: false },
+      { text: "صائغ", points: 5, revealed: false },
+      { text: "صحفي", points: 4, revealed: false },
+    ],
+  },
+  {
+    question: "إذا جلست بجانب شخص كريه الرائحة، ماذا تفعل؟",
+    answers: [
+      { text: "تبديل المقعد", points: 39, revealed: false },
+      { text: "تغطية الأنف", points: 24, revealed: false },
+      { text: "إدارة الرأس", points: 6, revealed: false },
+      { text: "رش عطر", points: 6, revealed: false },
+    ],
+  },
+  {
+    question: "اذكر نوع بيت مخيف:",
+    answers: [
+      { text: "بيت مسكون", points: 27, revealed: false },
+      { text: "بيت الكلب", points: 8, revealed: false },
+      { text: "بيت زجاجي", points: 6, revealed: false },
+      { text: "مرحاض خارجي", points: 5, revealed: false },
+    ],
+  },
+  {
+    question: "اذكر مكاناً تحب فيه النوم:",
+    answers: [
+      { text: "السرير", points: 46, revealed: false },
+      { text: "الحمام/الدش", points: 27, revealed: false },
+      { text: "السينما", points: 9, revealed: false },
+      { text: "السيارة", points: 4, revealed: false },
+    ],
+  },
+  {
+    question: "ما أول شيء تنظفه قبل وصول الضيوف؟",
+    answers: [
+      { text: "الحمام", points: 59, revealed: false },
+      { text: "المطبخ", points: 18, revealed: false },
+      { text: "الأرضيات", points: 11, revealed: false },
+      { text: "غرفة المعيشة", points: 3, revealed: false },
+    ],
+  },
+  {
+    question: "أي وحش يستطيع هزيمة دراكولا في قتال؟",
+    answers: [
+      { text: "غودزيلا", points: 43, revealed: false },
+      { text: "فرانكنشتاين", points: 26, revealed: false },
+      { text: "كينغ كونغ", points: 13, revealed: false },
+      { text: "رجل الذئب", points: 10, revealed: false },
+    ],
+  },
+  {
+    question: "ما أكثر عذر شائع للتأخر عن العمل؟",
+    answers: [
+      { text: "نمت متأخراً", points: 52, revealed: false },
+      { text: "زحمة سير", points: 25, revealed: false },
+      { text: "مشكلة بالسيارة", points: 17, revealed: false },
+      { text: "مريض", points: 6, revealed: false },
+    ],
+  },
+  {
+    question: "ما أكثر شيء تحبه في الحفلات؟",
+    answers: [
+      { text: "الرقص", points: 45, revealed: false },
+      { text: "التحدث مع الناس", points: 21, revealed: false },
+      { text: "الشرب", points: 18, revealed: false },
+      { text: "الأكل", points: 8, revealed: false },
+    ],
+  },
+  {
+    question: "ماذا تطلب من الساحر إذا ذهبت إلى أرض أوز؟",
+    answers: [
+      { text: "المال", points: 37, revealed: false },
+      { text: "الصحة/قلب جديد", points: 17, revealed: false },
+      { text: "عقل", points: 7, revealed: false },
+      { text: "جسم قوي", points: 5, revealed: false },
+    ],
+  },
+  {
+    question: "ما الشيء الذي كنت تفعله كل يوم في الروضة و تتمنى تفعله الآن؟",
+    answers: [
+      { text: "أخذ قيلولة", points: 64, revealed: false },
+      { text: "اللعب بالألعاب", points: 19, revealed: false },
+      { text: "التلوين/الرسم", points: 12, revealed: false },
+      { text: "وجبات مجانية", points: 4, revealed: false },
+    ],
+  },
+  {
+    question: "اذكر بعض أبطال مارفل (الانتقامون):",
+    answers: [
+      { text: "كابتن أمريكا", points: 22, revealed: false },
+      { text: "آيرون مان", points: 22, revealed: false },
+      { text: "البنثر الأسود", points: 20, revealed: false },
+      { text: "الرجل الأخضر/هالك", points: 15, revealed: false },
+      { text: "ثور", points: 15, revealed: false },
+    ],
+  },
+  {
+    question: "لماذا قد يركب شخص الدراجة للعمل؟",
+    answers: [
+      { text: "ليس لديه سيارة", points: 46, revealed: false },
+      { text: "للرياضة", points: 23, revealed: false },
+      { text: "لتوفير البنزين", points: 20, revealed: false },
+      { text: "للبيئة", points: 7, revealed: false },
+    ],
+  },
+  {
+    question: "ما طريقة لقلي البيض تصف أيضاً شخصاً؟",
+    answers: [
+      { text: "مخفوق/فوضوي", points: 53, revealed: false },
+      { text: "مسلوق/صلب", points: 13, revealed: false },
+      { text: "مقلي", points: 11, revealed: false },
+      { text: "وجه يسمع شمس", points: 7, revealed: false },
+    ],
+  },
+  {
+    question: "ما أكثر شيء يفقده الرجال في البيت؟",
+    answers: [
+      { text: "ريموت التلفزيون", points: 34, revealed: false },
+      { text: "شاحن الهاتف", points: 22, revealed: false },
+      { text: "جوارب", points: 18, revealed: false },
+      { text: "مفاتيح", points: 14, revealed: false },
+    ],
+  },
+  {
+    question: "ما أكثر شيء يفتقده الناس عن طفولتهم؟",
+    answers: [
+      { text: "ملاعب/أرجوحة", points: 28, revealed: false },
+      { text: "كرتون", points: 24, revealed: false },
+      { text: "حلوى", points: 20, revealed: false },
+      { text: "ركوب الدراجة", points: 16, revealed: false },
+      { text: "سهرات مع الأصدقاء", points: 12, revealed: false },
+    ],
+  },
+  {
+    question: "ما أكثر شيء يضايقك في تنظيف المنزل؟",
+    answers: [
+      { text: "سقوط شيء", points: 34, revealed: false },
+      { text: "عودة الغبار", points: 22, revealed: false },
+      { text: "ظهور آثار أقدام", points: 18, revealed: false },
+      { text: "تساقط شعر الكلب", points: 16, revealed: false },
+    ],
+  },
+  {
+    question: "ما وجبة خفيفة صحية يتناولها الأطفال؟",
+    answers: [
+      { text: "رقائق بطاطس", points: 40, revealed: false },
+      { text: "تفاح", points: 22, revealed: false },
+      { text: "حبوب إفطار", points: 16, revealed: false },
+      { text: "فشار", points: 12, revealed: false },
+      { text: "جزر", points: 10, revealed: false },
+    ],
+  },
+  {
+    question: "ماذا يفعل شخص عندما يتحدث كثيراً ولا يعرف كيف يوقف؟",
+    answers: [
+      { text: "يقول 'المهم...'", points: 30, revealed: false },
+      { text: "يضحك بشكل محرج", points: 24, revealed: false },
+      { text: "يسأل سؤال فجأة", points: 20, revealed: false },
+      { text: "ينظر للساعة", points: 16, revealed: false },
+    ],
+  },
+  {
+    question: "ما عادة سيئة يعاني منها الكثيرون؟",
+    answers: [
+      { text: "التدخين", points: 45, revealed: false },
+      { text: "قضم الأظافر", points: 20, revealed: false },
+      { text: "الإفراط في الأكل", points: 15, revealed: false },
+      { text: "السب", points: 10, revealed: false },
+      { text: "الشرب", points: 10, revealed: false },
+    ],
+  },
+  {
+    question: "ما الشيء الذي لا يملك الناس ما يكفي منه؟",
+    answers: [
+      { text: "المال", points: 39, revealed: false },
+      { text: "الوقت", points: 27, revealed: false },
+      { text: "النوم", points: 17, revealed: false },
+      { text: "الطاقة", points: 10, revealed: false },
+      { text: "أيام إجازة", points: 7, revealed: false },
+    ],
+  },
+  {
+    question: "ما الذي يأخذه الناس معهم في السفر؟",
+    answers: [
+      { text: "أدوات تنظيف شخصية", points: 29, revealed: false },
+      { text: "ملابس/أحذية", points: 28, revealed: false },
+      { text: "مال/بطاقة ائتمان", points: 20, revealed: false },
+      { text: "أدوية", points: 9, revealed: false },
+      { text: "كاميرا", points: 6, revealed: false },
+    ],
+  },
+  {
+    question: "ما أكثر ما يزعجك بالصور؟",
+    answers: [
+      { text: "شعرك", points: 28, revealed: false },
+      { text: "الخلفية الفوضوية", points: 24, revealed: false },
+      { text: "شيء في أسنانك", points: 20, revealed: false },
+      { text: "شكلك المتعب", points: 16, revealed: false },
+      { text: "الإضاءة الغريبة", points: 12, revealed: false },
+    ],
+  },
+  {
+    question: "ماذا يقول المصور عادة؟",
+    answers: [
+      { text: "الجميع يبتسموا!", points: 30, revealed: false },
+      { text: "ليش تومض عيونك؟", points: 25, revealed: false },
+      { text: "اثبت!", points: 20, revealed: false },
+      { text: "ما تسوي وجه غريب!", points: 15, revealed: false },
+    ],
+  },
+  {
+    question: "ما أول شيء تفعله عندما تضيع هاتفك؟",
+    answers: [
+      { text: "اتصل به", points: 34, revealed: false },
+      { text: "تفقد جيوبك", points: 24, revealed: false },
+      { text: "تتبع خطواتك", points: 20, revealed: false },
+      { text: "استخدم تطبيق البحث", points: 14, revealed: false },
+    ],
+  },
+  {
+    question: "ما أشياء عديمة الفائدة تجدها في كل بيت؟",
+    answers: [
+      { text: "بطاريات", points: 28, revealed: false },
+      { text: "كابلات عشوائية", points: 22, revealed: false },
+      { text: "شريط لاصق", points: 18, revealed: false },
+      { text: "مفاتيح قديمة", points: 16, revealed: false },
+      { text: "قوائم طعام", points: 16, revealed: false },
+    ],
+  },
+  // --- Additional 30+ translated questions ---
+  {
+    question: "اذكر رياضة تلعب بكرة:",
+    answers: [
+      { text: "كرة القدم", points: 45, revealed: false },
+      { text: "كرة السلة", points: 25, revealed: false },
+      { text: "التنس", points: 15, revealed: false },
+      { text: "كرة الطائرة", points: 10, revealed: false },
+      { text: "البيسبول", points: 5, revealed: false },
+    ],
+  },
+  {
+    question: "اذكر شيئاً تشتريه يأتي في علبة محكمة الإغلاق:",
+    answers: [
+      { text: "المشروبات الغازية", points: 35, revealed: false },
+      { text: "الحساء", points: 25, revealed: false },
+      { text: "الفاصوليا", points: 20, revealed: false },
+      { text: "التونة", points: 15, revealed: false },
+      { text: "الفواكه المعلبة", points: 5, revealed: false },
+    ],
+  },
+  {
+    question: "اذكر سبباً يجعل الناس يذهبون لكاليفورنيا:",
+    answers: [
+      { text: "هوليوود", points: 30, revealed: false },
+      { text: "الشواطئ", points: 25, revealed: false },
+      { text: "ديزني لاند", points: 20, revealed: false },
+      { text: "الطقس", points: 15, revealed: false },
+      { text: "وادي السيليكون", points: 10, revealed: false },
+    ],
+  },
+  {
+    question: "اذكر شيئاً قد تجده في المرآب:",
+    answers: [
+      { text: "سيارة", points: 40, revealed: false },
+      { text: "أدوات", points: 25, revealed: false },
+      { text: "دراجة", points: 15, revealed: false },
+      { text: "صناديق قديمة", points: 12, revealed: false },
+      { text: "مجرفة", points: 8, revealed: false },
+    ],
+  },
+  {
+    question: "اذكر كلمة تعني 'سريع':",
+    answers: [
+      { text: "سريع", points: 45, revealed: false },
+      { text: "عاجل", points: 20, revealed: false },
+      { text: "م闪", points: 15, revealed: false },
+      { text: "فوري", points: 12, revealed: false },
+      { text: "خاطف", points: 8, revealed: false },
+    ],
+  },
+  {
+    question: "اذكر بطل خارق:",
+    answers: [
+      { text: "سبايدرمان", points: 30, revealed: false },
+      { text: "باتمان", points: 25, revealed: false },
+      { text: "سوبرمان", points: 20, revealed: false },
+      { text: "آيرون مان", points: 15, revealed: false },
+      { text: "كابتن أمريكا", points: 10, revealed: false },
+    ],
+  },
+  {
+    question: "اذكر شيئاً يفهمه الكلب:",
+    answers: [
+      { text: "اسمه", points: 40, revealed: false },
+      { text: "لا", points: 25, revealed: false },
+      { text: "تعال", points: 20, revealed: false },
+      { text: "اجلس", points: 10, revealed: false },
+      { text: "لغة الجسد", points: 5, revealed: false },
+    ],
+  },
+  {
+    question: "اذكر شيئاً يحب الأطفال القفز عليه:",
+    answers: [
+      { text: "سرير", points: 35, revealed: false },
+      { text: "مخدة", points: 25, revealed: false },
+      { text: "ترامبولين", points: 20, revealed: false },
+      { text: "أرجوحة", points: 12, revealed: false },
+      { text: "ماء", points: 8, revealed: false },
+    ],
+  },
+  {
+    question: "اذكر شيئاً تشربه عندما تعطش:",
+    answers: [
+      { text: "ماء", points: 55, revealed: false },
+      { text: "كولا", points: 20, revealed: false },
+      { text: "عصير", points: 15, revealed: false },
+      { text: "شاي", points: 5, revealed: false },
+      { text: "حليب", points: 5, revealed: false },
+    ],
+  },
+  {
+    question: "اذكر عطلة يتناول الناس فيها الكثير من الطعام:",
+    answers: [
+      { text: "عيد الفطر", points: 40, revealed: false },
+      { text: "عيد الأضحى", points: 30, revealed: false },
+      { text: "رمضان", points: 15, revealed: false },
+      { text: "العرس", points: 10, revealed: false },
+      { text: "عيد الميلاد", points: 5, revealed: false },
+    ],
+  },
+  {
+    question: "اذكر شيئاً يفعله الناس في الموعد الأول:",
+    answers: [
+      { text: "السينما", points: 30, revealed: false },
+      { text: "العشاء", points: 25, revealed: false },
+      { text: "المشي", points: 20, revealed: false },
+      { text: "التحدث", points: 15, revealed: false },
+      { text: "القهوة", points: 10, revealed: false },
+    ],
+  },
+  {
+    question: "اذكر دولة مشهورة بطعامها:",
+    answers: [
+      { text: "إيطاليا", points: 35, revealed: false },
+      { text: "فرنسا", points: 25, revealed: false },
+      { text: "الهند", points: 15, revealed: false },
+      { text: "اليابان", points: 15, revealed: false },
+      { text: "المكسيك", points: 10, revealed: false },
+    ],
+  },
+  {
+    question: "اذكر شيئاً يصعب فتحه:",
+    answers: [
+      { text: "علبة مخلل", points: 30, revealed: false },
+      { text: "برطمان مربى", points: 25, revealed: false },
+      { text: "قفل", points: 20, revealed: false },
+      { text: "حزمة بلاستيك", points: 15, revealed: false },
+      { text: "صدف البحر", points: 10, revealed: false },
+    ],
+  },
+  {
+    question: "اذكر شيئاً لا يجب فعله أثناء القيادة:",
+    answers: [
+      { text: "استخدام الهاتف", points: 40, revealed: false },
+      { text: "النوم", points: 20, revealed: false },
+      { text: "الأكل", points: 15, revealed: false },
+      { text: "موسيقى صاخبة", points: 15, revealed: false },
+      { text: "التحدث كثيراً", points: 10, revealed: false },
+    ],
+  },
+  {
+    question: "اذكر سبباً قد يؤدي للتأخر:",
+    answers: [
+      { text: "الزحام", points: 30, revealed: false },
+      { text: "النوم", points: 25, revealed: false },
+      { text: "مشكلة بالسيارة", points: 20, revealed: false },
+      { text: "الطقس", points: 15, revealed: false },
+      { text: "نسيان شيء", points: 10, revealed: false },
+    ],
+  },
+  {
+    question: "اذكر شيئاً يجعل الطفل يتوقف عن البكاء:",
+    answers: [
+      { text: "حليب", points: 35, revealed: false },
+      { text: "حضن", points: 25, revealed: false },
+      { text: "لعبة", points: 20, revealed: false },
+      { text: "أغنية", points: 12, revealed: false },
+      { text: "تهدئة", points: 8, revealed: false },
+    ],
+  },
+  {
+    question: "اذكر مكاناً تذهب إليه في يوم حار:",
+    answers: [
+      { text: "الشاطئ", points: 35, revealed: false },
+      { text: "المسبح", points: 30, revealed: false },
+      { text: "مركز تسوق", points: 15, revealed: false },
+      { text: "مكيف", points: 12, revealed: false },
+      { text: "مقهى بارد", points: 8, revealed: false },
+    ],
+  },
+  {
+    question: "اذكر شيئاً قد يصادره المعلم:",
+    answers: [
+      { text: "الهاتف", points: 45, revealed: false },
+      { text: "ألعاب", points: 20, revealed: false },
+      { text: "مجلة", points: 15, revealed: false },
+      { text: "سماعات", points: 12, revealed: false },
+      { text: "طعام", points: 8, revealed: false },
+    ],
+  },
+  {
+    question: "اذكر شيئاً يخاف منه الناس في الظلام:",
+    answers: [
+      { text: "العفاريت", points: 30, revealed: false },
+      { text: "اللصوص", points: 25, revealed: false },
+      { text: "الأصوات", points: 20, revealed: false },
+      { text: "العناكب", points: 15, revealed: false },
+      { text: "الظل", points: 10, revealed: false },
+    ],
+  },
+  {
+    question: "اذكر شيئاً ترتبط به مصاصي الدماء:",
+    answers: [
+      { text: "الثوم", points: 30, revealed: false },
+      { text: "الصلب", points: 25, revealed: false },
+      { text: "الدم", points: 20, revealed: false },
+      { text: "الأنياب", points: 15, revealed: false },
+      { text: "الخفاش", points: 10, revealed: false },
+    ],
+  },
+  {
+    question: "اذكر مهنة تبدأ بحرف الدال:",
+    answers: [
+      { text: "طبيب", points: 35, revealed: false },
+      { text: "مدير", points: 20, revealed: false },
+      { text: "محامي", points: 15, revealed: false },
+      { text: "رسام", points: 10, revealed: false },
+      { text: "ضابط", points: 5, revealed: false },
+    ],
+  },
+  {
+    question: "اذكر طعاماً لزجاً:",
+    answers: [
+      { text: "عسل", points: 35, revealed: false },
+      { text: "فول سوداني", points: 25, revealed: false },
+      { text: "كراميل", points: 20, revealed: false },
+      { text: "تمر", points: 12, revealed: false },
+      { text: "جلي", points: 8, revealed: false },
+    ],
+  },
+  {
+    question: "اذكر شيئاً تفعله كل صباح:",
+    answers: [
+      { text: "الاستيقاظ", points: 30, revealed: false },
+      { text: "شرب قهوة", points: 25, revealed: false },
+      { text: "الاستحمام", points: 20, revealed: false },
+      { text: "الإفطار", points: 15, revealed: false },
+      { text: "فحص الهاتف", points: 10, revealed: false },
+    ],
+  },
+  {
+    question: "اذكر لوناً لا تود رؤيته في طعامك:",
+    answers: [
+      { text: "أخضر", points: 35, revealed: false },
+      { text: "أسود", points: 25, revealed: false },
+      { text: "أزرق", points: 20, revealed: false },
+      { text: "رمادي", points: 12, revealed: false },
+      { text: "بني غامق", points: 8, revealed: false },
+    ],
+  },
+  {
+    question: "اذكر شيئاً يستخدم الكهرباء:",
+    answers: [
+      { text: "التلفزيون", points: 25, revealed: false },
+      { text: "الهاتف", points: 25, revealed: false },
+      { text: "الثلاجة", points: 20, revealed: false },
+      { text: "المكيف", points: 15, revealed: false },
+      { text: "الغسالة", points: 10, revealed: false },
+      { text: "المصباح", points: 5, revealed: false },
+    ],
+  },
+  {
+    question: "اذكر سبباً للاتصال بالشرطة:",
+    answers: [
+      { text: "سرقة", points: 35, revealed: false },
+      { text: "حادث", points: 25, revealed: false },
+      { text: "شجار", points: 20, revealed: false },
+      { text: "ضجيج", points: 12, revealed: false },
+      { text: "شكوى", points: 8, revealed: false },
+    ],
+  },
+  {
+    question: "اذكر واجباً منزلياً لا يحبه أحد:",
+    answers: [
+      { text: "غسل الأطباق", points: 35, revealed: false },
+      { text: "تنظيف الحمام", points: 30, revealed: false },
+      { text: "كنس الأرض", points: 15, revealed: false },
+      { text: "نشر الغسيل", points: 10, revealed: false },
+      { text: "تنظيف الفرن", points: 10, revealed: false },
+    ],
+  },
+  {
+    question: "ما الذي يضعه الناس على البيتزا؟",
+    answers: [
+      { text: "بيبروني", points: 50, revealed: false },
+      { text: "فطر", points: 20, revealed: false },
+      { text: "سجق", points: 15, revealed: false },
+      { text: "فلفل أخضر", points: 15, revealed: false },
+    ],
+  },
+  {
+    question: "ماذا يفعل الناس عندما يبقون في المنزل؟",
+    answers: [
+      { text: "مشاهدة التلفزيون", points: 40, revealed: false },
+      { text: "لعب ألعاب فيديو", points: 30, revealed: false },
+      { text: "قراءة كتاب", points: 15, revealed: false },
+      { text: "أخذ قيلولة", points: 15, revealed: false },
+    ],
+  },
+  {
+    question: "إذا كنت تنام وسمعت صوتاً في الليل، ما هو؟",
+    answers: [
+      { text: "خطوات", points: 34, revealed: false },
+      { text: "صرير الباب", points: 28, revealed: false },
+      { text: "كسر زجاج", points: 18, revealed: false },
+      { text: "نباح كلب", points: 12, revealed: false },
+      { text: "صوت مجهول", points: 8, revealed: false },
     ],
   },
 ];
 
-const FAST_MONEY_QUESTIONS: SurveyQuestion[] = [
+// Fast Money questions (separate set)
+const FAST_MONEY_QUESTIONS: Question[] = [
   {
-    question: 'شيء أحمر في البيت',
+    question: "شيء أحمر في البيت:",
     answers: [
-      { text: 'السجادة', points: 25, revealed: false },
-      { text: 'المخدة', points: 20, revealed: false },
-      { text: 'المايكرويف', points: 18, revealed: false },
-      { text: 'الكارت', points: 17, revealed: false },
-      { text: 'المفتاح', points: 12, revealed: false },
-      { text: 'الطفاية', points: 8, revealed: false },
+      { text: "السجادة", points: 25, revealed: false },
+      { text: "المخدة", points: 20, revealed: false },
+      { text: "المايكرويف", points: 18, revealed: false },
+      { text: "المفتاح", points: 17, revealed: false },
+      { text: "الطفاية", points: 12, revealed: false },
+      { text: "وسادة", points: 8, revealed: false },
     ],
   },
   {
-    question: 'شيء يبدأ بحرف الميم',
+    question: "شيء يبدأ بحرف الميم:",
     answers: [
-      { text: 'محمد', points: 30, revealed: false },
-      { text: 'ماء', points: 22, revealed: false },
-      { text: 'موبايل', points: 20, revealed: false },
-      { text: 'مدرسة', points: 15, revealed: false },
-      { text: 'مسجد', points: 13, revealed: false },
+      { text: "محمد", points: 30, revealed: false },
+      { text: "ماء", points: 22, revealed: false },
+      { text: "موبايل", points: 20, revealed: false },
+      { text: "مدرسة", points: 15, revealed: false },
+      { text: "مسجد", points: 13, revealed: false },
     ],
   },
   {
-    question: 'أكلة بالديوانية',
+    question: "حيوان تحبه:",
     answers: [
-      { text: 'اللقيمات', points: 28, revealed: false },
-      { text: 'الهريس', points: 25, revealed: false },
-      { text: 'المجبوس', points: 20, revealed: false },
-      { text: 'التمر', points: 17, revealed: false },
-      { text: 'القهوة', points: 10, revealed: false },
+      { text: "القط", points: 28, revealed: false },
+      { text: "الكلب", points: 22, revealed: false },
+      { text: "الحصان", points: 18, revealed: false },
+      { text: "الأرنب", points: 15, revealed: false },
+      { text: "الطائر", points: 12, revealed: false },
+      { text: "السلاحف", points: 5, revealed: false },
     ],
   },
   {
-    question: 'حيوان تحبه',
+    question: "لون تحبه:",
     answers: [
-      { text: 'القط', points: 28, revealed: false },
-      { text: 'الكلب', points: 22, revealed: false },
-      { text: 'الحصان', points: 18, revealed: false },
-      { text: 'الأرنب', points: 15, revealed: false },
-      { text: 'الطائر', points: 12, revealed: false },
-      { text: 'السلاحف', points: 5, revealed: false },
+      { text: "أزرق", points: 28, revealed: false },
+      { text: "أسود", points: 22, revealed: false },
+      { text: "أبيض", points: 18, revealed: false },
+      { text: "أحمر", points: 17, revealed: false },
+      { text: "أخضر", points: 15, revealed: false },
     ],
   },
   {
-    question: 'لون تحبه',
+    question: "شيء تفكر فيه قبل ما تنام:",
     answers: [
-      { text: 'أزرق', points: 28, revealed: false },
-      { text: 'أسود', points: 22, revealed: false },
-      { text: 'أبيض', points: 18, revealed: false },
-      { text: 'أحمر', points: 17, revealed: false },
-      { text: 'أخضر', points: 15, revealed: false },
+      { text: "المستقبل", points: 35, revealed: false },
+      { text: "الأكل", points: 22, revealed: false },
+      { text: "العائلة", points: 18, revealed: false },
+      { text: "المال", points: 15, revealed: false },
+      { text: "المشاكل", points: 10, revealed: false },
     ],
   },
 ];
 
 // ============================================================
-// BrandedHeader
+// Confetti Effect
 // ============================================================
-function BrandedHeader() {
-  return (
-    <div className="w-full border-b border-slate-800/30 bg-slate-950/95 backdrop-blur-md">
-      <div className="max-w-7xl mx-auto flex items-center justify-between h-14 px-4">
-        <a href="/" className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-rose-500 to-amber-600 flex items-center justify-center shadow-lg shadow-rose-500/20">
-            <img
-              src="/platform-logo.png"
-              alt="ألعاب الغريب"
-              className="w-7 h-7 rounded-lg object-contain"
-              onError={(e) => {
-                const target = e.target as HTMLImageElement;
-                target.style.display = 'none';
-                target.parentElement!.innerHTML = '<span class=\'text-white text-sm font-black\'>غ</span>';
-              }}
-            />
-          </div>
-          <h1 className="text-base sm:text-lg font-black bg-gradient-to-l from-rose-400 via-amber-300 to-rose-400 bg-clip-text text-transparent">
-            ألعاب الغريب
-          </h1>
-        </a>
-        <div className="flex items-center gap-4">
-          <span className="text-xs sm:text-sm font-bold text-slate-400">
-            🏆 فاميلي فيود
-          </span>
-          <a href="/" className="text-xs text-slate-400 hover:text-white transition-colors">
-            الرئيسية
-          </a>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ============================================================
-// BrandedFooter
-// ============================================================
-function BrandedFooter() {
-  return (
-    <div className="w-full border-t border-slate-800/30 bg-slate-950/60 mt-auto">
-      <div className="flex flex-col items-center gap-0.5 py-2 px-3">
-        <div className="flex items-center justify-center gap-1.5">
-          <span className="text-xs sm:text-sm">🏆</span>
-          <span className="text-[10px] sm:text-xs font-bold bg-gradient-to-l from-rose-400 via-amber-300 to-rose-400 bg-clip-text text-transparent">
-            فاميلي فيود | Family Feud
-          </span>
-          <span className="text-xs sm:text-sm">🏆</span>
-        </div>
-        <div className="flex items-center gap-1.5 mt-0.5">
-          <span className="text-[9px] sm:text-[10px] text-slate-500">💻 برمجة</span>
-          <span className="text-[9px] sm:text-[10px] font-bold bg-gradient-to-l from-yellow-400 to-amber-500 bg-clip-text text-transparent">الغريب</span>
-          <span className="text-[9px] sm:text-[10px] text-slate-600">|</span>
-          <span className="text-[9px] sm:text-[10px] text-slate-500">🏠 برعاية</span>
-          <span className="text-[9px] sm:text-[10px] font-bold bg-gradient-to-l from-blue-400 to-purple-400 bg-clip-text text-transparent">ANA VIP 100034</span>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ============================================================
-// Confetti Effect (fixed - uses drop-shadow for glow)
-// ============================================================
-const CONFETTI_EMOJIS = ['🎉', '🎊', '✨', '🌟', '💫', '🏆', '🥇', '🎆'];
-const CONFETTI_COLORS = ['#FFD700', '#FF6B6B', '#4ECDC4', '#45B7D1', '#FF69B4', '#98D8C8', '#F7DC6F', '#BB8FCE'];
+const CONFETTI_EMOJIS = ["🎉", "🎊", "✨", "🌟", "💫", "🏆", "🥇", "🎆"];
+const CONFETTI_COLORS = [
+  "#FFD700",
+  "#FF6B6B",
+  "#4ECDC4",
+  "#45B7D1",
+  "#FF69B4",
+  "#98D8C8",
+  "#F7DC6F",
+  "#BB8FCE",
+];
 
 function ConfettiPiece({ delay, left }: { delay: number; left: string }) {
   const emoji = CONFETTI_EMOJIS[Math.floor(Math.random() * CONFETTI_EMOJIS.length)];
@@ -319,14 +895,19 @@ function ConfettiPiece({ delay, left }: { delay: number; left: string }) {
   const size = 16 + Math.random() * 16;
   return (
     <motion.div
-      initial={{ top: '-30px', opacity: 1, rotate: 0 }}
+      initial={{ top: "-30px", opacity: 1, rotate: 0 }}
       animate={{
-        top: ['0vh', '105vh'],
+        top: ["0vh", "105vh"],
         opacity: [1, 1, 1, 0.3],
         rotate: [0, 360 * (Math.random() > 0.5 ? 1 : -1)],
         x: [(Math.random() - 0.5) * 100, (Math.random() - 0.5) * 300],
       }}
-      transition={{ duration: 3 + Math.random() * 3, delay, repeat: Infinity, repeatDelay: 1 + Math.random() }}
+      transition={{
+        duration: 3 + Math.random() * 3,
+        delay,
+        repeat: Infinity,
+        repeatDelay: 1 + Math.random(),
+      }}
       className="fixed z-[200] pointer-events-none"
       style={{ left, fontSize: size }}
     >
@@ -350,21 +931,105 @@ function ConfettiOverlay() {
 }
 
 // ============================================================
-// Sound Manager (visual feedback)
+// BrandedHeader
 // ============================================================
-function useScreenShake() {
-  const [shaking, setShaking] = useState(false);
-  const shake = useCallback(() => {
-    setShaking(true);
-    setTimeout(() => setShaking(false), 500);
-  }, []);
-  return { shaking, shake };
+function BrandedHeader() {
+  return (
+    <div className="w-full border-b border-slate-800/30 bg-slate-950/95 backdrop-blur-md">
+      <div className="max-w-7xl mx-auto flex items-center justify-between h-14 px-4">
+        <a href="/" className="flex items-center gap-3">
+          <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-amber-500 to-rose-600 flex items-center justify-center shadow-lg shadow-amber-500/20">
+            <img
+              src="/platform-logo.png"
+              alt="ألعاب الغريب"
+              className="w-7 h-7 rounded-lg object-contain"
+              onError={(e) => {
+                const target = e.target as HTMLImageElement;
+                target.style.display = "none";
+                target.parentElement!.innerHTML =
+                  "<span class='text-white text-sm font-black'>غ</span>";
+              }}
+            />
+          </div>
+          <h1 className="text-base sm:text-lg font-black bg-gradient-to-l from-amber-400 via-rose-300 to-amber-400 bg-clip-text text-transparent">
+            ألعاب الغريب
+          </h1>
+        </a>
+        <div className="flex items-center gap-4">
+          <span className="text-xs sm:text-sm font-bold text-slate-400">
+            🏆 فاميلي فيود
+          </span>
+          <a
+            href="/"
+            className="text-xs text-slate-400 hover:text-white transition-colors"
+          >
+            الرئيسية
+          </a>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 // ============================================================
-// Feedback Overlay (correct/wrong answer popup)
+// BrandedFooter
 // ============================================================
-function FeedbackOverlay({ show, correct, answer }: { show: boolean; correct: boolean; answer?: string }) {
+function BrandedFooter() {
+  return (
+    <div className="w-full border-t border-slate-800/30 bg-slate-950/60 mt-auto">
+      <div className="max-w-7xl mx-auto flex flex-col items-center gap-1.5 py-3 px-4">
+        <div className="flex items-center gap-2">
+          <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-amber-500 to-rose-600 flex items-center justify-center">
+            <img
+              src="/platform-logo.png"
+              alt="ألعاب الغريب"
+              className="w-5 h-5 rounded-md object-contain"
+              onError={(e) => {
+                const target = e.target as HTMLImageElement;
+                target.style.display = "none";
+                target.parentElement!.innerHTML =
+                  "<span class='text-white text-xs font-black'>غ</span>";
+              }}
+            />
+          </div>
+          <span className="text-sm font-bold bg-gradient-to-l from-amber-400 via-rose-300 to-amber-400 bg-clip-text text-transparent">
+            ألعاب الغريب
+          </span>
+        </div>
+        <div className="flex flex-col items-center gap-1">
+          <div className="flex items-center gap-2 text-xs text-slate-500">
+            <span>💻 برمجة</span>
+            <span className="font-bold bg-gradient-to-l from-yellow-400 to-amber-500 bg-clip-text text-transparent">
+              الغريب
+            </span>
+          </div>
+          <div className="flex items-center gap-2 text-xs text-slate-500">
+            <span>🏠 برعاية</span>
+            <span className="font-bold bg-gradient-to-l from-blue-400 to-purple-400 bg-clip-text text-transparent">
+              ANA VIP 100034
+            </span>
+          </div>
+        </div>
+        <p className="text-[10px] text-slate-600 mt-1">
+          © {new Date().getFullYear()} ألعاب الغريب — جميع الحقوق محفوظة
+        </p>
+      </div>
+    </div>
+  );
+}
+
+// ============================================================
+// Feedback Overlay
+// ============================================================
+function FeedbackOverlay({
+  show,
+  correct,
+  answer,
+}: {
+  show: boolean;
+  correct: boolean;
+  answer?: string;
+}) {
   return (
     <AnimatePresence>
       {show && (
@@ -375,16 +1040,18 @@ function FeedbackOverlay({ show, correct, answer }: { show: boolean; correct: bo
           transition={{ duration: 0.3 }}
           className="fixed top-1/3 left-1/2 -translate-x-1/2 z-[100] pointer-events-none"
         >
-          <div className={cn(
-            'flex flex-col items-center gap-2 px-6 py-4 rounded-2xl border-2 backdrop-blur-lg',
-            correct
-              ? 'bg-emerald-950/80 border-emerald-400/60 shadow-lg shadow-emerald-500/20'
-              : 'bg-red-950/80 border-red-400/60 shadow-lg shadow-red-500/20'
-          )}>
+          <div
+            className={cn(
+              "flex flex-col items-center gap-2 px-6 py-4 rounded-2xl border-2 backdrop-blur-lg",
+              correct
+                ? "bg-emerald-950/80 border-emerald-400/60 shadow-lg shadow-emerald-500/20"
+                : "bg-red-950/80 border-red-400/60 shadow-lg shadow-red-500/20"
+            )}
+          >
             <motion.div
               initial={{ scale: 0, rotate: -180 }}
               animate={{ scale: 1, rotate: 0 }}
-              transition={{ delay: 0.1, type: 'spring', stiffness: 300 }}
+              transition={{ delay: 0.1, type: "spring", stiffness: 300 }}
             >
               {correct ? (
                 <CheckCircle className="w-10 h-10 text-emerald-400" />
@@ -396,9 +1063,12 @@ function FeedbackOverlay({ show, correct, answer }: { show: boolean; correct: bo
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.15 }}
-              className={cn('font-black text-lg', correct ? 'text-emerald-300' : 'text-red-300')}
+              className={cn(
+                "font-black text-lg",
+                correct ? "text-emerald-300" : "text-red-300"
+              )}
             >
-              {correct ? 'إجابة صحيحة! ✅' : 'إجابة خاطئة ❌'}
+              {correct ? "إجابة صحيحة! ✅" : "إجابة خاطئة ❌"}
             </motion.p>
             {correct && answer && (
               <motion.p
@@ -418,255 +1088,476 @@ function FeedbackOverlay({ show, correct, answer }: { show: boolean; correct: bo
 }
 
 // ============================================================
+// Strike Mark
+// ============================================================
+function StrikeMark({ show, index }: { show: boolean; index: number }) {
+  return (
+    <motion.div
+      initial={false}
+      animate={
+        show
+          ? { scale: [0, 1.3, 1], opacity: [0, 1], rotate: [0, -20, 0] }
+          : { scale: 0, opacity: 0 }
+      }
+      transition={{ duration: 0.4, delay: index * 0.1 }}
+      className="text-3xl sm:text-4xl font-black"
+    >
+      <span
+        className={
+          show
+            ? "text-red-500 drop-shadow-[0_0_8px_rgba(239,68,68,0.5)]"
+            : "text-transparent"
+        }
+      >
+        ✕
+      </span>
+    </motion.div>
+  );
+}
+
+// ============================================================
+// HOST Answer Slot (shows points even when hidden)
+// ============================================================
+function HostAnswerSlot({
+  answer,
+  index,
+  onReveal,
+  revealed,
+}: {
+  answer: Answer;
+  index: number;
+  onReveal: () => void;
+  revealed: boolean;
+}) {
+  return (
+    <motion.button
+      whileTap={{ scale: 0.97 }}
+      onClick={onReveal}
+      disabled={revealed}
+      className={cn(
+        "relative flex items-center gap-3 rounded-xl px-4 py-3 border overflow-hidden transition-all duration-300 w-full text-right",
+        revealed
+          ? "bg-gradient-to-l from-emerald-900/60 to-emerald-950/40 border-emerald-500/50"
+          : "bg-slate-800/60 border-slate-700/40 hover:border-amber-500/50 cursor-pointer"
+      )}
+    >
+      {/* Rank */}
+      <div
+        className={cn(
+          "w-8 h-8 rounded-full flex items-center justify-center text-sm font-black shrink-0",
+          revealed
+            ? "bg-emerald-900/80 text-emerald-300"
+            : "bg-amber-900/50 text-amber-400 border border-amber-500/30"
+        )}
+      >
+        {index + 1}
+      </div>
+
+      {/* Answer Text */}
+      <div className="flex-1 min-w-0">
+        {revealed ? (
+          <motion.span
+            initial={{ opacity: 0, x: -10 }}
+            animate={{ opacity: 1, x: 0 }}
+            className="font-bold text-sm text-emerald-200 block truncate"
+          >
+            {answer.text}
+          </motion.span>
+        ) : (
+          <span className="text-sm text-slate-500 block truncate">
+            {answer.text}
+          </span>
+        )}
+      </div>
+
+      {/* Points */}
+      <div
+        className={cn(
+          "text-lg font-black tabular-nums shrink-0 min-w-[40px] text-left",
+          revealed ? "text-emerald-300" : "text-amber-400/80"
+        )}
+      >
+        {answer.points}
+      </div>
+
+      {/* Reveal indicator for host */}
+      {!revealed && (
+        <div className="absolute inset-0 flex items-center justify-center">
+          <Eye className="w-5 h-5 text-amber-500/30" />
+        </div>
+      )}
+    </motion.button>
+  );
+}
+
+// ============================================================
 // LANDING PAGE
 // ============================================================
-function LandingPage({ onStart }: { onStart: () => void }) {
+function LandingPage({
+  onStartGodfather,
+  onStartDiwaniya,
+}: {
+  onStartGodfather: () => void;
+  onStartDiwaniya: () => void;
+}) {
+  const [selectedMode, setSelectedMode] = useState<"godfather" | "diwaniya" | null>(null);
+  const [showRules, setShowRules] = useState(false);
+
+  const handleConfirmMode = () => {
+    if (selectedMode === "godfather") onStartGodfather();
+    else if (selectedMode === "diwaniya") onStartDiwaniya();
+  };
+
   return (
-    <div className="flex-1 flex items-center justify-center p-4">
+    <div className="flex-1 flex items-center justify-center p-3 sm:p-4" dir="rtl">
       <motion.div
         initial={{ opacity: 0, y: 30, scale: 0.95 }}
         animate={{ opacity: 1, y: 0, scale: 1 }}
         transition={{ duration: 0.7, ease: [0.25, 0.46, 0.45, 0.94] }}
-        className="max-w-lg w-full text-center"
+        className="max-w-lg w-full"
       >
         {/* Game Icon */}
-        <motion.div
-          animate={{ rotate: [0, 5, -5, 0], scale: [1, 1.05, 1] }}
-          transition={{ duration: 3, repeat: Infinity }}
-          className="text-7xl sm:text-8xl mb-6"
-        >
-          🏆
-        </motion.div>
+        <div className="text-center mb-6">
+          <motion.div
+            animate={{ rotate: [0, 5, -5, 0], scale: [1, 1.05, 1] }}
+            transition={{ duration: 3, repeat: Infinity }}
+            className="text-6xl sm:text-7xl mb-3"
+          >
+            🏆
+          </motion.div>
+          <h1 className="text-3xl sm:text-5xl font-black mb-2">
+            <span className="bg-gradient-to-l from-amber-400 via-rose-300 to-amber-500 bg-clip-text text-transparent">
+              فاميلي فيود
+            </span>
+          </h1>
+          <p className="text-sm text-slate-400 font-bold">Family Feud</p>
+        </div>
 
-        {/* Title */}
-        <h1 className="text-4xl sm:text-5xl font-black mb-3">
-          <span className="bg-gradient-to-l from-rose-400 via-amber-300 to-rose-500 bg-clip-text text-transparent">
-            فاميلي فيود
-          </span>
-        </h1>
-        <p className="text-sm text-slate-400 font-bold mb-2">Family Feud</p>
-
-        {/* Description */}
-        <p className="text-base sm:text-lg text-slate-400 mb-8 leading-relaxed max-w-md mx-auto">
-          فريقين يتنافسون لتخمين أكثر الإجابات شعبية على أسئلة استطلاعية!
-          <br />
-          <span className="text-slate-500 text-sm">العراب 🔴 ضد الديوانية 🟡</span>
-        </p>
-
-        {/* Features */}
-        <div className="grid grid-cols-3 gap-3 mb-8 max-w-sm mx-auto">
-          {[
-            { icon: '🎯', label: 'أسئلة استطلاعية' },
-            { icon: '⚔️', label: 'مواجهة مباشرة' },
-            { icon: '💰', label: 'جائزة مالية' },
-          ].map((f, i) => (
+        {/* Mode Selection */}
+        <AnimatePresence mode="wait">
+          {!selectedMode ? (
             <motion.div
-              key={i}
+              key="mode-select"
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.3 + i * 0.1 }}
-              className="bg-slate-900/80 border border-slate-800/50 rounded-xl p-3 text-center"
+              exit={{ opacity: 0, y: -20 }}
             >
-              <div className="text-2xl mb-1">{f.icon}</div>
-              <p className="text-[11px] text-slate-400">{f.label}</p>
+              <Card className="bg-gradient-to-bl from-amber-950/40 via-slate-900/80 to-slate-900/80 border-amber-500/30 mb-4">
+                <CardContent className="pt-5 sm:pt-6">
+                  <div className="text-center mb-4">
+                    <motion.div
+                      initial={{ scale: 0 }}
+                      animate={{ scale: 1 }}
+                      transition={{ delay: 0.3, type: "spring" }}
+                      className="inline-flex items-center gap-2 mb-2"
+                    >
+                      <Zap className="w-5 h-5 text-amber-400" />
+                      <h2 className="text-lg sm:text-xl font-bold text-amber-300">
+                        اختر طريقة اللعب
+                      </h2>
+                    </motion.div>
+                    <p className="text-[10px] sm:text-xs text-slate-400">
+                      العراب يتحكم باللعبة مثل ستيف هارفي!
+                    </p>
+                  </div>
+
+                  <div className="space-y-3">
+                    {/* Godfather Mode (HOST) */}
+                    <motion.button
+                      whileHover={{ scale: 1.02 }}
+                      whileTap={{ scale: 0.98 }}
+                      onClick={() => setSelectedMode("godfather")}
+                      className="w-full rounded-xl p-3 sm:p-4 border-2 border-amber-500/30 bg-gradient-to-l from-amber-950/50 to-red-950/30 hover:border-amber-400/50 transition-all text-right cursor-pointer"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-amber-900/50 border border-amber-500/30 flex items-center justify-center shrink-0">
+                          <Crown className="w-6 h-6 sm:w-7 sm:h-7 text-amber-400" />
+                        </div>
+                        <div className="flex-1">
+                          <h3 className="text-base sm:text-lg font-bold text-amber-200 mb-0.5">
+                            العراب
+                          </h3>
+                          <p className="text-[10px] sm:text-xs text-slate-400 leading-relaxed">
+                            أنت المقدم! تتحكم باللعبة وترى جميع الإجابات والنقاط
+                          </p>
+                        </div>
+                      </div>
+                    </motion.button>
+
+                    {/* Diwaniya Mode (ONLINE) */}
+                    <motion.button
+                      whileHover={{ scale: 1.02 }}
+                      whileTap={{ scale: 0.98 }}
+                      onClick={() => setSelectedMode("diwaniya")}
+                      className="w-full rounded-xl p-3 sm:p-4 border-2 border-blue-500/30 bg-gradient-to-l from-blue-950/50 to-indigo-950/30 hover:border-blue-400/50 transition-all text-right cursor-pointer"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-blue-900/50 border border-blue-500/30 flex items-center justify-center shrink-0">
+                          <Home className="w-6 h-6 sm:w-7 sm:h-7 text-blue-400" />
+                        </div>
+                        <div className="flex-1">
+                          <h3 className="text-base sm:text-lg font-bold text-blue-200 mb-0.5">
+                            الديوانية
+                          </h3>
+                          <p className="text-[10px] sm:text-xs text-slate-400 leading-relaxed">
+                            أنشئ غرفة وشارك الكود، اللاعبون ينضمون من أجهزتهم
+                          </p>
+                        </div>
+                      </div>
+                    </motion.button>
+                  </div>
+                </CardContent>
+              </Card>
             </motion.div>
-          ))}
-        </div>
+          ) : (
+            <motion.div
+              key="mode-confirm"
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="mb-4"
+            >
+              <Card
+                className={cn(
+                  "bg-gradient-to-bl",
+                  selectedMode === "godfather"
+                    ? "from-amber-950/40 via-slate-900/80 to-slate-900/80 border-amber-500/30"
+                    : "from-blue-950/40 via-slate-900/80 to-slate-900/80 border-blue-500/30"
+                )}
+              >
+                <CardContent className="pt-5 sm:pt-6">
+                  <div className="text-center mb-4">
+                    <motion.div
+                      initial={{ scale: 0 }}
+                      animate={{ scale: 1 }}
+                      transition={{ delay: 0.2, type: "spring" }}
+                      className="text-4xl mb-2"
+                    >
+                      {selectedMode === "godfather" ? "🕴️" : "🏠"}
+                    </motion.div>
+                    <h2
+                      className={cn(
+                        "text-lg sm:text-xl font-bold",
+                        selectedMode === "godfather"
+                          ? "text-amber-300"
+                          : "text-blue-300"
+                      )}
+                    >
+                      {selectedMode === "godfather" ? "العراب - وضع المقدم" : "الديوانية - لعب جماعي"}
+                    </h2>
+                  </div>
 
-        {/* Team Preview */}
-        <div className="flex gap-4 justify-center mb-8">
-          <motion.div
-            initial={{ opacity: 0, x: -20 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ delay: 0.5 }}
-            className="flex items-center gap-2 bg-red-950/40 border border-red-500/30 rounded-xl px-4 py-3"
-          >
-            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-red-600 to-red-800 flex items-center justify-center text-xl">
-              👑
-            </div>
-            <div className="text-right">
-              <p className="text-sm font-bold text-red-300">العراب</p>
-              <p className="text-[10px] text-red-400/60">الفريق الأحمر</p>
-            </div>
-          </motion.div>
-          <div className="text-2xl self-center text-slate-600 font-bold">VS</div>
-          <motion.div
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ delay: 0.6 }}
-            className="flex items-center gap-2 bg-amber-950/40 border border-amber-500/30 rounded-xl px-4 py-3"
-          >
-            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-amber-500 to-amber-700 flex items-center justify-center text-xl">
-              🏛️
-            </div>
-            <div className="text-right">
-              <p className="text-sm font-bold text-amber-300">الديوانية</p>
-              <p className="text-[10px] text-amber-400/60">الفريق الذهبي</p>
-            </div>
-          </motion.div>
-        </div>
+                  {selectedMode === "godfather" && (
+                    <div className="space-y-2 mb-4">
+                      <div className="flex items-center gap-2 text-xs text-slate-300">
+                        <Crown className="w-4 h-4 text-amber-400 shrink-0" />
+                        <span>أنت المقدم - تتحكم باللعبة كاملة</span>
+                      </div>
+                      <div className="flex items-center gap-2 text-xs text-slate-300">
+                        <Eye className="w-4 h-4 text-amber-400 shrink-0" />
+                        <span>ترى جميع الإجابات والنقاط قبل الكشف</span>
+                      </div>
+                      <div className="flex items-center gap-2 text-xs text-slate-300">
+                        <Zap className="w-4 h-4 text-amber-400 shrink-0" />
+                        <span>اضغط على الإجابة لكشفها للجمهور</span>
+                      </div>
+                      <div className="flex items-center gap-2 text-xs text-slate-300">
+                        <Users className="w-4 h-4 text-amber-400 shrink-0" />
+                        <span>أدخل أسماء فريقين وتحكم بالجولات</span>
+                      </div>
+                    </div>
+                  )}
 
-        {/* Start Button */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.8 }}
-        >
+                  {selectedMode === "diwaniya" && (
+                    <div className="space-y-2 mb-4">
+                      <div className="flex items-center gap-2 text-xs text-slate-300">
+                        <Home className="w-4 h-4 text-blue-400 shrink-0" />
+                        <span>أنشئ غرفة واحصل على كود</span>
+                      </div>
+                      <div className="flex items-center gap-2 text-xs text-slate-300">
+                        <Users className="w-4 h-4 text-blue-400 shrink-0" />
+                        <span>شارك الكود مع الأصدقاء لينضموا</span>
+                      </div>
+                      <div className="flex items-center gap-2 text-xs text-slate-300">
+                        <Zap className="w-4 h-4 text-blue-400 shrink-0" />
+                        <span>لعب متعدد اللاعبين عبر الإنترنت</span>
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="flex gap-2">
+                    <Button
+                      onClick={() => setSelectedMode(null)}
+                      variant="outline"
+                      className="flex-1 border-slate-600 text-slate-300 hover:bg-slate-800 py-4 text-sm"
+                    >
+                      رجوع
+                    </Button>
+                    <Button
+                      onClick={handleConfirmMode}
+                      className={cn(
+                        "flex-1 font-bold text-base sm:text-lg py-5 transition-all duration-300",
+                        selectedMode === "godfather"
+                          ? "bg-gradient-to-l from-amber-600 to-red-800 hover:from-amber-500 hover:to-red-700 text-white"
+                          : "bg-gradient-to-l from-blue-600 to-indigo-800 hover:from-blue-500 hover:to-indigo-700 text-white"
+                      )}
+                    >
+                      متابعة
+                      <ChevronLeft className="w-4 h-4 mr-2" />
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Rules Toggle */}
+        <div className="flex justify-center mb-3">
           <Button
-            onClick={onStart}
-            size="lg"
-            className="bg-gradient-to-l from-rose-600 to-amber-600 hover:from-rose-500 hover:to-amber-500 text-white font-black text-lg px-10 py-7 shadow-xl shadow-rose-500/25 hover:shadow-rose-500/40 transition-all w-full sm:w-auto"
+            variant="ghost"
+            onClick={() => setShowRules(!showRules)}
+            className="text-yellow-400 hover:text-yellow-300 hover:bg-yellow-400/10 gap-2 text-sm"
           >
-            <Play className="w-5 h-5 ml-2" />
-            ابدأ اللعب
+            <Info className="w-4 h-4" />
+            {showRules ? "إخفاء القوانين" : "📜 عرض القوانين"}
           </Button>
-        </motion.div>
+        </div>
 
-        {/* Players Info */}
-        <p className="text-xs text-slate-600 mt-4">
-          👥 2-10 لاعبين | 5 جولات + جولة الجائزة الكبرى
-        </p>
+        {/* Rules */}
+        <AnimatePresence>
+          {showRules && (
+            <motion.div
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: "auto", opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              transition={{ duration: 0.3 }}
+              className="overflow-hidden mb-3"
+            >
+              <Card className="bg-slate-900/80 border-slate-700/50">
+                <CardContent className="pt-4 text-xs sm:text-sm text-slate-300 space-y-3">
+                  <div>
+                    <h4 className="font-bold text-amber-400 mb-1">
+                      👑 وضع العراب (المقدم):
+                    </h4>
+                    <ul className="space-y-1 text-slate-400 pr-4">
+                      <li>• أنت المقدم مثل ستيف هارفي في البرنامج</li>
+                      <li>• ترى جميع الإجابات والنقاط مسبقاً</li>
+                      <li>• اضغط على الإجابة لكشفها عند التخمين الصحيح</li>
+                      <li>• 3 إخفاقات = فرصة سرقة للفريق الآخر</li>
+                      <li>• 5 جولات عادية + جولة المال السريع</li>
+                    </ul>
+                  </div>
+                  <div className="pt-2 border-t border-slate-700/50">
+                    <p className="text-amber-400/80 text-xs">
+                      🏆 الفريق الفائز يحصل على أكبر عدد من النقاط
+                    </p>
+                  </div>
+                </CardContent>
+              </Card>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </motion.div>
     </div>
   );
 }
 
 // ============================================================
-// TEAM SETUP
+// TEAM SETUP (Host Mode)
 // ============================================================
-function TeamSetup({ onStartGame }: { onStartGame: (team1: string[], team2: string[]) => void }) {
-  const [team1Players, setTeam1Players] = useState<string[]>(['']);
-  const [team2Players, setTeam2Players] = useState<string[]>(['']);
-
-  const addPlayer = (team: 1 | 2) => {
-    if (team === 1 && team1Players.length < 5) {
-      setTeam1Players([...team1Players, '']);
-    } else if (team === 2 && team2Players.length < 5) {
-      setTeam2Players([...team2Players, '']);
-    }
-  };
-
-  const removePlayer = (team: 1 | 2, index: number) => {
-    if (team === 1 && team1Players.length > 1) {
-      setTeam1Players(team1Players.filter((_, i) => i !== index));
-    } else if (team === 2 && team2Players.length > 1) {
-      setTeam2Players(team2Players.filter((_, i) => i !== index));
-    }
-  };
-
-  const updatePlayer = (team: 1 | 2, index: number, name: string) => {
-    if (team === 1) {
-      const updated = [...team1Players];
-      updated[index] = name;
-      setTeam1Players(updated);
-    } else {
-      const updated = [...team2Players];
-      updated[index] = name;
-      setTeam2Players(updated);
-    }
-  };
-
-  const canStart = team1Players.some(p => p.trim()) && team2Players.some(p => p.trim());
+function TeamSetup({
+  onStartGame,
+}: {
+  onStartGame: (team1Name: string, team2Name: string) => void;
+}) {
+  const [team1Name, setTeam1Name] = useState("فريق 1");
+  const [team2Name, setTeam2Name] = useState("فريق 2");
 
   return (
-    <div className="flex-1 flex items-center justify-center p-4">
+    <div className="flex-1 flex items-center justify-center p-3 sm:p-4" dir="rtl">
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         className="max-w-lg w-full"
       >
         <h2 className="text-2xl sm:text-3xl font-black text-center mb-2">
-          <span className="bg-gradient-to-l from-rose-400 to-amber-400 bg-clip-text text-transparent">
+          <span className="bg-gradient-to-l from-amber-400 to-rose-400 bg-clip-text text-transparent">
             إعداد الفرق
           </span>
         </h2>
-        <p className="text-sm text-slate-500 text-center mb-6">أدخل أسماء اللاعبين لكل فريق</p>
+        <p className="text-sm text-slate-500 text-center mb-6">
+          أدخل اسمي الفريقين اللذين سيتنافسان
+        </p>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          {/* Team 1 - العراب */}
-          <Card className="bg-slate-900/80 border-red-500/30">
-            <CardContent className="p-4">
-              <div className="flex items-center gap-2 mb-3">
-                <div className="w-8 h-8 rounded-full bg-gradient-to-br from-red-600 to-red-800 flex items-center justify-center text-sm">
-                  👑
-                </div>
-                <div>
-                  <h3 className="text-sm font-bold text-red-300">العراب</h3>
-                  <p className="text-[10px] text-red-400/60">الفريق الأحمر</p>
-                </div>
-              </div>
-              <div className="space-y-2">
-                {team1Players.map((player, i) => (
-                  <div key={i} className="flex gap-2">
-                    <Input
-                      value={player}
-                      onChange={(e) => updatePlayer(1, i, e.target.value)}
-                      placeholder={`لاعب ${i + 1}`}
-                      className="bg-slate-800/60 border-red-900/40 text-red-100 placeholder:text-red-800/40 h-9 text-sm"
-                    />
-                    {team1Players.length > 1 && (
-                      <button onClick={() => removePlayer(1, i)} className="text-red-500/60 hover:text-red-400 p-1">
-                        <Minus className="w-4 h-4" />
-                      </button>
-                    )}
-                  </div>
-                ))}
-                {team1Players.length < 5 && (
-                  <button onClick={() => addPlayer(1)} className="flex items-center gap-1 text-xs text-red-400/60 hover:text-red-300 mt-1">
-                    <Plus className="w-3 h-3" /> إضافة لاعب
-                  </button>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Team 2 - الديوانية */}
+          {/* Team 1 */}
           <Card className="bg-slate-900/80 border-amber-500/30">
             <CardContent className="p-4">
               <div className="flex items-center gap-2 mb-3">
                 <div className="w-8 h-8 rounded-full bg-gradient-to-br from-amber-500 to-amber-700 flex items-center justify-center text-sm">
+                  👑
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-amber-300">الفريق الأول</h3>
+                  <p className="text-[10px] text-amber-400/60">بدأ المواجهة</p>
+                </div>
+              </div>
+              <Input
+                value={team1Name}
+                onChange={(e) => setTeam1Name(e.target.value)}
+                placeholder="اسم الفريق الأول"
+                className="bg-slate-800/60 border-amber-900/40 text-amber-100 placeholder:text-amber-800/40 h-11 text-sm"
+                dir="rtl"
+              />
+            </CardContent>
+          </Card>
+
+          {/* Team 2 */}
+          <Card className="bg-slate-900/80 border-rose-500/30">
+            <CardContent className="p-4">
+              <div className="flex items-center gap-2 mb-3">
+                <div className="w-8 h-8 rounded-full bg-gradient-to-br from-rose-500 to-rose-700 flex items-center justify-center text-sm">
                   🏛️
                 </div>
                 <div>
-                  <h3 className="text-sm font-bold text-amber-300">الديوانية</h3>
-                  <p className="text-[10px] text-amber-400/60">الفريق الذهبي</p>
+                  <h3 className="text-sm font-bold text-rose-300">الفريق الثاني</h3>
+                  <p className="text-[10px] text-rose-400/60">المنافس</p>
                 </div>
               </div>
-              <div className="space-y-2">
-                {team2Players.map((player, i) => (
-                  <div key={i} className="flex gap-2">
-                    <Input
-                      value={player}
-                      onChange={(e) => updatePlayer(2, i, e.target.value)}
-                      placeholder={`لاعب ${i + 1}`}
-                      className="bg-slate-800/60 border-amber-900/40 text-amber-100 placeholder:text-amber-800/40 h-9 text-sm"
-                    />
-                    {team2Players.length > 1 && (
-                      <button onClick={() => removePlayer(2, i)} className="text-amber-500/60 hover:text-amber-400 p-1">
-                        <Minus className="w-4 h-4" />
-                      </button>
-                    )}
-                  </div>
-                ))}
-                {team2Players.length < 5 && (
-                  <button onClick={() => addPlayer(2)} className="flex items-center gap-1 text-xs text-amber-400/60 hover:text-amber-300 mt-1">
-                    <Plus className="w-3 h-3" /> إضافة لاعب
-                  </button>
-                )}
-              </div>
+              <Input
+                value={team2Name}
+                onChange={(e) => setTeam2Name(e.target.value)}
+                placeholder="اسم الفريق الثاني"
+                className="bg-slate-800/60 border-rose-900/40 text-rose-100 placeholder:text-rose-800/40 h-11 text-sm"
+                dir="rtl"
+              />
             </CardContent>
           </Card>
         </div>
 
+        {/* Host Info */}
+        <Card className="bg-amber-950/20 border-amber-500/20 mt-4">
+          <CardContent className="p-3">
+            <div className="flex items-start gap-2">
+              <Eye className="w-4 h-4 text-amber-400 mt-0.5 shrink-0" />
+              <p className="text-xs text-slate-400">
+                بصفتك العراب، ستظهر لك جميع الإجابات والنقاط. اضغط على أي إجابة
+                لكشفها للجمهور عندما يخمن الفريق بشكل صحيح.
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+
         <div className="text-center mt-6">
           <Button
-            onClick={() => {
-              const t1 = team1Players.filter(p => p.trim());
-              const t2 = team2Players.filter(p => p.trim());
-              onStartGame(t1.length > 0 ? t1 : ['اللاعب 1'], t2.length > 0 ? t2 : ['اللاعب 1']);
-            }}
-            disabled={!canStart}
-            className="bg-gradient-to-l from-rose-600 to-amber-600 hover:from-rose-500 hover:to-amber-500 text-white font-bold px-10 py-6 disabled:opacity-40"
+            onClick={() =>
+              onStartGame(
+                team1Name.trim() || "فريق 1",
+                team2Name.trim() || "فريق 2"
+              )
+            }
+            className="bg-gradient-to-l from-amber-600 to-rose-600 hover:from-amber-500 hover:to-rose-500 text-white font-bold px-10 py-6"
           >
             <Play className="w-5 h-5 ml-2" />
             ابدأ اللعبة
@@ -678,98 +1569,69 @@ function TeamSetup({ onStartGame }: { onStartGame: (team1: string[], team2: stri
 }
 
 // ============================================================
-// ANSWER BOARD
+// DIWANIYA PLACEHOLDER
 // ============================================================
-function AnswerSlot({
-  answer,
-  index,
-  teamColor,
-  onReveal,
-  revealed,
-  shakeAnim,
-}: {
-  answer: SurveyAnswer;
-  index: number;
-  teamColor: 'red' | 'amber';
-  onReveal?: () => void;
-  revealed: boolean;
-  shakeAnim: boolean;
-}) {
-  const colors = {
-    red: {
-      bg: 'bg-red-900/60',
-      border: 'border-red-500/50',
-      text: 'text-red-200',
-      points: 'text-red-400',
-      hidden: 'from-red-800 to-red-900',
-      check: 'text-red-300',
-    },
-    amber: {
-      bg: 'bg-amber-900/60',
-      border: 'border-amber-500/50',
-      text: 'text-amber-200',
-      points: 'text-amber-400',
-      hidden: 'from-amber-800 to-amber-900',
-      check: 'text-amber-300',
-    },
-  };
-  const c = colors[teamColor];
-
+function DiwaniyaPlaceholder() {
   return (
-    <motion.div
-      layout
-      initial={false}
-      animate={shakeAnim ? { x: [0, -5, 5, -5, 5, 0] } : {}}
-      transition={{ duration: 0.4 }}
-      onClick={onReveal}
-      className={cn(
-        'relative flex items-center gap-3 rounded-xl px-4 py-3 border overflow-hidden cursor-pointer transition-all duration-300',
-        revealed
-          ? `${c.bg} ${c.border} border`
-          : `bg-slate-800/40 border-slate-700/30 hover:border-slate-600/50`
-      )}
-    >
-      {/* Rank Number */}
-      <div className={cn(
-        'w-8 h-8 rounded-full flex items-center justify-center text-sm font-black shrink-0',
-        revealed ? `${c.bg} ${c.check}` : 'bg-slate-700/50 text-slate-500'
-      )}>
-        {index + 1}
-      </div>
-
-      {/* Answer Text / Points */}
-      {revealed ? (
+    <div className="flex-1 flex items-center justify-center p-3 sm:p-4" dir="rtl">
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="max-w-lg w-full text-center"
+      >
         <motion.div
-          initial={{ opacity: 0, x: -10 }}
-          animate={{ opacity: 1, x: 0 }}
-          transition={{ duration: 0.3 }}
-          className="flex-1 flex items-center justify-between"
+          animate={{ rotate: [0, 5, -5, 0] }}
+          transition={{ duration: 3, repeat: Infinity }}
+          className="text-6xl mb-4"
         >
-          <span className={cn('font-bold text-sm', c.text)}>{answer.text}</span>
-          <span className={cn('font-black text-lg', c.points)}>{answer.points}</span>
+          🏠
         </motion.div>
-      ) : (
-        <div className="flex-1 flex items-center justify-between">
-          <div className="flex-1 h-3 bg-slate-700/30 rounded-full" />
-        </div>
-      )}
-    </motion.div>
-  );
-}
-
-// ============================================================
-// STRIKE MARK
-// ============================================================
-function StrikeMark({ show, index }: { show: boolean; index: number }) {
-  return (
-    <motion.div
-      initial={false}
-      animate={show ? { scale: [0, 1.3, 1], opacity: [0, 1], rotate: [0, -20, 0] } : { scale: 0, opacity: 0 }}
-      transition={{ duration: 0.4, delay: index * 0.1 }}
-      className="text-3xl sm:text-4xl font-black"
-    >
-      <span className={show ? 'text-red-500 drop-shadow-[0_0_8px_rgba(239,68,68,0.5)]' : 'text-transparent'}>✕</span>
-    </motion.div>
+        <h2 className="text-2xl sm:text-3xl font-black mb-3">
+          <span className="bg-gradient-to-l from-blue-400 via-indigo-300 to-blue-400 bg-clip-text text-transparent">
+            الديوانية - قريباً
+          </span>
+        </h2>
+        <Card className="bg-blue-950/30 border-blue-500/30 mt-6">
+          <CardContent className="p-6">
+            <p className="text-sm text-slate-400 mb-4">
+              وضع اللعب الجماعي عبر الإنترنت قيد التطوير حالياً.
+              <br />
+              سيتمكن اللاعبون من الانضمام من أجهزتهم والتنافس في الوقت الحقيقي!
+            </p>
+            <div className="space-y-2 mb-6">
+              <div className="flex items-center gap-2 text-xs text-slate-500">
+                <div className="w-5 h-5 rounded-full bg-green-900/50 border border-green-500/30 flex items-center justify-center">
+                  <CheckCircle className="w-3 h-3 text-green-400" />
+                </div>
+                <span>إنشاء غرفة بكود خاص</span>
+              </div>
+              <div className="flex items-center gap-2 text-xs text-slate-500">
+                <div className="w-5 h-5 rounded-full bg-green-900/50 border border-green-500/30 flex items-center justify-center">
+                  <CheckCircle className="w-3 h-3 text-green-400" />
+                </div>
+                <span>انضمام اللاعبين من أجهزتهم</span>
+              </div>
+              <div className="flex items-center gap-2 text-xs text-slate-500">
+                <div className="w-5 h-5 rounded-full bg-slate-800/50 border border-slate-700/30 flex items-center justify-center">
+                  <Clock className="w-3 h-3 text-slate-500" />
+                </div>
+                <span>لعب في الوقت الحقيقي (قريباً)</span>
+              </div>
+            </div>
+            <Button
+              onClick={() => {
+                window.location.href = "/familyfeud";
+              }}
+              variant="outline"
+              className="border-blue-500/30 text-blue-300 hover:bg-blue-950/30"
+            >
+              <ArrowLeft className="w-4 h-4 ml-2" />
+              العودة للصفحة الرئيسية
+            </Button>
+          </CardContent>
+        </Card>
+      </motion.div>
+    </div>
   );
 }
 
@@ -780,91 +1642,67 @@ function FaceOffScreen({
   question,
   team1Name,
   team2Name,
-  team1Player,
-  team2Player,
-  onTeam1Buzz,
-  onTeam2Buzz,
-  showTimer,
-  timeLeft,
+  onTeam1Start,
+  onTeam2Start,
 }: {
   question: string;
   team1Name: string;
   team2Name: string;
-  team1Player: string;
-  team2Player: string;
-  onTeam1Buzz: () => void;
-  onTeam2Buzz: () => void;
-  showTimer: boolean;
-  timeLeft: number;
+  onTeam1Start: () => void;
+  onTeam2Start: () => void;
 }) {
   return (
-    <div className="flex-1 flex flex-col items-center justify-center p-4 gap-6">
-      {/* Timer */}
-      {showTimer && (
-        <motion.div
-          animate={{ scale: timeLeft <= 5 ? [1, 1.1, 1] : 1 }}
-          transition={{ repeat: timeLeft <= 5 ? Infinity : 0, duration: 0.5 }}
-          className={cn(
-            'text-5xl sm:text-6xl font-black tabular-nums',
-            timeLeft <= 5 ? 'text-red-400' : timeLeft <= 10 ? 'text-amber-400' : 'text-slate-300'
-          )}
-        >
-          {timeLeft}
-        </motion.div>
-      )}
-
+    <div className="flex-1 flex flex-col items-center justify-center p-4 gap-6" dir="rtl">
       {/* Question */}
       <motion.div
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
         className="text-center"
       >
-        <p className="text-xs text-slate-500 mb-2">سؤال الاستطلاع</p>
+        <p className="text-xs text-slate-500 mb-2">⚔️ المواجهة</p>
         <h2 className="text-xl sm:text-2xl font-black text-white max-w-md leading-relaxed">
           &quot;{question}&quot;
         </h2>
+        <p className="text-xs text-slate-500 mt-2">
+          اختر الفريق الذي سيبدأ بالمواجهة
+        </p>
       </motion.div>
 
-      {/* Teams Face-Off */}
+      {/* Teams */}
       <div className="flex items-center gap-3 sm:gap-6 w-full max-w-md">
-        {/* Team 1 */}
         <motion.button
           whileTap={{ scale: 0.95 }}
           whileHover={{ scale: 1.02 }}
-          onClick={onTeam1Buzz}
-          className="flex-1 bg-gradient-to-b from-red-800/60 to-red-900/40 border-2 border-red-500/40 hover:border-red-400/70 rounded-2xl p-4 sm:p-6 text-center transition-all cursor-pointer"
+          onClick={onTeam1Start}
+          className="flex-1 bg-gradient-to-b from-amber-800/60 to-amber-900/40 border-2 border-amber-500/40 hover:border-amber-400/70 rounded-2xl p-4 sm:p-6 text-center transition-all cursor-pointer"
         >
           <div className="text-3xl sm:text-4xl mb-2">👑</div>
-          <p className="text-sm font-bold text-red-300">{team1Name}</p>
-          <p className="text-xs text-red-400/60 mt-1">{team1Player}</p>
+          <p className="text-sm font-bold text-amber-300">{team1Name}</p>
           <motion.div
             animate={{ scale: [1, 1.05, 1] }}
             transition={{ repeat: Infinity, duration: 1.5 }}
-            className="mt-3 bg-red-700/50 rounded-lg py-2 px-4"
+            className="mt-3 bg-amber-700/50 rounded-lg py-2 px-4"
           >
-            <p className="text-xs font-bold text-red-200">🔴 اضغط للإجابة</p>
+            <p className="text-xs font-bold text-amber-200">🟡 ابدأ بهذا الفريق</p>
           </motion.div>
         </motion.button>
 
-        {/* VS */}
         <div className="text-xl sm:text-2xl font-black text-slate-600">VS</div>
 
-        {/* Team 2 */}
         <motion.button
           whileTap={{ scale: 0.95 }}
           whileHover={{ scale: 1.02 }}
-          onClick={onTeam2Buzz}
-          className="flex-1 bg-gradient-to-b from-amber-800/60 to-amber-900/40 border-2 border-amber-500/40 hover:border-amber-400/70 rounded-2xl p-4 sm:p-6 text-center transition-all cursor-pointer"
+          onClick={onTeam2Start}
+          className="flex-1 bg-gradient-to-b from-rose-800/60 to-rose-900/40 border-2 border-rose-500/40 hover:border-rose-400/70 rounded-2xl p-4 sm:p-6 text-center transition-all cursor-pointer"
         >
           <div className="text-3xl sm:text-4xl mb-2">🏛️</div>
-          <p className="text-sm font-bold text-amber-300">{team2Name}</p>
-          <p className="text-xs text-amber-400/60 mt-1">{team2Player}</p>
+          <p className="text-sm font-bold text-rose-300">{team2Name}</p>
           <motion.div
             animate={{ scale: [1, 1.05, 1] }}
             transition={{ repeat: Infinity, duration: 1.5, delay: 0.75 }}
-            className="mt-3 bg-amber-700/50 rounded-lg py-2 px-4"
+            className="mt-3 bg-rose-700/50 rounded-lg py-2 px-4"
           >
-            <p className="text-xs font-bold text-amber-200">🟡 اضغط للإجابة</p>
+            <p className="text-xs font-bold text-rose-200">🔴 ابدأ بهذا الفريق</p>
           </motion.div>
         </motion.button>
       </div>
@@ -873,9 +1711,9 @@ function FaceOffScreen({
 }
 
 // ============================================================
-// MAIN GAME BOARD
+// MAIN GAME BOARD (HOST VIEW)
 // ============================================================
-function GameBoard({
+function GameBoardView({
   question,
   answers,
   currentTeam,
@@ -884,92 +1722,89 @@ function GameBoard({
   team1Name,
   team2Name,
   strikes,
-  maxStrikes,
-  team1Players,
-  team2Players,
-  currentPlayerIndex,
-  onGuess,
-  shakeAnim,
+  onRevealAnswer,
+  onAddStrike,
+  onPassToOtherTeam,
+  onSteal,
+  onNoSteal,
+  onRevealAll,
+  phase,
   round,
   totalRounds,
-  phase,
-  stealAnswer,
-  onStealSubmit,
-  onStealInput,
-  showStealInput,
+  roundScore,
 }: {
   question: string;
-  answers: SurveyAnswer[];
+  answers: Answer[];
   currentTeam: 1 | 2;
   team1Score: number;
   team2Score: number;
   team1Name: string;
   team2Name: string;
   strikes: number;
-  maxStrikes: number;
-  team1Players: string[];
-  team2Players: string[];
-  currentPlayerIndex: number;
-  onGuess: (guess: string) => void;
-  shakeAnim: boolean;
+  onRevealAnswer: (index: number) => void;
+  onAddStrike: () => void;
+  onPassToOtherTeam: () => void;
+  onSteal: () => void;
+  onNoSteal: () => void;
+  onRevealAll: () => void;
+  phase: "playing" | "steal";
   round: number;
   totalRounds: number;
-  phase: 'playing' | 'steal';
-  stealAnswer: string;
-  onStealSubmit: () => void;
-  onStealInput: (v: string) => void;
-  showStealInput: boolean;
+  roundScore: number;
 }) {
-  const [guessInput, setGuessInput] = useState('');
-  const inputRef = useRef<HTMLInputElement>(null);
-  const teamColor = currentTeam === 1 ? 'red' : 'amber';
-
-  const players = currentTeam === 1 ? team1Players : team2Players;
-  const currentPlayer = players[currentPlayerIndex % players.length];
-
-  const handleSubmit = () => {
-    if (guessInput.trim()) {
-      onGuess(guessInput.trim());
-      setGuessInput('');
-    }
-  };
-
   return (
-    <div className="flex-1 flex flex-col p-3 sm:p-4 gap-3">
+    <div className="flex-1 flex flex-col p-3 sm:p-4 gap-3" dir="rtl">
       {/* Top Bar: Scores + Round */}
       <div className="flex items-center justify-between gap-2">
-        {/* Team 1 Score */}
-        <div className={cn(
-          'flex items-center gap-2 rounded-xl px-3 py-2 border',
-          currentTeam === 1 ? 'bg-red-950/50 border-red-500/40' : 'bg-slate-900/40 border-slate-800/30'
-        )}>
+        <div
+          className={cn(
+            "flex items-center gap-2 rounded-xl px-3 py-2 border",
+            currentTeam === 1
+              ? "bg-amber-950/50 border-amber-500/40"
+              : "bg-slate-900/40 border-slate-800/30"
+          )}
+        >
           <span className="text-lg">👑</span>
           <div>
-            <p className="text-[10px] text-red-400/60">{team1Name}</p>
-            <p className="text-lg font-black text-red-300 tabular-nums">{team1Score}</p>
+            <p className="text-[10px] text-amber-400/60">{team1Name}</p>
+            <p className="text-lg font-black text-amber-300 tabular-nums">
+              {team1Score}
+            </p>
           </div>
         </div>
 
-        {/* Round Info */}
-        <Badge variant="outline" className="border-slate-700 text-slate-400 text-[10px] px-2">
-          الجولة {round}/{totalRounds}
-        </Badge>
+        <div className="text-center">
+          <Badge
+            variant="outline"
+            className="border-slate-700 text-slate-400 text-[10px] px-2"
+          >
+            الجولة {round}/{totalRounds}
+          </Badge>
+          <p className="text-[10px] text-emerald-400 mt-0.5">
+            +{roundScore} نقاط الجولة
+          </p>
+        </div>
 
-        {/* Team 2 Score */}
-        <div className={cn(
-          'flex items-center gap-2 rounded-xl px-3 py-2 border',
-          currentTeam === 2 ? 'bg-amber-950/50 border-amber-500/40' : 'bg-slate-900/40 border-slate-800/30'
-        )}>
+        <div
+          className={cn(
+            "flex items-center gap-2 rounded-xl px-3 py-2 border",
+            currentTeam === 2
+              ? "bg-rose-950/50 border-rose-500/40"
+              : "bg-slate-900/40 border-slate-800/30"
+          )}
+        >
           <div className="text-left">
-            <p className="text-[10px] text-amber-400/60">{team2Name}</p>
-            <p className="text-lg font-black text-amber-300 tabular-nums">{team2Score}</p>
+            <p className="text-[10px] text-rose-400/60">{team2Name}</p>
+            <p className="text-lg font-black text-rose-300 tabular-nums">
+              {team2Score}
+            </p>
           </div>
           <span className="text-lg">🏛️</span>
         </div>
       </div>
 
       {/* Question */}
-      <div className="text-center py-2">
+      <div className="text-center py-1">
         <h2 className="text-base sm:text-lg font-black text-white leading-relaxed">
           &quot;{question}&quot;
         </h2>
@@ -977,765 +1812,840 @@ function GameBoard({
 
       {/* Strike Marks */}
       <div className="flex justify-center gap-3">
-        {Array.from({ length: maxStrikes }).map((_, i) => (
+        {Array.from({ length: 3 }).map((_, i) => (
           <StrikeMark key={i} show={i < strikes} index={i} />
         ))}
       </div>
 
       {/* Phase Indicator */}
       <div className="text-center">
-        <Badge className={cn(
-          'text-xs font-bold',
-          phase === 'steal'
-            ? 'bg-gradient-to-l from-rose-600 to-amber-600 text-white'
-            : currentTeam === 1
-              ? 'bg-red-900/60 border border-red-500/40 text-red-300'
-              : 'bg-amber-900/60 border border-amber-500/40 text-amber-300'
-        )}>
-          {phase === 'steal' ? '⚡ فرصة السرقة!' : `${currentTeam === 1 ? '👑' : '🏛️'} دور ${currentTeam === 1 ? team1Name : team2Name}`}
+        <Badge
+          className={cn(
+            "text-xs font-bold",
+            phase === "steal"
+              ? "bg-gradient-to-l from-rose-600 to-amber-600 text-white animate-pulse"
+              : currentTeam === 1
+                ? "bg-amber-900/60 border border-amber-500/40 text-amber-300"
+                : "bg-rose-900/60 border border-rose-500/40 text-rose-300"
+          )}
+        >
+          {phase === "steal"
+            ? "⚡ فرصة السرقة!"
+            : `دور ${currentTeam === 1 ? team1Name : team2Name}`}
         </Badge>
-        {phase === 'playing' && (
-          <p className="text-xs text-slate-500 mt-1">
-            اللاعب: <span className={currentTeam === 1 ? 'text-red-400' : 'text-amber-400'}>{currentPlayer}</span>
-          </p>
-        )}
       </div>
 
       {/* Answer Board */}
-      <motion.div
-        animate={shakeAnim ? { x: [0, -8, 8, -8, 8, 0] } : {}}
-        transition={{ duration: 0.5 }}
-        className="grid grid-cols-1 sm:grid-cols-2 gap-2 flex-1"
-      >
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 flex-1 max-h-[45vh] overflow-y-auto">
         {answers.map((answer, i) => (
-          <AnswerSlot
+          <HostAnswerSlot
             key={i}
             answer={answer}
             index={i}
-            teamColor={teamColor}
+            onReveal={() => onRevealAnswer(i)}
             revealed={answer.revealed}
           />
         ))}
-      </motion.div>
+      </div>
 
-      {/* Input */}
-      <div className="mt-auto">
-        {phase === 'playing' && (
+      {/* Host Controls */}
+      <div className="mt-auto space-y-2">
+        {phase === "playing" && (
           <div className="flex gap-2">
-            <Input
-              ref={inputRef}
-              value={guessInput}
-              onChange={(e) => setGuessInput(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && handleSubmit()}
-              placeholder="اكتب إجابتك..."
-              className={cn(
-                'flex-1 h-12 text-base',
-                currentTeam === 1
-                  ? 'bg-red-950/30 border-red-900/40 text-red-100 placeholder:text-red-800/30'
-                  : 'bg-amber-950/30 border-amber-900/40 text-amber-100 placeholder:text-amber-800/30'
-              )}
-            />
             <Button
-              onClick={handleSubmit}
-              disabled={!guessInput.trim()}
-              className={cn(
-                'h-12 px-6 font-bold',
-                currentTeam === 1
-                  ? 'bg-gradient-to-l from-red-600 to-red-700 hover:from-red-500 hover:to-red-600'
-                  : 'bg-gradient-to-l from-amber-600 to-amber-700 hover:from-amber-500 hover:to-amber-600'
-              )}
+              onClick={onAddStrike}
+              disabled={strikes >= 3}
+              className="flex-1 bg-gradient-to-l from-red-700 to-red-900 hover:from-red-600 hover:to-red-800 text-white font-bold h-10 text-sm disabled:opacity-40"
             >
-              <Zap className="w-4 h-4" />
+              <XCircle className="w-4 h-4 ml-1" />
+              إخفاق ({strikes}/3)
             </Button>
             <Button
-              onClick={() => {
-                const players = currentTeam === 1 ? team1Players : team2Players;
-                setCurrentPlayerIndex((prev) => (prev + 1) % players.length);
-                setGuessInput('');
-              }}
-              variant="ghost"
-              className="h-12 px-3 text-slate-500 hover:text-slate-300"
-              title="تخطي الدور"
+              onClick={onPassToOtherTeam}
+              className="flex-1 bg-gradient-to-l from-slate-700 to-slate-800 hover:from-slate-600 hover:to-slate-700 text-white font-bold h-10 text-sm"
             >
-              <SkipForward className="w-5 h-5" />
+              <SkipForward className="w-4 h-4 ml-1" />
+              تمرير الدور
             </Button>
           </div>
         )}
 
-        {phase === 'steal' && showStealInput && (
-          <motion.div
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="bg-gradient-to-l from-rose-950/60 to-amber-950/60 border border-rose-500/30 rounded-xl p-3"
-          >
-            <p className="text-sm font-bold text-white text-center mb-2">
-              ⚡ فرصة السرقة - {currentTeam === 1 ? team2Name : team1Name}!
-            </p>
-            <div className="flex gap-2">
-              <Input
-                value={stealAnswer}
-                onChange={(e) => onStealInput(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && onStealSubmit()}
-                placeholder="إجابة واحدة فقط للسرقة!"
-                className="flex-1 h-11 bg-slate-800/60 border-slate-700/40 text-white"
-              />
-              <Button
-                onClick={onStealSubmit}
-                disabled={!stealAnswer.trim()}
-                className="h-11 px-5 bg-gradient-to-l from-rose-600 to-amber-600 font-bold"
-              >
-                سرق!
-              </Button>
-            </div>
-          </motion.div>
+        {phase === "steal" && (
+          <div className="flex gap-2">
+            <Button
+              onClick={onSteal}
+              className="flex-1 bg-gradient-to-l from-emerald-600 to-emerald-800 hover:from-emerald-500 hover:to-emerald-700 text-white font-bold h-10 text-sm"
+            >
+              <CheckCircle className="w-4 h-4 ml-1" />
+              سرقة ناجحة!
+            </Button>
+            <Button
+              onClick={onNoSteal}
+              className="flex-1 bg-gradient-to-l from-red-700 to-red-900 hover:from-red-600 hover:to-red-800 text-white font-bold h-10 text-sm"
+            >
+              <XCircle className="w-4 h-4 ml-1" />
+              سرقة فاشلة
+            </Button>
+          </div>
         )}
+
+        <Button
+          onClick={onRevealAll}
+          variant="outline"
+          className="w-full border-slate-700 text-slate-400 hover:text-slate-200 hover:bg-slate-800 h-9 text-xs"
+        >
+          <Eye className="w-3 h-3 ml-1" />
+          كشف جميع الإجابات
+        </Button>
       </div>
     </div>
   );
 }
 
 // ============================================================
-// ROUND RESULT
+// FAST MONEY SCREEN
 // ============================================================
-function RoundResult({
-  teamName,
-  points,
-  teamColor,
-  message,
-  onContinue,
-}: {
-  teamName: string;
-  points: number;
-  teamColor: 'red' | 'amber';
-  message: string;
-  onContinue: () => void;
-}) {
-  return (
-    <motion.div
-      initial={{ opacity: 0, scale: 0.9 }}
-      animate={{ opacity: 1, scale: 1 }}
-      className="flex-1 flex items-center justify-center p-4"
-    >
-      <Card className={cn(
-        'max-w-sm w-full text-center border',
-        teamColor === 'red' ? 'bg-red-950/40 border-red-500/30' : 'bg-amber-950/40 border-amber-500/30'
-      )}>
-        <CardContent className="p-6 sm:p-8">
-          <motion.div
-            initial={{ scale: 0 }}
-            animate={{ scale: 1 }}
-            transition={{ delay: 0.2, type: 'spring', stiffness: 200 }}
-            className="text-6xl mb-4"
-          >
-            {teamColor === 'red' ? '👑' : '🏛️'}
-          </motion.div>
-          <h3 className={cn('text-xl font-black mb-2', teamColor === 'red' ? 'text-red-300' : 'text-amber-300')}>
-            {teamName}
-          </h3>
-          <p className="text-sm text-slate-400 mb-4">{message}</p>
-          <motion.div
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.4 }}
-            className={cn(
-              'text-5xl font-black mb-6',
-              teamColor === 'red' ? 'text-red-400' : 'text-amber-400'
-            )}
-          >
-            +{points}
-          </motion.div>
-          <Button
-            onClick={onContinue}
-            className={cn(
-              'w-full font-bold h-12',
-              teamColor === 'red'
-                ? 'bg-gradient-to-l from-red-600 to-red-700 hover:from-red-500 hover:to-red-600'
-                : 'bg-gradient-to-l from-amber-600 to-amber-700 hover:from-amber-500 hover:to-amber-600'
-            )}
-          >
-            التالي
-            <ChevronLeft className="w-4 h-4 mr-2" />
-          </Button>
-        </CardContent>
-      </Card>
-    </motion.div>
-  );
-}
-
-// ============================================================
-// FAST MONEY
-// ============================================================
-function FastMoney({
-  questions,
-  currentQuestionIndex,
-  onGuess,
-  timeLeft,
-  score,
-  playerName,
-  teamName,
-  teamColor,
-}: {
-  questions: SurveyQuestion[];
-  currentQuestionIndex: number;
-  onGuess: (guess: string) => void;
-  timeLeft: number;
-  score: number;
-  playerName: string;
-  teamName: string;
-  teamColor: 'red' | 'amber';
-}) {
-  const [guessInput, setGuessInput] = useState('');
-  const inputRef = useRef<HTMLInputElement>(null);
-  const currentQ = questions[currentQuestionIndex];
-  const answered = currentQuestionIndex;
-  const total = questions.length;
-
-  useEffect(() => {
-    setGuessInput('');
-    inputRef.current?.focus();
-  }, [currentQuestionIndex]);
-
-  const handleSubmit = () => {
-    if (guessInput.trim()) {
-      onGuess(guessInput.trim());
-      setGuessInput('');
-    }
-  };
-
-  return (
-    <div className="flex-1 flex flex-col p-4 gap-4">
-      {/* Header */}
-      <div className="text-center">
-        <Badge className="bg-gradient-to-l from-rose-600 to-amber-600 text-white font-bold text-xs mb-2">
-          💰 جائزة مالية مضاعفة!
-        </Badge>
-        <p className={cn('text-sm font-bold', teamColor === 'red' ? 'text-red-300' : 'text-amber-300')}>
-          {teamName} - {playerName}
-        </p>
-      </div>
-
-      {/* Progress */}
-      <div className="flex gap-1 justify-center">
-        {questions.map((_, i) => (
-          <div
-            key={i}
-            className={cn(
-              'w-8 h-1.5 rounded-full transition-all',
-              i < answered ? (teamColor === 'red' ? 'bg-red-500' : 'bg-amber-500') : 'bg-slate-700',
-              i === currentQuestionIndex && (teamColor === 'red' ? 'ring-2 ring-red-400' : 'ring-2 ring-amber-400')
-            )}
-          />
-        ))}
-      </div>
-
-      {/* Timer */}
-      <div className="text-center">
-        <motion.div
-          animate={{ scale: timeLeft <= 5 ? [1, 1.1, 1] : 1 }}
-          transition={{ repeat: timeLeft <= 5 ? Infinity : 0, duration: 0.5 }}
-          className={cn(
-            'text-4xl font-black tabular-nums',
-            timeLeft <= 5 ? 'text-red-400' : timeLeft <= 10 ? 'text-amber-400' : 'text-slate-300'
-          )}
-        >
-          {timeLeft}
-        </motion.div>
-      </div>
-
-      {/* Score so far */}
-      <div className="text-center">
-        <p className="text-xs text-slate-500">المجموع حتى الآن</p>
-        <p className={cn('text-3xl font-black', teamColor === 'red' ? 'text-red-400' : 'text-amber-400')}>{score}</p>
-      </div>
-
-      {/* Current Question */}
-      {currentQ && currentQuestionIndex < total && (
-        <motion.div
-          key={currentQuestionIndex}
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="text-center"
-        >
-          <p className="text-xs text-slate-500 mb-1">سؤال {currentQuestionIndex + 1} من {total}</p>
-          <h3 className="text-lg sm:text-xl font-black text-white">
-            &quot;{currentQ.question}&quot;
-          </h3>
-        </motion.div>
-      )}
-
-      {/* Previous answers summary */}
-      {answered > 0 && (
-        <div className="flex flex-wrap gap-2 justify-center max-h-20 overflow-y-auto">
-          {questions.slice(0, answered).map((q, i) => (
-            <Badge key={i} variant="outline" className="text-[10px] border-slate-700 text-slate-400">
-              {q.question.slice(0, 20)}... → {q.answers.filter(a => a.revealed).reduce((s, a) => s + a.points, 0) || 0}
-            </Badge>
-          ))}
-        </div>
-      )}
-
-      {/* Input */}
-      {currentQuestionIndex < total && (
-        <div className="mt-auto">
-          <div className="flex gap-2">
-            <Input
-              ref={inputRef}
-              value={guessInput}
-              onChange={(e) => setGuessInput(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && handleSubmit()}
-              placeholder="إجابتك..."
-              className="flex-1 h-12 text-base bg-slate-900/60 border-slate-700/40 text-white"
-            />
-            <Button onClick={handleSubmit} disabled={!guessInput.trim()} className="h-12 px-6 bg-gradient-to-l from-rose-600 to-amber-600 font-bold">
-              <Zap className="w-4 h-4" />
-            </Button>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
-// ============================================================
-// GAME OVER
-// ============================================================
-function GameOver({
+function FastMoneyScreen({
   team1Name,
   team2Name,
   team1Score,
   team2Score,
-  winner,
-  onPlayAgain,
+  fmQuestions,
+  fmAnswers1,
+  fmAnswers2,
+  fmRevealed1,
+  fmRevealed2,
+  onRevealFM1,
+  onRevealFM2,
+  onInputFM1,
+  onInputFM2,
+  onStartTimer,
+  timeLeft,
+  timerRunning,
+  roundScore,
 }: {
   team1Name: string;
   team2Name: string;
   team1Score: number;
   team2Score: number;
-  winner: 1 | 2;
-  onPlayAgain: () => void;
+  fmQuestions: Question[];
+  fmAnswers1: string[];
+  fmAnswers2: string[];
+  fmRevealed1: boolean[];
+  fmRevealed2: boolean[];
+  onRevealFM1: (i: number) => void;
+  onRevealFM2: (i: number) => void;
+  onInputFM1: (i: number, v: string) => void;
+  onInputFM2: (i: number, v: string) => void;
+  onStartTimer: () => void;
+  timeLeft: number;
+  timerRunning: boolean;
+  roundScore: number;
 }) {
-  return (
-    <div className="flex-1 flex items-center justify-center p-4">
-      <ConfettiOverlay />
-      <motion.div
-        initial={{ opacity: 0, y: 30, scale: 0.9 }}
-        animate={{ opacity: 1, y: 0, scale: 1 }}
-        transition={{ duration: 0.7 }}
-        className="max-w-sm w-full text-center"
-      >
+  const [phase, setPhase] = useState<"intro" | "team1" | "team2" | "results">("intro");
+
+  if (phase === "intro") {
+    return (
+      <div className="flex-1 flex items-center justify-center p-4" dir="rtl">
         <motion.div
-          animate={{ scale: [1, 1.2, 1], rotate: [0, 10, -10, 0] }}
-          transition={{ repeat: Infinity, duration: 2 }}
-          className="text-8xl mb-4"
+          initial={{ opacity: 0, scale: 0.8 }}
+          animate={{ opacity: 1, scale: 1 }}
+          className="text-center max-w-md"
+        >
+          <motion.div
+            animate={{ scale: [1, 1.1, 1], rotate: [0, 5, -5, 0] }}
+            transition={{ duration: 2, repeat: Infinity }}
+            className="text-6xl mb-4"
+          >
+            💰
+          </motion.div>
+          <h2 className="text-2xl sm:text-3xl font-black mb-3">
+            <span className="bg-gradient-to-l from-amber-400 via-yellow-300 to-amber-400 bg-clip-text text-transparent">
+              جولة المال السريع!
+            </span>
+          </h2>
+          <Card className="bg-amber-950/30 border-amber-500/30 mt-4">
+            <CardContent className="p-4 text-xs text-slate-400 space-y-2">
+              <p>🎯 كل فريق يجيب على 5 أسئلة</p>
+              <p>⏱️ 20 ثانية لكل فريق</p>
+              <p>💰 النقاط تتضاعف في هذه الجولة</p>
+              <p>🏆 الفريق الأعلى نقاطاً يفوز!</p>
+            </CardContent>
+          </Card>
+          <Button
+            onClick={() => setPhase("team1")}
+            className="mt-6 bg-gradient-to-l from-amber-600 to-yellow-600 hover:from-amber-500 hover:to-yellow-500 text-white font-bold px-8 py-5"
+          >
+            ابدأ جولة المال السريع
+            <ChevronLeft className="w-4 h-4 mr-2" />
+          </Button>
+        </motion.div>
+      </div>
+    );
+  }
+
+  if (phase === "team1") {
+    return (
+      <div className="flex-1 flex flex-col p-3 sm:p-4 gap-3" dir="rtl">
+        {/* Header */}
+        <div className="flex items-center justify-between gap-2">
+          <div className="bg-amber-950/50 border border-amber-500/40 rounded-xl px-3 py-2">
+            <p className="text-[10px] text-amber-400/60">{team1Name}</p>
+            <p className="text-lg font-black text-amber-300">{team1Score}</p>
+          </div>
+          <Badge className="bg-gradient-to-l from-amber-600 to-yellow-600 text-white">
+            💰 المال السريع
+          </Badge>
+          <div className="bg-rose-950/50 border border-rose-500/40 rounded-xl px-3 py-2">
+            <p className="text-[10px] text-rose-400/60">{team2Name}</p>
+            <p className="text-lg font-black text-rose-300">{team2Score}</p>
+          </div>
+        </div>
+
+        <div className="text-center">
+          <Badge className="bg-amber-900/60 border border-amber-500/40 text-amber-300">
+            👑 دور {team1Name} - يبدأ أولاً
+          </Badge>
+        </div>
+
+        {/* Timer */}
+        <div className="text-center">
+          {!timerRunning ? (
+            <Button
+              onClick={() => {
+                setPhase("team1");
+                onStartTimer();
+              }}
+              className="bg-gradient-to-l from-amber-600 to-yellow-600 text-white font-bold"
+            >
+              <Play className="w-4 h-4 ml-1" />
+              ابدأ المؤقت (20 ثانية)
+            </Button>
+          ) : (
+            <motion.div
+              animate={{ scale: timeLeft <= 5 ? [1, 1.1, 1] : 1 }}
+              transition={{ repeat: timeLeft <= 5 ? Infinity : 0, duration: 0.5 }}
+              className={cn(
+                "text-5xl font-black tabular-nums",
+                timeLeft <= 5 ? "text-red-400" : "text-amber-400"
+              )}
+            >
+              {timeLeft}
+            </motion.div>
+          )}
+        </div>
+
+        {/* Questions */}
+        <div className="flex-1 max-h-[50vh] overflow-y-auto space-y-2">
+          {fmQuestions.map((q, i) => (
+            <Card key={i} className="bg-slate-900/80 border-slate-700/40">
+              <CardContent className="p-3">
+                <p className="text-xs font-bold text-white mb-2">
+                  {i + 1}. {q.question}
+                </p>
+                <div className="flex gap-2">
+                  <Input
+                    value={fmAnswers1[i] || ""}
+                    onChange={(e) => onInputFM1(i, e.target.value)}
+                    placeholder="إجابة اللاعب..."
+                    className="flex-1 bg-slate-800/60 border-amber-900/40 text-amber-100 placeholder:text-amber-800/30 h-9 text-sm"
+                    dir="rtl"
+                  />
+                  <Button
+                    onClick={() => onRevealFM1(i)}
+                    variant="outline"
+                    size="sm"
+                    className="border-slate-700 text-slate-400 hover:text-slate-200 h-9 px-3"
+                  >
+                    <Eye className="w-3 h-3" />
+                  </Button>
+                </div>
+                {fmRevealed1[i] && (
+                  <motion.div
+                    initial={{ opacity: 0, y: -5 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="mt-2 space-y-1"
+                  >
+                    {q.answers.map((a, j) => (
+                      <div
+                        key={j}
+                        className={cn(
+                          "flex items-center justify-between text-xs px-2 py-1 rounded",
+                          fmAnswers1[i] &&
+                            a.text.includes(fmAnswers1[i].trim().charAt(0))
+                            ? "bg-emerald-900/40 border border-emerald-500/30"
+                            : "bg-slate-800/40"
+                        )}
+                      >
+                        <span className="text-slate-300">{a.text}</span>
+                        <span className="text-slate-500">{a.points}</span>
+                      </div>
+                    ))}
+                  </motion.div>
+                )}
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+
+        <Button
+          onClick={() => setPhase("team2")}
+          className="bg-gradient-to-l from-rose-600 to-rose-800 text-white font-bold h-10"
+        >
+          التالي - دور {team2Name}
+          <ChevronLeft className="w-4 h-4 mr-2" />
+        </Button>
+      </div>
+    );
+  }
+
+  if (phase === "team2") {
+    return (
+      <div className="flex-1 flex flex-col p-3 sm:p-4 gap-3" dir="rtl">
+        {/* Header */}
+        <div className="flex items-center justify-between gap-2">
+          <div className="bg-amber-950/50 border border-amber-500/40 rounded-xl px-3 py-2">
+            <p className="text-[10px] text-amber-400/60">{team1Name}</p>
+            <p className="text-lg font-black text-amber-300">{team1Score}</p>
+          </div>
+          <Badge className="bg-gradient-to-l from-amber-600 to-yellow-600 text-white">
+            💰 المال السريع
+          </Badge>
+          <div className="bg-rose-950/50 border border-rose-500/40 rounded-xl px-3 py-2">
+            <p className="text-[10px] text-rose-400/60">{team2Name}</p>
+            <p className="text-lg font-black text-rose-300">{team2Score}</p>
+          </div>
+        </div>
+
+        <div className="text-center">
+          <Badge className="bg-rose-900/60 border border-rose-500/40 text-rose-300">
+            🏛️ دور {team2Name}
+          </Badge>
+        </div>
+
+        {/* Timer */}
+        <div className="text-center">
+          {!timerRunning ? (
+            <Button
+              onClick={onStartTimer}
+              className="bg-gradient-to-l from-rose-600 to-rose-800 text-white font-bold"
+            >
+              <Play className="w-4 h-4 ml-1" />
+              ابدأ المؤقت (20 ثانية)
+            </Button>
+          ) : (
+            <motion.div
+              animate={{ scale: timeLeft <= 5 ? [1, 1.1, 1] : 1 }}
+              transition={{ repeat: timeLeft <= 5 ? Infinity : 0, duration: 0.5 }}
+              className={cn(
+                "text-5xl font-black tabular-nums",
+                timeLeft <= 5 ? "text-red-400" : "text-rose-400"
+              )}
+            >
+              {timeLeft}
+            </motion.div>
+          )}
+        </div>
+
+        {/* Questions */}
+        <div className="flex-1 max-h-[50vh] overflow-y-auto space-y-2">
+          {fmQuestions.map((q, i) => (
+            <Card key={i} className="bg-slate-900/80 border-slate-700/40">
+              <CardContent className="p-3">
+                <p className="text-xs font-bold text-white mb-2">
+                  {i + 1}. {q.question}
+                </p>
+                <div className="flex gap-2">
+                  <Input
+                    value={fmAnswers2[i] || ""}
+                    onChange={(e) => onInputFM2(i, e.target.value)}
+                    placeholder="إجابة اللاعب..."
+                    className="flex-1 bg-slate-800/60 border-rose-900/40 text-rose-100 placeholder:text-rose-800/30 h-9 text-sm"
+                    dir="rtl"
+                  />
+                  <Button
+                    onClick={() => onRevealFM2(i)}
+                    variant="outline"
+                    size="sm"
+                    className="border-slate-700 text-slate-400 hover:text-slate-200 h-9 px-3"
+                  >
+                    <Eye className="w-3 h-3" />
+                  </Button>
+                </div>
+                {fmRevealed2[i] && (
+                  <motion.div
+                    initial={{ opacity: 0, y: -5 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="mt-2 space-y-1"
+                  >
+                    {q.answers.map((a, j) => (
+                      <div
+                        key={j}
+                        className={cn(
+                          "flex items-center justify-between text-xs px-2 py-1 rounded",
+                          fmAnswers2[i] &&
+                            a.text.includes(fmAnswers2[i].trim().charAt(0))
+                            ? "bg-emerald-900/40 border border-emerald-500/30"
+                            : "bg-slate-800/40"
+                        )}
+                      >
+                        <span className="text-slate-300">{a.text}</span>
+                        <span className="text-slate-500">{a.points}</span>
+                      </div>
+                    ))}
+                  </motion.div>
+                )}
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+
+        <Button
+          onClick={() => setPhase("results")}
+          className="bg-gradient-to-l from-amber-600 to-yellow-600 text-white font-bold h-10"
+        >
+          عرض النتائج
+          <Trophy className="w-4 h-4 mr-2" />
+        </Button>
+      </div>
+    );
+  }
+
+  // Results phase - handled by parent
+  return null;
+}
+
+// ============================================================
+// GAME OVER SCREEN
+// ============================================================
+function GameOverScreen({
+  team1Name,
+  team2Name,
+  team1Score,
+  team2Score,
+  onRestart,
+  onHome,
+}: {
+  team1Name: string;
+  team2Name: string;
+  team1Score: number;
+  team2Score: number;
+  onRestart: () => void;
+  onHome: () => void;
+}) {
+  const winner =
+    team1Score > team2Score
+      ? team1Name
+      : team2Score > team1Score
+        ? team2Name
+        : null;
+  const isTie = team1Score === team2Score;
+
+  return (
+    <div className="flex-1 flex items-center justify-center p-4" dir="rtl">
+      <motion.div
+        initial={{ opacity: 0, scale: 0.8 }}
+        animate={{ opacity: 1, scale: 1 }}
+        className="text-center max-w-md w-full"
+      >
+        <ConfettiOverlay />
+
+        <motion.div
+          initial={{ scale: 0 }}
+          animate={{ scale: 1 }}
+          transition={{ delay: 0.3, type: "spring" }}
+          className="text-6xl mb-4"
         >
           🏆
         </motion.div>
 
-        <h2 className="text-3xl sm:text-4xl font-black mb-2">
-          <span className={cn(
-            'bg-clip-text text-transparent',
-            winner === 1 ? 'bg-gradient-to-l from-red-400 to-amber-400' : 'bg-gradient-to-l from-amber-400 to-rose-400'
-          )}>
-            {winner === 1 ? team1Name : team2Name}
-          </span>
+        <h2 className="text-3xl sm:text-4xl font-black mb-4">
+          {isTie ? (
+            <span className="bg-gradient-to-l from-slate-300 to-slate-400 bg-clip-text text-transparent">
+              تعادل!
+            </span>
+          ) : (
+            <span className="bg-gradient-to-l from-amber-400 via-yellow-300 to-amber-400 bg-clip-text text-transparent">
+              فاز {winner}! 🎉
+            </span>
+          )}
         </h2>
-        <p className="text-lg text-slate-400 mb-6">فاز باللعبة! 🎉</p>
 
-        {/* Score Board */}
-        <div className="flex gap-3 justify-center mb-8">
-          <Card className={cn(
-            'flex-1 border',
-            winner === 1 ? 'bg-red-950/50 border-red-500/40 ring-2 ring-red-500/30' : 'bg-slate-900/50 border-slate-800/30'
-          )}>
+        {/* Score Cards */}
+        <div className="grid grid-cols-2 gap-3 mb-6">
+          <Card
+            className={cn(
+              team1Score >= team2Score
+                ? "bg-amber-950/40 border-amber-500/40"
+                : "bg-slate-900/60 border-slate-800/30"
+            )}
+          >
             <CardContent className="p-4">
-              <div className="text-2xl mb-1">👑</div>
-              <p className="text-sm font-bold text-red-300">{team1Name}</p>
-              <p className="text-3xl font-black text-red-400">{team1Score}</p>
+              <p className="text-2xl mb-1">👑</p>
+              <p className="text-sm font-bold text-amber-300">{team1Name}</p>
+              <p className="text-2xl font-black text-amber-400">{team1Score}</p>
+              {team1Score >= team2Score && !isTie && (
+                <Badge className="mt-2 bg-amber-600 text-white text-[10px]">
+                  🏆 الفائز
+                </Badge>
+              )}
             </CardContent>
           </Card>
-          <Card className={cn(
-            'flex-1 border',
-            winner === 2 ? 'bg-amber-950/50 border-amber-500/40 ring-2 ring-amber-500/30' : 'bg-slate-900/50 border-slate-800/30'
-          )}>
+
+          <Card
+            className={cn(
+              team2Score > team1Score
+                ? "bg-rose-950/40 border-rose-500/40"
+                : "bg-slate-900/60 border-slate-800/30"
+            )}
+          >
             <CardContent className="p-4">
-              <div className="text-2xl mb-1">🏛️</div>
-              <p className="text-sm font-bold text-amber-300">{team2Name}</p>
-              <p className="text-3xl font-black text-amber-400">{team2Score}</p>
+              <p className="text-2xl mb-1">🏛️</p>
+              <p className="text-sm font-bold text-rose-300">{team2Name}</p>
+              <p className="text-2xl font-black text-rose-400">{team2Score}</p>
+              {team2Score > team1Score && !isTie && (
+                <Badge className="mt-2 bg-rose-600 text-white text-[10px]">
+                  🏆 الفائز
+                </Badge>
+              )}
             </CardContent>
           </Card>
         </div>
 
-        <Button onClick={onPlayAgain} className="bg-gradient-to-l from-rose-600 to-amber-600 hover:from-rose-500 hover:to-amber-500 text-white font-bold px-8 h-12">
-          <RotateCcw className="w-4 h-4 ml-2" />
-          العب مرة ثانية
-        </Button>
+        <div className="flex gap-3">
+          <Button
+            onClick={onRestart}
+            className="flex-1 bg-gradient-to-l from-amber-600 to-rose-600 hover:from-amber-500 hover:to-rose-500 text-white font-bold py-5"
+          >
+            <RotateCcw className="w-4 h-4 ml-1" />
+            لعب مرة أخرى
+          </Button>
+          <Button
+            onClick={onHome}
+            variant="outline"
+            className="flex-1 border-slate-600 text-slate-300 hover:bg-slate-800 py-5"
+          >
+            <HomeIcon className="w-4 h-4 ml-1" />
+            الرئيسية
+          </Button>
+        </div>
       </motion.div>
     </div>
   );
 }
 
 // ============================================================
-// GAME TOP BAR
+// MAIN PAGE COMPONENT
 // ============================================================
-function GameTopBar({ round, totalRounds, onExit, onReset }: { round: number; totalRounds: number; onExit: () => void; onReset: () => void }) {
-  const [showExitDialog, setShowExitDialog] = useState(false);
-  const [showResetConfirm, setShowResetConfirm] = useState(false);
-
-  return (
-    <>
-      <div className="sticky top-0 z-50 border-b border-slate-800/50 bg-slate-950/90 backdrop-blur-sm">
-        <div className="max-w-md mx-auto flex items-center justify-between px-3 py-1.5">
-          <Button
-            onClick={() => setShowExitDialog(true)}
-            variant="ghost"
-            className="text-slate-400 hover:text-red-400 hover:bg-red-950/30 gap-1.5 text-xs h-8 px-2"
-          >
-            <HomeIcon className="w-4 h-4" />
-            <span className="hidden sm:inline">الرئيسية</span>
-          </Button>
-
-          <Badge variant="outline" className="border-slate-700 text-slate-400 text-[10px] px-2 py-0.5">
-            🏆 الجولة {round}/{totalRounds}
-          </Badge>
-
-          <div className="relative">
-            {!showResetConfirm ? (
-              <motion.button
-                whileTap={{ scale: 0.9 }}
-                onClick={() => setShowResetConfirm(true)}
-                className="flex items-center gap-1 text-[10px] sm:text-xs text-slate-500 hover:text-red-400 transition-colors px-2 py-1 rounded-lg hover:bg-red-950/30 cursor-pointer"
-              >
-                <RotateCcw className="w-3.5 h-3.5" />
-              </motion.button>
-            ) : (
-              <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} className="flex items-center gap-1">
-                <span className="text-[10px] text-red-400 font-bold">مؤكد؟</span>
-                <button onClick={() => { onReset(); setShowResetConfirm(false); }} className="text-[10px] bg-red-900/60 text-red-300 px-1.5 py-0.5 rounded font-bold cursor-pointer">نعم</button>
-                <button onClick={() => setShowResetConfirm(false)} className="text-[10px] bg-slate-800/60 text-slate-400 px-1.5 py-0.5 rounded font-bold cursor-pointer">لا</button>
-              </motion.div>
-            )}
-          </div>
-        </div>
-      </div>
-
-      <AnimatePresence>
-        {showExitDialog && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 p-4"
-            onClick={() => setShowExitDialog(false)}
-          >
-            <motion.div
-              initial={{ scale: 0.9, y: 20 }}
-              animate={{ scale: 1, y: 0 }}
-              exit={{ scale: 0.9, y: 20 }}
-              onClick={(e) => e.stopPropagation()}
-              className="bg-slate-900 border border-slate-700 rounded-2xl p-6 max-w-sm w-full shadow-2xl text-center"
-            >
-              <div className="text-5xl mb-3">🚪</div>
-              <h3 className="text-lg font-bold text-slate-200 mb-2">الخروج من اللعبة؟</h3>
-              <p className="text-sm text-slate-400 mb-6">سيتم إعادة تعيين اللعبة بالكامل.</p>
-              <div className="flex gap-3">
-                <Button onClick={() => setShowExitDialog(false)} variant="outline" className="flex-1 border-slate-600 text-slate-300 hover:bg-slate-800 h-11">إلغاء</Button>
-                <Button onClick={onExit} className="flex-1 bg-gradient-to-l from-red-700 to-red-900 hover:from-red-600 hover:to-red-800 text-white font-bold h-11">نعم</Button>
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </>
-  );
-}
-
-// ============================================================
-// MAIN PAGE
-// ============================================================
-type GamePhase = 'landing' | 'setup' | 'faceoff' | 'playing' | 'steal' | 'roundResult' | 'fastMoney' | 'gameOver';
-
 export default function FamilyFeudPage() {
   const mounted = useHydrated();
 
-  // Game State
-  const [phase, setPhase] = useState<GamePhase>('landing');
-  const [team1Players, setTeam1Players] = useState<string[]>([]);
-  const [team2Players, setTeam2Players] = useState<string[]>([]);
+  // Navigation state
+  const [uiPhase, setUiPhase] = useState<
+    "landing" | "godfather_setup" | "diwaniya_setup" | "game"
+  >("landing");
+
+  // Game state
+  const [team1Name, setTeam1Name] = useState("فريق 1");
+  const [team2Name, setTeam2Name] = useState("فريق 2");
   const [team1Score, setTeam1Score] = useState(0);
   const [team2Score, setTeam2Score] = useState(0);
-  const [currentRound, setCurrentRound] = useState(1);
   const [currentTeam, setCurrentTeam] = useState<1 | 2>(1);
-  const [currentPlayerIndex, setCurrentPlayerIndex] = useState(0);
   const [strikes, setStrikes] = useState(0);
-  const [questions, setQuestions] = useState<SurveyQuestion[]>([]);
-  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
-  const [roundPoints, setRoundPoints] = useState(0);
-  const [stealAnswer, setStealAnswer] = useState('');
-  const [showStealInput, setShowStealInput] = useState(false);
+  const [round, setRound] = useState(1);
+  const totalRounds = 5;
+  const [gamePhase, setGamePhase] = useState<"faceoff" | "gameboard" | "steal" | "fast_money" | "game_over">("faceoff");
 
-  // Fast Money State
-  const [fastMoneyQuestions, setFastMoneyQuestions] = useState<SurveyQuestion[]>([]);
-  const [fmCurrentIndex, setFmCurrentIndex] = useState(0);
-  const [fmScore, setFmScore] = useState(0);
-  const [fmTimeLeft, setFmTimeLeft] = useState(20);
-  const [fmTeam, setFmTeam] = useState<1 | 2>(1);
-  const [fmPlayerIndex, setFmPlayerIndex] = useState(0);
+  // Questions
+  const [selectedQuestions, setSelectedQuestions] = useState<Question[]>([]);
+  const [currentAnswers, setCurrentAnswers] = useState<Answer[]>([]);
+  const [roundScore, setRoundScore] = useState(0);
 
-  // Face-off Timer
-  const [faceoffTimeLeft, setFaceoffTimeLeft] = useState(0);
+  // Fast Money
+  const [fmQuestions, setFmQuestions] = useState<Question[]>([]);
+  const [fmAnswers1, setFmAnswers1] = useState<string[]>([]);
+  const [fmAnswers2, setFmAnswers2] = useState<string[]>([]);
+  const [fmRevealed1, setFmRevealed1] = useState<boolean[]>([]);
+  const [fmRevealed2, setFmRevealed2] = useState<boolean[]>([]);
+  const [fmScore1, setFmScore1] = useState(0);
+  const [fmScore2, setFmScore2] = useState(0);
+  const [timeLeft, setTimeLeft] = useState(20);
+  const [timerRunning, setTimerRunning] = useState(false);
+  const [fmPhase, setFmPhase] = useState<"intro" | "team1" | "team2" | "results">("intro");
+  const [showGameOver, setShowGameOver] = useState(false);
 
-  // Visual
-  const { shaking, shake } = useScreenShake();
+  // Feedback
+  const [feedback, setFeedback] = useState<{
+    show: boolean;
+    correct: boolean;
+    answer?: string;
+  }>({ show: false, correct: false });
 
-  // Shuffle questions on game start
-  const startGame = useCallback((t1: string[], t2: string[]) => {
-    setTeam1Players(t1);
-    setTeam2Players(t2);
-    const shuffled = [...SURVEY_QUESTIONS].sort(() => Math.random() - 0.5).slice(0, 5).map(q => ({
+  const timerRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Shuffle and pick questions
+  const initializeQuestions = useCallback(() => {
+    const shuffled = [...ALL_QUESTIONS].sort(() => Math.random() - 0.5);
+    const picked = shuffled.slice(0, totalRounds).map((q) => ({
       ...q,
-      answers: q.answers.map(a => ({ ...a, revealed: false })),
+      answers: q.answers.map((a) => ({ ...a, revealed: false })),
     }));
-    setQuestions(shuffled);
-    setCurrentRound(1);
-    setTeam1Score(0);
-    setTeam2Score(0);
-    setCurrentTeam(Math.random() < 0.5 ? 1 : 2);
-    setCurrentPlayerIndex(0);
-    setStrikes(0);
-    setRoundPoints(0);
-    setFaceoffTimeLeft(10);
-    setPhase('faceoff');
-  }, []);
+    setSelectedQuestions(picked);
 
-  // Face-off Timer
-  useEffect(() => {
-    if (phase !== 'faceoff' || faceoffTimeLeft <= 0) return;
-    const timer = setInterval(() => {
-      setFaceoffTimeLeft(prev => prev - 1);
-    }, 1000);
-    return () => clearInterval(timer);
-  }, [phase, faceoffTimeLeft]);
-
-  // Auto-start face-off if timer runs out
-  useEffect(() => {
-    if (phase === 'faceoff' && faceoffTimeLeft <= 0) {
-      handleFaceoffTeam(currentTeam);
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [faceoffTimeLeft, phase]);
-
-  // Fast Money Timer
-  useEffect(() => {
-    if (phase !== 'fastMoney' || fmTimeLeft <= 0) return;
-    const timer = setInterval(() => {
-      setFmTimeLeft(prev => prev - 1);
-    }, 1000);
-    return () => clearInterval(timer);
-  }, [phase, fmTimeLeft]);
-
-  // Auto-move to next FM question on timeout
-  useEffect(() => {
-    if (phase === 'fastMoney' && fmTimeLeft <= 0) {
-      // No answer given, move to next
-      if (fmCurrentIndex < fastMoneyQuestions.length - 1) {
-        setFmCurrentIndex(prev => prev + 1);
-        setFmTimeLeft(20);
-      } else {
-        // FM over
-        finishFastMoney();
-      }
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [fmTimeLeft, phase]);
-
-  const handleFaceoffTeam = useCallback((team: 1 | 2) => {
-    setCurrentTeam(team);
-    setCurrentPlayerIndex(0);
-    setStrikes(0);
-    setPhase('playing');
-  }, []);
-
-  const handleGuess = useCallback((guess: string) => {
-    const currentQ = questions[currentQuestionIndex];
-    if (!currentQ) return;
-
-    const normalized = guess.trim();
-    const matchIndex = currentQ.answers.findIndex(
-      a => !a.revealed && a.text.includes(normalized) || normalized.includes(a.text)
-    );
-
-    // Also check if it's close enough (remove diacritics, compare)
-    let foundIndex = matchIndex;
-    if (foundIndex === -1) {
-      foundIndex = currentQ.answers.findIndex(a => {
-        if (a.revealed) return false;
-        const aClean = a.text.replace(/[ً-ً]/g, '').replace(/[\u064B-\u065F]/g, '');
-        const gClean = normalized.replace(/[\u064B-\u065F]/g, '');
-        return aClean === gClean || aClean.includes(gClean) || gClean.includes(aClean);
-      });
-    }
-
-    if (foundIndex !== -1) {
-      // Correct!
-      const newAnswers = [...currentQ.answers];
-      newAnswers[foundIndex] = { ...newAnswers[foundIndex], revealed: true };
-      const newQuestions = [...questions];
-      newQuestions[currentQuestionIndex] = { ...currentQ, answers: newAnswers };
-      setQuestions(newQuestions);
-      setRoundPoints(prev => prev + currentQ.answers[foundIndex].points);
-
-      // Check if all revealed
-      const allRevealed = newAnswers.every(a => a.revealed);
-      if (allRevealed) {
-        const totalPoints = newAnswers.reduce((s, a) => s + a.points, 0);
-        setTimeout(() => {
-          if (currentTeam === 1) setTeam1Score(s => s + totalPoints);
-          else setTeam2Score(s => s + totalPoints);
-          setRoundPoints(totalPoints);
-          setPhase('roundResult');
-        }, 800);
-      } else {
-        // Next player same team
-        const players = currentTeam === 1 ? team1Players : team2Players;
-        setCurrentPlayerIndex(prev => (prev + 1) % players.length);
-      }
-    } else {
-      // Wrong!
-      shake();
-      setStrikes(prev => prev + 1);
-
-      const players = currentTeam === 1 ? team1Players : team2Players;
-      setCurrentPlayerIndex(prev => (prev + 1) % players.length);
-
-      if (strikes + 1 >= 3) {
-        // 3 strikes - steal opportunity
-        setTimeout(() => {
-          setPhase('steal');
-          setShowStealInput(true);
-        }, 600);
-      }
-    }
-  }, [questions, currentQuestionIndex, currentTeam, strikes, team1Players, team2Players, shake]);
-
-  const handleStealSubmit = useCallback(() => {
-    if (!stealAnswer.trim()) return;
-
-    const currentQ = questions[currentQuestionIndex];
-    if (!currentQ) return;
-
-    const stealTeam: 1 | 2 = currentTeam === 1 ? 2 : 1;
-    const normalized = stealAnswer.trim();
-
-    const matchIndex = currentQ.answers.findIndex(a => {
-      if (a.revealed) return false;
-      const aClean = a.text.replace(/[\u064B-\u065F]/g, '');
-      const gClean = normalized.replace(/[\u064B-\u065F]/g, '');
-      return aClean === gClean || aClean.includes(gClean) || gClean.includes(aClean) || a.text.includes(normalized) || normalized.includes(a.text);
-    });
-
-    if (matchIndex !== -1) {
-      // Steal successful!
-      const newAnswers = [...currentQ.answers];
-      newAnswers[matchIndex] = { ...newAnswers[matchIndex], revealed: true };
-      const newQuestions = [...questions];
-      newQuestions[currentQuestionIndex] = { ...currentQ, answers: newAnswers };
-      setQuestions(newQuestions);
-
-      const totalPoints = newAnswers.reduce((s, a) => s + a.points, 0);
-      if (stealTeam === 1) setTeam1Score(s => s + totalPoints);
-      else setTeam2Score(s => s + totalPoints);
-      setRoundPoints(totalPoints);
-      setCurrentTeam(stealTeam);
-    } else {
-      // Steal failed - original team keeps revealed points
-      const revealedPoints = currentQ.answers.filter(a => a.revealed).reduce((s, a) => s + a.points, 0);
-      if (currentTeam === 1) setTeam1Score(s => s + revealedPoints);
-      else setTeam2Score(s => s + revealedPoints);
-      setRoundPoints(revealedPoints);
-    }
-
-    setShowStealInput(false);
-    setStealAnswer('');
-    setTimeout(() => setPhase('roundResult'), 500);
-  }, [stealAnswer, questions, currentQuestionIndex, currentTeam]);
-
-  const handleNextRound = useCallback(() => {
-    if (currentRound >= 5) {
-      // Start Fast Money
-      const shuffled = [...FAST_MONEY_QUESTIONS].sort(() => Math.random() - 0.5).slice(0, 5).map(q => ({
+    const fmShuffled = [...FAST_MONEY_QUESTIONS]
+      .sort(() => Math.random() - 0.5)
+      .slice(0, 5)
+      .map((q) => ({
         ...q,
-        answers: q.answers.map(a => ({ ...a, revealed: false })),
+        answers: q.answers.map((a) => ({ ...a, revealed: false })),
       }));
-      setFastMoneyQuestions(shuffled);
-      setFmCurrentIndex(0);
-      setFmScore(0);
-      setFmTimeLeft(20);
-      setFmTeam(team1Score >= team2Score ? 2 : 1);
-      setFmPlayerIndex(0);
-      setPhase('fastMoney');
-    } else {
-      setCurrentRound(prev => prev + 1);
-      setCurrentQuestionIndex(prev => prev + 1);
-      setCurrentTeam(prev => prev === 1 ? 2 : 1);
-      setCurrentPlayerIndex(0);
-      setStrikes(0);
-      setRoundPoints(0);
-      setFaceoffTimeLeft(10);
-      setPhase('faceoff');
-    }
-  }, [currentRound, team1Score, team2Score]);
-
-  const handleFastMoneyGuess = useCallback((guess: string) => {
-    const currentQ = fastMoneyQuestions[fmCurrentIndex];
-    if (!currentQ) return;
-
-    const normalized = guess.trim();
-    const matchIndex = currentQ.answers.findIndex(a => {
-      if (a.revealed) return false;
-      const aClean = a.text.replace(/[\u064B-\u065F]/g, '');
-      const gClean = normalized.replace(/[\u064B-\u065F]/g, '');
-      return aClean === gClean || aClean.includes(gClean) || gClean.includes(aClean) || a.text.includes(normalized) || normalized.includes(a.text);
-    });
-
-    if (matchIndex !== -1) {
-      const newAnswers = [...currentQ.answers];
-      newAnswers[matchIndex] = { ...newAnswers[matchIndex], revealed: true };
-      const newQuestions = [...fastMoneyQuestions];
-      newQuestions[fmCurrentIndex] = { ...currentQ, answers: newAnswers };
-      setFastMoneyQuestions(newQuestions);
-      setFmScore(prev => prev + currentQ.answers[matchIndex].points * 2); // Double points!
-    }
-
-    if (fmCurrentIndex < fastMoneyQuestions.length - 1) {
-      setFmCurrentIndex(prev => prev + 1);
-      setFmTimeLeft(20);
-    } else {
-      finishFastMoney();
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [fastMoneyQuestions, fmCurrentIndex]);
-
-  const finishFastMoney = useCallback(() => {
-    if (fmTeam === 1) setTeam1Score(s => s + fmScore);
-    else setTeam2Score(s => s + fmScore);
-    setTimeout(() => setPhase('gameOver'), 500);
-  }, [fmTeam, fmScore]);
-
-  const resetGame = useCallback(() => {
-    setPhase('landing');
-    setTeam1Players([]);
-    setTeam2Players([]);
-    setTeam1Score(0);
-    setTeam2Score(0);
-    setCurrentRound(1);
-    setCurrentTeam(1);
-    setCurrentPlayerIndex(0);
-    setStrikes(0);
-    setQuestions([]);
-    setCurrentQuestionIndex(0);
-    setRoundPoints(0);
+    setFmQuestions(fmShuffled);
   }, []);
 
+  // Start game
+  const handleStartGame = useCallback(
+    (t1Name: string, t2Name: string) => {
+      setTeam1Name(t1Name);
+      setTeam2Name(t2Name);
+      setTeam1Score(0);
+      setTeam2Score(0);
+      setRound(1);
+      setCurrentTeam(1);
+      setStrikes(0);
+      setGamePhase("faceoff");
+      setUiPhase("game");
+      setShowGameOver(false);
+      initializeQuestions();
+    },
+    [initializeQuestions]
+  );
+
+  // Setup current round
+  useEffect(() => {
+    if (round <= totalRounds && selectedQuestions.length > 0) {
+      const q = selectedQuestions[round - 1];
+      if (q) {
+        setCurrentAnswers(q.answers.map((a) => ({ ...a, revealed: false })));
+        setRoundScore(0);
+      }
+    }
+  }, [round, selectedQuestions, totalRounds]);
+
+  // Handle face-off team selection
+  const handleFaceOffStart = useCallback(
+    (team: 1 | 2) => {
+      setCurrentTeam(team);
+      setStrikes(0);
+      setGamePhase("gameboard");
+    },
+    []
+  );
+
+  // Reveal answer
+  const handleRevealAnswer = useCallback(
+    (index: number) => {
+      setCurrentAnswers((prev) => {
+        const updated = [...prev];
+        if (!updated[index].revealed) {
+          updated[index] = { ...updated[index], revealed: true };
+          setRoundScore((rs) => rs + updated[index].points);
+          setFeedback({
+            show: true,
+            correct: true,
+            answer: `${updated[index].text} - ${updated[index].points} نقاط`,
+          });
+          setTimeout(() => setFeedback({ show: false, correct: false }), 1500);
+        }
+        return updated;
+      });
+    },
+    []
+  );
+
+  // Add strike
+  const handleAddStrike = useCallback(() => {
+    setStrikes((prev) => {
+      const newStrikes = prev + 1;
+      if (newStrikes >= 3) {
+        setGamePhase("steal");
+      }
+      return newStrikes;
+    });
+    setFeedback({ show: true, correct: false });
+    setTimeout(() => setFeedback({ show: false, correct: false }), 1500);
+  }, []);
+
+  // Pass to other team
+  const handlePassToOtherTeam = useCallback(() => {
+    setCurrentTeam((prev) => (prev === 1 ? 2 : 1));
+    setStrikes(0);
+  }, []);
+
+  // Handle steal
+  // Next round
+  const handleNextRound = useCallback(() => {
+    if (round >= totalRounds) {
+      setGamePhase("fast_money");
+      setFmPhase("intro");
+      setFmAnswers1(Array(5).fill(""));
+      setFmAnswers2(Array(5).fill(""));
+      setFmRevealed1(Array(5).fill(false));
+      setFmRevealed2(Array(5).fill(false));
+      setFmScore1(0);
+      setFmScore2(0);
+      setTimerRunning(false);
+      setTimeLeft(20);
+    } else {
+      setRound((prev) => prev + 1);
+      setStrikes(0);
+      setGamePhase("faceoff");
+    }
+  }, [round, totalRounds]);
+
+  const handleSteal = useCallback(() => {
+    // Reveal all and give points to stealing team
+    const allPoints = currentAnswers.reduce((sum, a) => sum + a.points, 0);
+    if (currentTeam === 1) {
+      setTeam1Score((prev) => prev + allPoints);
+    } else {
+      setTeam2Score((prev) => prev + allPoints);
+    }
+    setCurrentAnswers((prev) => prev.map((a) => ({ ...a, revealed: true })));
+    setFeedback({
+      show: true,
+      correct: true,
+      answer: `سرقة ناجحة! +${allPoints} نقاط`,
+    });
+    setTimeout(() => {
+      setFeedback({ show: false, correct: false });
+      handleNextRound();
+    }, 2000);
+  }, [currentAnswers, currentTeam, handleNextRound]);
+
+  // No steal
+  const handleNoSteal = useCallback(() => {
+    // Give points to the team that was playing (opposite of current)
+    const allPoints = currentAnswers.reduce((sum, a) => sum + a.points, 0);
+    if (currentTeam === 1) {
+      setTeam2Score((prev) => prev + allPoints);
+    } else {
+      setTeam1Score((prev) => prev + allPoints);
+    }
+    setCurrentAnswers((prev) => prev.map((a) => ({ ...a, revealed: true })));
+    setFeedback({ show: true, correct: false, answer: "سرقة فاشلة!" });
+    setTimeout(() => {
+      setFeedback({ show: false, correct: false });
+      handleNextRound();
+    }, 2000);
+  }, [currentAnswers, currentTeam, handleNextRound]);
+
+  // Reveal all
+  const handleRevealAll = useCallback(() => {
+    const points = currentAnswers.reduce((sum, a) => {
+      if (!a.revealed) return sum + a.points;
+      return sum;
+    }, 0);
+    setCurrentAnswers((prev) => prev.map((a) => ({ ...a, revealed: true })));
+    if (currentTeam === 1) {
+      setTeam1Score((prev) => prev + roundScore + points);
+    } else {
+      setTeam2Score((prev) => prev + roundScore + points);
+    }
+  }, [currentAnswers, currentTeam, roundScore]);
+
+  // Timer for Fast Money
+  useEffect(() => {
+    if (timerRunning && timeLeft > 0) {
+      timerRef.current = setTimeout(() => {
+        setTimeLeft((prev) => prev - 1);
+      }, 1000);
+    } else if (timeLeft === 0) {
+      setTimerRunning(false);
+    }
+    return () => {
+      if (timerRef.current) clearTimeout(timerRef.current);
+    };
+  }, [timerRunning, timeLeft]);
+
+  const handleStartTimer = useCallback(() => {
+    setTimeLeft(20);
+    setTimerRunning(true);
+  }, []);
+
+  // Fast Money reveal handlers
+  const handleRevealFM1 = useCallback(
+    (i: number) => {
+      setFmRevealed1((prev) => {
+        const updated = [...prev];
+        updated[i] = true;
+        // Score check
+        const answer = fmAnswers1[i]?.trim() || "";
+        const question = fmQuestions[i];
+        if (question) {
+          const match = question.answers.find(
+            (a) =>
+              answer.length > 0 &&
+              (a.text === answer || a.text.includes(answer) || answer.includes(a.text))
+          );
+          if (match) {
+            setFmScore1((prev) => prev + match.points * 2);
+          }
+        }
+        return updated;
+      });
+    },
+    [fmAnswers1, fmQuestions]
+  );
+
+  const handleRevealFM2 = useCallback(
+    (i: number) => {
+      setFmRevealed2((prev) => {
+        const updated = [...prev];
+        updated[i] = true;
+        const answer = fmAnswers2[i]?.trim() || "";
+        const question = fmQuestions[i];
+        if (question) {
+          const match = question.answers.find(
+            (a) =>
+              answer.length > 0 &&
+              (a.text === answer || a.text.includes(answer) || answer.includes(a.text))
+          );
+          if (match) {
+            setFmScore2((prev) => prev + match.points * 2);
+          }
+        }
+        return updated;
+      });
+    },
+    [fmAnswers2, fmQuestions]
+  );
+
+  // End game
+  const handleEndGame = useCallback(() => {
+    setTeam1Score((prev) => prev + fmScore1);
+    setTeam2Score((prev) => prev + fmScore2);
+    setShowGameOver(true);
+    setGamePhase("game_over");
+  }, [fmScore1, fmScore2]);
+
+  // Reset
+  const handleReset = useCallback(() => {
+    setUiPhase("landing");
+    setGamePhase("faceoff");
+    setTeam1Score(0);
+    setTeam2Score(0);
+    setRound(1);
+    setCurrentTeam(1);
+    setStrikes(0);
+    setShowGameOver(false);
+    setFmPhase("intro");
+    setTimerRunning(false);
+    setTimeLeft(20);
+  }, []);
+
+  // ============================
+  // LOADING STATE
+  // ============================
   if (!mounted) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-slate-950">
@@ -1750,144 +2660,299 @@ export default function FamilyFeudPage() {
     );
   }
 
-  // LANDING
-  if (phase === 'landing') {
+  // ============================
+  // SETUP PHASES (with header/footer)
+  // ============================
+  if (uiPhase === "landing") {
     return (
       <div className="min-h-screen flex flex-col bg-slate-950">
         <BrandedHeader />
-        <LandingPage onStart={() => setPhase('setup')} />
+        <main className="flex-1">
+          <LandingPage
+            onStartGodfather={() => setUiPhase("godfather_setup")}
+            onStartDiwaniya={() => setUiPhase("diwaniya_setup")}
+          />
+        </main>
         <BrandedFooter />
       </div>
     );
   }
 
-  // SETUP
-  if (phase === 'setup') {
+  if (uiPhase === "godfather_setup") {
     return (
       <div className="min-h-screen flex flex-col bg-slate-950">
         <BrandedHeader />
-        <TeamSetup onStartGame={startGame} />
+        <main className="flex-1">
+          <TeamSetup onStartGame={handleStartGame} />
+        </main>
         <BrandedFooter />
       </div>
     );
   }
 
-  // GAME OVER
-  if (phase === 'gameOver') {
-    const winner = team1Score >= team2Score ? 1 : 2;
+  if (uiPhase === "diwaniya_setup") {
     return (
       <div className="min-h-screen flex flex-col bg-slate-950">
-        <GameTopBar round={5} totalRounds={5} onExit={resetGame} onReset={resetGame} />
-        <GameOver
-          team1Name="العراب"
-          team2Name="الديوانية"
-          team1Score={team1Score}
-          team2Score={team2Score}
-          winner={winner}
-          onPlayAgain={resetGame}
-        />
+        <BrandedHeader />
+        <main className="flex-1">
+          <DiwaniyaPlaceholder />
+        </main>
         <BrandedFooter />
       </div>
     );
   }
 
-  // FACE-OFF
-  if (phase === 'faceoff') {
-    const currentQ = questions[currentQuestionIndex];
-    if (!currentQ) return null;
-    const team1Player = team1Players[0] || 'اللاعب 1';
-    const team2Player = team2Players[0] || 'اللاعب 1';
-
-    return (
-      <div className="min-h-screen flex flex-col bg-slate-950">
-        <GameTopBar round={currentRound} totalRounds={5} onExit={resetGame} onReset={resetGame} />
-        <FaceOffScreen
-          question={currentQ.question}
-          team1Name="العراب"
-          team2Name="الديوانية"
-          team1Player={team1Player}
-          team2Player={team2Player}
-          onTeam1Buzz={() => handleFaceoffTeam(1)}
-          onTeam2Buzz={() => handleFaceoffTeam(2)}
-          showTimer={faceoffTimeLeft > 0}
-          timeLeft={faceoffTimeLeft}
-        />
-        <BrandedFooter />
-      </div>
-    );
-  }
-
-  // ROUND RESULT
-  if (phase === 'roundResult') {
-    return (
-      <div className="min-h-screen flex flex-col bg-slate-950">
-        <GameTopBar round={currentRound} totalRounds={5} onExit={resetGame} onReset={resetGame} />
-        <RoundResult
-          teamName={currentTeam === 1 ? 'العراب' : 'الديوانية'}
-          points={roundPoints}
-          teamColor={currentTeam === 1 ? 'red' : 'amber'}
-          message={currentRound >= 5 ? 'نتيجة الجولة الأخيرة!' : 'حصل على النقاط!'}
-          onContinue={handleNextRound}
-        />
-        <BrandedFooter />
-      </div>
-    );
-  }
-
-  // FAST MONEY
-  if (phase === 'fastMoney') {
-    const players = fmTeam === 1 ? team1Players : team2Players;
-    const player = players[fmPlayerIndex] || 'لاعب';
-
-    return (
-      <div className="min-h-screen flex flex-col bg-slate-950">
-        <GameTopBar round={6} totalRounds={5} onExit={resetGame} onReset={resetGame} />
-        <FastMoney
-          questions={fastMoneyQuestions}
-          currentQuestionIndex={fmCurrentIndex}
-          onGuess={handleFastMoneyGuess}
-          timeLeft={fmTimeLeft}
-          score={fmScore}
-          playerName={player}
-          teamName={fmTeam === 1 ? 'العراب' : 'الديوانية'}
-          teamColor={fmTeam === 1 ? 'red' : 'amber'}
-        />
-        <BrandedFooter />
-      </div>
-    );
-  }
-
-  // PLAYING / STEAL
-  const currentQ = questions[currentQuestionIndex];
-  if (!currentQ) return null;
+  // ============================
+  // GAME PHASES
+  // ============================
+  const currentQuestion = selectedQuestions[round - 1];
 
   return (
-    <div className={cn('min-h-screen flex flex-col bg-slate-950 transition-transform', shaking && 'animate-shake')}>
-      <GameTopBar round={currentRound} totalRounds={5} onExit={resetGame} onReset={resetGame} />
-      <GameBoard
-        question={currentQ.question}
-        answers={currentQ.answers}
-        currentTeam={currentTeam}
-        team1Score={team1Score}
-        team2Score={team2Score}
-        team1Name="العراب"
-        team2Name="الديوانية"
-        strikes={strikes}
-        maxStrikes={3}
-        team1Players={team1Players}
-        team2Players={team2Players}
-        currentPlayerIndex={currentPlayerIndex}
-        onGuess={handleGuess}
-        shakeAnim={shaking}
-        round={currentRound}
-        totalRounds={5}
-        phase={phase}
-        stealAnswer={stealAnswer}
-        onStealSubmit={handleStealSubmit}
-        onStealInput={setStealAnswer}
-        showStealInput={showStealInput}
+    <div className="min-h-screen flex flex-col bg-slate-950">
+      {/* Feedback Overlay */}
+      <FeedbackOverlay
+        show={feedback.show}
+        correct={feedback.correct}
+        answer={feedback.answer}
       />
-      <BrandedFooter />
+
+      {showGameOver ? (
+        <GameOverScreen
+          team1Name={team1Name}
+          team2Name={team2Name}
+          team1Score={team1Score}
+          team2Score={team2Score}
+          onRestart={handleReset}
+          onHome={handleReset}
+        />
+      ) : gamePhase === "faceoff" && currentQuestion ? (
+        <div className="flex-1 flex flex-col">
+          {/* Game top bar */}
+          <div className="sticky top-0 z-50 border-b border-slate-800/50 bg-slate-950/90 backdrop-blur-sm">
+            <div className="max-w-md mx-auto flex items-center justify-between px-3 py-1.5">
+              <Button
+                onClick={handleReset}
+                variant="ghost"
+                className="text-slate-400 hover:text-red-400 hover:bg-red-950/30 gap-1.5 text-xs h-8 px-2"
+              >
+                <HomeIcon className="w-4 h-4" />
+              </Button>
+              <Badge variant="outline" className="border-amber-500/50 text-amber-400 text-[10px] px-2">
+                الجولة {round}/{totalRounds}
+              </Badge>
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-amber-400 font-bold">{team1Score}</span>
+                <span className="text-slate-600">-</span>
+                <span className="text-xs text-rose-400 font-bold">{team2Score}</span>
+              </div>
+            </div>
+          </div>
+
+          <FaceOffScreen
+            question={currentQuestion.question}
+            team1Name={team1Name}
+            team2Name={team2Name}
+            onTeam1Start={() => handleFaceOffStart(1)}
+            onTeam2Start={() => handleFaceOffStart(2)}
+          />
+        </div>
+      ) : gamePhase === "gameboard" && currentQuestion ? (
+        <div className="flex-1 flex flex-col">
+          {/* Game top bar */}
+          <div className="sticky top-0 z-50 border-b border-slate-800/50 bg-slate-950/90 backdrop-blur-sm">
+            <div className="max-w-md mx-auto flex items-center justify-between px-3 py-1.5">
+              <Button
+                onClick={handleReset}
+                variant="ghost"
+                className="text-slate-400 hover:text-red-400 hover:bg-red-950/30 gap-1.5 text-xs h-8 px-2"
+              >
+                <HomeIcon className="w-4 h-4" />
+              </Button>
+              <Badge variant="outline" className="border-amber-500/50 text-amber-400 text-[10px] px-2">
+                👑 العراب - الجولة {round}/{totalRounds}
+              </Badge>
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-amber-400 font-bold">{team1Score}</span>
+                <span className="text-slate-600">-</span>
+                <span className="text-xs text-rose-400 font-bold">{team2Score}</span>
+              </div>
+            </div>
+          </div>
+
+          <GameBoardView
+            question={currentQuestion.question}
+            answers={currentAnswers}
+            currentTeam={currentTeam}
+            team1Score={team1Score}
+            team2Score={team2Score}
+            team1Name={team1Name}
+            team2Name={team2Name}
+            strikes={strikes}
+            onRevealAnswer={handleRevealAnswer}
+            onAddStrike={handleAddStrike}
+            onPassToOtherTeam={handlePassToOtherTeam}
+            onSteal={handleSteal}
+            onNoSteal={handleNoSteal}
+            onRevealAll={handleRevealAll}
+            phase={gamePhase === "steal" ? "steal" : "playing"}
+            round={round}
+            totalRounds={totalRounds}
+            roundScore={roundScore}
+          />
+
+          {/* Next Round Button */}
+          {currentAnswers.every((a) => a.revealed) && (
+            <div className="px-3 pb-3">
+              <Button
+                onClick={handleNextRound}
+                className="w-full bg-gradient-to-l from-amber-600 to-rose-600 text-white font-bold h-11"
+              >
+                {round >= totalRounds
+                  ? "💰 جولة المال السريع"
+                  : "الجولة التالية"}
+                <ChevronLeft className="w-4 h-4 mr-2" />
+              </Button>
+            </div>
+          )}
+        </div>
+      ) : gamePhase === "steal" && currentQuestion ? (
+        <div className="flex-1 flex flex-col">
+          {/* Game top bar */}
+          <div className="sticky top-0 z-50 border-b border-slate-800/50 bg-slate-950/90 backdrop-blur-sm">
+            <div className="max-w-md mx-auto flex items-center justify-between px-3 py-1.5">
+              <Button
+                onClick={handleReset}
+                variant="ghost"
+                className="text-slate-400 hover:text-red-400 hover:bg-red-950/30 gap-1.5 text-xs h-8 px-2"
+              >
+                <HomeIcon className="w-4 h-4" />
+              </Button>
+              <Badge variant="outline" className="border-rose-500/50 text-rose-400 text-[10px] px-2 animate-pulse">
+                ⚡ فرصة السرقة
+              </Badge>
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-amber-400 font-bold">{team1Score}</span>
+                <span className="text-slate-600">-</span>
+                <span className="text-xs text-rose-400 font-bold">{team2Score}</span>
+              </div>
+            </div>
+          </div>
+
+          <GameBoardView
+            question={currentQuestion.question}
+            answers={currentAnswers}
+            currentTeam={currentTeam === 1 ? 2 : 1}
+            team1Score={team1Score}
+            team2Score={team2Score}
+            team1Name={team1Name}
+            team2Name={team2Name}
+            strikes={strikes}
+            onRevealAnswer={handleRevealAnswer}
+            onAddStrike={handleAddStrike}
+            onPassToOtherTeam={handlePassToOtherTeam}
+            onSteal={handleSteal}
+            onNoSteal={handleNoSteal}
+            onRevealAll={handleRevealAll}
+            phase="steal"
+            round={round}
+            totalRounds={totalRounds}
+            roundScore={roundScore}
+          />
+        </div>
+      ) : gamePhase === "fast_money" ? (
+        <div className="flex-1 flex flex-col">
+          {/* Game top bar */}
+          <div className="sticky top-0 z-50 border-b border-slate-800/50 bg-slate-950/90 backdrop-blur-sm">
+            <div className="max-w-md mx-auto flex items-center justify-between px-3 py-1.5">
+              <Button
+                onClick={handleReset}
+                variant="ghost"
+                className="text-slate-400 hover:text-red-400 hover:bg-red-950/30 gap-1.5 text-xs h-8 px-2"
+              >
+                <HomeIcon className="w-4 h-4" />
+              </Button>
+              <Badge className="bg-gradient-to-l from-amber-600 to-yellow-600 text-white text-[10px] px-2">
+                💰 المال السريع
+              </Badge>
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-amber-400 font-bold">
+                  {team1Score + fmScore1}
+                </span>
+                <span className="text-slate-600">-</span>
+                <span className="text-xs text-rose-400 font-bold">
+                  {team2Score + fmScore2}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <FastMoneyScreen
+            team1Name={team1Name}
+            team2Name={team2Name}
+            team1Score={team1Score}
+            team2Score={team2Score}
+            fmQuestions={fmQuestions}
+            fmAnswers1={fmAnswers1}
+            fmAnswers2={fmAnswers2}
+            fmRevealed1={fmRevealed1}
+            fmRevealed2={fmRevealed2}
+            onRevealFM1={handleRevealFM1}
+            onRevealFM2={handleRevealFM2}
+            onInputFM1={(i, v) => {
+              setFmAnswers1((prev) => {
+                const updated = [...prev];
+                updated[i] = v;
+                return updated;
+              });
+            }}
+            onInputFM2={(i, v) => {
+              setFmAnswers2((prev) => {
+                const updated = [...prev];
+                updated[i] = v;
+                return updated;
+              });
+            }}
+            onStartTimer={handleStartTimer}
+            timeLeft={timeLeft}
+            timerRunning={timerRunning}
+            roundScore={fmScore1 + fmScore2}
+          />
+
+          {/* Fast Money Results */}
+          {fmPhase === "results" && (
+            <div className="px-3 pb-4">
+              <Card className="bg-slate-900/80 border-amber-500/30 mb-3">
+                <CardContent className="p-4">
+                  <h3 className="text-sm font-bold text-white mb-3 text-center">
+                    نتائج المال السريع
+                  </h3>
+                  <div className="grid grid-cols-2 gap-3 mb-3">
+                    <div className="text-center">
+                      <p className="text-xs text-amber-400">{team1Name}</p>
+                      <p className="text-xl font-black text-amber-300">
+                        +{fmScore1}
+                      </p>
+                    </div>
+                    <div className="text-center">
+                      <p className="text-xs text-rose-400">{team2Name}</p>
+                      <p className="text-xl font-black text-rose-300">
+                        +{fmScore2}
+                      </p>
+                    </div>
+                  </div>
+                  <Button
+                    onClick={handleEndGame}
+                    className="w-full bg-gradient-to-l from-amber-600 to-yellow-600 text-white font-bold"
+                  >
+                    <Trophy className="w-4 h-4 ml-1" />
+                    إنهاء اللعبة
+                  </Button>
+                </CardContent>
+              </Card>
+            </div>
+          )}
+        </div>
+      ) : null}
     </div>
   );
 }
