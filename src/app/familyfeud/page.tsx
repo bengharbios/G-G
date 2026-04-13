@@ -1522,6 +1522,15 @@ function HostAnswerSlot({
           </div>
         )}
 
+        {/* Shimmer effect on unrevealed slots */}
+        {!revealed && (
+          <motion.div
+            animate={{ opacity: [0, 0.3, 0] }}
+            transition={{ duration: 2, repeat: Infinity, delay: index * 0.3 }}
+            className="absolute inset-0 rounded-2xl border-2 border-amber-500/20 pointer-events-none"
+          />
+        )}
+
         {/* Reveal flash effect */}
         <AnimatePresence>
           {revealed && (
@@ -2515,7 +2524,7 @@ function GameBoardView({
     : [];
 
   return (
-    <div className="flex-1 flex flex-col p-3 sm:p-4 gap-3" dir="rtl">
+    <div className="flex-1 flex flex-col p-3 sm:p-4 gap-3 relative" dir="rtl">
       {/* Team Score Panels with VS Badge */}
       <div className="flex items-stretch gap-2 sm:gap-3">
         {/* Team 1 Score Panel */}
@@ -2615,6 +2624,18 @@ function GameBoardView({
           </motion.p>
         </motion.div>
       </div>
+
+      {/* Question Number Badge */}
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ delay: 0.2 }}
+        className="flex justify-center"
+      >
+        <Badge className="bg-slate-800/80 border border-slate-700/50 text-slate-400 text-[10px] px-3">
+          📋 السؤال {round} من {totalRounds}
+        </Badge>
+      </motion.div>
 
       {/* Question + Points Remaining */}
       <div className="text-center py-1">
@@ -2750,6 +2771,32 @@ function GameBoardView({
           </span>
         </div>
       </div>
+
+      {/* Floating particles */}
+      {phase === "playing" && (
+        <div className="absolute inset-0 pointer-events-none overflow-hidden">
+          {[...Array(6)].map((_, i) => (
+            <motion.div
+              key={i}
+              animate={{
+                y: [0, -20, 0],
+                opacity: [0.1, 0.3, 0.1],
+                x: [0, (i % 2 === 0 ? 10 : -10), 0],
+              }}
+              transition={{
+                duration: 3 + i * 0.5,
+                repeat: Infinity,
+                delay: i * 0.7,
+              }}
+              className="absolute w-1 h-1 rounded-full bg-amber-400/30"
+              style={{
+                left: `${15 + i * 14}%`,
+                top: `${20 + (i * 17) % 60}%`,
+              }}
+            />
+          ))}
+        </div>
+      )}
 
       {/* Answer Board */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 flex-1 max-h-[45vh] overflow-y-auto scrollbar-thin">
@@ -2903,11 +2950,15 @@ function FastMoneyScreen({
   onSelectFM1,
   onSelectFM2,
   onPhaseChange,
+  fmScore1,
+  fmScore2,
 }: {
   team1Name: string;
   team2Name: string;
   team1Score: number;
   team2Score: number;
+  fmScore1: number;
+  fmScore2: number;
   fmQuestions: Question[];
   fmAnswers1: string[];
   fmAnswers2: string[];
@@ -2977,6 +3028,7 @@ function FastMoneyScreen({
           <div className="bg-amber-950/50 border border-amber-500/40 rounded-xl px-3 py-2">
             <p className="text-[10px] text-amber-400/60">{team1Name}</p>
             <p className="text-lg font-black text-amber-300">{team1Score}</p>
+            {fmScore1 > 0 && <p className="text-[9px] text-emerald-400/60">💰 +{fmScore1}</p>}
           </div>
           <Badge className="bg-gradient-to-l from-amber-600 to-yellow-600 text-white">
             💰 المال السريع
@@ -2984,6 +3036,7 @@ function FastMoneyScreen({
           <div className="bg-rose-950/50 border border-rose-500/40 rounded-xl px-3 py-2">
             <p className="text-[10px] text-rose-400/60">{team2Name}</p>
             <p className="text-lg font-black text-rose-300">{team2Score}</p>
+            {fmScore2 > 0 && <p className="text-[9px] text-emerald-400/60">💰 +{fmScore2}</p>}
           </div>
         </div>
 
@@ -3057,7 +3110,7 @@ function FastMoneyScreen({
                         <motion.button
                           key={j}
                           whileTap={{ scale: 0.97 }}
-                          onClick={() => onSelectFM1(i, j)}
+                          onClick={() => { onSelectFM1(i, j); setTimeout(() => onRevealFM1(i), 100); }}
                           className="flex items-center justify-between text-xs px-3 py-2.5 rounded-lg bg-slate-800/60 border border-slate-700/40 hover:border-amber-400/50 hover:bg-amber-900/20 text-slate-300 hover:text-amber-200 transition-all cursor-pointer text-right"
                         >
                           <span>{a.text}</span>
@@ -3065,17 +3118,6 @@ function FastMoneyScreen({
                         </motion.button>
                       ))}
                     </div>
-                  )}
-                  {!isRevealed && (
-                    <Button
-                      onClick={() => onRevealFM1(i)}
-                      variant="outline"
-                      size="sm"
-                      className="w-full mt-2 border-emerald-500/30 text-emerald-400 hover:text-emerald-300 hover:bg-emerald-900/20 h-8 text-xs"
-                    >
-                      <Eye className="w-3 h-3 ml-1" />
-                      تأكيد الإجابة
-                    </Button>
                   )}
                 </CardContent>
               </Card>
@@ -3102,6 +3144,7 @@ function FastMoneyScreen({
           <div className="bg-amber-950/50 border border-amber-500/40 rounded-xl px-3 py-2">
             <p className="text-[10px] text-amber-400/60">{team1Name}</p>
             <p className="text-lg font-black text-amber-300">{team1Score}</p>
+            {fmScore1 > 0 && <p className="text-[9px] text-emerald-400/60">💰 +{fmScore1}</p>}
           </div>
           <Badge className="bg-gradient-to-l from-amber-600 to-yellow-600 text-white">
             💰 المال السريع
@@ -3109,6 +3152,7 @@ function FastMoneyScreen({
           <div className="bg-rose-950/50 border border-rose-500/40 rounded-xl px-3 py-2">
             <p className="text-[10px] text-rose-400/60">{team2Name}</p>
             <p className="text-lg font-black text-rose-300">{team2Score}</p>
+            {fmScore2 > 0 && <p className="text-[9px] text-emerald-400/60">💰 +{fmScore2}</p>}
           </div>
         </div>
 
@@ -3182,7 +3226,7 @@ function FastMoneyScreen({
                           <motion.button
                             key={j}
                             whileTap={{ scale: 0.97 }}
-                            onClick={() => onSelectFM2(i, j)}
+                            onClick={() => { onSelectFM2(i, j); setTimeout(() => onRevealFM2(i), 100); }}
                             disabled={disabledByTeam1}
                             className={cn(
                               "flex items-center justify-between text-xs px-3 py-2.5 rounded-lg border transition-all text-right",
@@ -3198,17 +3242,7 @@ function FastMoneyScreen({
                       })}
                     </div>
                   )}
-                  {!isRevealed && (
-                    <Button
-                      onClick={() => onRevealFM2(i)}
-                      variant="outline"
-                      size="sm"
-                      className="w-full mt-2 border-emerald-500/30 text-emerald-400 hover:text-emerald-300 hover:bg-emerald-900/20 h-8 text-xs"
-                    >
-                      <Eye className="w-3 h-3 ml-1" />
-                      تأكيد الإجابة
-                    </Button>
-                  )}
+
                 </CardContent>
               </Card>
             );
@@ -3293,44 +3327,70 @@ function GameOverScreen({
 
         {/* Score Cards */}
         <div className="grid grid-cols-2 gap-3 mb-6">
-          <Card
-            className={cn(
-              team1Score >= team2Score
-                ? "bg-amber-950/40 border-amber-500/40"
-                : "bg-slate-900/60 border-slate-800/30"
-            )}
+          <motion.div
+            initial={{ opacity: 0, x: 30 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ delay: 0.5, duration: 0.5 }}
           >
-            <CardContent className="p-4">
-              <p className="text-2xl mb-1">👑</p>
-              <p className="text-sm font-bold text-amber-300">{team1Name}</p>
-              <p className="text-2xl font-black text-amber-400">{team1Score}</p>
-              {team1Score >= team2Score && !isTie && (
-                <Badge className="mt-2 bg-amber-600 text-white text-[10px]">
-                  🏆 الفائز
-                </Badge>
+            <Card
+              className={cn(
+                team1Score >= team2Score
+                  ? "bg-amber-950/40 border-amber-500/40"
+                  : "bg-slate-900/60 border-slate-800/30"
               )}
-            </CardContent>
-          </Card>
+            >
+              <CardContent className="p-4">
+                <p className="text-2xl mb-1">👑</p>
+                <p className="text-sm font-bold text-amber-300">{team1Name}</p>
+                <p className="text-2xl font-black text-amber-400">{team1Score}</p>
+                {team1Score >= team2Score && !isTie && (
+                  <Badge className="mt-2 bg-amber-600 text-white text-[10px]">
+                    🏆 الفائز
+                  </Badge>
+                )}
+              </CardContent>
+            </Card>
+          </motion.div>
 
-          <Card
-            className={cn(
-              team2Score > team1Score
-                ? "bg-rose-950/40 border-rose-500/40"
-                : "bg-slate-900/60 border-slate-800/30"
-            )}
+          <motion.div
+            initial={{ opacity: 0, x: -30 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ delay: 0.7, duration: 0.5 }}
           >
-            <CardContent className="p-4">
-              <p className="text-2xl mb-1">🏛️</p>
-              <p className="text-sm font-bold text-rose-300">{team2Name}</p>
-              <p className="text-2xl font-black text-rose-400">{team2Score}</p>
-              {team2Score > team1Score && !isTie && (
-                <Badge className="mt-2 bg-rose-600 text-white text-[10px]">
-                  🏆 الفائز
-                </Badge>
+            <Card
+              className={cn(
+                team2Score > team1Score
+                  ? "bg-rose-950/40 border-rose-500/40"
+                  : "bg-slate-900/60 border-slate-800/30"
               )}
-            </CardContent>
-          </Card>
+            >
+              <CardContent className="p-4">
+                <p className="text-2xl mb-1">🏛️</p>
+                <p className="text-sm font-bold text-rose-300">{team2Name}</p>
+                <p className="text-2xl font-black text-rose-400">{team2Score}</p>
+                {team2Score > team1Score && !isTie && (
+                  <Badge className="mt-2 bg-rose-600 text-white text-[10px]">
+                    🏆 الفائز
+                  </Badge>
+                )}
+              </CardContent>
+            </Card>
+          </motion.div>
         </div>
+
+        {/* Score Difference Indicator */}
+        {!isTie && winner && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.5 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ delay: 1, type: "spring" }}
+            className="mt-4 mb-6"
+          >
+            <Badge className="bg-gradient-to-l from-amber-600 to-yellow-500 text-white px-4 py-1.5 text-sm font-black">
+              📊 فارق {Math.abs(team1Score - team2Score)} نقطة
+            </Badge>
+          </motion.div>
+        )}
 
         <div className="flex gap-3">
           <Button
@@ -3388,7 +3448,8 @@ function GameOverScreen({
 // ============================================================
 export default function FamilyFeudPage() {
   const mounted = useHydrated();
-  const { playCorrect, playBuzz, playStrike, playReveal, playSteal, playWin, playCountdown } = useSoundEffects();
+  const [soundEnabled, setSoundEnabled] = useState(true);
+  const { playCorrect, playBuzz, playStrike, playReveal, playSteal, playWin, playCountdown } = useSoundEffects(soundEnabled);
 
   // Navigation state
   const [uiPhase, setUiPhase] = useState<
@@ -3861,7 +3922,7 @@ export default function FamilyFeudPage() {
       <div className="min-h-screen flex flex-col bg-slate-950">
         <BrandedHeader />
         <main className="flex-1">
-          <TeamSetup onStartGame={handleStartGame} />
+          <TeamSetup onStartGame={handleStartGame} soundEnabled={soundEnabled} setSoundEnabled={setSoundEnabled} />
         </main>
         <BrandedFooter />
       </div>
@@ -3959,9 +4020,14 @@ export default function FamilyFeudPage() {
               >
                 <HomeIcon className="w-4 h-4" />
               </Button>
-              <Badge variant="outline" className="border-amber-500/50 text-amber-400 text-[10px] px-2">
-                الجولة {round}/{totalRounds}
-              </Badge>
+              <div className="flex items-center gap-1.5">
+                <Badge variant="outline" className="border-amber-500/50 text-amber-400 text-[10px] px-2">
+                  الجولة {round}/{totalRounds}
+                </Badge>
+                <Badge variant="outline" className="border-slate-700/50 text-slate-500 text-[10px] px-2">
+                  💎 {team1Score + team2Score} نقطة
+                </Badge>
+              </div>
               <div className="flex items-center gap-2">
                 <span className="text-xs text-amber-400 font-bold">{team1Score}</span>
                 <span className="text-slate-600">-</span>
@@ -3983,13 +4049,29 @@ export default function FamilyFeudPage() {
           {/* Game top bar */}
           <div className="sticky top-0 z-50 border-b border-slate-800/50 bg-slate-950/90 backdrop-blur-sm">
             <div className="max-w-md mx-auto flex items-center justify-between px-3 py-1.5">
-              <Button
-                onClick={handleReset}
-                variant="ghost"
-                className="text-slate-400 hover:text-red-400 hover:bg-red-950/30 gap-1.5 text-xs h-8 px-2"
-              >
-                <HomeIcon className="w-4 h-4" />
-              </Button>
+              <div className="flex items-center gap-1">
+                <Button
+                  onClick={handleReset}
+                  variant="ghost"
+                  className="text-slate-400 hover:text-red-400 hover:bg-red-950/30 gap-1.5 text-xs h-8 px-2"
+                >
+                  <HomeIcon className="w-4 h-4" />
+                </Button>
+                <Button
+                  onClick={() => {
+                    if (confirm("هل تريد تخطي الجولات المتبقية والذهاب لجولة المال السريع؟")) {
+                      roundPointsAwardedRef.current = true;
+                      setRound(totalRounds);
+                      handleNextRound();
+                    }
+                  }}
+                  variant="ghost"
+                  className="text-slate-500 hover:text-yellow-400 hover:bg-yellow-950/30 gap-1 text-[10px] h-8 px-2"
+                >
+                  <Zap className="w-3 h-3" />
+                  المال السريع
+                </Button>
+              </div>
               <Badge variant="outline" className="border-amber-500/50 text-amber-400 text-[10px] px-2">
                 👑 العراب - الجولة {round}/{totalRounds}
               </Badge>
@@ -4061,12 +4143,22 @@ export default function FamilyFeudPage() {
             <div className="px-3 pb-3">
               <Button
                 onClick={handleAwardAndNextRound}
-                className="w-full bg-gradient-to-l from-amber-600 to-rose-600 text-white font-bold h-11"
+                className={cn(
+                  "w-full font-bold h-12 text-base relative overflow-hidden group",
+                  round >= totalRounds
+                    ? "bg-gradient-to-l from-amber-500 via-yellow-500 to-amber-500 hover:from-amber-400 hover:via-yellow-400 hover:to-amber-400 text-amber-950 shadow-lg shadow-amber-500/30"
+                    : "bg-gradient-to-l from-amber-600 to-rose-600 hover:from-amber-500 hover:to-rose-500 text-white shadow-lg shadow-amber-500/20"
+                )}
               >
-                {round >= totalRounds
-                  ? "💰 جولة المال السريع"
-                  : "الجولة التالية"}
-                <ChevronLeft className="w-4 h-4 mr-2" />
+                <motion.div
+                  animate={{ opacity: [0.2, 0.5, 0.2] }}
+                  transition={{ duration: 2, repeat: Infinity }}
+                  className="absolute inset-0 bg-gradient-to-l from-white/10 to-transparent pointer-events-none"
+                />
+                <span className="relative flex items-center justify-center gap-2">
+                  {round >= totalRounds ? "💰 جولة المال السريع" : "الجولة التالية"}
+                  <ChevronLeft className="w-4 h-4" />
+                </span>
               </Button>
             </div>
           )}
@@ -4190,6 +4282,8 @@ export default function FamilyFeudPage() {
             onSelectFM1={handleSelectFM1}
             onSelectFM2={handleSelectFM2}
             onPhaseChange={(phase) => setFmPhase(phase as "intro" | "team1" | "team2" | "results")}
+            fmScore1={fmScore1}
+            fmScore2={fmScore2}
           />
 
           {/* Fast Money Results */}
