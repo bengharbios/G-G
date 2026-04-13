@@ -410,7 +410,7 @@ const ALL_QUESTIONS: Question[] = [
     answers: [
       { text: "غسل الأسنان", points: 26, revealed: false },
       { text: "تمشيط الشعر", points: 23, revealed: false },
-      { text: "عصر البثور", points: 19, revealed: false },
+      { text: "تسريح الشعر", points: 19, revealed: false },
       { text: "تفقد الملابس", points: 17, revealed: false },
       { text: "التدرب على الرقص", points: 15, revealed: false },
     ],
@@ -543,12 +543,13 @@ const ALL_QUESTIONS: Question[] = [
     ],
   },
   {
-    question: "أي وحش يستطيع هزيمة دراكولا في قتال؟",
+    question: "اذكر وحشاً أو كائناً مخيفاً من الأساطير:",
     answers: [
-      { text: "غودزيلا", points: 43, revealed: false },
-      { text: "فرانكنشتاين", points: 26, revealed: false },
-      { text: "كينغ كونغ", points: 13, revealed: false },
-      { text: "رجل الذئب", points: 10, revealed: false },
+      { text: "الغول", points: 35, revealed: false },
+      { text: "العنقاء", points: 25, revealed: false },
+      { text: "الجن", points: 20, revealed: false },
+      { text: "الغيلان", points: 12, revealed: false },
+      { text: "الرخ", points: 8, revealed: false },
     ],
   },
   {
@@ -570,12 +571,13 @@ const ALL_QUESTIONS: Question[] = [
     ],
   },
   {
-    question: "ماذا تطلب من الساحر إذا ذهبت إلى أرض أوز؟",
+    question: "اذكر شخصية كرتونية يعرفها الجميع:",
     answers: [
-      { text: "المال", points: 37, revealed: false },
-      { text: "الصحة/قلب جديد", points: 17, revealed: false },
-      { text: "عقل", points: 7, revealed: false },
-      { text: "جسم قوي", points: 5, revealed: false },
+      { text: "ميكي ماوس", points: 30, revealed: false },
+      { text: "سبونج بوب", points: 25, revealed: false },
+      { text: "توم وجيري", points: 20, revealed: false },
+      { text: "بن تن", points: 15, revealed: false },
+      { text: "باباي", points: 10, revealed: false },
     ],
   },
   {
@@ -592,7 +594,7 @@ const ALL_QUESTIONS: Question[] = [
     answers: [
       { text: "كابتن أمريكا", points: 22, revealed: false },
       { text: "آيرون مان", points: 22, revealed: false },
-      { text: "البنثر الأسود", points: 20, revealed: false },
+      { text: "الرجل الأسود", points: 20, revealed: false },
       { text: "الرجل الأخضر/هالك", points: 15, revealed: false },
       { text: "ثور", points: 15, revealed: false },
     ],
@@ -607,12 +609,13 @@ const ALL_QUESTIONS: Question[] = [
     ],
   },
   {
-    question: "ما طريقة لقلي البيض تصف أيضاً شخصاً؟",
+    question: "اذكر كلمة تقال للرجل الكبير في السن:",
     answers: [
-      { text: "مخفوق/فوضوي", points: 53, revealed: false },
-      { text: "مسلوق/صلب", points: 13, revealed: false },
-      { text: "مقلي", points: 11, revealed: false },
-      { text: "وجه يسمع شمس", points: 7, revealed: false },
+      { text: "عم", points: 35, revealed: false },
+      { text: "حج", points: 25, revealed: false },
+      { text: "أبو فلان", points: 20, revealed: false },
+      { text: "الشيخ", points: 12, revealed: false },
+      { text: "الخال", points: 8, revealed: false },
     ],
   },
   {
@@ -925,7 +928,7 @@ const ALL_QUESTIONS: Question[] = [
     question: "اذكر شيئاً ترتبط به مصاصي الدماء:",
     answers: [
       { text: "الثوم", points: 30, revealed: false },
-      { text: "الصلب", points: 25, revealed: false },
+      { text: "الصليب الخشبي", points: 25, revealed: false },
       { text: "الدم", points: 20, revealed: false },
       { text: "الأنياب", points: 15, revealed: false },
       { text: "الخفاش", points: 10, revealed: false },
@@ -1043,7 +1046,7 @@ const ALL_QUESTIONS: Question[] = [
     ],
   },
   {
-    question: "ما أكثر شيء يشتروه الناس؟",
+    question: "ما أكثر شيء يزعج الناس؟",
     category: "حياة يومية", categoryIcon: "😤",
     answers: [
       { text: "الدوام", points: 25, revealed: false },
@@ -1107,7 +1110,7 @@ const ALL_QUESTIONS: Question[] = [
       { text: "ببجي", points: 25, revealed: false },
       { text: "كاونتر سترايك", points: 15, revealed: false },
       { text: "كرة القدم", points: 15, revealed: false },
-      { text: " Call of Duty", points: 10, revealed: false },
+      { text: "كول أوف ديوتي", points: 10, revealed: false },
     ],
   },
   {
