@@ -156,7 +156,7 @@ const games: GameData[] = [
     description:
       'لعبة فاميلي فيود الكلاسيكية! المستضيف يتحكم باللعبة ويرى الإجابات، الفريقين يتنافسون لتخمين الإجابات الأكثر شعبية.',
     href: '/familyfeud',
-    bgImage: null,
+    bgImage: '/images/familyfeud/familyfeud_banner.webp',
     themeColor: 'text-amber-400',
     themeBorder: 'border-amber-500/30 hover:border-amber-500/60',
     themeBg: 'from-amber-950/80 to-rose-900/40',
