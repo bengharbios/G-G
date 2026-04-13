@@ -1030,6 +1030,185 @@ const ALL_QUESTIONS: Question[] = [
       { text: "صوت مجهول", points: 8, revealed: false },
     ],
   },
+  // === Additional 15 questions ===
+  {
+    question: "ما أكثر شي يخليك تضحك؟",
+    category: "ترفيه", categoryIcon: "😂",
+    answers: [
+      { text: "مقاطع فيديوهات", points: 30, revealed: false },
+      { text: "نكتة صديق", points: 25, revealed: false },
+      { text: "أطفال يلعبون", points: 20, revealed: false },
+      { text: "وقوع شخص", points: 15, revealed: false },
+      { text: "تصرف غريب", points: 10, revealed: false },
+    ],
+  },
+  {
+    question: "ما أكثر شيء يشتروه الناس؟",
+    category: "حياة يومية", categoryIcon: "😤",
+    answers: [
+      { text: "الدوام", points: 25, revealed: false },
+      { text: "زحمة السير", points: 22, revealed: false },
+      { text: "الأطفال يبكون", points: 18, revealed: false },
+      { text: "الانتظار في الطابور", points: 15, revealed: false },
+      { text: "البرود", points: 12, revealed: false },
+      { text: "صوت المنبه", points: 8, revealed: false },
+    ],
+  },
+  {
+    question: "اذكر شيئاً تفعله في الحمام:",
+    category: "منزل", categoryIcon: "🚿",
+    answers: [
+      { text: "الاستحمام", points: 40, revealed: false },
+      { text: "غسل الأسنان", points: 22, revealed: false },
+      { text: "غسل الشعر", points: 15, revealed: false },
+      { text: "النظر في المرآة", points: 12, revealed: false },
+      { text: "التغني", points: 11, revealed: false },
+    ],
+  },
+  {
+    question: "ما أول شيء تشوفه الصباح؟",
+    category: "حياة يومية", categoryIcon: "☀️",
+    answers: [
+      { text: "الموبايل", points: 45, revealed: false },
+      { text: "الساعة", points: 20, revealed: false },
+      { text: "العائلة", points: 15, revealed: false },
+      { text: "النافذة", points: 10, revealed: false },
+      { text: "السقف", points: 10, revealed: false },
+    ],
+  },
+  {
+    question: "ما أكثر أكلة يحبها الأطفال؟",
+    category: "طعام", categoryIcon: "🍕",
+    answers: [
+      { text: "البيتزا", points: 35, revealed: false },
+      { text: "البرجر", points: 25, revealed: false },
+      { text: "النودلز", points: 18, revealed: false },
+      { text: "الدجاج المقلي", points: 12, revealed: false },
+      { text: "الآيس كريم", points: 10, revealed: false },
+    ],
+  },
+  {
+    question: "ما أغنية يحفظها الكل؟",
+    category: "ترفيه", categoryIcon: "🎵",
+    answers: [
+      { text: "تان تان تان", points: 20, revealed: false },
+      { text: "أغنية عيد ميلاد", points: 18, revealed: false },
+      { text: "أنشودة بلادي", points: 15, revealed: false },
+      { text: "أغنية الاطفال", points: 12, revealed: false },
+      { text: "أغنية رياضية", points: 10, revealed: false },
+      { text: "أغنية تخرج", points: 8, revealed: false },
+    ],
+  },
+  {
+    question: "ما أكثر لعبة يحبها اللي يشاهدون الكورة؟",
+    category: "رياضة", categoryIcon: "⚽",
+    answers: [
+      { text: "فيفا", points: 35, revealed: false },
+      { text: "ببجي", points: 25, revealed: false },
+      { text: "كاونتر سترايك", points: 15, revealed: false },
+      { text: "كرة القدم", points: 15, revealed: false },
+      { text: " Call of Duty", points: 10, revealed: false },
+    ],
+  },
+  {
+    question: "اذكر شيء تقدر تسويه بيد واحدة:",
+    answers: [
+      { text: "تأكل", points: 30, revealed: false },
+      { text: "تكتب رسالة", points: 25, revealed: false },
+      { text: "تغسل وجهك", points: 20, revealed: false },
+      { text: "تلبس ثياب", points: 15, revealed: false },
+      { text: "تمشط شعرك", points: 10, revealed: false },
+    ],
+  },
+  {
+    question: "ما أكثر مكان ينام فيه الناس؟",
+    category: "منزل", categoryIcon: "🛏️",
+    answers: [
+      { text: "السرير", points: 50, revealed: false },
+      { text: "الأريكة", points: 20, revealed: false },
+      { text: "الكنبة", points: 15, revealed: false },
+      { text: "السيارة", points: 10, revealed: false },
+      { text: "العمل", points: 5, revealed: false },
+    ],
+  },
+  {
+    question: "ما شيء لونه أخضر ويحبه الناس؟",
+    category: "طبيعة", categoryIcon: "🌿",
+    answers: [
+      { text: "النباتات", points: 35, revealed: false },
+      { text: "الطبيعة", points: 25, revealed: false },
+      { text: "الأعشاب", points: 20, revealed: false },
+      { text: "الأخضر", points: 10, revealed: false },
+      { text: "البطيخ", points: 10, revealed: false },
+    ],
+  },
+  {
+    question: "ما أكثر مشروب يطلبه الناس؟",
+    category: "طعام", categoryIcon: "🥤",
+    answers: [
+      { text: "الماء", points: 30, revealed: false },
+      { text: "القهوة", points: 25, revealed: false },
+      { text: "الشاي", points: 20, revealed: false },
+      { text: "العصير", points: 15, revealed: false },
+      { text: "المشروب الغازي", points: 10, revealed: false },
+    ],
+  },
+  {
+    question: "ما أكثر لعبة يلعبها الأطفال؟",
+    category: "ترفيه", categoryIcon: "🎮",
+    answers: [
+      { text: "الاختباء", points: 25, revealed: false },
+      { text: "كرة القدم", points: 20, revealed: false },
+      { text: "الدمبل", points: 15, revealed: false },
+      { text: "ألعاب الموبايل", points: 15, revealed: false },
+      { text: "الرسم", points: 12, revealed: false },
+      { text: "الحب", points: 8, revealed: false },
+    ],
+  },
+  {
+    question: "ما شيء تخلعه في جيبك دائما؟",
+    category: "حياة يومية", categoryIcon: "👔",
+    answers: [
+      { text: "الموبايل", points: 50, revealed: false },
+      { text: "المحفظة", points: 20, revealed: false },
+      { text: "المفاتيح", points: 15, revealed: false },
+      { text: "نقود", points: 10, revealed: false },
+      { text: "منديل", points: 5, revealed: false },
+    ],
+  },
+  {
+    question: "ما شيء يخليك يومك أفضل؟",
+    category: "حياة يومية", categoryIcon: "✨",
+    answers: [
+      { text: "النوم الكافي", points: 30, revealed: false },
+      { text: "لقاء الأصدقاء", points: 25, revealed: false },
+      { text: "الأكل الجيد", points: 20, revealed: false },
+      { text: "مشاهدة فيديو مضحك", points: 15, revealed: false },
+      { text: "الرياضة", points: 10, revealed: false },
+    ],
+  },
+  {
+    question: "ما أكثر تطبيق يستخدمه الناس؟",
+    category: "تقنية", categoryIcon: "📱",
+    answers: [
+      { text: "واتساب", points: 45, revealed: false },
+      { text: "تيك توك", points: 25, revealed: false },
+      { text: "انستقرام", points: 15, revealed: false },
+      { text: "سناب شات", points: 10, revealed: false },
+      { text: "تويتر", points: 5, revealed: false },
+    ],
+  },
+  {
+    question: "اذكر شيئاً لا تستطيع العيش بدونه:",
+    category: "حياة يومية", categoryIcon: "❤️",
+    answers: [
+      { text: "الموبايل", points: 40, revealed: false },
+      { text: "العائلة", points: 30, revealed: false },
+      { text: "الماء", points: 15, revealed: false },
+      { text: "الأكل", points: 10, revealed: false },
+      { text: "النوم", points: 5, revealed: false },
+    ],
+  },
 ];
 
 // Fast Money questions (separate set)
@@ -1755,7 +1934,7 @@ function LandingPage({
                       </h2>
                     </motion.div>
                     <p className="text-[10px] sm:text-xs text-slate-400">
-                      العراب يتحكم باللعبة مثل ستيف هارفي!
+                      العراب يتحكم باللعبة مثل ستيف هارفي! 95+ سؤال عربي
                     </p>
                   </div>
 

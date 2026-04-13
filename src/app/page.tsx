@@ -161,7 +161,7 @@ const games: GameData[] = [
     themeBorder: 'border-amber-500/30 hover:border-amber-500/60',
     themeBg: 'from-amber-950/80 to-rose-900/40',
     themeBadge: 'bg-amber-500/20 border-amber-500/40 text-amber-300',
-    features: ['العراب كمستضيف', 'الديوانية أونلاين', '80+ سؤال', 'جولة الجائزة المالية'],
+    features: ['العراب كمستضيف', 'الديوانية أونلاين', '95+ سؤال', 'جولة الجائزة المالية'],
     status: 'available',
     players: '2-10 لاعب',
     category: 'اجتماعية',
