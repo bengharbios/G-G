@@ -715,3 +715,153 @@ Priority recommendations for next phase:
 - Implement full Diwaniya (online) mode for Family Feud
 - QA testing via agent-browser on Vercel deployment
 - Add more Arabic questions for variety
+
+---
+Task ID: 15-a
+Agent: Content Agent
+Task: Add 25 new culturally relevant Arabic questions to Family Feud game
+
+Work Log:
+- Read /home/z/my-project/src/app/familyfeud/page.tsx (6091 lines)
+- Located ALL_QUESTIONS array: starts at line 266, ends at line 1215
+- Added 25 new culturally relevant Arabic survey questions before closing `];`
+- Each question includes category and categoryIcon fields
+- Categories covered: تكنولوجيا, حياة يومية, عمل, طعام, عائلة, ترفيه, سفر, علاقات, رياضة
+- All questions are culturally relevant to Arabic-speaking audiences (Gulf, Levant, etc.)
+- Each question has 4-5 answers with realistic point distributions (~100 total)
+- Updated landing page text "95+ سؤال" to "120+ سؤال" (2 locations: line 2483 and 2580)
+- Ran lint: zero familyfeud-specific errors
+
+Questions added:
+1. اذكر تطبيقاً لا تستطيع العيش بدونه (تكنولوجيا 📱)
+2. اذكر شيئاً يفعله الناس في المطعم (حياة يومية 🍽️)
+3. اذكر سبباً لعدم الذهاب للعمل (عمل 💼)
+4. اذكر نوعاً من أنواع الشوكولاتة (طعام 🍫)
+5. اذكر مكاناً يتجمع فيه الشباب (حياة يومية 👥)
+6. اذكر شيئاً يخبئه الأطفال عن والديهم (عائلة 👶)
+7. اذكر لعبة كان يلعبها آباؤنا (ترفيه 🎮)
+8. اذكر شيئاً تشتريه من السوق (حياة يومية 🛒)
+9. اذكر نوعاً من أنواع الرز (طعام 🍚)
+10. اذكر مشروباً يحبه الخليجيون (طعام ☕)
+11. اذكر شيئاً تضعه في السيارة (حياة يومية 🚗)
+12. اذكر سبباً لسرعة غضب الشخص (علاقات 😤)
+13. اذكر ماركة هاتف مشهورة (تكنولوجيا 📲)
+14. اذكر شيئاً يحدث في رمضان (علاقات 🌙)
+15. اذكر رياضة مشهورة في العالم العربي (رياضة ⚽)
+16. اذكر شيئاً تفعله في الاستراحة (عمل ☕)
+17. اذكر بلداً عربياً مشهوراً بالسياحة (سفر ✈️)
+18. اذكر نوعاً من الملابس الرجالية (حياة يومية 👔)
+19. اذكر شيئاً تقدمه للضيف (علاقات 🫖)
+20. اذكر برنامجاً تلفزيونياً كان يحبه الجميع (ترفيه 📺)
+21. اذكر أداة مطبخ أساسية (طعام 🍳)
+22. اذكر شيئاً يفقد شكله بسرعة (حياة يومية 🫧)
+23. اذكر كلمة يقولها الناس كثيراً (علاقات 💬)
+24. اذكر مادة دراسية كان يكرهها التلاميذ (عمل 📚)
+25. اذكر سبباً للسهر (ترفيه 🦉)
+
+Stage Summary:
+- 25 new Arabic questions added to ALL_QUESTIONS array (lines 1215-1489)
+- Question count text updated from "95+ سؤال" to "120+ سؤال" in landing page (2 locations)
+- No game logic or component changes made
+- Zero lint errors in familyfeud/page.tsx
+- File grew from 6091 lines to ~6365 lines
+
+---
+Task ID: 15-c
+Agent: UI Polish Agent
+Task: Fix homepage stats and improve footer styling
+
+Work Log:
+
+**Fix 1 - Update Game Count:**
+- Changed heroStats value from '6+' to '7' to reflect actual number of available games
+
+**Fix 2 - Footer Styling Overhaul:**
+- Added gradient top border (3px): red → purple → amber with transparent fade edges
+- Added subtle background gradient: from-slate-950 to-slate-900/80
+- Added subtle dot pattern overlay (radial-gradient, opacity 0.02)
+- Improved logo section: larger icon, larger text (text-lg font-black)
+- Added decorative gradient dividers between sections
+- Improved credits: responsive flex layout (stacks on mobile, row on sm+)
+- Added "تابعنا" social/community section with 3 placeholder buttons (📱 📸 🔔)
+- Social buttons have hover effects: bg change, border highlight, scale-110
+
+**Fix 3 - Animated Gradient Border on Game Cards:**
+- Added wrapper div with 2px padding for border effect on available game cards
+- Animated rotating gradient border using CSS @property --gradient-angle
+- Gradient colors match each game's theme (red/purple/amber for red theme, etc.)
+- Animation: 6s linear infinite rotation via card-border-spin keyframe
+- Coming soon cards have no animated border (cleaner look)
+
+**Fix 4 - Improved "قريباً" (Coming Soon) Cards:**
+- Added overlay gradient: from-slate-950/30 via-slate-900/10 to-slate-950/40 with backdrop blur
+- Changed badge text from '⏳ قريباً' to '✨ قريباً' with animate-pulse
+- Added animated sparkle (✨) that scales and fades in/out near the badge
+- Made title slightly transparent (opacity-80)
+- Bottom "🚧 قيد التطوير" icon now animated pulsing (2.5s opacity cycle)
+
+**Lint Status:**
+- Zero lint errors in src/app/page.tsx
+- All pre-existing lint errors remain in other files only
+
+Stage Summary:
+- Game count accurately shows 7 available games
+- Footer redesigned with gradient border, pattern overlay, social links, better spacing
+- Available game cards have subtle animated gradient borders matching their theme
+- Coming soon cards visually distinct with overlay, pulsing badge, and sparkle animation
+- Zero new lint errors
+---
+Task ID: 15-b
+Agent: Feature Agent
+Task: Add 5 new features to Family Feud game
+
+Work Log:
+
+**Feature 1 - "تخطي السؤال" (Skip Question) Button:**
+- Added `skipConfirmRef = useRef(false)` in main component for confirmation tracking
+- Added `handleSkipQuestion` callback: first click sets confirm state (auto-resets after 3s), second click executes skip
+- Skip logic: reveals all answers, awards 0 points, records in round history with type "تخطي", stops round timer, moves to next round after 1.5s delay
+- Added "⏭️ تخطي" button in GameBoardView controls area (only visible during `phase === "playing"`, not during steal)
+- Button styled with slate-800/80 background, small size (h-8, text-[11px]), motion.button with hover/tap animations
+- Added `onSkipQuestion` prop to GameBoardView component and wired to both gameboard and steal phase renderings
+
+**Feature 2 - Top Answer Sound Effect:**
+- Added `playTopAnswer` function in `useSoundEffects` hook: plays 3 quick ascending "ding" tones (C6=1047Hz, E6=1319Hz, G6=1568Hz) with 120ms spacing
+- Sound uses sine oscillator with 0.3 gain and 400ms exponential decay per note
+- Added `playTopAnswer` to hook return object and destructured in main component
+- Called in `handleRevealAnswer` callback when `answer.points >= 30` (top answer threshold) with 350ms delay after reveal sound
+- Updated `handleRevealAnswer` dependency array to include `playTopAnswer`
+
+**Feature 3 - "⭐ الأعلى!" Badge on #1 Answer:**
+- Added `isTopAnswer?: boolean` optional prop to `HostAnswerSlot` component
+- When `isTopAnswer` is true and the answer is revealed, shows a small gold badge below the answer text
+- Badge styled with: gradient background (yellow-500/30 to amber-500/20), yellow border, text-[9px] font-black text-yellow-300
+- Badge animates in with spring motion (scale 0→1, x 10→0, opacity 0→1) with 200ms delay
+- Passed `isTopAnswer={i === 0}` when rendering HostAnswerSlot in GameBoardView answer board
+
+**Feature 4 - Fast Money Timer Indicator:**
+- Enhanced timer display in both Team 1 and Team 2 Fast Money phases
+- Replaced plain number with prominent bordered card containing: ⏱️ emoji (with rotation animation when <= 5s), large number (text-3xl), and "ثانية" label
+- Timer card styled with rounded-2xl border-2, team-colored backgrounds (amber for team1, rose for team2)
+- When <= 5 seconds: background changes to red-950, border to red-500/60, red shadow glow, pulsing scale animation [1, 1.15, 1], ⏱️ emoji shakes [0, 15, -15, 0]
+- TimerBar moved below the prominent display for both team phases
+
+**Feature 5 - Question Number Counter in Game Header:**
+- Added optional `questionNumber` and `totalQuestions` props to `GameHeader` component
+- When both provided, displays "📋 السؤال X من Y" below the VS text in the score bar
+- Text styled: text-[9px] font-bold text-slate-500
+- Score bar VS section changed from simple span to flex-col container to accommodate the question counter
+- Passed `questionNumber={round}` and `totalQuestions={totalRounds}` in the gameboard phase GameHeader
+
+**Other Fixes:**
+- Fixed missing `team1Emoji` and `team2Emoji` props on steal phase GameBoardView rendering
+- Zero lint errors in familyfeud/page.tsx (all 24 lint errors are pre-existing in other files)
+
+Stage Summary:
+- 5 new features added to Family Feud game
+- Skip Question button with 2-click confirmation
+- Top answer celebration sound (3 ascending bell tones for 30+ point answers)
+- Gold "⭐ الأعلى!" badge on the #1 ranked answer when revealed
+- Prominent animated timer display in Fast Money with low-time warning effects
+- Question counter in game header during gameboard phase
+- Zero new lint errors introduced

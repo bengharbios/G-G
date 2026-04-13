@@ -445,7 +445,7 @@ function Header() {
 
 function HeroSection() {
   const heroStats = [
-    { icon: <Gamepad2 className="w-5 h-5" />, value: '6+', label: 'ألعاب' },
+    { icon: <Gamepad2 className="w-5 h-5" />, value: '7', label: 'ألعاب' },
     { icon: <Users className="w-5 h-5" />, value: 'حتى 20', label: 'لاعب' },
     { icon: <Star className="w-5 h-5" />, value: '∞', label: 'متعة' },
   ];
@@ -584,9 +584,25 @@ function HeroSection() {
 
 function GameCard({ game, index }: { game: GameData; index: number }) {
   const isAvailable = game.status === 'available';
+  const isComingSoon = game.status === 'coming_soon';
 
   const CardWrapper = isAvailable ? 'a' : 'div';
   const linkProps = isAvailable ? { href: game.href } : {};
+
+  // Animated gradient border colors per game theme
+  const gradientColors = isAvailable
+    ? game.themeBorder.includes('red')
+      ? ['#ef4444', '#a855f7', '#f59e0b', '#ef4444']
+      : game.themeBorder.includes('orange')
+        ? ['#f97316', '#ef4444', '#f59e0b', '#f97316']
+        : game.themeBorder.includes('purple')
+          ? ['#a855f7', '#6366f1', '#ec4899', '#a855f7']
+          : game.themeBorder.includes('amber')
+            ? ['#f59e0b', '#f97316', '#ef4444', '#f59e0b']
+            : game.themeBorder.includes('violet')
+              ? ['#8b5cf6', '#a855f7', '#6366f1', '#8b5cf6']
+              : ['#ef4444', '#a855f7', '#f59e0b', '#ef4444']
+    : null;
 
   return (
     <motion.div
@@ -596,117 +612,164 @@ function GameCard({ game, index }: { game: GameData; index: number }) {
       whileInView="visible"
       viewport={{ once: true, margin: '-50px' }}
     >
-      <CardWrapper
-        {...(linkProps as any)}
-        className={`group relative block rounded-2xl border ${game.themeBorder} overflow-hidden transition-all duration-300 ${
+      {/* Animated gradient border wrapper */}
+      <div
+        className={`relative rounded-2xl p-[2px] ${
           isAvailable
-            ? 'hover:shadow-xl hover:shadow-black/30 hover:-translate-y-1 cursor-pointer'
-            : 'opacity-70 cursor-default'
+            ? 'bg-gradient-to-br from-slate-700/50 via-slate-800/30 to-slate-700/50'
+            : ''
         }`}
-      >
-        {/* Background Image Layer */}
-        <div
-          className={`absolute inset-0 bg-gradient-to-b ${game.themeBg} ${
-            game.bgImage
-              ? ''
-              : ''
-          }`}
-          style={
-            game.bgImage
-              ? {
-                  backgroundImage: `url(${game.bgImage})`,
-                  backgroundSize: 'cover',
-                  backgroundPosition: 'center',
-                }
-              : undefined
-          }
-        >
-          {game.bgImage && (
-            <div
-              className={`absolute inset-0 bg-gradient-to-b ${game.themeBg}`}
-            />
-          )}
-        </div>
-
-        {/* Content */}
-        <div className="relative z-10 p-5 sm:p-6 flex flex-col gap-4 min-h-[280px]">
-          {/* Top Row: Status Badge + Emoji */}
-          <div className="flex items-start justify-between">
-            <Badge
-              className={`${game.themeBadge} text-[10px] sm:text-xs font-bold backdrop-blur-sm`}
-            >
-              {isAvailable ? '🟢 متاحة الآن' : '⏳ قريباً'}
-            </Badge>
-            <motion.div
-              className="text-4xl sm:text-5xl"
-              whileHover={
-                isAvailable
-                  ? {
-                      scale: 1.3,
-                      rotate: [0, -10, 10, -5, 0],
-                      transition: { duration: 0.5 },
-                    }
-                  : {}
+        style={
+          isAvailable && gradientColors
+            ? {
+                background: `linear-gradient(var(--gradient-angle, 0deg), ${gradientColors.join(', ')})`,
+                animation: 'card-border-spin 6s linear infinite',
               }
-            >
-              {game.emoji}
-            </motion.div>
-          </div>
-
-          {/* Title */}
-          <div>
-            <h3
-              className={`text-xl sm:text-2xl font-black ${game.themeColor} mb-1`}
-            >
-              {game.title}
-            </h3>
-            <p className="text-xs text-slate-500 font-medium">
-              {game.titleEn}
-            </p>
-          </div>
-
-          {/* Description */}
-          <p className="text-sm text-slate-400 leading-relaxed line-clamp-2 flex-1">
-            {game.description}
-          </p>
-
-          {/* Meta: Players + Category */}
-          <div className="flex items-center gap-3 text-xs text-slate-500">
-            <span className="flex items-center gap-1">
-              <Users className="w-3.5 h-3.5" />
-              {game.players}
-            </span>
-            <span className="text-slate-700">|</span>
-            <span>{game.category}</span>
-          </div>
-
-          {/* Feature Tags */}
-          <div className="flex flex-wrap gap-1.5">
-            {game.features.map((feature, i) => (
-              <span
-                key={i}
-                className={`text-[10px] sm:text-xs px-2 py-0.5 rounded-full border border-slate-700/50 text-slate-400 bg-slate-800/50 backdrop-blur-sm`}
-              >
-                {feature}
-              </span>
-            ))}
-          </div>
-
-          {/* Action */}
-          <div className="mt-auto pt-2">
-            {isAvailable ? (
-              <div className="flex items-center justify-between text-sm font-bold text-red-400 group-hover:text-red-300 transition-colors">
-                <span>ابدأ اللعب الآن</span>
-                <ChevronLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
-              </div>
-            ) : (
-              <div className="flex items-center gap-2 text-sm text-slate-600">
-                <span>🚧 قيد التطوير</span>
-              </div>
+            : undefined
+        }
+      >
+        <CardWrapper
+          {...(linkProps as any)}
+          className={`group relative block rounded-[14px] border ${game.themeBorder} overflow-hidden transition-all duration-300 ${
+            isAvailable
+              ? 'hover:shadow-xl hover:shadow-black/30 hover:-translate-y-1 cursor-pointer'
+              : 'opacity-70 cursor-default'
+          }`}
+        >
+          {/* Background Image Layer */}
+          <div
+            className={`absolute inset-0 bg-gradient-to-b ${game.themeBg}`}
+            style={
+              game.bgImage
+                ? {
+                    backgroundImage: `url(${game.bgImage})`,
+                    backgroundSize: 'cover',
+                    backgroundPosition: 'center',
+                  }
+                : undefined
+            }
+          >
+            {game.bgImage && (
+              <div
+                className={`absolute inset-0 bg-gradient-to-b ${game.themeBg}`}
+              />
             )}
           </div>
-        </div>
-      </CardWrapper>
+
+          {/* Coming Soon Overlay Gradient */}
+          {isComingSoon && (
+            <div className="absolute inset-0 z-5 bg-gradient-to-b from-slate-950/30 via-slate-900/10 to-slate-950/40 backdrop-blur-[1px]" />
+          )}
+
+          {/* Content */}
+          <div className="relative z-10 p-5 sm:p-6 flex flex-col gap-4 min-h-[280px]">
+            {/* Top Row: Status Badge + Emoji */}
+            <div className="flex items-start justify-between">
+              <Badge
+                className={`${game.themeBadge} text-[10px] sm:text-xs font-bold backdrop-blur-sm ${
+                  isComingSoon ? 'animate-pulse' : ''
+                }`}
+              >
+                {isAvailable ? '🟢 متاحة الآن' : '✨ قريباً'}
+              </Badge>
+              <motion.div
+                className="text-4xl sm:text-5xl"
+                whileHover={
+                  isAvailable
+                    ? {
+                        scale: 1.3,
+                        rotate: [0, -10, 10, -5, 0],
+                        transition: { duration: 0.5 },
+                      }
+                    : {}
+                }
+              >
+                {game.emoji}
+              </motion.div>
+            </div>
+
+            {/* Coming Soon Sparkle Badge */}
+            {isComingSoon && (
+              <motion.div
+                className="absolute top-14 left-4 pointer-events-none"
+                animate={{
+                  scale: [1, 1.3, 1],
+                  opacity: [0.6, 1, 0.6],
+                }}
+                transition={{
+                  duration: 2,
+                  repeat: Infinity,
+                  ease: 'easeInOut',
+                }}
+              >
+                <span className="text-lg">✨</span>
+              </motion.div>
+            )}
+
+            {/* Title */}
+            <div>
+              <h3
+                className={`text-xl sm:text-2xl font-black ${game.themeColor} mb-1 ${
+                  isComingSoon ? 'opacity-80' : ''
+                }`}
+              >
+                {game.title}
+              </h3>
+              <p className="text-xs text-slate-500 font-medium">
+                {game.titleEn}
+              </p>
+            </div>
+
+            {/* Description */}
+            <p className="text-sm text-slate-400 leading-relaxed line-clamp-2 flex-1">
+              {game.description}
+            </p>
+
+            {/* Meta: Players + Category */}
+            <div className="flex items-center gap-3 text-xs text-slate-500">
+              <span className="flex items-center gap-1">
+                <Users className="w-3.5 h-3.5" />
+                {game.players}
+              </span>
+              <span className="text-slate-700">|</span>
+              <span>{game.category}</span>
+            </div>
+
+            {/* Feature Tags */}
+            <div className="flex flex-wrap gap-1.5">
+              {game.features.map((feature, i) => (
+                <span
+                  key={i}
+                  className={`text-[10px] sm:text-xs px-2 py-0.5 rounded-full border border-slate-700/50 text-slate-400 bg-slate-800/50 backdrop-blur-sm`}
+                >
+                  {feature}
+                </span>
+              ))}
+            </div>
+
+            {/* Action */}
+            <div className="mt-auto pt-2">
+              {isAvailable ? (
+                <div className="flex items-center justify-between text-sm font-bold text-red-400 group-hover:text-red-300 transition-colors">
+                  <span>ابدأ اللعب الآن</span>
+                  <ChevronLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
+                </div>
+              ) : (
+                <div className="flex items-center gap-2 text-sm text-slate-500">
+                  <motion.span
+                    className="inline-block"
+                    animate={{ opacity: [0.5, 1, 0.5] }}
+                    transition={{ duration: 2.5, repeat: Infinity }}
+                  >
+                    🚧
+                  </motion.span>
+                  <span>قيد التطوير</span>
+                </div>
+              )}
+            </div>
+          </div>
+        </CardWrapper>
+      </div>
     </motion.div>
   );
 }
@@ -928,49 +991,102 @@ function HowToStartSection() {
 
 function Footer() {
   return (
-    <footer className="relative bg-slate-950 border-t border-slate-800/50">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
-        <div className="flex flex-col items-center gap-4">
-          {/* Logo */}
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-red-500 to-purple-600 flex items-center justify-center">
-              <img
-                src="/platform-logo.png"
-                alt="ألعاب الغريب"
-                className="w-6 h-6 rounded-md object-contain"
-                onError={(e) => {
-                  const target = e.target as HTMLImageElement;
-                  target.style.display = 'none';
-                  target.parentElement!.innerHTML =
-                    '<span class="text-white text-sm font-black">غ</span>';
-                }}
-              />
-            </div>
-            <span className="text-sm font-bold bg-gradient-to-l from-red-400 via-yellow-300 to-red-400 bg-clip-text text-transparent">
-              ألعاب الغريب
-            </span>
-          </div>
+    <footer className="relative">
+      {/* Gradient top border */}
+      <div className="h-[3px] bg-gradient-to-r from-transparent via-red-500 via-purple-500 via-amber-500 to-transparent" />
 
-          {/* Credits */}
-          <div className="flex flex-col items-center gap-2">
-            <div className="flex items-center gap-2 text-xs text-slate-500">
-              <span>💻 برمجة</span>
-              <span className="font-bold bg-gradient-to-l from-yellow-400 to-amber-500 bg-clip-text text-transparent">
-                الغريب
+      {/* Subtle background gradient */}
+      <div className="bg-gradient-to-b from-slate-950 to-slate-900/80">
+        {/* Subtle pattern overlay */}
+        <div
+          className="absolute inset-0 opacity-[0.02]"
+          style={{
+            backgroundImage:
+              'radial-gradient(circle at 1px 1px, white 1px, transparent 0)',
+            backgroundSize: '32px 32px',
+          }}
+        />
+
+        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+          <div className="flex flex-col items-center gap-6">
+            {/* Logo + Title */}
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-red-500 to-purple-600 flex items-center justify-center shadow-lg shadow-red-500/15">
+                <img
+                  src="/platform-logo.png"
+                  alt="ألعاب الغريب"
+                  className="w-8 h-8 rounded-lg object-contain"
+                  onError={(e) => {
+                    const target = e.target as HTMLImageElement;
+                    target.style.display = 'none';
+                    target.parentElement!.innerHTML =
+                      '<span class="text-white text-sm font-black">غ</span>';
+                  }}
+                />
+              </div>
+              <span className="text-lg font-black bg-gradient-to-l from-red-400 via-yellow-300 to-red-400 bg-clip-text text-transparent">
+                ألعاب الغريب
               </span>
             </div>
-            <div className="flex items-center gap-2 text-xs text-slate-500">
-              <span>🏠 برعاية</span>
-              <span className="font-bold bg-gradient-to-l from-blue-400 to-purple-400 bg-clip-text text-transparent">
-                ANA VIP 100034
-              </span>
-            </div>
-          </div>
 
-          {/* Copyright */}
-          <p className="text-[11px] text-slate-600 mt-2">
-            © {new Date().getFullYear()} ألعاب الغريب — جميع الحقوق محفوظة
-          </p>
+            {/* Divider */}
+            <div className="w-48 h-px bg-gradient-to-r from-transparent via-slate-700 to-transparent" />
+
+            {/* Credits Section */}
+            <div className="flex flex-col sm:flex-row items-center gap-4 sm:gap-8">
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-slate-500">💻 برمجة</span>
+                <span className="text-sm font-bold bg-gradient-to-l from-yellow-400 to-amber-500 bg-clip-text text-transparent">
+                  الغريب
+                </span>
+              </div>
+              <span className="hidden sm:block text-slate-700">•</span>
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-slate-500">🏠 برعاية</span>
+                <span className="text-sm font-bold bg-gradient-to-l from-blue-400 to-purple-400 bg-clip-text text-transparent">
+                  ANA VIP 100034
+                </span>
+              </div>
+            </div>
+
+            {/* Social / Community Links */}
+            <div className="flex flex-col items-center gap-3 mt-1">
+              <span className="text-xs text-slate-500 font-medium">
+                تابعنا
+              </span>
+              <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  className="w-10 h-10 rounded-xl bg-slate-800/60 border border-slate-700/50 flex items-center justify-center text-lg hover:bg-slate-700/60 hover:border-slate-600/50 hover:scale-110 transition-all duration-200"
+                  aria-label="تابعنا على الجوال"
+                >
+                  📱
+                </button>
+                <button
+                  type="button"
+                  className="w-10 h-10 rounded-xl bg-slate-800/60 border border-slate-700/50 flex items-center justify-center text-lg hover:bg-slate-700/60 hover:border-slate-600/50 hover:scale-110 transition-all duration-200"
+                  aria-label="تابعنا على انستغرام"
+                >
+                  📸
+                </button>
+                <button
+                  type="button"
+                  className="w-10 h-10 rounded-xl bg-slate-800/60 border border-slate-700/50 flex items-center justify-center text-lg hover:bg-slate-700/60 hover:border-slate-600/50 hover:scale-110 transition-all duration-200"
+                  aria-label="فعّل الإشعارات"
+                >
+                  🔔
+                </button>
+              </div>
+            </div>
+
+            {/* Divider */}
+            <div className="w-48 h-px bg-gradient-to-r from-transparent via-slate-700 to-transparent" />
+
+            {/* Copyright */}
+            <p className="text-xs text-slate-600">
+              © {new Date().getFullYear()} ألعاب الغريب — جميع الحقوق محفوظة
+            </p>
+          </div>
         </div>
       </div>
     </footer>
@@ -988,6 +1104,19 @@ export default function HomePage() {
       <FeaturesSection />
       <HowToStartSection />
       <Footer />
+      {/* CSS keyframe for animated gradient border on cards */}
+      <style jsx global>{`
+        @property --gradient-angle {
+          syntax: '<angle>';
+          initial-value: 0deg;
+          inherits: false;
+        }
+        @keyframes card-border-spin {
+          to {
+            --gradient-angle: 360deg;
+          }
+        }
+      `}</style>
     </div>
   );
 }

@@ -201,7 +201,28 @@ function useSoundEffects(soundEnabled: boolean) {
     } catch {}
   }, [getCtx]);
 
-  return { playCorrect, playBuzz, playStrike, playReveal, playSteal, playWin, playCountdown };
+  const playTopAnswer = useCallback(() => {
+    if (!enabledRef.current) return;
+    try {
+      const ctx = getCtx();
+      // 3 quick ascending "ding" tones (bell celebration)
+      const freqs = [1047, 1319, 1568]; // C6, E6, G6
+      freqs.forEach((freq, i) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(freq, ctx.currentTime + i * 0.12);
+        gain.gain.setValueAtTime(0.3, ctx.currentTime + i * 0.12);
+        gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + i * 0.12 + 0.4);
+        osc.start(ctx.currentTime + i * 0.12);
+        osc.stop(ctx.currentTime + i * 0.12 + 0.4);
+      });
+    } catch {}
+  }, [getCtx]);
+
+  return { playCorrect, playBuzz, playStrike, playReveal, playSteal, playWin, playCountdown, playTopAnswer };
 }
 
 // ============================================================
@@ -1212,6 +1233,280 @@ const ALL_QUESTIONS: Question[] = [
       { text: "النوم", points: 5, revealed: false },
     ],
   },
+  // --- 25 new culturally relevant Arabic questions (Task 15-a) ---
+  {
+    question: "اذكر تطبيقاً لا تستطيع العيش بدونه:",
+    category: "تكنولوجيا", categoryIcon: "📱",
+    answers: [
+      { text: "واتساب", points: 38, revealed: false },
+      { text: "تيك توك", points: 22, revealed: false },
+      { text: "انستقرام", points: 18, revealed: false },
+      { text: "يوتيوب", points: 12, revealed: false },
+      { text: "سناب شات", points: 10, revealed: false },
+    ],
+  },
+  {
+    question: "اذكر شيئاً يفعله الناس في المطعم:",
+    category: "حياة يومية", categoryIcon: "🍽️",
+    answers: [
+      { text: "يطلب قهوة", points: 28, revealed: false },
+      { text: "يصور الطعام", points: 25, revealed: false },
+      { text: "ينتظر طاولة", points: 20, revealed: false },
+      { text: "يحسب الحسبة", points: 15, revealed: false },
+      { text: "يتكلم بالموبايل", points: 12, revealed: false },
+    ],
+  },
+  {
+    question: "اذكر سبباً لعدم الذهاب للعمل:",
+    category: "عمل", categoryIcon: "💼",
+    answers: [
+      { text: "مريض", points: 32, revealed: false },
+      { text: "تعب", points: 25, revealed: false },
+      { text: "زحمة", points: 18, revealed: false },
+      { text: "نسيان المنبه", points: 15, revealed: false },
+      { text: "اجازة", points: 10, revealed: false },
+    ],
+  },
+  {
+    question: "اذكر نوعاً من أنواع الشوكولاتة:",
+    category: "طعام", categoryIcon: "🍫",
+    answers: [
+      { text: "جالاكسي", points: 28, revealed: false },
+      { text: "كيت كات", points: 25, revealed: false },
+      { text: "تويكس", points: 20, revealed: false },
+      { text: "سنكرز", points: 15, revealed: false },
+      { text: "مارس", points: 12, revealed: false },
+    ],
+  },
+  {
+    question: "اذكر مكاناً يتجمع فيه الشباب:",
+    category: "حياة يومية", categoryIcon: "👥",
+    answers: [
+      { text: "المول", points: 30, revealed: false },
+      { text: "الكافيه", points: 28, revealed: false },
+      { text: "الملعب", points: 18, revealed: false },
+      { text: "الشاطئ", points: 14, revealed: false },
+      { text: "الحديقة", points: 10, revealed: false },
+    ],
+  },
+  {
+    question: "اذكر شيئاً يخبئه الأطفال عن والديهم:",
+    category: "عائلة", categoryIcon: "👶",
+    answers: [
+      { text: "الحلوى", points: 35, revealed: false },
+      { text: "الهاتف", points: 25, revealed: false },
+      { text: "الألعاب", points: 20, revealed: false },
+      { text: "علامات المدرسة", points: 20, revealed: false },
+    ],
+  },
+  {
+    question: "اذكر لعبة كان يلعبها آباؤنا:",
+    category: "ترفيه", categoryIcon: "🎮",
+    answers: [
+      { text: "الطابة", points: 30, revealed: false },
+      { text: "الحجلة", points: 25, revealed: false },
+      { text: "الدحية", points: 20, revealed: false },
+      { text: "كرة القدم", points: 15, revealed: false },
+      { text: "السيجا", points: 10, revealed: false },
+    ],
+  },
+  {
+    question: "اذكر شيئاً تشتريه من السوق:",
+    category: "حياة يومية", categoryIcon: "🛒",
+    answers: [
+      { text: "خضار", points: 28, revealed: false },
+      { text: "فواكه", points: 25, revealed: false },
+      { text: "لحم", points: 20, revealed: false },
+      { text: "سمك", points: 15, revealed: false },
+      { text: "خبز", points: 12, revealed: false },
+    ],
+  },
+  {
+    question: "اذكر نوعاً من أنواع الرز:",
+    category: "طعام", categoryIcon: "🍚",
+    answers: [
+      { text: "بسمتي", points: 30, revealed: false },
+      { text: "مشعري", points: 25, revealed: false },
+      { text: "كابوري", points: 18, revealed: false },
+      { text: "بني", points: 15, revealed: false },
+      { text: "أبيض", points: 12, revealed: false },
+    ],
+  },
+  {
+    question: "اذكر مشروباً يحبه الخليجيون:",
+    category: "طعام", categoryIcon: "☕",
+    answers: [
+      { text: "الشاي", points: 30, revealed: false },
+      { text: "القهوة", points: 25, revealed: false },
+      { text: "الكرك", points: 20, revealed: false },
+      { text: "اللبن", points: 15, revealed: false },
+      { text: "العصير", points: 10, revealed: false },
+    ],
+  },
+  {
+    question: "اذكر شيئاً تضعه في السيارة:",
+    category: "حياة يومية", categoryIcon: "🚗",
+    answers: [
+      { text: "عطر", points: 28, revealed: false },
+      { text: "ماء", points: 22, revealed: false },
+      { text: "نظارات شمسية", points: 18, revealed: false },
+      { text: "جوال", points: 17, revealed: false },
+      { text: "شاحن", points: 15, revealed: false },
+    ],
+  },
+  {
+    question: "اذكر سبباً لسرعة غضب الشخص:",
+    category: "علاقات", categoryIcon: "😤",
+    answers: [
+      { text: "جوع", points: 30, revealed: false },
+      { text: "تعب", points: 22, revealed: false },
+      { text: "مضايقة", points: 20, revealed: false },
+      { text: "حرارة الجو", points: 16, revealed: false },
+      { text: "ضجيج", points: 12, revealed: false },
+    ],
+  },
+  {
+    question: "اذكر ماركة هاتف مشهورة:",
+    category: "تكنولوجيا", categoryIcon: "📲",
+    answers: [
+      { text: "آيفون", points: 35, revealed: false },
+      { text: "سامسونج", points: 30, revealed: false },
+      { text: "هواوي", points: 15, revealed: false },
+      { text: "شاومي", points: 12, revealed: false },
+      { text: "نوكيا", points: 8, revealed: false },
+    ],
+  },
+  {
+    question: "اذكر شيئاً يحدث في رمضان:",
+    category: "علاقات", categoryIcon: "🌙",
+    answers: [
+      { text: "إفطار", points: 25, revealed: false },
+      { text: "صلاة التراويح", points: 22, revealed: false },
+      { text: "سحور", points: 18, revealed: false },
+      { text: "خيمة رمضان", points: 18, revealed: false },
+      { text: "مسلسلات", points: 17, revealed: false },
+    ],
+  },
+  {
+    question: "اذكر رياضة مشهورة في العالم العربي:",
+    category: "رياضة", categoryIcon: "⚽",
+    answers: [
+      { text: "كرة القدم", points: 50, revealed: false },
+      { text: "كرة السلة", points: 15, revealed: false },
+      { text: "التنس", points: 12, revealed: false },
+      { text: "السباحة", points: 13, revealed: false },
+      { text: "الكاراتيه", points: 10, revealed: false },
+    ],
+  },
+  {
+    question: "اذكر شيئاً تفعله في الاستراحة:",
+    category: "عمل", categoryIcon: "☕",
+    answers: [
+      { text: "تشرب قهوة", points: 30, revealed: false },
+      { text: "تتكلم مع زميل", points: 25, revealed: false },
+      { text: "تستخدم الجوال", points: 25, revealed: false },
+      { text: "تأكل", points: 20, revealed: false },
+    ],
+  },
+  {
+    question: "اذكر بلداً عربياً مشهوراً بالسياحة:",
+    category: "سفر", categoryIcon: "✈️",
+    answers: [
+      { text: "مصر", points: 28, revealed: false },
+      { text: "الإمارات", points: 25, revealed: false },
+      { text: "تونس", points: 18, revealed: false },
+      { text: "المغرب", points: 17, revealed: false },
+      { text: "الأردن", points: 12, revealed: false },
+    ],
+  },
+  {
+    question: "اذكر نوعاً من الملابس الرجالية:",
+    category: "حياة يومية", categoryIcon: "👔",
+    answers: [
+      { text: "ثوب", points: 30, revealed: false },
+      { text: "بشت", points: 22, revealed: false },
+      { text: "غترة", points: 20, revealed: false },
+      { text: "شماغ", points: 16, revealed: false },
+      { text: "جيب", points: 12, revealed: false },
+    ],
+  },
+  {
+    question: "اذكر شيئاً تقدمه للضيف:",
+    category: "علاقات", categoryIcon: "🫖",
+    answers: [
+      { text: "قهوة", points: 30, revealed: false },
+      { text: "شاي", points: 25, revealed: false },
+      { text: "تمور", points: 22, revealed: false },
+      { text: "حلويات", points: 15, revealed: false },
+      { text: "ماء", points: 8, revealed: false },
+    ],
+  },
+  {
+    question: "اذكر برنامجاً تلفزيونياً كان يحبه الجميع:",
+    category: "ترفيه", categoryIcon: "📺",
+    answers: [
+      { text: "خشمك يا بختكار", points: 28, revealed: false },
+      { text: "تلفزيون الواقع", points: 22, revealed: false },
+      { text: "الأفلام", points: 20, revealed: false },
+      { text: "المسلسلات التركية", points: 18, revealed: false },
+      { text: "برامج الكوميديا", points: 12, revealed: false },
+    ],
+  },
+  {
+    question: "اذكر أداة مطبخ أساسية:",
+    category: "طعام", categoryIcon: "🍳",
+    answers: [
+      { text: "القدر", points: 28, revealed: false },
+      { text: "المقلاة", points: 25, revealed: false },
+      { text: "السكين", points: 20, revealed: false },
+      { text: "المطبقة", points: 15, revealed: false },
+      { text: "الخلاط", points: 12, revealed: false },
+    ],
+  },
+  {
+    question: "اذكر شيئاً يفقد شكله بسرعة:",
+    category: "حياة يومية", categoryIcon: "🫧",
+    answers: [
+      { text: "الآيس كريم", points: 30, revealed: false },
+      { text: "البالون", points: 28, revealed: false },
+      { text: "الثلج", points: 22, revealed: false },
+      { text: "الزهور", points: 12, revealed: false },
+      { text: "البخور", points: 8, revealed: false },
+    ],
+  },
+  {
+    question: "اذكر كلمة يقولها الناس كثيراً:",
+    category: "علاقات", categoryIcon: "💬",
+    answers: [
+      { text: "إن شاء الله", points: 30, revealed: false },
+      { text: "ماشاء الله", points: 25, revealed: false },
+      { text: "يلا", points: 20, revealed: false },
+      { text: "لا", points: 15, revealed: false },
+      { text: "شكراً", points: 10, revealed: false },
+    ],
+  },
+  {
+    question: "اذكر مادة دراسية كان يكرهها التلاميذ:",
+    category: "عمل", categoryIcon: "📚",
+    answers: [
+      { text: "الرياضيات", points: 35, revealed: false },
+      { text: "الفيزياء", points: 22, revealed: false },
+      { text: "الكيمياء", points: 18, revealed: false },
+      { text: "التاريخ", points: 15, revealed: false },
+      { text: "اللغة الإنجليزية", points: 10, revealed: false },
+    ],
+  },
+  {
+    question: "اذكر سبباً للسهر:",
+    category: "ترفيه", categoryIcon: "🦉",
+    answers: [
+      { text: "سهرات", points: 25, revealed: false },
+      { text: "ألعاب", points: 22, revealed: false },
+      { text: "فيلم", points: 20, revealed: false },
+      { text: "دراسة", points: 18, revealed: false },
+      { text: "سفر", points: 15, revealed: false },
+    ],
+  },
 ];
 
 // Fast Money questions (separate set)
@@ -1862,6 +2157,8 @@ function GameHeader({
   team2Score,
   team1Emoji,
   team2Emoji,
+  questionNumber,
+  totalQuestions,
 }: {
   phaseLabel: string;
   phaseLabelVariant?: "amber" | "rose" | "gold";
@@ -1878,6 +2175,8 @@ function GameHeader({
   team2Score: number;
   team1Emoji: string;
   team2Emoji: string;
+  questionNumber?: number;
+  totalQuestions?: number;
 }) {
   const badgeStyles = {
     amber: "border-amber-500/50 text-amber-400",
@@ -1952,7 +2251,12 @@ function GameHeader({
               {team1Score}
             </motion.span>
           </div>
-          <span className="text-slate-600 text-[10px] font-bold">VS</span>
+          <div className="flex flex-col items-center gap-0.5">
+            <span className="text-slate-600 text-[10px] font-bold">VS</span>
+            {questionNumber != null && totalQuestions != null && (
+              <span className="text-[9px] font-bold text-slate-500">📋 السؤال {questionNumber} من {totalQuestions}</span>
+            )}
+          </div>
           <div className="flex items-center gap-1.5">
             <motion.span
               key={team2Score}
@@ -2266,11 +2570,13 @@ function HostAnswerSlot({
   index,
   onReveal,
   revealed,
+  isTopAnswer = false,
 }: {
   answer: Answer;
   index: number;
   onReveal: () => void;
   revealed: boolean;
+  isTopAnswer?: boolean;
 }) {
   return (
     <motion.div
@@ -2329,6 +2635,17 @@ function HostAnswerSlot({
             <span className="text-sm text-slate-400 block truncate">
               {answer.text}
             </span>
+          )}
+          {/* Top Answer Badge */}
+          {isTopAnswer && revealed && (
+            <motion.span
+              initial={{ opacity: 0, scale: 0, x: 10 }}
+              animate={{ opacity: 1, scale: 1, x: 0 }}
+              transition={{ duration: 0.4, delay: 0.2, type: "spring", stiffness: 300 }}
+              className="inline-flex items-center gap-0.5 mt-0.5 px-1.5 py-0 rounded-full bg-gradient-to-l from-yellow-500/30 to-amber-500/20 border border-yellow-400/40 text-[9px] font-black text-yellow-300"
+            >
+              ⭐ الأعلى!
+            </motion.span>
           )}
         </div>
 
@@ -2480,7 +2797,7 @@ function LandingPage({
                       </h2>
                     </motion.div>
                     <p className="text-[10px] sm:text-xs text-slate-400">
-                      العراب يتحكم باللعبة مثل ستيف هارفي! 95+ سؤال عربي
+                      العراب يتحكم باللعبة مثل ستيف هارفي! 120+ سؤال عربي
                     </p>
                   </div>
 
@@ -2577,7 +2894,7 @@ function LandingPage({
               >
                 <div className="grid grid-cols-3 gap-2">
                   {[
-                    { icon: "🎯", label: "95+ سؤال", desc: "أسئلة عربية متنوعة" },
+                    { icon: "🎯", label: "120+ سؤال", desc: "أسئلة عربية متنوعة" },
                     { icon: "⚡", label: "سرعة", desc: "تفاعل فوري وسريع" },
                     { icon: "🏆", label: "تنافس", desc: "فريقين يتنافسان" },
                   ].map((feature, i) => (
@@ -3840,6 +4157,7 @@ function GameBoardView({
   onSteal,
   onNoSteal,
   onRevealAll,
+  onSkipQuestion,
   phase,
   round,
   totalRounds,
@@ -3864,6 +4182,7 @@ function GameBoardView({
   onSteal: () => void;
   onNoSteal: () => void;
   onRevealAll: () => void;
+  onSkipQuestion: () => void;
   phase: "playing" | "steal";
   round: number;
   totalRounds: number;
@@ -4197,6 +4516,7 @@ function GameBoardView({
             index={i}
             onReveal={() => onRevealAnswer(i)}
             revealed={answer.revealed}
+            isTopAnswer={i === 0}
           />
         ))}
       </div>
@@ -4221,6 +4541,18 @@ function GameBoardView({
               تمرير الدور
             </Button>
           </div>
+        )}
+
+        {/* Skip Question Button (only during normal gameplay) */}
+        {phase === "playing" && (
+          <motion.button
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
+            onClick={onSkipQuestion}
+            className="w-full rounded-xl bg-slate-800/80 border border-slate-700/50 hover:border-slate-500/50 hover:bg-slate-700/80 text-slate-400 hover:text-slate-200 h-8 text-[11px] font-bold transition-all cursor-pointer flex items-center justify-center gap-1"
+          >
+            ⏭️ تخطي
+          </motion.button>
         )}
 
         {phase === "steal" && (
@@ -4491,18 +4823,45 @@ function FastMoneyScreen({
             </motion.button>
           ) : (
             <div className="space-y-2">
-              <TimerBar timeLeft={timeLeft} maxTime={20} />
+              {/* Prominent Timer Display */}
               <motion.div
-                animate={{ scale: timeLeft <= 5 ? [1, 1.1, 1] : 1 }}
+                animate={{ scale: timeLeft <= 5 ? [1, 1.15, 1] : 1 }}
                 transition={{ repeat: timeLeft <= 5 ? Infinity : 0, duration: 0.5 }}
                 className={cn(
-                  "text-4xl font-black tabular-nums",
-                  timeLeft <= 5 ? "text-red-400" : "text-amber-400"
+                  "inline-flex items-center gap-2 px-5 py-3 rounded-2xl border-2",
+                  timeLeft <= 5
+                    ? "bg-red-950/60 border-red-500/60 shadow-lg shadow-red-500/30"
+                    : "bg-amber-950/40 border-amber-500/40 shadow-lg shadow-amber-500/20"
                 )}
-                style={{ filter: timeLeft <= 5 ? "drop-shadow(0 0 10px rgba(239,68,68,0.4))" : "drop-shadow(0 0 10px rgba(251,191,36,0.3))" }}
               >
-              {timeLeft}
-            </motion.div>
+                <motion.span
+                  animate={{ rotate: timeLeft <= 5 ? [0, 15, -15, 0] : 0 }}
+                  transition={{ repeat: timeLeft <= 5 ? Infinity : 0, duration: 0.8 }}
+                  className="text-lg"
+                >
+                  ⏱️
+                </motion.span>
+                <span
+                  className={cn(
+                    "text-3xl font-black tabular-nums",
+                    timeLeft <= 5 ? "text-red-400" : "text-amber-400"
+                  )}
+                  style={{
+                    filter: timeLeft <= 5
+                      ? "drop-shadow(0 0 12px rgba(239,68,68,0.5))"
+                      : "drop-shadow(0 0 8px rgba(251,191,36,0.3))"
+                  }}
+                >
+                  {timeLeft}
+                </span>
+                <span className={cn(
+                  "text-sm font-bold",
+                  timeLeft <= 5 ? "text-red-300/70" : "text-amber-300/70"
+                )}>
+                  ثانية
+                </span>
+              </motion.div>
+              <TimerBar timeLeft={timeLeft} maxTime={20} />
             </div>
           )}
         </div>
@@ -4597,7 +4956,7 @@ function FastMoneyScreen({
         </div>
 
         {/* Timer */}
-        <div className="text-center">
+        <div className="text-center space-y-2">
           {!timerRunning ? (
             <Button
               onClick={onStartTimer}
@@ -4607,16 +4966,47 @@ function FastMoneyScreen({
               ابدأ المؤقت (20 ثانية)
             </Button>
           ) : (
-            <motion.div
-              animate={{ scale: timeLeft <= 5 ? [1, 1.1, 1] : 1 }}
-              transition={{ repeat: timeLeft <= 5 ? Infinity : 0, duration: 0.5 }}
-              className={cn(
-                "text-5xl font-black tabular-nums",
-                timeLeft <= 5 ? "text-red-400" : "text-rose-400"
-              )}
-            >
-              {timeLeft}
-            </motion.div>
+            <div className="space-y-2">
+              {/* Prominent Timer Display */}
+              <motion.div
+                animate={{ scale: timeLeft <= 5 ? [1, 1.15, 1] : 1 }}
+                transition={{ repeat: timeLeft <= 5 ? Infinity : 0, duration: 0.5 }}
+                className={cn(
+                  "inline-flex items-center gap-2 px-5 py-3 rounded-2xl border-2",
+                  timeLeft <= 5
+                    ? "bg-red-950/60 border-red-500/60 shadow-lg shadow-red-500/30"
+                    : "bg-rose-950/40 border-rose-500/40 shadow-lg shadow-rose-500/20"
+                )}
+              >
+                <motion.span
+                  animate={{ rotate: timeLeft <= 5 ? [0, 15, -15, 0] : 0 }}
+                  transition={{ repeat: timeLeft <= 5 ? Infinity : 0, duration: 0.8 }}
+                  className="text-lg"
+                >
+                  ⏱️
+                </motion.span>
+                <span
+                  className={cn(
+                    "text-3xl font-black tabular-nums",
+                    timeLeft <= 5 ? "text-red-400" : "text-rose-400"
+                  )}
+                  style={{
+                    filter: timeLeft <= 5
+                      ? "drop-shadow(0 0 12px rgba(239,68,68,0.5))"
+                      : "drop-shadow(0 0 8px rgba(244,63,94,0.3))"
+                  }}
+                >
+                  {timeLeft}
+                </span>
+                <span className={cn(
+                  "text-sm font-bold",
+                  timeLeft <= 5 ? "text-red-300/70" : "text-rose-300/70"
+                )}>
+                  ثانية
+                </span>
+              </motion.div>
+              <TimerBar timeLeft={timeLeft} maxTime={20} />
+            </div>
           )}
         </div>
 
@@ -5028,7 +5418,7 @@ function GameOverScreen({
 export default function FamilyFeudPage() {
   const mounted = useHydrated();
   const [soundEnabled, setSoundEnabled] = useState(true);
-  const { playCorrect, playBuzz, playStrike, playReveal, playSteal, playWin, playCountdown } = useSoundEffects(soundEnabled);
+  const { playCorrect, playBuzz, playStrike, playReveal, playSteal, playWin, playCountdown, playTopAnswer } = useSoundEffects(soundEnabled);
 
   // Navigation state
   const [uiPhase, setUiPhase] = useState<
@@ -5116,6 +5506,9 @@ export default function FamilyFeudPage() {
 
   // Exit confirmation dialog
   const [showExitDialog, setShowExitDialog] = useState(false);
+
+  // Skip question confirmation
+  const skipConfirmRef = useRef(false);
 
   // Ref for internal strike to avoid ordering issues
   const handleAddStrikeInternalRef = useRef<() => void>(() => {});
@@ -5349,6 +5742,11 @@ export default function FamilyFeudPage() {
           playReveal();
           setTimeout(() => playCorrect(), 200);
 
+          // Top answer celebration sound (30+ points = #1 answer)
+          if (updated[index].points >= 30) {
+            setTimeout(() => playTopAnswer(), 350);
+          }
+
           // Streak tracking
           revealStreakRef.current += 1;
           setRevealStreak(revealStreakRef.current);
@@ -5367,7 +5765,7 @@ export default function FamilyFeudPage() {
         return updated;
       });
     },
-    [playReveal, playCorrect, currentTeam]
+    [playReveal, playCorrect, playTopAnswer, currentTeam]
   );
 
   // Add strike
@@ -5546,6 +5944,44 @@ export default function FamilyFeudPage() {
     setShowRoundResult(true);
     setTimeout(() => setShowRoundResult(false), 2500);
   }, [currentAnswers, currentTeam, roundScore, round, team1Name, team2Name]);
+
+  // Skip question (reveal all, 0 points, next round)
+  const handleSkipQuestion = useCallback(() => {
+    if (!skipConfirmRef.current) {
+      skipConfirmRef.current = true;
+      setTimeout(() => { skipConfirmRef.current = false; }, 3000);
+      return;
+    }
+    skipConfirmRef.current = false;
+    // Reveal all answers without awarding points
+    setCurrentAnswers((prev) => prev.map((a) => ({ ...a, revealed: true })));
+    roundPointsAwardedRef.current = true;
+    setRoundScore(0);
+    setRoundTimerRunning(false);
+    // Record in round history with 0 points
+    setRoundHistory((prev) => [...prev, { round, team: currentTeam, points: 0, type: "تخطي" }]);
+    // Move to next round after a brief delay
+    setTimeout(() => {
+      if (round >= totalRounds) {
+        setGamePhase("fast_money");
+        setFmPhase("intro");
+        setFmAnswers1(Array(5).fill(""));
+        setFmAnswers2(Array(5).fill(""));
+        setFmRevealed1(Array(5).fill(false));
+        setFmRevealed2(Array(5).fill(false));
+        setFmScore1(0);
+        setFmScore2(0);
+        setFmSelected1([]);
+        setFmSelected2([]);
+        setTimerRunning(false);
+        setTimeLeft(20);
+      } else {
+        setRound((prev) => prev + 1);
+        setStrikes(0);
+        setGamePhase("faceoff");
+      }
+    }, 1500);
+  }, [round, totalRounds, currentTeam]);
 
   // Timer for Fast Money
   useEffect(() => {
@@ -5891,6 +6327,8 @@ export default function FamilyFeudPage() {
             team2Score={team2Score}
             team1Emoji={team1Emoji}
             team2Emoji={team2Emoji}
+            questionNumber={round}
+            totalQuestions={totalRounds}
           />
 
           <GameBoardView
@@ -5910,6 +6348,7 @@ export default function FamilyFeudPage() {
             onSteal={handleSteal}
             onNoSteal={handleNoSteal}
             onRevealAll={handleRevealAll}
+            onSkipQuestion={handleSkipQuestion}
             phase="playing"
             round={round}
             totalRounds={totalRounds}
@@ -5980,6 +6419,8 @@ export default function FamilyFeudPage() {
               team2Score={team2Score}
               team1Name={team1Name}
               team2Name={team2Name}
+              team1Emoji={team1Emoji}
+              team2Emoji={team2Emoji}
               strikes={strikes}
               onRevealAnswer={handleRevealAnswer}
               onAddStrike={handleAddStrike}
@@ -5987,6 +6428,7 @@ export default function FamilyFeudPage() {
               onSteal={handleSteal}
               onNoSteal={handleNoSteal}
               onRevealAll={handleRevealAll}
+              onSkipQuestion={handleSkipQuestion}
               phase="steal"
               round={round}
               totalRounds={totalRounds}
