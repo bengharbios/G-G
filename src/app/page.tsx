@@ -149,6 +149,24 @@ const games: GameData[] = [
     category: 'مجازفة',
   },
   {
+    id: 'familyfeud',
+    title: 'فاميلي فيود',
+    titleEn: 'Family Feud',
+    emoji: '🏆',
+    description:
+      'فريقين يتنافسون لتخمين أكثر الإجابات شعبية على أسئلة استطلاعية مع جائزة مالية مضاعفة!',
+    href: '/familyfeud',
+    bgImage: null,
+    themeColor: 'text-rose-400',
+    themeBorder: 'border-rose-500/30 hover:border-rose-500/60',
+    themeBg: 'from-rose-950/80 to-amber-900/40',
+    themeBadge: 'bg-rose-500/20 border-rose-500/40 text-rose-300',
+    features: ['العراب', 'الديوانية', 'مواجهة مباشرة', 'جائزة مالية'],
+    status: 'available',
+    players: '2-10 لاعب',
+    category: 'اجتماعية',
+  },
+  {
     id: 'words',
     title: 'لعبة الكلمات',
     titleEn: 'Word Game',
@@ -427,7 +445,7 @@ function Header() {
 
 function HeroSection() {
   const heroStats = [
-    { icon: <Gamepad2 className="w-5 h-5" />, value: '5+', label: 'ألعاب' },
+    { icon: <Gamepad2 className="w-5 h-5" />, value: '6+', label: 'ألعاب' },
     { icon: <Users className="w-5 h-5" />, value: 'حتى 20', label: 'لاعب' },
     { icon: <Star className="w-5 h-5" />, value: '∞', label: 'متعة' },
   ];
