@@ -41,6 +41,161 @@ function useHydrated() {
 }
 
 // ============================================================
+// Sound Effects Hook (Web Audio API)
+// ============================================================
+function useSoundEffects() {
+  const audioCtxRef = useRef<AudioContext | null>(null);
+
+  const getCtx = useCallback(() => {
+    if (!audioCtxRef.current) {
+      audioCtxRef.current = new AudioContext();
+    }
+    if (audioCtxRef.current.state === 'suspended') {
+      audioCtxRef.current.resume();
+    }
+    return audioCtxRef.current;
+  }, []);
+
+  const playCorrect = useCallback(() => {
+    try {
+      const ctx = getCtx();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(880, ctx.currentTime);
+      osc.frequency.setValueAtTime(1100, ctx.currentTime + 0.1);
+      osc.frequency.setValueAtTime(1320, ctx.currentTime + 0.2);
+      gain.gain.setValueAtTime(0.25, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.5);
+      osc.start(ctx.currentTime);
+      osc.stop(ctx.currentTime + 0.5);
+    } catch {}
+  }, [getCtx]);
+
+  const playBuzz = useCallback(() => {
+    try {
+      const ctx = getCtx();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.type = 'sawtooth';
+      osc.frequency.setValueAtTime(90, ctx.currentTime);
+      osc.frequency.setValueAtTime(70, ctx.currentTime + 0.15);
+      gain.gain.setValueAtTime(0.3, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.4);
+      osc.start(ctx.currentTime);
+      osc.stop(ctx.currentTime + 0.4);
+    } catch {}
+  }, [getCtx]);
+
+  const playStrike = useCallback(() => {
+    try {
+      const ctx = getCtx();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.type = 'square';
+      osc.frequency.setValueAtTime(200, ctx.currentTime);
+      osc.frequency.linearRampToValueAtTime(50, ctx.currentTime + 0.3);
+      gain.gain.setValueAtTime(0.25, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.4);
+      osc.start(ctx.currentTime);
+      osc.stop(ctx.currentTime + 0.4);
+      // Second layer
+      const osc2 = ctx.createOscillator();
+      const gain2 = ctx.createGain();
+      osc2.connect(gain2);
+      gain2.connect(ctx.destination);
+      osc2.type = 'triangle';
+      osc2.frequency.setValueAtTime(150, ctx.currentTime + 0.05);
+      osc2.frequency.linearRampToValueAtTime(40, ctx.currentTime + 0.35);
+      gain2.gain.setValueAtTime(0.2, ctx.currentTime + 0.05);
+      gain2.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.45);
+      osc2.start(ctx.currentTime + 0.05);
+      osc2.stop(ctx.currentTime + 0.45);
+    } catch {}
+  }, [getCtx]);
+
+  const playReveal = useCallback(() => {
+    try {
+      const ctx = getCtx();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(600, ctx.currentTime);
+      osc.frequency.exponentialRampToValueAtTime(1200, ctx.currentTime + 0.08);
+      osc.frequency.exponentialRampToValueAtTime(800, ctx.currentTime + 0.15);
+      gain.gain.setValueAtTime(0.2, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.25);
+      osc.start(ctx.currentTime);
+      osc.stop(ctx.currentTime + 0.25);
+    } catch {}
+  }, [getCtx]);
+
+  const playSteal = useCallback(() => {
+    try {
+      const ctx = getCtx();
+      // Tension rising
+      for (let i = 0; i < 4; i++) {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(300 + i * 100, ctx.currentTime + i * 0.15);
+        gain.gain.setValueAtTime(0.15, ctx.currentTime + i * 0.15);
+        gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + i * 0.15 + 0.2);
+        osc.start(ctx.currentTime + i * 0.15);
+        osc.stop(ctx.currentTime + i * 0.15 + 0.2);
+      }
+    } catch {}
+  }, [getCtx]);
+
+  const playWin = useCallback(() => {
+    try {
+      const ctx = getCtx();
+      const notes = [523, 659, 784, 1047, 784, 1047];
+      notes.forEach((freq, i) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(freq, ctx.currentTime + i * 0.15);
+        gain.gain.setValueAtTime(0.2, ctx.currentTime + i * 0.15);
+        gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + i * 0.15 + 0.3);
+        osc.start(ctx.currentTime + i * 0.15);
+        osc.stop(ctx.currentTime + i * 0.15 + 0.3);
+      });
+    } catch {}
+  }, [getCtx]);
+
+  const playCountdown = useCallback(() => {
+    try {
+      const ctx = getCtx();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(1000, ctx.currentTime);
+      gain.gain.setValueAtTime(0.15, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.1);
+      osc.start(ctx.currentTime);
+      osc.stop(ctx.currentTime + 0.1);
+    } catch {}
+  }, [getCtx]);
+
+  return { playCorrect, playBuzz, playStrike, playReveal, playSteal, playWin, playCountdown };
+}
+
+// ============================================================
 // Types
 // ============================================================
 type GamePhase =
@@ -562,7 +717,7 @@ const ALL_QUESTIONS: Question[] = [
     answers: [
       { text: "سريع", points: 45, revealed: false },
       { text: "عاجل", points: 20, revealed: false },
-      { text: "م闪", points: 15, revealed: false },
+      { text: "مجنون", points: 15, revealed: false },
       { text: "فوري", points: 12, revealed: false },
       { text: "خاطف", points: 8, revealed: false },
     ],
@@ -1130,63 +1285,99 @@ function HostAnswerSlot({
   revealed: boolean;
 }) {
   return (
-    <motion.button
-      whileTap={{ scale: 0.97 }}
-      onClick={onReveal}
-      disabled={revealed}
-      className={cn(
-        "relative flex items-center gap-3 rounded-xl px-4 py-3 border overflow-hidden transition-all duration-300 w-full text-right",
-        revealed
-          ? "bg-gradient-to-l from-emerald-900/60 to-emerald-950/40 border-emerald-500/50"
-          : "bg-slate-800/60 border-slate-700/40 hover:border-amber-500/50 cursor-pointer"
-      )}
+    <motion.div
+      initial={false}
+      animate={revealed ? { scale: [0.95, 1.05, 1] } : {}}
+      transition={{ duration: 0.4, ease: "easeOut" }}
+      className="w-full"
     >
-      {/* Rank */}
-      <div
+      <motion.button
+        whileTap={!revealed ? { scale: 0.97 } : {}}
+        onClick={onReveal}
+        disabled={revealed}
         className={cn(
-          "w-8 h-8 rounded-full flex items-center justify-center text-sm font-black shrink-0",
+          "relative flex items-center gap-3 rounded-2xl px-4 py-3.5 border-2 overflow-hidden transition-all duration-300 w-full text-right group",
           revealed
-            ? "bg-emerald-900/80 text-emerald-300"
-            : "bg-amber-900/50 text-amber-400 border border-amber-500/30"
+            ? "bg-gradient-to-l from-emerald-800/70 via-emerald-900/50 to-emerald-950/40 border-emerald-400/60 shadow-lg shadow-emerald-500/20"
+            : "bg-slate-800/70 border-slate-700/50 hover:border-amber-500/60 hover:bg-slate-800/90 cursor-pointer"
         )}
       >
-        {index + 1}
-      </div>
-
-      {/* Answer Text */}
-      <div className="flex-1 min-w-0">
-        {revealed ? (
-          <motion.span
-            initial={{ opacity: 0, x: -10 }}
-            animate={{ opacity: 1, x: 0 }}
-            className="font-bold text-sm text-emerald-200 block truncate"
-          >
-            {answer.text}
-          </motion.span>
-        ) : (
-          <span className="text-sm text-slate-500 block truncate">
-            {answer.text}
-          </span>
+        {/* Glow effect when revealed */}
+        {revealed && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            className="absolute inset-0 bg-gradient-to-l from-emerald-500/10 to-transparent pointer-events-none"
+          />
         )}
-      </div>
 
-      {/* Points */}
-      <div
-        className={cn(
-          "text-lg font-black tabular-nums shrink-0 min-w-[40px] text-left",
-          revealed ? "text-emerald-300" : "text-amber-400/80"
-        )}
-      >
-        {answer.points}
-      </div>
+        {/* Rank circle - larger and more prominent */}
+        <motion.div
+          animate={revealed ? { scale: [0.5, 1.2, 1], rotate: [0, 10, -5, 0] } : {}}
+          transition={{ duration: 0.5, type: "spring", stiffness: 300 }}
+          className={cn(
+            "w-10 h-10 rounded-full flex items-center justify-center text-base font-black shrink-0 relative z-10 border-2",
+            revealed
+              ? "bg-gradient-to-br from-emerald-500 to-emerald-700 text-white border-emerald-400 shadow-md shadow-emerald-500/30"
+              : "bg-slate-700/80 text-slate-400 border-slate-600/50 group-hover:border-amber-500/40 group-hover:text-amber-400"
+          )}
+        >
+          {index + 1}
+        </motion.div>
 
-      {/* Reveal indicator for host */}
-      {!revealed && (
-        <div className="absolute inset-0 flex items-center justify-center">
-          <Eye className="w-5 h-5 text-amber-500/30" />
+        {/* Answer Text */}
+        <div className="flex-1 min-w-0 relative z-10">
+          {revealed ? (
+            <motion.span
+              initial={{ opacity: 0, x: -20, filter: "blur(4px)" }}
+              animate={{ opacity: 1, x: 0, filter: "blur(0px)" }}
+              transition={{ duration: 0.3, delay: 0.05 }}
+              className="font-extrabold text-sm sm:text-base text-emerald-100 block truncate drop-shadow-sm"
+            >
+              {answer.text}
+            </motion.span>
+          ) : (
+            <span className="text-sm text-slate-400 block truncate">
+              {answer.text}
+            </span>
+          )}
         </div>
-      )}
-    </motion.button>
+
+        {/* Points - more prominent */}
+        <motion.div
+          animate={revealed ? { scale: [0.5, 1.3, 1] } : {}}
+          transition={{ duration: 0.4, delay: 0.1, type: "spring", stiffness: 400 }}
+          className={cn(
+            "text-xl sm:text-2xl font-black tabular-nums shrink-0 min-w-[48px] text-left relative z-10",
+            revealed ? "text-yellow-300 drop-shadow-[0_0_8px_rgba(253,224,71,0.5)]" : "text-amber-400/70"
+          )}
+        >
+          {answer.points}
+        </motion.div>
+
+        {/* Reveal indicator for host */}
+        {!revealed && (
+          <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none">
+            <div className="bg-amber-500/20 rounded-full p-2">
+              <Eye className="w-6 h-6 text-amber-400/60" />
+            </div>
+          </div>
+        )}
+
+        {/* Reveal flash effect */}
+        <AnimatePresence>
+          {revealed && (
+            <motion.div
+              initial={{ opacity: 0.8, scale: 1 }}
+              animate={{ opacity: 0, scale: 1.5 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.6 }}
+              className="absolute inset-0 bg-emerald-400/20 pointer-events-none z-0"
+            />
+          )}
+        </AnimatePresence>
+      </motion.button>
+    </motion.div>
   );
 }
 
@@ -1651,15 +1842,65 @@ function FaceOffScreen({
   onTeam1Start: () => void;
   onTeam2Start: () => void;
 }) {
+  const [countdown, setCountdown] = useState<number | null>(3);
+  const [buzzerActive, setBuzzerActive] = useState(false);
+  const [selectedTeam, setSelectedTeam] = useState<1 | 2 | null>(null);
+
+  useEffect(() => {
+    if (countdown === null) return;
+    if (countdown > 0) {
+      const timer = setTimeout(() => setCountdown(countdown - 1), 800);
+      return () => clearTimeout(timer);
+    } else {
+      const t = setTimeout(() => setBuzzerActive(true), 0);
+      return () => clearTimeout(t);
+    }
+  }, [countdown]);
+
+  const handleTeamSelect = (team: 1 | 2) => {
+    setSelectedTeam(team);
+    setTimeout(() => {
+      if (team === 1) onTeam1Start();
+      else onTeam2Start();
+    }, 600);
+  };
+
   return (
-    <div className="flex-1 flex flex-col items-center justify-center p-4 gap-6" dir="rtl">
+    <div className="flex-1 flex flex-col items-center justify-center p-4 gap-6 relative overflow-hidden" dir="rtl">
+      {/* Animated background glows */}
+      <div className="absolute inset-0 pointer-events-none overflow-hidden">
+        <motion.div
+          animate={{
+            scale: [1, 1.3, 1],
+            opacity: [0.15, 0.25, 0.15],
+          }}
+          transition={{ duration: 4, repeat: Infinity }}
+          className="absolute -top-20 -right-20 w-64 h-64 bg-amber-500/20 rounded-full blur-[80px]"
+        />
+        <motion.div
+          animate={{
+            scale: [1, 1.3, 1],
+            opacity: [0.15, 0.25, 0.15],
+          }}
+          transition={{ duration: 4, repeat: Infinity, delay: 2 }}
+          className="absolute -bottom-20 -left-20 w-64 h-64 bg-rose-500/20 rounded-full blur-[80px]"
+        />
+      </div>
+
       {/* Question */}
       <motion.div
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
-        className="text-center"
+        className="text-center relative z-10"
       >
-        <p className="text-xs text-slate-500 mb-2">⚔️ المواجهة</p>
+        <motion.p
+          initial={{ opacity: 0, scale: 0.8 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ delay: 0.2 }}
+          className="text-xs font-bold text-amber-400/80 mb-2 tracking-wider"
+        >
+          ⚔️ المواجهة
+        </motion.p>
         <h2 className="text-xl sm:text-2xl font-black text-white max-w-md leading-relaxed">
           &quot;{question}&quot;
         </h2>
@@ -1668,42 +1909,186 @@ function FaceOffScreen({
         </p>
       </motion.div>
 
-      {/* Teams */}
-      <div className="flex items-center gap-3 sm:gap-6 w-full max-w-md">
-        <motion.button
-          whileTap={{ scale: 0.95 }}
-          whileHover={{ scale: 1.02 }}
-          onClick={onTeam1Start}
-          className="flex-1 bg-gradient-to-b from-amber-800/60 to-amber-900/40 border-2 border-amber-500/40 hover:border-amber-400/70 rounded-2xl p-4 sm:p-6 text-center transition-all cursor-pointer"
-        >
-          <div className="text-3xl sm:text-4xl mb-2">👑</div>
-          <p className="text-sm font-bold text-amber-300">{team1Name}</p>
+      {/* Countdown overlay */}
+      <AnimatePresence>
+        {countdown !== null && countdown > 0 && (
           <motion.div
-            animate={{ scale: [1, 1.05, 1] }}
-            transition={{ repeat: Infinity, duration: 1.5 }}
-            className="mt-3 bg-amber-700/50 rounded-lg py-2 px-4"
+            key={countdown}
+            initial={{ scale: 3, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            exit={{ scale: 0.5, opacity: 0 }}
+            transition={{ duration: 0.6, type: "spring", stiffness: 200 }}
+            className="absolute inset-0 flex items-center justify-center z-30"
           >
-            <p className="text-xs font-bold text-amber-200">🟡 ابدأ بهذا الفريق</p>
+            <div className="text-8xl sm:text-9xl font-black text-transparent bg-clip-text bg-gradient-to-b from-amber-300 to-rose-400 drop-shadow-2xl">
+              {countdown}
+            </div>
           </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Go! text */}
+      <AnimatePresence>
+        {countdown === 0 && (
+          <motion.div
+            initial={{ scale: 3, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            exit={{ scale: 0.5, opacity: 0, y: -50 }}
+            transition={{ duration: 0.5 }}
+            className="absolute inset-0 flex items-center justify-center z-30"
+          >
+            <div className="text-6xl sm:text-7xl font-black text-emerald-400 drop-shadow-[0_0_30px_rgba(52,211,153,0.5)]">
+              بَزّ!
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Buzz in text */}
+      <AnimatePresence>
+        {buzzerActive && countdown === 0 && !selectedTeam && (
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0 }}
+            className="relative z-10"
+          >
+            <motion.div
+              animate={{ scale: [1, 1.1, 1], opacity: [0.7, 1, 0.7] }}
+              transition={{ duration: 1.2, repeat: Infinity }}
+              className="text-sm font-bold text-amber-300 bg-amber-500/10 border border-amber-500/30 rounded-full px-4 py-1"
+            >
+              🔔 بَزّ الآن!
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Team selected indicator */}
+      <AnimatePresence>
+        {selectedTeam && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.5 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0 }}
+            className={cn(
+              "absolute top-1/3 z-30 text-2xl font-black px-6 py-3 rounded-2xl border-2",
+              selectedTeam === 1
+                ? "text-amber-200 bg-amber-950/90 border-amber-400/50 shadow-lg shadow-amber-500/30"
+                : "text-rose-200 bg-rose-950/90 border-rose-400/50 shadow-lg shadow-rose-500/30"
+            )}
+          >
+            {selectedTeam === 1 ? "👑" : "🏛️"} {selectedTeam === 1 ? team1Name : team2Name}!
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Teams */}
+      <div className="flex items-center gap-3 sm:gap-6 w-full max-w-md relative z-10">
+        {/* Team 1 Button */}
+        <motion.button
+          whileTap={{ scale: 0.93 }}
+          whileHover={{ scale: 1.03 }}
+          onClick={() => handleTeamSelect(1)}
+          disabled={!buzzerActive || countdown !== 0}
+          className={cn(
+            "flex-1 relative rounded-3xl p-5 sm:p-8 text-center transition-all cursor-pointer overflow-hidden",
+            buzzerActive && countdown === 0
+              ? "border-2 border-amber-400/70 bg-gradient-to-b from-amber-800/60 to-amber-900/40"
+              : "border-2 border-amber-500/20 bg-gradient-to-b from-amber-900/30 to-amber-950/20 opacity-50"
+          )}
+        >
+          {/* Pulsing glow for active state */}
+          {buzzerActive && countdown === 0 && (
+            <motion.div
+              animate={{ opacity: [0.3, 0.6, 0.3] }}
+              transition={{ duration: 1.5, repeat: Infinity }}
+              className="absolute inset-0 bg-gradient-to-b from-amber-500/20 to-transparent rounded-3xl pointer-events-none"
+            />
+          )}
+          <motion.div
+            animate={buzzerActive && countdown === 0 ? { scale: [1, 1.1, 1] } : {}}
+            transition={{ repeat: Infinity, duration: 1.2 }}
+            className="text-4xl sm:text-5xl mb-3"
+          >
+            👑
+          </motion.div>
+          <p className="text-base sm:text-lg font-bold text-amber-200">{team1Name}</p>
+          {buzzerActive && countdown === 0 && (
+            <motion.div
+              initial={{ opacity: 0, y: 5 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="mt-3"
+            >
+              <span className="text-xs font-bold text-amber-300 bg-amber-700/40 rounded-full py-1.5 px-4 inline-block">
+                🟡 ابدأ!
+              </span>
+            </motion.div>
+          )}
         </motion.button>
 
-        <div className="text-xl sm:text-2xl font-black text-slate-600">VS</div>
-
-        <motion.button
-          whileTap={{ scale: 0.95 }}
-          whileHover={{ scale: 1.02 }}
-          onClick={onTeam2Start}
-          className="flex-1 bg-gradient-to-b from-rose-800/60 to-rose-900/40 border-2 border-rose-500/40 hover:border-rose-400/70 rounded-2xl p-4 sm:p-6 text-center transition-all cursor-pointer"
+        {/* VS Badge */}
+        <motion.div
+          initial={{ scale: 0, rotate: -180 }}
+          animate={{ scale: 1, rotate: 0 }}
+          transition={{ delay: 0.5, type: "spring", stiffness: 200 }}
+          className="relative shrink-0"
         >
-          <div className="text-3xl sm:text-4xl mb-2">🏛️</div>
-          <p className="text-sm font-bold text-rose-300">{team2Name}</p>
           <motion.div
-            animate={{ scale: [1, 1.05, 1] }}
-            transition={{ repeat: Infinity, duration: 1.5, delay: 0.75 }}
-            className="mt-3 bg-rose-700/50 rounded-lg py-2 px-4"
+            animate={{ scale: [1, 1.15, 1], rotate: [0, 5, -5, 0] }}
+            transition={{ duration: 3, repeat: Infinity }}
+            className="w-14 h-14 sm:w-16 sm:h-16 rounded-full bg-gradient-to-br from-amber-500 via-rose-500 to-amber-600 flex items-center justify-center shadow-lg shadow-rose-500/30 border-2 border-white/20"
           >
-            <p className="text-xs font-bold text-rose-200">🔴 ابدأ بهذا الفريق</p>
+            <span className="text-xl sm:text-2xl font-black text-white drop-shadow-lg">VS</span>
           </motion.div>
+          {/* Glow ring */}
+          <motion.div
+            animate={{ scale: [1, 1.4, 1], opacity: [0.4, 0.1, 0.4] }}
+            transition={{ duration: 2, repeat: Infinity }}
+            className="absolute inset-0 rounded-full bg-gradient-to-br from-amber-400/30 to-rose-400/30 blur-sm"
+          />
+        </motion.div>
+
+        {/* Team 2 Button */}
+        <motion.button
+          whileTap={{ scale: 0.93 }}
+          whileHover={{ scale: 1.03 }}
+          onClick={() => handleTeamSelect(2)}
+          disabled={!buzzerActive || countdown !== 0}
+          className={cn(
+            "flex-1 relative rounded-3xl p-5 sm:p-8 text-center transition-all cursor-pointer overflow-hidden",
+            buzzerActive && countdown === 0
+              ? "border-2 border-rose-400/70 bg-gradient-to-b from-rose-800/60 to-rose-900/40"
+              : "border-2 border-rose-500/20 bg-gradient-to-b from-rose-900/30 to-rose-950/20 opacity-50"
+          )}
+        >
+          {/* Pulsing glow for active state */}
+          {buzzerActive && countdown === 0 && (
+            <motion.div
+              animate={{ opacity: [0.3, 0.6, 0.3] }}
+              transition={{ duration: 1.5, repeat: Infinity, delay: 0.75 }}
+              className="absolute inset-0 bg-gradient-to-b from-rose-500/20 to-transparent rounded-3xl pointer-events-none"
+            />
+          )}
+          <motion.div
+            animate={buzzerActive && countdown === 0 ? { scale: [1, 1.1, 1] } : {}}
+            transition={{ repeat: Infinity, duration: 1.2, delay: 0.6 }}
+            className="text-4xl sm:text-5xl mb-3"
+          >
+            🏛️
+          </motion.div>
+          <p className="text-base sm:text-lg font-bold text-rose-200">{team2Name}</p>
+          {buzzerActive && countdown === 0 && (
+            <motion.div
+              initial={{ opacity: 0, y: 5 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="mt-3"
+            >
+              <span className="text-xs font-bold text-rose-300 bg-rose-700/40 rounded-full py-1.5 px-4 inline-block">
+                🔴 ابدأ!
+              </span>
+            </motion.div>
+          )}
         </motion.button>
       </div>
     </div>
@@ -1752,62 +2137,139 @@ function GameBoardView({
   totalRounds: number;
   roundScore: number;
 }) {
+  // Calculate points remaining (unrevealed)
+  const totalPoints = answers.reduce((sum, a) => sum + a.points, 0);
+  const revealedPoints = answers.filter(a => a.revealed).reduce((sum, a) => sum + a.points, 0);
+  const pointsRemaining = totalPoints - revealedPoints;
+  const maxScore = Math.max(team1Score, team2Score, 1);
+
   return (
     <div className="flex-1 flex flex-col p-3 sm:p-4 gap-3" dir="rtl">
-      {/* Top Bar: Scores + Round */}
-      <div className="flex items-center justify-between gap-2">
-        <div
+      {/* Team Score Panels with VS Badge */}
+      <div className="flex items-stretch gap-2 sm:gap-3">
+        {/* Team 1 Score Panel */}
+        <motion.div
+          animate={currentTeam === 1 && phase === "playing" ? { scale: [1, 1.02, 1] } : {}}
+          transition={{ duration: 2, repeat: Infinity }}
           className={cn(
-            "flex items-center gap-2 rounded-xl px-3 py-2 border",
-            currentTeam === 1
-              ? "bg-amber-950/50 border-amber-500/40"
-              : "bg-slate-900/40 border-slate-800/30"
+            "flex-1 rounded-2xl border-2 p-3 sm:p-4 relative overflow-hidden transition-all",
+            currentTeam === 1 && phase === "playing"
+              ? "bg-gradient-to-br from-amber-950/80 to-amber-900/40 border-amber-500/60 shadow-lg shadow-amber-500/20"
+              : "bg-slate-900/60 border-slate-700/40"
           )}
         >
-          <span className="text-lg">👑</span>
-          <div>
-            <p className="text-[10px] text-amber-400/60">{team1Name}</p>
-            <p className="text-lg font-black text-amber-300 tabular-nums">
-              {team1Score}
-            </p>
+          {/* Progress bar background */}
+          <div className="absolute bottom-0 left-0 right-0 h-1.5 bg-slate-800/60">
+            <motion.div
+              animate={{ width: `${(team1Score / maxScore) * 100}%` }}
+              transition={{ duration: 0.8, ease: "easeOut" }}
+              className="h-full bg-gradient-to-l from-amber-400 to-amber-600 rounded-r-full"
+            />
           </div>
-        </div>
-
-        <div className="text-center">
-          <Badge
-            variant="outline"
-            className="border-slate-700 text-slate-400 text-[10px] px-2"
+          {/* Active indicator pulse */}
+          {currentTeam === 1 && phase === "playing" && (
+            <motion.div
+              animate={{ opacity: [0.3, 0.7, 0.3] }}
+              transition={{ duration: 1.5, repeat: Infinity }}
+              className="absolute top-2 left-2 w-2.5 h-2.5 rounded-full bg-amber-400 shadow-lg shadow-amber-400/50"
+            />
+          )}
+          <div className="flex items-center gap-2 mb-1">
+            <span className="text-xl sm:text-2xl">👑</span>
+            <p className="text-xs font-bold text-amber-400/70 truncate">{team1Name}</p>
+          </div>
+          <motion.p
+            key={team1Score}
+            initial={{ scale: 1.2 }}
+            animate={{ scale: 1 }}
+            className="text-2xl sm:text-3xl font-black text-amber-300 tabular-nums leading-none"
           >
-            الجولة {round}/{totalRounds}
-          </Badge>
-          <p className="text-[10px] text-emerald-400 mt-0.5">
-            +{roundScore} نقاط الجولة
-          </p>
+            {team1Score}
+          </motion.p>
+        </motion.div>
+
+        {/* VS Badge + Round */}
+        <div className="flex flex-col items-center justify-center gap-1.5 shrink-0 px-1">
+          <motion.div
+            animate={{ scale: [1, 1.1, 1], rotate: [0, 3, -3, 0] }}
+            transition={{ duration: 3, repeat: Infinity }}
+            className="w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-gradient-to-br from-amber-500 via-rose-500 to-amber-600 flex items-center justify-center shadow-lg shadow-rose-500/20 border border-white/10"
+          >
+            <span className="text-xs sm:text-sm font-black text-white">VS</span>
+          </motion.div>
+          <div className="text-center">
+            <span className="text-[10px] font-bold text-slate-500 block">الجولة</span>
+            <span className="text-sm font-black text-white">{round}<span className="text-slate-500">/{totalRounds}</span></span>
+          </div>
         </div>
 
-        <div
+        {/* Team 2 Score Panel */}
+        <motion.div
+          animate={currentTeam === 2 && phase === "playing" ? { scale: [1, 1.02, 1] } : {}}
+          transition={{ duration: 2, repeat: Infinity }}
           className={cn(
-            "flex items-center gap-2 rounded-xl px-3 py-2 border",
-            currentTeam === 2
-              ? "bg-rose-950/50 border-rose-500/40"
-              : "bg-slate-900/40 border-slate-800/30"
+            "flex-1 rounded-2xl border-2 p-3 sm:p-4 relative overflow-hidden transition-all",
+            currentTeam === 2 && phase === "playing"
+              ? "bg-gradient-to-br from-rose-950/80 to-rose-900/40 border-rose-500/60 shadow-lg shadow-rose-500/20"
+              : "bg-slate-900/60 border-slate-700/40"
           )}
         >
-          <div className="text-left">
-            <p className="text-[10px] text-rose-400/60">{team2Name}</p>
-            <p className="text-lg font-black text-rose-300 tabular-nums">
-              {team2Score}
-            </p>
+          {/* Progress bar background */}
+          <div className="absolute bottom-0 left-0 right-0 h-1.5 bg-slate-800/60">
+            <motion.div
+              animate={{ width: `${(team2Score / maxScore) * 100}%` }}
+              transition={{ duration: 0.8, ease: "easeOut" }}
+              className="h-full bg-gradient-to-l from-rose-400 to-rose-600 rounded-r-full"
+            />
           </div>
-          <span className="text-lg">🏛️</span>
-        </div>
+          {/* Active indicator pulse */}
+          {currentTeam === 2 && phase === "playing" && (
+            <motion.div
+              animate={{ opacity: [0.3, 0.7, 0.3] }}
+              transition={{ duration: 1.5, repeat: Infinity }}
+              className="absolute top-2 right-2 w-2.5 h-2.5 rounded-full bg-rose-400 shadow-lg shadow-rose-400/50"
+            />
+          )}
+          <div className="flex items-center gap-2 mb-1">
+            <span className="text-xl sm:text-2xl">🏛️</span>
+            <p className="text-xs font-bold text-rose-400/70 truncate">{team2Name}</p>
+          </div>
+          <motion.p
+            key={team2Score}
+            initial={{ scale: 1.2 }}
+            animate={{ scale: 1 }}
+            className="text-2xl sm:text-3xl font-black text-rose-300 tabular-nums leading-none"
+          >
+            {team2Score}
+          </motion.p>
+        </motion.div>
       </div>
 
-      {/* Question */}
+      {/* Question + Points Remaining */}
       <div className="text-center py-1">
         <h2 className="text-base sm:text-lg font-black text-white leading-relaxed">
           &quot;{question}&quot;
         </h2>
+        <motion.div
+          initial={{ opacity: 0, y: 5 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.1 }}
+          className="mt-1.5 inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-800/60 border border-slate-700/40"
+        >
+          <Zap className="w-3 h-3" />
+          <span
+            className={cn(
+              "text-xs font-bold tabular-nums",
+              pointsRemaining > totalPoints * 0.5
+                ? "text-amber-400"
+                : pointsRemaining > totalPoints * 0.2
+                  ? "text-yellow-400"
+                  : "text-red-400"
+            )}
+          >
+            النقاط المتبقية: {pointsRemaining}
+          </span>
+        </motion.div>
       </div>
 
       {/* Strike Marks */}
@@ -1833,10 +2295,15 @@ function GameBoardView({
             ? "⚡ فرصة السرقة!"
             : `دور ${currentTeam === 1 ? team1Name : team2Name}`}
         </Badge>
+        {phase === "playing" && (
+          <p className="text-[10px] text-emerald-400/60 mt-0.5">
+            +{roundScore} نقاط في هذه الجولة
+          </p>
+        )}
       </div>
 
       {/* Answer Board */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 flex-1 max-h-[45vh] overflow-y-auto">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 flex-1 max-h-[45vh] overflow-y-auto scrollbar-thin">
         {answers.map((answer, i) => (
           <HostAnswerSlot
             key={i}
@@ -2339,6 +2806,7 @@ function GameOverScreen({
 // ============================================================
 export default function FamilyFeudPage() {
   const mounted = useHydrated();
+  const { playCorrect, playBuzz, playStrike, playReveal, playSteal, playWin, playCountdown } = useSoundEffects();
 
   // Navigation state
   const [uiPhase, setUiPhase] = useState<
@@ -2425,8 +2893,11 @@ export default function FamilyFeudPage() {
     if (round <= totalRounds && selectedQuestions.length > 0) {
       const q = selectedQuestions[round - 1];
       if (q) {
-        setCurrentAnswers(q.answers.map((a) => ({ ...a, revealed: false })));
-        setRoundScore(0);
+        const t = setTimeout(() => {
+          setCurrentAnswers(q.answers.map((a) => ({ ...a, revealed: false })));
+          setRoundScore(0);
+        }, 0);
+        return () => clearTimeout(t);
       }
     }
   }, [round, selectedQuestions, totalRounds]);
@@ -2455,25 +2926,29 @@ export default function FamilyFeudPage() {
             answer: `${updated[index].text} - ${updated[index].points} نقاط`,
           });
           setTimeout(() => setFeedback({ show: false, correct: false }), 1500);
+          playReveal();
+          setTimeout(() => playCorrect(), 200);
         }
         return updated;
       });
     },
-    []
+    [playReveal, playCorrect]
   );
 
   // Add strike
   const handleAddStrike = useCallback(() => {
+    playStrike();
     setStrikes((prev) => {
       const newStrikes = prev + 1;
       if (newStrikes >= 3) {
+        playSteal();
         setGamePhase("steal");
       }
       return newStrikes;
     });
     setFeedback({ show: true, correct: false });
     setTimeout(() => setFeedback({ show: false, correct: false }), 1500);
-  }, []);
+  }, [playStrike, playSteal]);
 
   // Pass to other team
   const handlePassToOtherTeam = useCallback(() => {
@@ -2556,16 +3031,22 @@ export default function FamilyFeudPage() {
   // Timer for Fast Money
   useEffect(() => {
     if (timerRunning && timeLeft > 0) {
+      if (timeLeft <= 5) {
+        playCountdown();
+      }
       timerRef.current = setTimeout(() => {
         setTimeLeft((prev) => prev - 1);
       }, 1000);
-    } else if (timeLeft === 0) {
-      setTimerRunning(false);
+    } else if (timerRunning && timeLeft === 0) {
+      timerRef.current = setTimeout(() => {
+        setTimerRunning(false);
+        playBuzz();
+      }, 0);
     }
     return () => {
       if (timerRef.current) clearTimeout(timerRef.current);
     };
-  }, [timerRunning, timeLeft]);
+  }, [timerRunning, timeLeft, playCountdown, playBuzz]);
 
   const handleStartTimer = useCallback(() => {
     setTimeLeft(20);
@@ -2626,7 +3107,8 @@ export default function FamilyFeudPage() {
     setTeam2Score((prev) => prev + fmScore2);
     setShowGameOver(true);
     setGamePhase("game_over");
-  }, [fmScore1, fmScore2]);
+    playWin();
+  }, [fmScore1, fmScore2, playWin]);
 
   // Reset
   const handleReset = useCallback(() => {
@@ -2708,8 +3190,43 @@ export default function FamilyFeudPage() {
   const currentQuestion = selectedQuestions[round - 1];
 
   return (
-    <div className="min-h-screen flex flex-col bg-slate-950">
+    <div className="min-h-screen flex flex-col bg-slate-950 relative overflow-hidden">
+      {/* Animated gradient background during gameplay */}
+      {uiPhase === "game" && (
+        <div className="fixed inset-0 pointer-events-none z-0">
+          <motion.div
+            animate={{
+              background: [
+                "radial-gradient(ellipse at 20% 50%, rgba(120,53,15,0.12) 0%, transparent 60%)",
+                "radial-gradient(ellipse at 80% 30%, rgba(136,19,55,0.12) 0%, transparent 60%)",
+                "radial-gradient(ellipse at 50% 80%, rgba(120,53,15,0.10) 0%, transparent 60%)",
+                "radial-gradient(ellipse at 20% 50%, rgba(120,53,15,0.12) 0%, transparent 60%)",
+              ],
+            }}
+            transition={{ duration: 12, repeat: Infinity, ease: "linear" }}
+            className="absolute inset-0"
+          />
+          <motion.div
+            animate={{
+              opacity: [0.3, 0.6, 0.3],
+              scale: [1, 1.2, 1],
+            }}
+            transition={{ duration: 8, repeat: Infinity }}
+            className="absolute -top-40 -right-40 w-80 h-80 bg-amber-500/8 rounded-full blur-[100px]"
+          />
+          <motion.div
+            animate={{
+              opacity: [0.2, 0.5, 0.2],
+              scale: [1, 1.2, 1],
+            }}
+            transition={{ duration: 8, repeat: Infinity, delay: 4 }}
+            className="absolute -bottom-40 -left-40 w-80 h-80 bg-rose-500/8 rounded-full blur-[100px]"
+          />
+        </div>
+      )}
+
       {/* Feedback Overlay */}
+      <div className="relative z-10 flex flex-col min-h-screen">
       <FeedbackOverlay
         show={feedback.show}
         correct={feedback.correct}
@@ -2953,6 +3470,7 @@ export default function FamilyFeudPage() {
           )}
         </div>
       ) : null}
+      </div>
     </div>
   );
 }
