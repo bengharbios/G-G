@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { Home as HomeIcon, RotateCcw, Trophy, Timer, Zap, X, Plus, Minus, Users, ChevronLeft, Play, Volume2, VolumeX } from 'lucide-react';
+import { Home as HomeIcon, RotateCcw, Zap, Plus, Minus, ChevronLeft, Play, SkipForward, CheckCircle, XCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 // ============================================================
@@ -308,38 +308,42 @@ function BrandedFooter() {
 }
 
 // ============================================================
-// Confetti Effect
+// Confetti Effect (fixed - uses drop-shadow for glow)
 // ============================================================
-function ConfettiPiece({ delay, color, left, size }: { delay: number; color: string; left: string; size: number }) {
+const CONFETTI_EMOJIS = ['🎉', '🎊', '✨', '🌟', '💫', '🏆', '🥇', '🎆'];
+const CONFETTI_COLORS = ['#FFD700', '#FF6B6B', '#4ECDC4', '#45B7D1', '#FF69B4', '#98D8C8', '#F7DC6F', '#BB8FCE'];
+
+function ConfettiPiece({ delay, left }: { delay: number; left: string }) {
+  const emoji = CONFETTI_EMOJIS[Math.floor(Math.random() * CONFETTI_EMOJIS.length)];
+  const color = CONFETTI_COLORS[Math.floor(Math.random() * CONFETTI_COLORS.length)];
+  const size = 16 + Math.random() * 16;
   return (
     <motion.div
-      initial={{ top: '-20px', opacity: 1, rotate: 0 }}
+      initial={{ top: '-30px', opacity: 1, rotate: 0 }}
       animate={{
-        top: ['0vh', '100vh'],
-        opacity: [1, 1, 0.3],
-        rotate: [0, 360, 720],
-        x: [0, (Math.random() - 0.5) * 200],
+        top: ['0vh', '105vh'],
+        opacity: [1, 1, 1, 0.3],
+        rotate: [0, 360 * (Math.random() > 0.5 ? 1 : -1)],
+        x: [(Math.random() - 0.5) * 100, (Math.random() - 0.5) * 300],
       }}
-      transition={{ duration: 3 + Math.random() * 2, delay, repeat: Infinity, repeatDelay: Math.random() * 2 }}
+      transition={{ duration: 3 + Math.random() * 3, delay, repeat: Infinity, repeatDelay: 1 + Math.random() }}
       className="fixed z-[200] pointer-events-none"
-      style={{ left, color, fontSize: size }}
+      style={{ left, fontSize: size }}
     >
-      🎉
+      <span style={{ filter: `drop-shadow(0 0 8px ${color})` }}>{emoji}</span>
     </motion.div>
   );
 }
 
 function ConfettiOverlay() {
-  const pieces = Array.from({ length: 20 }, (_, i) => ({
-    delay: Math.random() * 2,
-    color: ['#FFD700', '#FF6B6B', '#4ECDC4', '#45B7D1', '#FF69B4', '#98D8C8', '#F7DC6F', '#BB8FCE'][i % 8],
+  const pieces = Array.from({ length: 25 }, (_, i) => ({
+    delay: Math.random() * 3,
     left: `${Math.random() * 100}%`,
-    size: 14 + Math.random() * 12,
   }));
   return (
     <div className="fixed inset-0 z-[200] pointer-events-none overflow-hidden">
       {pieces.map((p, i) => (
-        <ConfettiPiece key={i} {...p} />
+        <ConfettiPiece key={`${i}-${p.left}-${p.delay}`} {...p} />
       ))}
     </div>
   );
@@ -355,6 +359,62 @@ function useScreenShake() {
     setTimeout(() => setShaking(false), 500);
   }, []);
   return { shaking, shake };
+}
+
+// ============================================================
+// Feedback Overlay (correct/wrong answer popup)
+// ============================================================
+function FeedbackOverlay({ show, correct, answer }: { show: boolean; correct: boolean; answer?: string }) {
+  return (
+    <AnimatePresence>
+      {show && (
+        <motion.div
+          initial={{ opacity: 0, y: -50, scale: 0.5 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
+          exit={{ opacity: 0, y: 30, scale: 0.5 }}
+          transition={{ duration: 0.3 }}
+          className="fixed top-1/3 left-1/2 -translate-x-1/2 z-[100] pointer-events-none"
+        >
+          <div className={cn(
+            'flex flex-col items-center gap-2 px-6 py-4 rounded-2xl border-2 backdrop-blur-lg',
+            correct
+              ? 'bg-emerald-950/80 border-emerald-400/60 shadow-lg shadow-emerald-500/20'
+              : 'bg-red-950/80 border-red-400/60 shadow-lg shadow-red-500/20'
+          )}>
+            <motion.div
+              initial={{ scale: 0, rotate: -180 }}
+              animate={{ scale: 1, rotate: 0 }}
+              transition={{ delay: 0.1, type: 'spring', stiffness: 300 }}
+            >
+              {correct ? (
+                <CheckCircle className="w-10 h-10 text-emerald-400" />
+              ) : (
+                <XCircle className="w-10 h-10 text-red-400" />
+              )}
+            </motion.div>
+            <motion.p
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.15 }}
+              className={cn('font-black text-lg', correct ? 'text-emerald-300' : 'text-red-300')}
+            >
+              {correct ? 'إجابة صحيحة! ✅' : 'إجابة خاطئة ❌'}
+            </motion.p>
+            {correct && answer && (
+              <motion.p
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ delay: 0.2 }}
+                className="text-sm text-emerald-400/80"
+              >
+                {answer}
+              </motion.p>
+            )}
+          </div>
+        </motion.div>
+      )}
+    </AnimatePresence>
+  );
 }
 
 // ============================================================
@@ -874,8 +934,6 @@ function GameBoard({
     }
   };
 
-  const halfAnswers = Math.ceil(answers.length / 2);
-
   return (
     <div className="flex-1 flex flex-col p-3 sm:p-4 gap-3">
       {/* Top Bar: Scores + Round */}
@@ -988,6 +1046,18 @@ function GameBoard({
               )}
             >
               <Zap className="w-4 h-4" />
+            </Button>
+            <Button
+              onClick={() => {
+                const players = currentTeam === 1 ? team1Players : team2Players;
+                setCurrentPlayerIndex((prev) => (prev + 1) % players.length);
+                setGuessInput('');
+              }}
+              variant="ghost"
+              className="h-12 px-3 text-slate-500 hover:text-slate-300"
+              title="تخطي الدور"
+            >
+              <SkipForward className="w-5 h-5" />
             </Button>
           </div>
         )}
