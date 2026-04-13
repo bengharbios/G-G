@@ -1845,6 +1845,7 @@ function FaceOffScreen({
   const [countdown, setCountdown] = useState<number | null>(3);
   const [buzzerActive, setBuzzerActive] = useState(false);
   const [selectedTeam, setSelectedTeam] = useState<1 | 2 | null>(null);
+  const [showBuzz, setShowBuzz] = useState(false);
 
   useEffect(() => {
     if (countdown === null) return;
@@ -1852,8 +1853,10 @@ function FaceOffScreen({
       const timer = setTimeout(() => setCountdown(countdown - 1), 800);
       return () => clearTimeout(timer);
     } else {
-      const t = setTimeout(() => setBuzzerActive(true), 0);
-      return () => clearTimeout(t);
+      const t0 = setTimeout(() => setShowBuzz(true), 0);
+      const t1 = setTimeout(() => setBuzzerActive(true), 100);
+      const t2 = setTimeout(() => setShowBuzz(false), 1000);
+      return () => { clearTimeout(t0); clearTimeout(t1); clearTimeout(t2); };
     }
   }, [countdown]);
 
@@ -1927,15 +1930,15 @@ function FaceOffScreen({
         )}
       </AnimatePresence>
 
-      {/* Go! text */}
+      {/* Go! text - auto-fades after 1 second */}
       <AnimatePresence>
-        {countdown === 0 && (
+        {showBuzz && (
           <motion.div
             initial={{ scale: 3, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
             exit={{ scale: 0.5, opacity: 0, y: -50 }}
             transition={{ duration: 0.5 }}
-            className="absolute inset-0 flex items-center justify-center z-30"
+            className="absolute inset-0 flex items-center justify-center z-30 pointer-events-none"
           >
             <div className="text-6xl sm:text-7xl font-black text-emerald-400 drop-shadow-[0_0_30px_rgba(52,211,153,0.5)]">
               بَزّ!
@@ -1946,7 +1949,7 @@ function FaceOffScreen({
 
       {/* Buzz in text */}
       <AnimatePresence>
-        {buzzerActive && countdown === 0 && !selectedTeam && (
+        {buzzerActive && !showBuzz && !selectedTeam && (
           <motion.div
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
@@ -1958,7 +1961,7 @@ function FaceOffScreen({
               transition={{ duration: 1.2, repeat: Infinity }}
               className="text-sm font-bold text-amber-300 bg-amber-500/10 border border-amber-500/30 rounded-full px-4 py-1"
             >
-              🔔 بَزّ الآن!
+              🔔 اختر الفريق الذي سيبدأ!
             </motion.div>
           </motion.div>
         )}
@@ -1990,16 +1993,16 @@ function FaceOffScreen({
           whileTap={{ scale: 0.93 }}
           whileHover={{ scale: 1.03 }}
           onClick={() => handleTeamSelect(1)}
-          disabled={!buzzerActive || countdown !== 0}
+          disabled={!buzzerActive}
           className={cn(
             "flex-1 relative rounded-3xl p-5 sm:p-8 text-center transition-all cursor-pointer overflow-hidden",
-            buzzerActive && countdown === 0
+            buzzerActive
               ? "border-2 border-amber-400/70 bg-gradient-to-b from-amber-800/60 to-amber-900/40"
               : "border-2 border-amber-500/20 bg-gradient-to-b from-amber-900/30 to-amber-950/20 opacity-50"
           )}
         >
           {/* Pulsing glow for active state */}
-          {buzzerActive && countdown === 0 && (
+          {buzzerActive && (
             <motion.div
               animate={{ opacity: [0.3, 0.6, 0.3] }}
               transition={{ duration: 1.5, repeat: Infinity }}
@@ -2007,14 +2010,14 @@ function FaceOffScreen({
             />
           )}
           <motion.div
-            animate={buzzerActive && countdown === 0 ? { scale: [1, 1.1, 1] } : {}}
+            animate={buzzerActive ? { scale: [1, 1.1, 1] } : {}}
             transition={{ repeat: Infinity, duration: 1.2 }}
             className="text-4xl sm:text-5xl mb-3"
           >
             👑
           </motion.div>
           <p className="text-base sm:text-lg font-bold text-amber-200">{team1Name}</p>
-          {buzzerActive && countdown === 0 && (
+          {buzzerActive && (
             <motion.div
               initial={{ opacity: 0, y: 5 }}
               animate={{ opacity: 1, y: 0 }}
@@ -2054,16 +2057,16 @@ function FaceOffScreen({
           whileTap={{ scale: 0.93 }}
           whileHover={{ scale: 1.03 }}
           onClick={() => handleTeamSelect(2)}
-          disabled={!buzzerActive || countdown !== 0}
+          disabled={!buzzerActive}
           className={cn(
             "flex-1 relative rounded-3xl p-5 sm:p-8 text-center transition-all cursor-pointer overflow-hidden",
-            buzzerActive && countdown === 0
+            buzzerActive
               ? "border-2 border-rose-400/70 bg-gradient-to-b from-rose-800/60 to-rose-900/40"
               : "border-2 border-rose-500/20 bg-gradient-to-b from-rose-900/30 to-rose-950/20 opacity-50"
           )}
         >
           {/* Pulsing glow for active state */}
-          {buzzerActive && countdown === 0 && (
+          {buzzerActive && (
             <motion.div
               animate={{ opacity: [0.3, 0.6, 0.3] }}
               transition={{ duration: 1.5, repeat: Infinity, delay: 0.75 }}
@@ -2071,14 +2074,14 @@ function FaceOffScreen({
             />
           )}
           <motion.div
-            animate={buzzerActive && countdown === 0 ? { scale: [1, 1.1, 1] } : {}}
+            animate={buzzerActive ? { scale: [1, 1.1, 1] } : {}}
             transition={{ repeat: Infinity, duration: 1.2, delay: 0.6 }}
             className="text-4xl sm:text-5xl mb-3"
           >
             🏛️
           </motion.div>
           <p className="text-base sm:text-lg font-bold text-rose-200">{team2Name}</p>
-          {buzzerActive && countdown === 0 && (
+          {buzzerActive && (
             <motion.div
               initial={{ opacity: 0, y: 5 }}
               animate={{ opacity: 1, y: 0 }}
