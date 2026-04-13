@@ -321,3 +321,52 @@ Priority recommendations for next phase:
 - Add more Arabic questions for variety
 - Test complete game flow end-to-end
 - Consider adding a game settings panel (number of rounds, timer duration, etc.)
+
+---
+Task ID: 10
+Agent: Main Agent
+Task: Fix Faceoff logic (show answers + verify correct/wrong) + add back button to game pages
+
+Work Log:
+
+**Feature 1 - FaceOff Redesign (CRITICAL LOGIC FIX):**
+- Completely redesigned FaceOffScreen with 3-step flow:
+  1. **select_team**: Countdown 3→2→1 → "بَزّ!" → host selects which team buzzed first (same as before)
+  2. **verify_answer**: After team selection, ALL answers are now displayed to the host. Host sees the question and the complete answer board. Host clicks either:
+     - ✅ "إجابة صحيحة" → that team starts playing on the gameboard
+     - ❌ "إجابة خاطئة" → passes to the OTHER team
+  3. **other_team_chance**: If first team was wrong, the second team gets to answer:
+     - ✅ "إجابة صحيحة" → second team starts
+     - ❌ "إجابة خاطئة أيضاً" → nobody gets advantage, team 1 starts normally
+- Answers displayed as a clean list with rank numbers, text, and point values
+- Label "📋 الإجابات (مرئية للمستضيف فقط)" makes it clear this is host-only view
+- Undo button still works during step 1 (team selection)
+
+**Feature 2 - Branded Header on ALL Game Pages:**
+- Added full branded header (matching Mafia page style) to faceoff, gameboard, AND fast money phases
+- Header includes: logo with link to home, "ألعاب الغريب" text, phase badge, and "الرئيسية" link
+- Score bar with team names and scores now visible on faceoff page too
+- Replaced small home icon buttons with proper navigation links
+- Users can now go back to homepage from ANY game phase
+
+**Lint:**
+- Zero lint errors in familyfeud/page.tsx
+
+Stage Summary:
+- Faceoff now follows proper Family Feud rules: host verifies answers before starting
+- Both teams get a chance to answer during faceoff (not just first team)
+- All game pages now have consistent branded header with back navigation
+- Commit: e36b5e6, pushed to GitHub
+
+Current project status:
+- G-G repo on GitHub (commit e36b5e6), Vercel auto-deploys from main
+- 7 games total: 6 available + 3 coming soon
+- Family Feud game fully functional with proper faceoff logic
+
+Unresolved issues:
+- Diwaniya (online) mode for Family Feud is placeholder only
+
+Priority recommendations for next phase:
+- Implement full Diwaniya (online) mode for Family Feud with API routes
+- Add more Arabic questions for variety
+- Improve animations and visual polish
