@@ -528,3 +528,73 @@ Stage Summary:
 - No game logic changes - purely visual/styling improvements
 - Arabic RTL direction preserved across all new elements
 
+---
+Task ID: 12
+Agent: Main Agent
+Task: Add project icon, game settings, round timer, team emojis, stats tracking
+
+Work Log:
+
+**1. Project Icon (Favicon):**
+- Copied user-uploaded icon (Gemini_Generated_Image_qui8e0qui8e0qui8.png) to /public/favicon.png
+- Updated layout.tsx to use local favicon instead of external CDN URL
+- Icon now appears in browser tab across all pages
+
+**2. Game Settings Panel (already existed, now properly wired):**
+- TeamSetup already had settings panel with rounds (3/5/7) and steal timer
+- Added NEW round timer setting: off, 30s, 60s, 90s
+- Changed onStartGame callback to pass full settings object including: team1Emoji, team2Emoji, totalRounds, stealTimer, roundTimer
+- Main game (FamilyFeudPage) now accepts and uses all settings from TeamSetup
+- totalRounds changed from const=5 to state (setTotalRounds) to support dynamic configuration
+
+**3. Round Timer Feature:**
+- Added roundTimeLeft, roundTimerRunning states and roundTimerRef
+- Timer starts automatically when entering gameboard phase (if enabled)
+- Timer counts down each second with audio warning at <=5 seconds
+- When timer reaches 0: auto-adds strike, stops timer, plays buzz sound
+- Timer stops on manual strike, steal phase entry, or round completion
+- Used ref-based pattern (handleAddStrikeInternalRef) to avoid React hook ordering issues
+- Timer displayed as circular progress indicator between VS badge and round number
+
+**4. Team Emoji Support Throughout Game:**
+- TeamSetup already had emoji selectors (12 options: 👑🏛️🔥⚡💀🎮🎯🌟🐉🦁🐺🦅)
+- team1Emoji and team2Emoji now passed from TeamSetup through to all game components
+- Dynamic team emojis replace static 👑/🏛️ in: GameBoardView score panels, FaceOff header score bar, GameOverScreen score cards and stats grid
+- Emojis maintained through game reset
+
+**5. Game Statistics Tracking:**
+- Added gameStats state object tracking: team1Correct, team2Correct, team1Strikes, team2Strikes, totalSteals, successfulSteals, fastMoneyScore1, fastMoneyScore2
+- Stats updated in real-time: correct answers increment on reveal, strikes increment on strike, steals tracked on handleSteal
+- handleEndGame now also tracks fast money scores in final stats
+- GameOverScreen displays 8-stat grid with staggered animations:
+  - Per-team: correct answers, strikes, fast money scores
+  - Global: total steal attempts, successful steals
+
+**6. Other Fixes:**
+- Fixed handleEndGame to correctly calculate final scores (teamScore + fmScore)
+- Fixed initializeQuestions dependency array to include totalRounds
+- Wrapped round timer expire setState in setTimeout(0) to avoid lint cascading renders error
+- All changes pass ESLint (only pre-existing errors in other files)
+
+Stage Summary:
+- Commit: 7896f57, pushed to GitHub
+- Project icon now visible in browser tab
+- Game fully configurable: rounds, round timer, steal timer
+- Team emojis used consistently across all game phases
+- Game statistics tracked and displayed at game over
+- Round timer with circular progress and auto-strike on expire
+
+Current project status:
+- G-G repo on GitHub (commit 7896f57), Vercel auto-deploys from main
+- 7 games total: 6 available + 3 coming soon
+- Family Feud game fully featured with configurable settings
+
+Unresolved issues:
+- Diwaniya (online) mode for Family Feud is placeholder only
+
+Priority recommendations for next phase:
+- Implement full Diwaniya (online) mode for Family Feud with API routes and WebSocket
+- Add more Arabic questions with categories
+- QA testing via agent-browser on Vercel deployment
+- Consider adding player name input validation
+- Consider adding round timer pause/resume functionality
