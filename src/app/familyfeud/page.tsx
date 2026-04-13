@@ -1342,6 +1342,309 @@ function SparkleParticles() {
 }
 
 // ============================================================
+// Animated Grid Background Pattern
+// ============================================================
+function AnimatedGridBackground() {
+  return (
+    <div className="absolute inset-0 pointer-events-none overflow-hidden">
+      <svg className="absolute inset-0 w-full h-full opacity-[0.04]" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <pattern id="grid-pattern" width="40" height="40" patternUnits="userSpaceOnUse">
+            <path d="M 40 0 L 0 0 0 40" fill="none" stroke="white" strokeWidth="0.5" />
+          </pattern>
+        </defs>
+        <rect width="100%" height="100%" fill="url(#grid-pattern)" />
+      </svg>
+      <motion.div
+        animate={{ opacity: [0.02, 0.06, 0.02] }}
+        transition={{ duration: 6, repeat: Infinity }}
+        className="absolute inset-0 bg-gradient-to-b from-amber-500/5 via-transparent to-rose-500/5"
+      />
+    </div>
+  );
+}
+
+// ============================================================
+// Animated Dots Background
+// ============================================================
+function AnimatedDotsBackground() {
+  const dots = Array.from({ length: 20 }, (_, i) => ({
+    x: 5 + (i % 5) * 22,
+    y: 5 + Math.floor(i / 5) * 22,
+    delay: i * 0.3,
+  }));
+  return (
+    <div className="absolute inset-0 pointer-events-none overflow-hidden">
+      {dots.map((d, i) => (
+        <motion.div
+          key={i}
+          animate={{ opacity: [0.05, 0.2, 0.05], scale: [0.8, 1.2, 0.8] }}
+          transition={{ duration: 3, repeat: Infinity, delay: d.delay }}
+          className="absolute w-1 h-1 rounded-full bg-amber-400"
+          style={{ left: `${d.x}%`, top: `${d.y}%` }}
+        />
+      ))}
+    </div>
+  );
+}
+
+// ============================================================
+// Countdown Ring Animation
+// ============================================================
+function CountdownRing({ value, max }: { value: number; max: number }) {
+  const radius = 70;
+  const stroke = 4;
+  const normalizedRadius = radius - stroke;
+  const circumference = normalizedRadius * 2 * Math.PI;
+  const strokeDashoffset = circumference - (value / max) * circumference;
+
+  return (
+    <svg height={radius * 2} width={radius * 2} className="absolute">
+      {/* Background ring */}
+      <circle
+        stroke="rgba(251,191,36,0.15)"
+        fill="transparent"
+        strokeWidth={stroke}
+        r={normalizedRadius}
+        cx={radius}
+        cy={radius}
+      />
+      {/* Progress ring */}
+      <motion.circle
+        stroke="url(#countdown-gradient)"
+        fill="transparent"
+        strokeWidth={stroke}
+        strokeLinecap="round"
+        strokeDasharray={`${circumference} ${circumference}`}
+        style={{ strokeDashoffset, transform: "rotate(-90deg)", transformOrigin: "50% 50%" }}
+        r={normalizedRadius}
+        cx={radius}
+        cy={radius}
+        animate={{ strokeDashoffset }}
+        transition={{ duration: 0.6, ease: "easeOut" }}
+      />
+      <defs>
+        <linearGradient id="countdown-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stopColor="#f59e0b" />
+          <stop offset="100%" stopColor="#f43f5e" />
+        </linearGradient>
+      </defs>
+    </svg>
+  );
+}
+
+// ============================================================
+// Point Fly-Up Animation
+// ============================================================
+function PointFlyUp({ points, show, color }: { points: number; show: boolean; color: string }) {
+  return (
+    <AnimatePresence>
+      {show && (
+        <motion.div
+          initial={{ opacity: 1, y: 0, scale: 0.5 }}
+          animate={{ opacity: 0, y: -60, scale: 1.2 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 1, ease: "easeOut" }}
+          className="absolute -top-2 left-1/2 -translate-x-1/2 pointer-events-none z-20"
+        >
+          <span
+            className="text-lg font-black drop-shadow-lg"
+            style={{ color, textShadow: `0 0 12px ${color}` }}
+          >
+            +{points}
+          </span>
+        </motion.div>
+      )}
+    </AnimatePresence>
+  );
+}
+
+// ============================================================
+// Celebration Burst (round complete stars)
+// ============================================================
+function CelebrationBurst({ show }: { show: boolean }) {
+  const emojis = ["⭐", "✨", "🌟", "💫", "⚡"];
+  const particles = Array.from({ length: 10 }, (_, i) => ({
+    angle: (i * 36) * (Math.PI / 180),
+    delay: i * 0.05,
+    emoji: emojis[i % emojis.length],
+    distance: 80 + Math.random() * 60,
+  }));
+  return (
+    <AnimatePresence>
+      {show && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.3 }}
+          className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-[200] pointer-events-none"
+        >
+          {particles.map((p, i) => (
+            <motion.div
+              key={i}
+              initial={{ x: 0, y: 0, opacity: 1, scale: 0 }}
+              animate={{
+                x: Math.cos(p.angle) * p.distance,
+                y: Math.sin(p.angle) * p.distance,
+                opacity: 0,
+                scale: 1.5,
+                rotate: [0, 180],
+              }}
+              transition={{ duration: 1.2, delay: p.delay, ease: "easeOut" }}
+              className="absolute text-xl"
+            >
+              {p.emoji}
+            </motion.div>
+          ))}
+        </motion.div>
+      )}
+    </AnimatePresence>
+  );
+}
+
+// ============================================================
+// Timer Bar Component (horizontal progress)
+// ============================================================
+function TimerBar({ timeLeft, maxTime }: { timeLeft: number; maxTime: number }) {
+  const percentage = (timeLeft / maxTime) * 100;
+  const isLow = timeLeft <= 5;
+  return (
+    <div className="w-full max-w-xs mx-auto">
+      <div className="relative h-3 bg-slate-800/80 rounded-full overflow-hidden border border-slate-700/50">
+        <motion.div
+          animate={{ width: `${percentage}%` }}
+          transition={{ duration: 0.3, ease: "linear" }}
+          className={cn(
+            "h-full rounded-full relative",
+            isLow
+              ? "bg-gradient-to-l from-red-500 to-red-600"
+              : "bg-gradient-to-l from-amber-400 to-amber-600"
+          )}
+        >
+          {isLow && (
+            <motion.div
+              animate={{ opacity: [0.3, 0.8, 0.3] }}
+              transition={{ duration: 0.5, repeat: Infinity }}
+              className="absolute inset-0 bg-red-400/40 rounded-full"
+            />
+          )}
+        </motion.div>
+      </div>
+      <div className="flex justify-between mt-1">
+        <span className={cn("text-[10px] font-bold", isLow ? "text-red-400" : "text-amber-400/60")}>
+          {timeLeft} ثانية
+        </span>
+        <span className="text-[10px] text-slate-500">{maxTime} ثانية</span>
+      </div>
+    </div>
+  );
+}
+
+// ============================================================
+// Animated Bar Chart (score comparison)
+// ============================================================
+function AnimatedBarChart({
+  team1Score,
+  team2Score,
+  team1Name,
+  team2Name,
+  show,
+}: {
+  team1Score: number;
+  team2Score: number;
+  team1Name: string;
+  team2Name: string;
+  show: boolean;
+}) {
+  const maxScore = Math.max(team1Score, team2Score, 1);
+  return (
+    <AnimatePresence>
+      {show && (
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 1.2, duration: 0.6 }}
+          className="flex items-end gap-4 justify-center h-32 px-4"
+        >
+          <div className="flex flex-col items-center gap-1 flex-1 max-w-[120px]">
+            <motion.span
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 1.6 }}
+              className="text-xs font-black text-amber-300"
+            >
+              {team1Score}
+            </motion.span>
+            <motion.div
+              initial={{ height: 0 }}
+              animate={{ height: `${(team1Score / maxScore) * 80}px` }}
+              transition={{ delay: 1.4, duration: 0.8, ease: "easeOut" }}
+              className="w-full rounded-t-lg bg-gradient-to-t from-amber-600 to-amber-400 shadow-lg shadow-amber-500/30 min-h-[4px] relative overflow-hidden"
+            >
+              <motion.div
+                animate={{ opacity: [0, 0.3, 0] }}
+                transition={{ duration: 2, repeat: Infinity }}
+                className="absolute inset-0 bg-gradient-to-t from-transparent to-white/20"
+              />
+            </motion.div>
+            <span className="text-[10px] font-bold text-amber-400/70 truncate max-w-full">{team1Name}</span>
+          </div>
+          <div className="flex flex-col items-center gap-1 flex-1 max-w-[120px]">
+            <motion.span
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 1.8 }}
+              className="text-xs font-black text-rose-300"
+            >
+              {team2Score}
+            </motion.span>
+            <motion.div
+              initial={{ height: 0 }}
+              animate={{ height: `${(team2Score / maxScore) * 80}px` }}
+              transition={{ delay: 1.6, duration: 0.8, ease: "easeOut" }}
+              className="w-full rounded-t-lg bg-gradient-to-t from-rose-600 to-rose-400 shadow-lg shadow-rose-500/30 min-h-[4px] relative overflow-hidden"
+            >
+              <motion.div
+                animate={{ opacity: [0, 0.3, 0] }}
+                transition={{ duration: 2, repeat: Infinity, delay: 1 }}
+                className="absolute inset-0 bg-gradient-to-t from-transparent to-white/20"
+              />
+            </motion.div>
+            <span className="text-[10px] font-bold text-rose-400/70 truncate max-w-full">{team2Name}</span>
+          </div>
+        </motion.div>
+      )}
+    </AnimatePresence>
+  );
+}
+
+// ============================================================
+// Phase Transition Shimmer
+// ============================================================
+function PhaseTransitionShimmer({ show }: { show: boolean }) {
+  return (
+    <AnimatePresence>
+      {show && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.3 }}
+          className="fixed inset-0 z-[300] pointer-events-none bg-slate-950/80"
+        >
+          <motion.div
+            animate={{ x: ["-100%", "200%"] }}
+            transition={{ duration: 0.8, ease: "easeInOut" }}
+            className="absolute inset-y-0 w-1/3 bg-gradient-to-r from-transparent via-amber-400/10 to-transparent"
+          />
+        </motion.div>
+      )}
+    </AnimatePresence>
+  );
+}
+
+// ============================================================
 // Confetti Effect
 // ============================================================
 const CONFETTI_EMOJIS = ["🎉", "🎊", "✨", "🌟", "💫", "🏆", "🥇", "🎆"];
@@ -1715,25 +2018,40 @@ function StrikeMark({ show, index }: { show: boolean; index: number }) {
           : { scale: 0, opacity: 0 }
       }
       transition={{ duration: 0.6, delay: index * 0.15, type: "spring", stiffness: 300 }}
-      className="text-3xl sm:text-4xl font-black"
+      className="text-3xl sm:text-4xl font-black relative"
     >
-      <motion.span
-        animate={show ? {
-          textShadow: [
-            "0 0 4px rgba(239,68,68,0.5)",
-            "0 0 20px rgba(239,68,68,0.8)",
-            "0 0 8px rgba(239,68,68,0.5)",
-          ],
-        } : {}}
-        transition={{ duration: 1, repeat: show ? 1 : 0 }}
-        className={
-          show
-            ? "text-red-500 drop-shadow-[0_0_12px_rgba(239,68,68,0.6)]"
-            : "text-transparent"
-        }
-      >
-        ✕
-      </motion.span>
+      {/* Animated X drawing */}
+      <AnimatePresence>
+        {show && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+          >
+            {/* First line of X */}
+            <motion.div
+              initial={{ scaleX: 0, scaleY: 0 }}
+              animate={{ scaleX: 1, scaleY: 1 }}
+              transition={{ duration: 0.4, delay: index * 0.15 + 0.1 }}
+              className="absolute inset-0 flex items-center justify-center"
+              style={{ transformOrigin: "center" }}
+            >
+              <span className="text-3xl sm:text-4xl font-black text-red-500 drop-shadow-[0_0_12px_rgba(239,68,68,0.6)]">
+                ✕
+              </span>
+            </motion.div>
+            {/* Glow ring */}
+            <motion.div
+              initial={{ scale: 0, opacity: 0.8 }}
+              animate={{ scale: 2, opacity: 0 }}
+              transition={{ duration: 0.6, delay: index * 0.15 }}
+              className="absolute inset-0 flex items-center justify-center pointer-events-none"
+            >
+              <div className="w-6 h-6 rounded-full bg-red-500/30 blur-sm" />
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </motion.div>
   );
 }
@@ -1882,30 +2200,51 @@ function LandingPage({
   };
 
   return (
-    <div className="flex-1 flex items-center justify-center p-3 sm:p-4" dir="rtl">
+    <div className="flex-1 flex items-center justify-center p-3 sm:p-4 relative" dir="rtl">
+      {/* Animated Background */}
+      <AnimatedGridBackground />
+      <AnimatedDotsBackground />
+
       <motion.div
         initial={{ opacity: 0, y: 30, scale: 0.95 }}
         animate={{ opacity: 1, y: 0, scale: 1 }}
         transition={{ duration: 0.7, ease: [0.25, 0.46, 0.45, 0.94] }}
-        className="max-w-lg w-full"
+        className="max-w-lg w-full relative z-10"
       >
-        {/* Game Icon */}
+        {/* Game Icon - Dramatic Hero */}
         <div className="text-center mb-6 relative">
           <SparkleParticles />
           <motion.div
-            animate={{ rotate: [0, 5, -5, 0], scale: [1, 1.05, 1] }}
+            animate={{ rotate: [0, 5, -5, 0], scale: [1, 1.08, 1] }}
             transition={{ duration: 3, repeat: Infinity }}
             className="text-6xl sm:text-7xl mb-3"
           >
             🏆
           </motion.div>
-          <h1 className="text-3xl sm:text-5xl font-black mb-2">
-            <span className="bg-gradient-to-l from-amber-400 via-rose-300 to-amber-500 bg-clip-text text-transparent">
-              فاميلي فيود
-            </span>
-          </h1>
+          <motion.h1
+            className="text-4xl sm:text-6xl font-black mb-2"
+            animate={{
+              backgroundPosition: ["0% 50%", "100% 50%", "0% 50%"],
+            }}
+            transition={{ duration: 5, repeat: Infinity, ease: "linear" }}
+            style={{
+              background: "linear-gradient(270deg, #f59e0b, #fb923c, #f43f5e, #fbbf24, #f59e0b)",
+              backgroundSize: "300% 300%",
+              WebkitBackgroundClip: "text",
+              WebkitTextFillColor: "transparent",
+              filter: "drop-shadow(0 0 20px rgba(251,191,36,0.3))",
+            }}
+          >
+            فاميلي فيود
+          </motion.h1>
+          <motion.p
+            animate={{ opacity: [0.5, 1, 0.5] }}
+            transition={{ duration: 3, repeat: Infinity }}
+            className="text-xs text-amber-400/70 font-bold tracking-[0.3em] uppercase mb-1"
+          >
+            Family Feud
+          </motion.p>
           <div className="flex items-center justify-center gap-2">
-            <p className="text-sm text-slate-400 font-bold">Family Feud</p>
             <SoundToggleButton soundEnabled={soundEnabled} onToggle={() => setSoundEnabled(!soundEnabled)} />
           </div>
         </div>
@@ -1919,7 +2258,12 @@ function LandingPage({
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -20 }}
             >
-              <Card className="bg-gradient-to-bl from-amber-950/40 via-slate-900/80 to-slate-900/80 border-amber-500/30 mb-4">
+              <Card className="bg-gradient-to-bl from-amber-950/40 via-slate-900/80 to-slate-900/80 border-amber-500/30 mb-4 relative overflow-hidden">
+                <motion.div
+                  animate={{ opacity: [0, 0.5, 0] }}
+                  transition={{ duration: 4, repeat: Infinity }}
+                  className="absolute -top-20 -right-20 w-40 h-40 bg-amber-500/10 rounded-full blur-[60px] pointer-events-none"
+                />
                 <CardContent className="pt-5 sm:pt-6">
                   <div className="text-center mb-4">
                     <motion.div
@@ -1939,52 +2283,122 @@ function LandingPage({
                   </div>
 
                   <div className="space-y-3">
-                    {/* Godfather Mode (HOST) */}
-                    <motion.button
+                    {/* Godfather Mode (HOST) - Enhanced with gradient border */}
+                    <motion.div
+                      className="relative group"
                       whileHover={{ scale: 1.02 }}
                       whileTap={{ scale: 0.98 }}
-                      onClick={() => setSelectedMode("godfather")}
-                      className="w-full rounded-xl p-3 sm:p-4 border-2 border-amber-500/30 bg-gradient-to-l from-amber-950/50 to-red-950/30 hover:border-amber-400/50 transition-all text-right cursor-pointer"
                     >
-                      <div className="flex items-center gap-3">
-                        <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-amber-900/50 border border-amber-500/30 flex items-center justify-center shrink-0">
-                          <Crown className="w-6 h-6 sm:w-7 sm:h-7 text-amber-400" />
+                      <motion.div
+                        className="absolute -inset-[1px] rounded-xl bg-gradient-to-l from-amber-500 via-orange-500 to-rose-500 opacity-40 group-hover:opacity-80 transition-opacity blur-[0px]"
+                      />
+                      <motion.button
+                        onClick={() => setSelectedMode("godfather")}
+                        className="relative w-full rounded-xl p-3 sm:p-4 bg-gradient-to-l from-amber-950/90 to-red-950/80 hover:from-amber-950/80 hover:to-red-950/60 transition-all text-right cursor-pointer"
+                      >
+                        <div className="flex items-center gap-3">
+                          <motion.div
+                            className="w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-gradient-to-br from-amber-500/30 to-orange-600/30 border border-amber-500/40 flex items-center justify-center shrink-0"
+                            animate={{ rotate: [0, 5, -5, 0] }}
+                            transition={{ duration: 4, repeat: Infinity }}
+                          >
+                            <Crown className="w-6 h-6 sm:w-7 sm:h-7 text-amber-400" />
+                          </motion.div>
+                          <div className="flex-1">
+                            <h3 className="text-base sm:text-lg font-bold text-amber-200 mb-0.5 drop-shadow-sm">
+                              العراب
+                            </h3>
+                            <p className="text-[10px] sm:text-xs text-slate-400 leading-relaxed">
+                              أنت المقدم! تتحكم باللعبة وترى جميع الإجابات والنقاط
+                            </p>
+                          </div>
+                          <motion.span
+                            animate={{ x: [-3, 3, -3] }}
+                            transition={{ duration: 1.5, repeat: Infinity }}
+                            className="text-slate-500"
+                          >
+                            ‹
+                          </motion.span>
                         </div>
-                        <div className="flex-1">
-                          <h3 className="text-base sm:text-lg font-bold text-amber-200 mb-0.5">
-                            العراب
-                          </h3>
-                          <p className="text-[10px] sm:text-xs text-slate-400 leading-relaxed">
-                            أنت المقدم! تتحكم باللعبة وترى جميع الإجابات والنقاط
-                          </p>
-                        </div>
-                      </div>
-                    </motion.button>
+                      </motion.button>
+                    </motion.div>
 
-                    {/* Diwaniya Mode (ONLINE) */}
-                    <motion.button
+                    {/* Diwaniya Mode (ONLINE) - Enhanced with gradient border */}
+                    <motion.div
+                      className="relative group"
                       whileHover={{ scale: 1.02 }}
                       whileTap={{ scale: 0.98 }}
-                      onClick={() => setSelectedMode("diwaniya")}
-                      className="w-full rounded-xl p-3 sm:p-4 border-2 border-blue-500/30 bg-gradient-to-l from-blue-950/50 to-indigo-950/30 hover:border-blue-400/50 transition-all text-right cursor-pointer"
                     >
-                      <div className="flex items-center gap-3">
-                        <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-blue-900/50 border border-blue-500/30 flex items-center justify-center shrink-0">
-                          <Home className="w-6 h-6 sm:w-7 sm:h-7 text-blue-400" />
+                      <motion.div
+                        className="absolute -inset-[1px] rounded-xl bg-gradient-to-l from-cyan-500 via-blue-500 to-purple-500 opacity-40 group-hover:opacity-80 transition-opacity blur-[0px]"
+                      />
+                      <motion.button
+                        onClick={() => setSelectedMode("diwaniya")}
+                        className="relative w-full rounded-xl p-3 sm:p-4 bg-gradient-to-l from-blue-950/90 to-indigo-950/80 hover:from-blue-950/80 hover:to-indigo-950/60 transition-all text-right cursor-pointer"
+                      >
+                        <div className="flex items-center gap-3">
+                          <motion.div
+                            className="w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-gradient-to-br from-cyan-500/30 to-blue-600/30 border border-blue-500/40 flex items-center justify-center shrink-0"
+                            animate={{ rotate: [0, -5, 5, 0] }}
+                            transition={{ duration: 4, repeat: Infinity, delay: 1 }}
+                          >
+                            <Home className="w-6 h-6 sm:w-7 sm:h-7 text-blue-400" />
+                          </motion.div>
+                          <div className="flex-1">
+                            <h3 className="text-base sm:text-lg font-bold text-blue-200 mb-0.5 drop-shadow-sm">
+                              الديوانية
+                            </h3>
+                            <p className="text-[10px] sm:text-xs text-slate-400 leading-relaxed">
+                              أنشئ غرفة وشارك الكود، اللاعبون ينضمون من أجهزتهم
+                            </p>
+                          </div>
+                          <motion.span
+                            animate={{ x: [-3, 3, -3] }}
+                            transition={{ duration: 1.5, repeat: Infinity, delay: 0.5 }}
+                            className="text-slate-500"
+                          >
+                            ‹
+                          </motion.span>
                         </div>
-                        <div className="flex-1">
-                          <h3 className="text-base sm:text-lg font-bold text-blue-200 mb-0.5">
-                            الديوانية
-                          </h3>
-                          <p className="text-[10px] sm:text-xs text-slate-400 leading-relaxed">
-                            أنشئ غرفة وشارك الكود، اللاعبون ينضمون من أجهزتهم
-                          </p>
-                        </div>
-                      </div>
-                    </motion.button>
+                      </motion.button>
+                    </motion.div>
                   </div>
                 </CardContent>
               </Card>
+
+              {/* Feature Highlights Section */}
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.6 }}
+                className="mb-4"
+              >
+                <div className="grid grid-cols-3 gap-2">
+                  {[
+                    { icon: "🎯", label: "95+ سؤال", desc: "أسئلة عربية متنوعة" },
+                    { icon: "⚡", label: "سرعة", desc: "تفاعل فوري وسريع" },
+                    { icon: "🏆", label: "تنافس", desc: "فريقين يتنافسان" },
+                  ].map((feature, i) => (
+                    <motion.div
+                      key={i}
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: 0.8 + i * 0.1 }}
+                      className="bg-slate-900/60 border border-slate-800/60 rounded-xl p-3 text-center group hover:border-amber-500/30 transition-all"
+                    >
+                      <motion.div
+                        whileHover={{ scale: 1.2, rotate: [0, 10, -10, 0] }}
+                        transition={{ duration: 0.3 }}
+                        className="text-2xl mb-1"
+                      >
+                        {feature.icon}
+                      </motion.div>
+                      <p className="text-[10px] font-bold text-slate-300">{feature.label}</p>
+                      <p className="text-[8px] text-slate-500 mt-0.5">{feature.desc}</p>
+                    </motion.div>
+                  ))}
+                </div>
+              </motion.div>
             </motion.div>
           ) : (
             <motion.div
@@ -2148,36 +2562,86 @@ function TeamSetup({
   soundEnabled,
   setSoundEnabled,
 }: {
-  onStartGame: (team1Name: string, team2Name: string) => void;
+  onStartGame: (settings: { team1Name: string; team2Name: string; team1Emoji: string; team2Emoji: string; totalRounds: number; stealTimer: number; roundTimer: number }) => void;
   soundEnabled: boolean;
   setSoundEnabled: (v: boolean) => void;
 }) {
   const [team1Name, setTeam1Name] = useState("فريق 1");
   const [team2Name, setTeam2Name] = useState("فريق 2");
+  const [team1Emoji, setTeam1Emoji] = useState("👑");
+  const [team2Emoji, setTeam2Emoji] = useState("🏛️");
   const [totalRounds, setTotalRounds] = useState(5);
   const [stealTimer, setStealTimer] = useState(0); // 0=off, 30, 60
+  const [roundTimer, setRoundTimer] = useState(0); // 0=off, 30, 60, 90
   const [showSettings, setShowSettings] = useState(false);
+  const [setupStep, setSetupStep] = useState(1); // 1, 2, 3
+
+  const EMOJI_OPTIONS = ["👑", "🏛️", "🔥", "⚡", "💀", "🎮", "🎯", "🌟", "🐉", "🦁", "🐺", "🦅"];
 
   const handleSwapNames = () => {
     const tmp = team1Name;
     setTeam1Name(team2Name);
     setTeam2Name(tmp);
+    const tmpE = team1Emoji;
+    setTeam1Emoji(team2Emoji);
+    setTeam2Emoji(tmpE);
   };
 
   return (
-    <div className="flex-1 flex items-center justify-center p-3 sm:p-4" dir="rtl">
+    <div className="flex-1 flex items-center justify-center p-3 sm:p-4 relative" dir="rtl">
+      <AnimatedGridBackground />
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        className="max-w-lg w-full"
+        className="max-w-lg w-full relative z-10"
       >
+        {/* Animated Step Indicators */}
+        <div className="flex items-center justify-center gap-2 mb-4">
+          {[1, 2, 3].map((step) => (
+            <motion.div
+              key={step}
+              animate={{ scale: setupStep >= step ? 1 : 0.85 }}
+              transition={{ type: "spring", stiffness: 300 }}
+              className="flex items-center gap-1.5"
+            >
+              <motion.div
+                animate={
+                  setupStep === step
+                    ? { boxShadow: ["0 0 0px rgba(251,191,36,0)", "0 0 12px rgba(251,191,36,0.4)", "0 0 0px rgba(251,191,36,0)"] }
+                    : {}
+                }
+                transition={{ duration: 2, repeat: setupStep === step ? Infinity : 0 }}
+                className={cn(
+                  "w-8 h-8 rounded-full flex items-center justify-center text-xs font-black border-2 transition-all",
+                  setupStep > step
+                    ? "bg-emerald-500/20 border-emerald-500/60 text-emerald-300"
+                    : setupStep === step
+                      ? "bg-amber-500/20 border-amber-500/60 text-amber-300"
+                      : "bg-slate-800/60 border-slate-700/40 text-slate-500"
+                )}
+              >
+                {setupStep > step ? "✓" : step}
+              </motion.div>
+              {step < 3 && (
+                <motion.div
+                  className={cn(
+                    "w-8 h-0.5 rounded-full",
+                    setupStep > step ? "bg-emerald-500/50" : "bg-slate-700/50"
+                  )}
+                  animate={{ scaleX: setupStep > step ? 1 : 0.5 }}
+                />
+              )}
+            </motion.div>
+          ))}
+        </div>
+
         <h2 className="text-2xl sm:text-3xl font-black text-center mb-1">
           <span className="bg-gradient-to-l from-amber-400 to-rose-400 bg-clip-text text-transparent">
             إعداد الفرق
           </span>
         </h2>
         <p className="text-xs text-slate-500 text-center mb-1">
-          العراب - وضع المستضيف
+          {setupStep === 1 ? "اختر رموز الفرق" : setupStep === 2 ? "أدخل أسماء الفرق" : "الإعدادات وابدأ"}
         </p>
         <div className="flex justify-center mb-5">
           <Badge className="bg-amber-900/40 border border-amber-500/30 text-amber-400 text-[10px]">
@@ -2185,84 +2649,241 @@ function TeamSetup({
           </Badge>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 relative">
-          {/* Swap Button (centered between team cards on sm+) */}
-          <div className="hidden sm:flex absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-20">
-            <motion.button
-              whileTap={{ scale: 0.85 }}
-              whileHover={{ scale: 1.1 }}
-              onClick={handleSwapNames}
-              className="w-10 h-10 rounded-full bg-slate-800 border-2 border-slate-600 hover:border-amber-500/60 flex items-center justify-center shadow-lg cursor-pointer"
+        {/* STEP 1: Emoji Selectors */}
+        {setupStep === 1 && (
+          <motion.div
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: -20 }}
+          >
+            {/* Team 1 Emoji Picker */}
+            <Card className="bg-slate-900/80 border-amber-500/30 mb-3">
+              <CardContent className="p-4">
+                <div className="flex items-center gap-2 mb-3">
+                  <motion.div
+                    animate={{ scale: [1, 1.1, 1] }}
+                    transition={{ duration: 2, repeat: Infinity }}
+                    className="text-2xl"
+                  >
+                    {team1Emoji}
+                  </motion.div>
+                  <h3 className="text-sm font-bold text-amber-300">رمز الفريق الأول</h3>
+                </div>
+                <div className="grid grid-cols-6 gap-2">
+                  {EMOJI_OPTIONS.map((emoji) => (
+                    <motion.button
+                      key={emoji}
+                      whileHover={{ scale: 1.2 }}
+                      whileTap={{ scale: 0.9 }}
+                      onClick={() => { setTeam1Emoji(emoji); }}
+                      className={cn(
+                        "w-10 h-10 rounded-xl flex items-center justify-center text-lg border-2 transition-all cursor-pointer",
+                        team1Emoji === emoji
+                          ? "bg-amber-500/30 border-amber-400/60 shadow-lg shadow-amber-500/20"
+                          : "bg-slate-800/60 border-slate-700/40 hover:border-amber-500/40"
+                      )}
+                    >
+                      {emoji}
+                    </motion.button>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Team 2 Emoji Picker */}
+            <Card className="bg-slate-900/80 border-rose-500/30 mb-3">
+              <CardContent className="p-4">
+                <div className="flex items-center gap-2 mb-3">
+                  <motion.div
+                    animate={{ scale: [1, 1.1, 1] }}
+                    transition={{ duration: 2, repeat: Infinity, delay: 1 }}
+                    className="text-2xl"
+                  >
+                    {team2Emoji}
+                  </motion.div>
+                  <h3 className="text-sm font-bold text-rose-300">رمز الفريق الثاني</h3>
+                </div>
+                <div className="grid grid-cols-6 gap-2">
+                  {EMOJI_OPTIONS.map((emoji) => (
+                    <motion.button
+                      key={emoji}
+                      whileHover={{ scale: 1.2 }}
+                      whileTap={{ scale: 0.9 }}
+                      onClick={() => { setTeam2Emoji(emoji); }}
+                      className={cn(
+                        "w-10 h-10 rounded-xl flex items-center justify-center text-lg border-2 transition-all cursor-pointer",
+                        team2Emoji === emoji
+                          ? "bg-rose-500/30 border-rose-400/60 shadow-lg shadow-rose-500/20"
+                          : "bg-slate-800/60 border-slate-700/40 hover:border-rose-500/40"
+                      )}
+                    >
+                      {emoji}
+                    </motion.button>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+
+            <div className="text-center mt-4">
+              <motion.button
+                whileHover={{ scale: 1.03 }}
+                whileTap={{ scale: 0.97 }}
+                onClick={() => setSetupStep(2)}
+                className="bg-gradient-to-l from-amber-600 to-rose-600 hover:from-amber-500 hover:to-rose-500 text-white font-bold px-8 py-4 rounded-xl shadow-lg shadow-amber-500/20 cursor-pointer"
+              >
+                التالي
+                <ChevronLeft className="w-4 h-4 mr-2" />
+              </motion.button>
+            </div>
+          </motion.div>
+        )}
+
+        {/* STEP 2: Team Names + Preview */}
+        {setupStep === 2 && (
+          <motion.div
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: -20 }}
+          >
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 relative">
+              {/* Swap Button (centered between team cards on sm+) */}
+              <div className="hidden sm:flex absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-20">
+                <motion.button
+                  whileTap={{ scale: 0.85 }}
+                  whileHover={{ scale: 1.1 }}
+                  onClick={handleSwapNames}
+                  className="w-10 h-10 rounded-full bg-slate-800 border-2 border-slate-600 hover:border-amber-500/60 flex items-center justify-center shadow-lg cursor-pointer"
+                >
+                  <span className="text-base">🔄</span>
+                </motion.button>
+              </div>
+
+              {/* Team 1 */}
+              <Card className="bg-slate-900/80 border-amber-500/30">
+                <CardContent className="p-4">
+                  <div className="flex items-center gap-2 mb-3">
+                    <motion.div
+                      animate={{ rotate: [0, 5, -5, 0] }}
+                      transition={{ duration: 3, repeat: Infinity }}
+                      className="w-10 h-10 rounded-full bg-gradient-to-br from-amber-500 to-amber-700 flex items-center justify-center text-xl shadow-md shadow-amber-500/30"
+                    >
+                      {team1Emoji}
+                    </motion.div>
+                    <div>
+                      <h3 className="text-sm font-bold text-amber-300">الفريق الأول</h3>
+                      <p className="text-[10px] text-amber-400/60">بدأ المواجهة</p>
+                    </div>
+                  </div>
+                  <div className="relative">
+                    <div className="absolute top-1/2 right-3 -translate-y-1/2 w-2.5 h-2.5 rounded-full bg-amber-500 shadow-sm shadow-amber-500/50 z-10" />
+                    <Input
+                      value={team1Name}
+                      onChange={(e) => setTeam1Name(e.target.value)}
+                      placeholder="اسم الفريق الأول"
+                      className="bg-slate-800/60 border-amber-900/40 text-amber-100 placeholder:text-amber-800/40 h-11 text-sm pr-7"
+                      dir="rtl"
+                    />
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Team 2 */}
+              <Card className="bg-slate-900/80 border-rose-500/30">
+                <CardContent className="p-4">
+                  <div className="flex items-center gap-2 mb-3">
+                    <motion.div
+                      animate={{ rotate: [0, -5, 5, 0] }}
+                      transition={{ duration: 3, repeat: Infinity, delay: 1 }}
+                      className="w-10 h-10 rounded-full bg-gradient-to-br from-rose-500 to-rose-700 flex items-center justify-center text-xl shadow-md shadow-rose-500/30"
+                    >
+                      {team2Emoji}
+                    </motion.div>
+                    <div>
+                      <h3 className="text-sm font-bold text-rose-300">الفريق الثاني</h3>
+                      <p className="text-[10px] text-rose-400/60">المنافس</p>
+                    </div>
+                  </div>
+                  <div className="relative">
+                    <div className="absolute top-1/2 right-3 -translate-y-1/2 w-2.5 h-2.5 rounded-full bg-rose-500 shadow-sm shadow-rose-500/50 z-10" />
+                    <Input
+                      value={team2Name}
+                      onChange={(e) => setTeam2Name(e.target.value)}
+                      placeholder="اسم الفريق الثاني"
+                      className="bg-slate-800/60 border-rose-900/40 text-rose-100 placeholder:text-rose-800/40 h-11 text-sm pr-7"
+                      dir="rtl"
+                    />
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Mobile Swap Button */}
+              <div className="sm:hidden flex justify-center">
+                <motion.button
+                  whileTap={{ scale: 0.9 }}
+                  onClick={handleSwapNames}
+                  className="flex items-center gap-1.5 text-xs text-slate-400 hover:text-amber-400 transition-colors cursor-pointer"
+                >
+                  <span>🔄</span>
+                  <span>تبديل الأسماء</span>
+                </motion.button>
+              </div>
+            </div>
+
+            {/* Preview Card - How Teams Will Look */}
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.3 }}
+              className="mt-4"
             >
-              <span className="text-base">🔄</span>
-            </motion.button>
-          </div>
-
-          {/* Team 1 */}
-          <Card className="bg-slate-900/80 border-amber-500/30">
-            <CardContent className="p-4">
-              <div className="flex items-center gap-2 mb-3">
-                <div className="w-8 h-8 rounded-full bg-gradient-to-br from-amber-500 to-amber-700 flex items-center justify-center text-sm">
-                  👑
+              <p className="text-[10px] text-slate-500 font-bold text-center mb-2">👁️ معاينة اللعبة</p>
+              <div className="flex items-center gap-2 bg-slate-900/60 border border-slate-800/60 rounded-2xl p-3">
+                <div className="flex-1 flex items-center gap-2 justify-end">
+                  <span className="text-xs font-bold text-amber-300 truncate">{team1Name.trim() || "فريق 1"}</span>
+                  <span className="text-xl">{team1Emoji}</span>
                 </div>
-                <div>
-                  <h3 className="text-sm font-bold text-amber-300">الفريق الأول</h3>
-                  <p className="text-[10px] text-amber-400/60">بدأ المواجهة</p>
-                </div>
-              </div>
-              <div className="relative">
-                <div className="absolute top-1/2 right-3 -translate-y-1/2 w-2.5 h-2.5 rounded-full bg-amber-500 shadow-sm shadow-amber-500/50 z-10" />
-                <Input
-                  value={team1Name}
-                  onChange={(e) => setTeam1Name(e.target.value)}
-                  placeholder="اسم الفريق الأول"
-                  className="bg-slate-800/60 border-amber-900/40 text-amber-100 placeholder:text-amber-800/40 h-11 text-sm pr-7"
-                  dir="rtl"
-                />
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Team 2 */}
-          <Card className="bg-slate-900/80 border-rose-500/30">
-            <CardContent className="p-4">
-              <div className="flex items-center gap-2 mb-3">
-                <div className="w-8 h-8 rounded-full bg-gradient-to-br from-rose-500 to-rose-700 flex items-center justify-center text-sm">
-                  🏛️
-                </div>
-                <div>
-                  <h3 className="text-sm font-bold text-rose-300">الفريق الثاني</h3>
-                  <p className="text-[10px] text-rose-400/60">المنافس</p>
+                <motion.div
+                  animate={{ scale: [1, 1.15, 1], rotate: [0, 5, -5, 0] }}
+                  transition={{ duration: 3, repeat: Infinity }}
+                  className="w-9 h-9 rounded-full bg-gradient-to-br from-amber-500 via-rose-500 to-amber-600 flex items-center justify-center shadow-lg shadow-rose-500/20 border border-white/10 shrink-0"
+                >
+                  <span className="text-xs font-black text-white">VS</span>
+                </motion.div>
+                <div className="flex-1 flex items-center gap-2">
+                  <span className="text-xl">{team2Emoji}</span>
+                  <span className="text-xs font-bold text-rose-300 truncate">{team2Name.trim() || "فريق 2"}</span>
                 </div>
               </div>
-              <div className="relative">
-                <div className="absolute top-1/2 right-3 -translate-y-1/2 w-2.5 h-2.5 rounded-full bg-rose-500 shadow-sm shadow-rose-500/50 z-10" />
-                <Input
-                  value={team2Name}
-                  onChange={(e) => setTeam2Name(e.target.value)}
-                  placeholder="اسم الفريق الثاني"
-                  className="bg-slate-800/60 border-rose-900/40 text-rose-100 placeholder:text-rose-800/40 h-11 text-sm pr-7"
-                  dir="rtl"
-                />
-              </div>
-            </CardContent>
-          </Card>
+            </motion.div>
 
-          {/* Mobile Swap Button */}
-          <div className="sm:hidden flex justify-center">
-            <motion.button
-              whileTap={{ scale: 0.9 }}
-              onClick={handleSwapNames}
-              className="flex items-center gap-1.5 text-xs text-slate-400 hover:text-amber-400 transition-colors cursor-pointer"
-            >
-              <span>🔄</span>
-              <span>تبديل الأسماء</span>
-            </motion.button>
-          </div>
-        </div>
+            <div className="flex gap-2 mt-4">
+              <Button
+                onClick={() => setSetupStep(1)}
+                variant="outline"
+                className="flex-1 border-slate-600 text-slate-300 hover:bg-slate-800 py-3 text-sm"
+              >
+                رجوع
+              </Button>
+              <Button
+                onClick={() => setSetupStep(3)}
+                className="flex-1 bg-gradient-to-l from-amber-600 to-rose-600 hover:from-amber-500 hover:to-rose-500 text-white font-bold py-3"
+              >
+                التالي
+                <ChevronLeft className="w-4 h-4 mr-2" />
+              </Button>
+            </div>
+          </motion.div>
+        )}
 
+        {/* STEP 3: Settings + Start */}
+        {setupStep === 3 && (
+          <motion.div
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: -20 }}
+          >
         {/* Host Info */}
-        <Card className="bg-amber-950/20 border-amber-500/20 mt-4">
+        <Card className="bg-amber-950/20 border-amber-500/20 mt-4 mb-4">
           <CardContent className="p-3">
             <div className="flex items-start gap-2">
               <Eye className="w-4 h-4 text-amber-400 mt-0.5 shrink-0" />
@@ -2353,6 +2974,35 @@ function TeamSetup({
                       </div>
                     </div>
 
+                    {/* Round Timer */}
+                    <div>
+                      <p className="text-xs font-bold text-slate-300 mb-2">
+                        ⏳ مؤقت الجولة
+                      </p>
+                      <div className="flex gap-2">
+                        {[
+                          { val: 0, label: "بدون" },
+                          { val: 30, label: "30 ثانية" },
+                          { val: 60, label: "60 ثانية" },
+                          { val: 90, label: "90 ثانية" },
+                        ].map((opt) => (
+                          <motion.button
+                            key={opt.val}
+                            whileTap={{ scale: 0.95 }}
+                            onClick={() => setRoundTimer(opt.val)}
+                            className={cn(
+                              "flex-1 rounded-xl py-2 text-[10px] font-bold border-2 transition-all cursor-pointer",
+                              roundTimer === opt.val
+                                ? "bg-amber-500/20 border-amber-500/60 text-amber-300 shadow-sm shadow-amber-500/20"
+                                : "bg-slate-800/40 border-slate-700/40 text-slate-400 hover:border-slate-600"
+                            )}
+                          >
+                            {opt.label}
+                          </motion.button>
+                        ))}
+                      </div>
+                    </div>
+
                     {/* Sound Effects */}
                     <div>
                       <p className="text-xs font-bold text-slate-300 mb-2">
@@ -2390,15 +3040,21 @@ function TeamSetup({
         {/* Store settings in data attributes for main to pick up */}
         <input type="hidden" id="settings-totalRounds" value={totalRounds} />
         <input type="hidden" id="settings-stealTimer" value={stealTimer} />
+        <input type="hidden" id="settings-roundTimer" value={roundTimer} />
 
         <div className="text-center mt-6">
           <motion.button
             whileTap={{ scale: 0.95 }}
             onClick={() =>
-              onStartGame(
-                team1Name.trim() || "فريق 1",
-                team2Name.trim() || "فريق 2"
-              )
+              onStartGame({
+                team1Name: team1Name.trim() || "فريق 1",
+                team2Name: team2Name.trim() || "فريق 2",
+                team1Emoji,
+                team2Emoji,
+                totalRounds,
+                stealTimer,
+                roundTimer,
+              })
             }
             className="relative bg-gradient-to-l from-amber-600 to-rose-600 hover:from-amber-500 hover:to-rose-500 text-white font-bold px-12 py-6 rounded-xl shadow-lg shadow-amber-500/20 cursor-pointer overflow-hidden"
           >
@@ -2410,10 +3066,21 @@ function TeamSetup({
             />
             <span className="relative flex items-center gap-2 text-lg">
               <Play className="w-5 h-5" />
-              ابدأ اللعبة
+              ابدأ اللعبة 🎮
             </span>
           </motion.button>
+          <div className="text-center mt-3">
+            <Button
+              onClick={() => setSetupStep(2)}
+              variant="ghost"
+              className="text-slate-500 hover:text-amber-300 gap-1 text-xs"
+            >
+              رجوع
+            </Button>
+          </div>
         </div>
+          </motion.div>
+        )}
       </motion.div>
     </div>
   );
@@ -2575,7 +3242,7 @@ function FaceOffScreen({
         />
       </div>
 
-      {/* ===== COUNTDOWN OVERLAY ===== */}
+      {/* ===== COUNTDOWN OVERLAY with Ring + Particles ===== */}
       <AnimatePresence>
         {countdown !== null && countdown > 0 && (
           <motion.div
@@ -2586,9 +3253,37 @@ function FaceOffScreen({
             transition={{ duration: 0.6, type: "spring", stiffness: 200 }}
             className="absolute inset-0 flex items-center justify-center z-30 pointer-events-none bg-black/30 backdrop-blur-sm"
           >
-            <div className="text-8xl sm:text-9xl font-black text-transparent bg-clip-text bg-gradient-to-b from-amber-300 to-rose-400 drop-shadow-2xl">
-              {countdown}
+            {/* Countdown Ring */}
+            <div className="relative">
+              <CountdownRing value={countdown} max={3} />
+              <motion.div
+                initial={{ scale: 2, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                className="text-7xl sm:text-8xl font-black text-transparent bg-clip-text bg-gradient-to-b from-amber-300 to-rose-400"
+                style={{ filter: "drop-shadow(0 0 30px rgba(251,191,36,0.4))" }}
+              >
+                {countdown}
+              </motion.div>
             </div>
+            {/* Particles during countdown */}
+            {[...Array(6)].map((_, i) => (
+              <motion.div
+                key={i}
+                initial={{ opacity: 0, scale: 0 }}
+                animate={{
+                  opacity: [0, 0.6, 0],
+                  scale: [0.5, 1.2, 0.5],
+                  y: [0, -30 - i * 10],
+                  x: [(i % 2 === 0 ? 1 : -1) * (20 + i * 15)],
+                }}
+                transition={{ duration: 0.8, delay: i * 0.08 }}
+                className="absolute w-2 h-2 rounded-full bg-amber-400/50"
+                style={{
+                  left: "50%",
+                  top: "50%",
+                }}
+              />
+            ))}
           </motion.div>
         )}
       </AnimatePresence>
@@ -2670,7 +3365,7 @@ function FaceOffScreen({
               : "border-rose-400/40 bg-rose-950/10 shadow-lg shadow-rose-500/10"
         )}
       >
-        {/* Subtle glow when verifying */}
+        {/* Subtle glow when verifying - Spotlight Effect */}
         {(faceoffStep === "verify_answer" || faceoffStep === "other_team_chance") && (
           <motion.div
             animate={{ opacity: [0.3, 0.6, 0.3], scale: [1, 1.01, 1] }}
@@ -2681,6 +3376,18 @@ function FaceOffScreen({
                 ? "bg-gradient-to-b from-emerald-500/10 to-transparent"
                 : "bg-gradient-to-b from-rose-500/10 to-transparent"
             )}
+          />
+        )}
+        {/* Spotlight radial effect during verification */}
+        {faceoffStep === "verify_answer" && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: [0, 0.3, 0] }}
+            transition={{ duration: 2, repeat: Infinity }}
+            className="absolute inset-0 rounded-2xl pointer-events-none"
+            style={{
+              background: "radial-gradient(ellipse at center, rgba(52,211,153,0.15) 0%, transparent 70%)",
+            }}
           />
         )}
         <p className="text-[10px] font-bold text-slate-500 mb-1 text-center relative z-10">
@@ -2922,6 +3629,8 @@ function GameBoardView({
   team2Score,
   team1Name,
   team2Name,
+  team1Emoji,
+  team2Emoji,
   strikes,
   onRevealAnswer,
   onAddStrike,
@@ -2934,6 +3643,8 @@ function GameBoardView({
   totalRounds,
   roundScore,
   questionCategory,
+  roundTimeLeft,
+  roundTimerRunning,
 }: {
   question: string;
   answers: Answer[];
@@ -2942,6 +3653,8 @@ function GameBoardView({
   team2Score: number;
   team1Name: string;
   team2Name: string;
+  team1Emoji: string;
+  team2Emoji: string;
   strikes: number;
   onRevealAnswer: (index: number) => void;
   onAddStrike: () => void;
@@ -2954,6 +3667,8 @@ function GameBoardView({
   totalRounds: number;
   roundScore: number;
   questionCategory?: { icon: string; label: string };
+  roundTimeLeft: number;
+  roundTimerRunning: boolean;
 }) {
   // Calculate points remaining (unrevealed)
   const totalPoints = answers.reduce((sum, a) => sum + a.points, 0);
@@ -3004,7 +3719,7 @@ function GameBoardView({
             />
           )}
           <div className="flex items-center gap-2 mb-1">
-            <span className="text-xl sm:text-2xl">👑</span>
+            <span className="text-xl sm:text-2xl">{team1Emoji}</span>
             <p className="text-xs font-bold text-amber-400/70 truncate">{team1Name}</p>
           </div>
           <motion.p
@@ -3030,6 +3745,51 @@ function GameBoardView({
             <span className="text-[10px] font-bold text-slate-500 block">الجولة</span>
             <span className="text-sm font-black text-white">{round}<span className="text-slate-500">/{totalRounds}</span></span>
           </div>
+          {/* Round Timer Display */}
+          {roundTimerRunning && (
+            <motion.div
+              initial={{ opacity: 0, scale: 0.5 }}
+              animate={{ opacity: 1, scale: 1 }}
+              className={cn(
+                "mt-1 w-12 h-12 rounded-full border-2 flex items-center justify-center relative",
+                roundTimeLeft <= 5
+                  ? "border-red-500 bg-red-950/50 shadow-lg shadow-red-500/30"
+                  : roundTimeLeft <= 10
+                    ? "border-amber-500 bg-amber-950/50"
+                    : "border-emerald-500/60 bg-emerald-950/30"
+              )}
+            >
+              {/* Circular progress */}
+              <svg className="absolute inset-0 w-full h-full -rotate-90" viewBox="0 0 48 48">
+                <circle
+                  cx="24" cy="24" r="21"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  className="text-slate-800/50"
+                />
+                <circle
+                  cx="24" cy="24" r="21"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeDasharray={`${2 * Math.PI * 21}`}
+                  strokeDashoffset={`${2 * Math.PI * 21 * (1 - roundTimeLeft / 60)}`}
+                  className={cn(
+                    "transition-all duration-1000",
+                    roundTimeLeft <= 5 ? "text-red-500" : roundTimeLeft <= 10 ? "text-amber-500" : "text-emerald-500"
+                  )}
+                  strokeLinecap="round"
+                />
+              </svg>
+              <span className={cn(
+                "text-sm font-black tabular-nums",
+                roundTimeLeft <= 5 ? "text-red-400" : roundTimeLeft <= 10 ? "text-amber-400" : "text-emerald-400"
+              )}>
+                {roundTimeLeft}
+              </span>
+            </motion.div>
+          )}
         </div>
 
         {/* Team 2 Score Panel */}
@@ -3060,7 +3820,7 @@ function GameBoardView({
             />
           )}
           <div className="flex items-center gap-2 mb-1">
-            <span className="text-xl sm:text-2xl">🏛️</span>
+            <span className="text-xl sm:text-2xl">{team2Emoji}</span>
             <p className="text-xs font-bold text-rose-400/70 truncate">{team2Name}</p>
           </div>
           <motion.p
@@ -3220,25 +3980,44 @@ function GameBoardView({
         )}
       </div>
 
-      {/* Round Progress Bar */}
+      {/* Round Progress Bar with percentage */}
       <div className="px-1">
         <div className="flex items-center gap-2">
-          <div className="flex-1 h-2 bg-slate-800/60 rounded-full overflow-hidden">
+          <div className="flex-1 h-2.5 bg-slate-800/60 rounded-full overflow-hidden border border-slate-700/30">
             <motion.div
               animate={{ width: `${(answers.filter((a) => a.revealed).length / Math.max(answers.length, 1)) * 100}%` }}
               transition={{ duration: 0.5, ease: "easeOut" }}
               className={cn(
-                "h-full rounded-full",
+                "h-full rounded-full relative overflow-hidden",
                 phase === "steal"
                   ? "bg-gradient-to-l from-rose-400 to-amber-500"
                   : currentTeam === 1
                     ? "bg-gradient-to-l from-amber-400 to-amber-600"
                     : "bg-gradient-to-l from-rose-400 to-rose-600"
               )}
+            >
+              <motion.div
+                animate={{ opacity: [0, 0.4, 0] }}
+                transition={{ duration: 1.5, repeat: Infinity }}
+                className="absolute inset-0 bg-gradient-to-t from-transparent to-white/20"
+              />
+            </motion.div>
+          </div>
+          <span className="text-[10px] font-bold text-slate-500 tabular-nums shrink-0 min-w-[36px] text-center">
+            {Math.round((answers.filter((a) => a.revealed).length / Math.max(answers.length, 1)) * 100)}%
+          </span>
+        </div>
+        {/* Points progress indicator */}
+        <div className="flex items-center gap-2 mt-1">
+          <div className="flex-1 h-1 bg-slate-800/40 rounded-full overflow-hidden">
+            <motion.div
+              animate={{ width: `${totalPoints > 0 ? (revealedPoints / totalPoints) * 100 : 0}%` }}
+              transition={{ duration: 0.6, ease: "easeOut" }}
+              className="h-full rounded-full bg-gradient-to-l from-yellow-400 to-emerald-400"
             />
           </div>
-          <span className="text-[10px] font-bold text-slate-500 tabular-nums shrink-0">
-            {answers.filter((a) => a.revealed).length}/{answers.length}
+          <span className="text-[9px] font-bold text-slate-600 tabular-nums shrink-0">
+            {revealedPoints}/{totalPoints} pts
           </span>
         </div>
       </div>
@@ -3320,11 +4099,21 @@ function GameBoardView({
               />
               <div className="relative z-10">
                 <motion.div
-                  animate={{ scale: [1, 1.1, 1] }}
-                  transition={{ duration: 1.5, repeat: Infinity }}
-                  className="text-2xl sm:text-3xl font-black text-transparent bg-clip-text bg-gradient-to-l from-amber-300 via-rose-300 to-amber-300 mb-1"
+                  initial={{ scale: 0, rotate: -90 }}
+                  animate={{ scale: 1, rotate: 0 }}
+                  transition={{ type: "spring", stiffness: 400, damping: 15 }}
+                  className="text-3xl sm:text-4xl font-black text-transparent bg-clip-text bg-gradient-to-l from-amber-300 via-rose-300 to-amber-300 mb-1"
+                  style={{ filter: "drop-shadow(0 0 20px rgba(244,63,94,0.3))" }}
                 >
-                  ⚡ فرصة السرقة! ⚡
+                  ⚔️ STEAL ⚔️
+                </motion.div>
+                <motion.div
+                  animate={{ scale: [1, 1.05, 1] }}
+                  transition={{ duration: 1.5, repeat: Infinity }}
+                >
+                  <p className="text-base sm:text-lg font-black text-transparent bg-clip-text bg-gradient-to-l from-amber-300 via-rose-300 to-amber-300 mb-2">
+                    فرصة السرقة!
+                  </p>
                 </motion.div>
                 <p className="text-xs sm:text-sm text-slate-300">
                   <span className="text-red-300 font-bold">{currentTeam === 1 ? team2Name : team1Name}</span>
@@ -3381,14 +4170,26 @@ function GameBoardView({
         )}
 
         {phase !== "steal" && (
-        <Button
+        <motion.button
+          whileHover={{ scale: 1.02 }}
+          whileTap={{ scale: 0.98 }}
           onClick={onRevealAll}
-          variant="outline"
-          className="w-full border-slate-700 text-slate-400 hover:text-slate-200 hover:bg-slate-800 h-9 text-xs"
+          className="w-full relative overflow-hidden rounded-xl border border-slate-700 hover:border-amber-500/40 text-slate-400 hover:text-amber-200 hover:bg-slate-800/80 h-9 text-xs font-bold transition-all cursor-pointer"
         >
-          <Eye className="w-3 h-3 ml-1" />
-          كشف جميع الإجابات
-        </Button>
+          <motion.div
+            animate={{ backgroundPosition: ["0% 50%", "200% 50%"] }}
+            transition={{ duration: 3, repeat: Infinity, ease: "linear" }}
+            className="absolute inset-0 opacity-0 hover:opacity-100 transition-opacity"
+            style={{
+              background: "linear-gradient(90deg, transparent, rgba(251,191,36,0.05), transparent)",
+              backgroundSize: "200% 100%",
+            }}
+          />
+          <span className="relative flex items-center justify-center gap-1">
+            <Eye className="w-3 h-3" />
+            كشف جميع الإجابات ✨
+          </span>
+        </motion.button>
         )}
       </div>
     </div>
@@ -3494,18 +4295,34 @@ function FastMoneyScreen({
   if (phase === "team1") {
     return (
       <div className="flex-1 flex flex-col p-3 sm:p-4 gap-3" dir="rtl">
-        {/* Header */}
+        {/* Header with team avatars */}
         <div className="flex items-center justify-between gap-2">
           <div className="bg-amber-950/50 border border-amber-500/40 rounded-xl px-3 py-2">
-            <p className="text-[10px] text-amber-400/60">{team1Name}</p>
+            <div className="flex items-center gap-1.5">
+              <span className="text-sm">👑</span>
+              <p className="text-[10px] text-amber-400/60">{team1Name}</p>
+            </div>
             <p className="text-lg font-black text-amber-300">{team1Score}</p>
             {fmScore1 > 0 && <p className="text-[9px] text-emerald-400/60">💰 +{fmScore1}</p>}
           </div>
-          <Badge className="bg-gradient-to-l from-amber-600 to-yellow-600 text-white">
-            💰 المال السريع
-          </Badge>
+          <div className="flex flex-col items-center gap-1">
+            <Badge className="bg-gradient-to-l from-amber-600 to-yellow-600 text-white px-3 py-1">
+              💰 المال السريع
+            </Badge>
+            {/* Double Points Badge */}
+            <motion.div
+              animate={{ scale: [1, 1.1, 1], boxShadow: ["0 0 0px rgba(251,191,36,0)", "0 0 12px rgba(251,191,36,0.5)", "0 0 0px rgba(251,191,36,0)"] }}
+              transition={{ duration: 2, repeat: Infinity }}
+              className="bg-gradient-to-r from-amber-500/30 to-yellow-500/30 border border-amber-400/50 rounded-full px-3 py-0.5"
+            >
+              <span className="text-[10px] font-black text-amber-300">2× نقاط مضاعفة</span>
+            </motion.div>
+          </div>
           <div className="bg-rose-950/50 border border-rose-500/40 rounded-xl px-3 py-2">
-            <p className="text-[10px] text-rose-400/60">{team2Name}</p>
+            <div className="flex items-center gap-1.5">
+              <span className="text-sm">🏛️</span>
+              <p className="text-[10px] text-rose-400/60">{team2Name}</p>
+            </div>
             <p className="text-lg font-black text-rose-300">{team2Score}</p>
             {fmScore2 > 0 && <p className="text-[9px] text-emerald-400/60">💰 +{fmScore2}</p>}
           </div>
@@ -3517,30 +4334,36 @@ function FastMoneyScreen({
           </Badge>
         </div>
 
-        {/* Timer */}
-        <div className="text-center">
+        {/* Timer with Timer Bar */}
+        <div className="text-center space-y-2">
           {!timerRunning ? (
-            <Button
+            <motion.button
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
               onClick={() => {
                 setPhase("team1");
                 onStartTimer();
               }}
-              className="bg-gradient-to-l from-amber-600 to-yellow-600 text-white font-bold"
+              className="bg-gradient-to-l from-amber-600 to-yellow-600 text-white font-bold px-6 py-3 rounded-xl shadow-lg shadow-amber-500/20 cursor-pointer inline-flex items-center gap-2"
             >
-              <Play className="w-4 h-4 ml-1" />
+              <Play className="w-4 h-4" />
               ابدأ المؤقت (20 ثانية)
-            </Button>
+            </motion.button>
           ) : (
-            <motion.div
-              animate={{ scale: timeLeft <= 5 ? [1, 1.1, 1] : 1 }}
-              transition={{ repeat: timeLeft <= 5 ? Infinity : 0, duration: 0.5 }}
-              className={cn(
-                "text-5xl font-black tabular-nums",
-                timeLeft <= 5 ? "text-red-400" : "text-amber-400"
-              )}
-            >
+            <div className="space-y-2">
+              <TimerBar timeLeft={timeLeft} maxTime={20} />
+              <motion.div
+                animate={{ scale: timeLeft <= 5 ? [1, 1.1, 1] : 1 }}
+                transition={{ repeat: timeLeft <= 5 ? Infinity : 0, duration: 0.5 }}
+                className={cn(
+                  "text-4xl font-black tabular-nums",
+                  timeLeft <= 5 ? "text-red-400" : "text-amber-400"
+                )}
+                style={{ filter: timeLeft <= 5 ? "drop-shadow(0 0 10px rgba(239,68,68,0.4))" : "drop-shadow(0 0 10px rgba(251,191,36,0.3))" }}
+              >
               {timeLeft}
             </motion.div>
+            </div>
           )}
         </div>
 
@@ -3746,17 +4569,32 @@ function GameOverScreen({
   team2Name,
   team1Score,
   team2Score,
+  team1Emoji,
+  team2Emoji,
   onRestart,
   onHome,
   roundHistory,
+  gameStats,
 }: {
   team1Name: string;
   team2Name: string;
   team1Score: number;
   team2Score: number;
+  team1Emoji: string;
+  team2Emoji: string;
   onRestart: () => void;
   onHome: () => void;
   roundHistory: { round: number; team: 1 | 2; points: number; type: string }[];
+  gameStats: {
+    team1Correct: number;
+    team2Correct: number;
+    team1Strikes: number;
+    team2Strikes: number;
+    totalSteals: number;
+    successfulSteals: number;
+    fastMoneyScore1: number;
+    fastMoneyScore2: number;
+  };
 }) {
   const winner =
     team1Score > team2Score
@@ -3767,21 +4605,47 @@ function GameOverScreen({
   const isTie = team1Score === team2Score;
 
   return (
-    <div className="flex-1 flex items-center justify-center p-4" dir="rtl">
+    <div className="flex-1 flex items-center justify-center p-4 relative overflow-hidden" dir="rtl">
+      <AnimatedGridBackground />
       <motion.div
         initial={{ opacity: 0, scale: 0.8 }}
         animate={{ opacity: 1, scale: 1 }}
-        className="text-center max-w-md w-full"
+        className="text-center max-w-md w-full relative z-10"
       >
-        <ConfettiOverlay />
+        {/* Confetti on winning team side only */}
+        {!isTie && team1Score > team2Score && (
+          <div className="absolute top-0 right-0 w-1/2 h-full pointer-events-none overflow-hidden">
+            <ConfettiOverlay />
+          </div>
+        )}
+        {!isTie && team2Score > team1Score && (
+          <div className="absolute top-0 left-0 w-1/2 h-full pointer-events-none overflow-hidden">
+            <ConfettiOverlay />
+          </div>
+        )}
+        {isTie && <ConfettiOverlay />}
 
+        {/* Trophy slides in from top */}
         <motion.div
-          initial={{ scale: 0 }}
-          animate={{ scale: 1 }}
-          transition={{ delay: 0.3, type: "spring" }}
-          className="text-6xl mb-4"
+          initial={{ y: -200, opacity: 0, rotate: -30 }}
+          animate={{ y: 0, opacity: 1, rotate: 0 }}
+          transition={{ delay: 0.2, type: "spring", stiffness: 200, damping: 15 }}
+          className="relative inline-block mb-4"
         >
-          🏆
+          <motion.div
+            animate={{ rotate: [0, 5, -5, 0], scale: [1, 1.05, 1] }}
+            transition={{ duration: 3, repeat: Infinity }}
+            className="text-7xl"
+            style={{ filter: "drop-shadow(0 0 20px rgba(251,191,36,0.4))" }}
+          >
+            🏆
+          </motion.div>
+          {/* Glow behind trophy */}
+          <motion.div
+            animate={{ opacity: [0.2, 0.5, 0.2], scale: [1, 1.2, 1] }}
+            transition={{ duration: 3, repeat: Infinity }}
+            className="absolute inset-0 -m-4 bg-amber-500/10 rounded-full blur-xl pointer-events-none"
+          />
         </motion.div>
 
         <h2 className="text-3xl sm:text-4xl font-black mb-4">
@@ -3790,14 +4654,20 @@ function GameOverScreen({
               تعادل!
             </span>
           ) : (
-            <span className="bg-gradient-to-l from-amber-400 via-yellow-300 to-amber-400 bg-clip-text text-transparent">
+            <motion.span
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.5 }}
+              className="bg-gradient-to-l from-amber-400 via-yellow-300 to-amber-400 bg-clip-text text-transparent"
+              style={{ filter: "drop-shadow(0 0 15px rgba(251,191,36,0.3))" }}
+            >
               فاز {winner}! 🎉
-            </span>
+            </motion.span>
           )}
         </h2>
 
         {/* Score Cards */}
-        <div className="grid grid-cols-2 gap-3 mb-6">
+        <div className="grid grid-cols-2 gap-3 mb-4">
           <motion.div
             initial={{ opacity: 0, x: 30 }}
             animate={{ opacity: 1, x: 0 }}
@@ -3805,19 +4675,41 @@ function GameOverScreen({
           >
             <Card
               className={cn(
-                team1Score >= team2Score
-                  ? "bg-amber-950/40 border-amber-500/40"
+                "relative overflow-hidden",
+                team1Score >= team2Score && !isTie
+                  ? "bg-amber-950/40 border-amber-500/40 shadow-lg shadow-amber-500/20"
                   : "bg-slate-900/60 border-slate-800/30"
               )}
             >
-              <CardContent className="p-4">
-                <p className="text-2xl mb-1">👑</p>
+              {team1Score >= team2Score && !isTie && (
+                <motion.div
+                  animate={{ opacity: [0.1, 0.3, 0.1] }}
+                  transition={{ duration: 2, repeat: Infinity }}
+                  className="absolute inset-0 bg-gradient-to-t from-amber-500/10 to-transparent pointer-events-none"
+                />
+              )}
+              <CardContent className="p-4 relative z-10">
+                <p className="text-2xl mb-1">{team1Emoji}</p>
                 <p className="text-sm font-bold text-amber-300">{team1Name}</p>
-                <p className="text-2xl font-black text-amber-400">{team1Score}</p>
+                <motion.p
+                  initial={{ scale: 0.5 }}
+                  animate={{ scale: 1 }}
+                  transition={{ delay: 0.8, type: "spring", stiffness: 300 }}
+                  className="text-3xl font-black text-amber-400 tabular-nums"
+                  style={{ textShadow: "0 0 12px rgba(251,191,36,0.3)" }}
+                >
+                  {team1Score}
+                </motion.p>
                 {team1Score >= team2Score && !isTie && (
-                  <Badge className="mt-2 bg-amber-600 text-white text-[10px]">
-                    🏆 الفائز
-                  </Badge>
+                  <motion.div
+                    initial={{ scale: 0 }}
+                    animate={{ scale: 1 }}
+                    transition={{ delay: 1, type: "spring" }}
+                  >
+                    <Badge className="mt-2 bg-gradient-to-l from-amber-600 to-yellow-500 text-white text-[10px] px-2 py-0.5">
+                      🏆 الفائز
+                    </Badge>
+                  </motion.div>
                 )}
               </CardContent>
             </Card>
@@ -3830,24 +4722,55 @@ function GameOverScreen({
           >
             <Card
               className={cn(
-                team2Score > team1Score
-                  ? "bg-rose-950/40 border-rose-500/40"
+                "relative overflow-hidden",
+                team2Score > team1Score && !isTie
+                  ? "bg-rose-950/40 border-rose-500/40 shadow-lg shadow-rose-500/20"
                   : "bg-slate-900/60 border-slate-800/30"
               )}
             >
-              <CardContent className="p-4">
-                <p className="text-2xl mb-1">🏛️</p>
+              {team2Score > team1Score && !isTie && (
+                <motion.div
+                  animate={{ opacity: [0.1, 0.3, 0.1] }}
+                  transition={{ duration: 2, repeat: Infinity, delay: 1 }}
+                  className="absolute inset-0 bg-gradient-to-t from-rose-500/10 to-transparent pointer-events-none"
+                />
+              )}
+              <CardContent className="p-4 relative z-10">
+                <p className="text-2xl mb-1">{team2Emoji}</p>
                 <p className="text-sm font-bold text-rose-300">{team2Name}</p>
-                <p className="text-2xl font-black text-rose-400">{team2Score}</p>
+                <motion.p
+                  initial={{ scale: 0.5 }}
+                  animate={{ scale: 1 }}
+                  transition={{ delay: 1, type: "spring", stiffness: 300 }}
+                  className="text-3xl font-black text-rose-400 tabular-nums"
+                  style={{ textShadow: "0 0 12px rgba(244,63,94,0.3)" }}
+                >
+                  {team2Score}
+                </motion.p>
                 {team2Score > team1Score && !isTie && (
-                  <Badge className="mt-2 bg-rose-600 text-white text-[10px]">
-                    🏆 الفائز
-                  </Badge>
+                  <motion.div
+                    initial={{ scale: 0 }}
+                    animate={{ scale: 1 }}
+                    transition={{ delay: 1.2, type: "spring" }}
+                  >
+                    <Badge className="mt-2 bg-gradient-to-l from-rose-600 to-pink-500 text-white text-[10px] px-2 py-0.5">
+                      🏆 الفائز
+                    </Badge>
+                  </motion.div>
                 )}
               </CardContent>
             </Card>
           </motion.div>
         </div>
+
+        {/* Animated Bar Chart */}
+        <AnimatedBarChart
+          team1Score={team1Score}
+          team2Score={team2Score}
+          team1Name={team1Name}
+          team2Name={team2Name}
+          show={true}
+        />
 
         {/* Score Difference Indicator */}
         {!isTie && winner && (
@@ -3863,14 +4786,59 @@ function GameOverScreen({
           </motion.div>
         )}
 
+        {/* Game Statistics Grid */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 1.3 }}
+          className="mt-5 mb-5"
+        >
+          <p className="text-xs font-bold text-slate-400 text-center mb-2">📋 إحصائيات اللعبة</p>
+          <div className="grid grid-cols-2 gap-2">
+            {[
+              { icon: "✅", label: `${team1Emoji} إجابات صحيحة`, value: gameStats.team1Correct, color: "text-amber-300" },
+              { icon: "✅", label: `${team2Emoji} إجابات صحيحة`, value: gameStats.team2Correct, color: "text-rose-300" },
+              { icon: "❌", label: `${team1Emoji} إخفاقات`, value: gameStats.team1Strikes, color: "text-amber-300" },
+              { icon: "❌", label: `${team2Emoji} إخفاقات`, value: gameStats.team2Strikes, color: "text-rose-300" },
+              { icon: "🎯", label: "محاولات سرقة", value: gameStats.totalSteals, color: "text-purple-300" },
+              { icon: "🏆", label: "سرقات ناجحة", value: gameStats.successfulSteals, color: "text-emerald-300" },
+              { icon: "💰", label: `${team1Emoji} المال السريع`, value: gameStats.fastMoneyScore1, color: "text-amber-300" },
+              { icon: "💰", label: `${team2Emoji} المال السريع`, value: gameStats.fastMoneyScore2, color: "text-rose-300" },
+            ].map((stat, i) => (
+              <motion.div
+                key={i}
+                initial={{ opacity: 0, scale: 0.8 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ delay: 1.4 + i * 0.06 }}
+                className="bg-slate-900/60 border border-slate-800/50 rounded-xl p-2.5 text-center"
+              >
+                <span className="text-sm">{stat.icon}</span>
+                <p className="text-lg font-black tabular-nums mt-0.5" style={{ color: "inherit" }}>
+                  <span className={stat.color}>{stat.value}</span>
+                </p>
+                <p className="text-[9px] text-slate-500 truncate">{stat.label}</p>
+              </motion.div>
+            ))}
+          </div>
+        </motion.div>
+
         <div className="flex gap-3">
-          <Button
+          <motion.button
+            whileHover={{ scale: 1.04 }}
+            whileTap={{ scale: 0.96 }}
             onClick={onRestart}
-            className="flex-1 bg-gradient-to-l from-amber-600 to-rose-600 hover:from-amber-500 hover:to-rose-500 text-white font-bold py-5"
+            className="flex-1 relative overflow-hidden bg-gradient-to-l from-amber-600 to-rose-600 hover:from-amber-500 hover:to-rose-500 text-white font-bold py-5 rounded-xl cursor-pointer shadow-lg shadow-amber-500/20"
           >
-            <RotateCcw className="w-4 h-4 ml-1" />
-            لعب مرة أخرى
-          </Button>
+            <motion.div
+              animate={{ opacity: [0.2, 0.5, 0.2] }}
+              transition={{ duration: 2, repeat: Infinity }}
+              className="absolute inset-0 bg-gradient-to-l from-white/10 to-transparent pointer-events-none"
+            />
+            <span className="relative flex items-center justify-center gap-1.5">
+              <RotateCcw className="w-4 h-4" />
+              لعب مرة أخرى 🔄
+            </span>
+          </motion.button>
           <Button
             onClick={onHome}
             variant="outline"
@@ -3930,12 +4898,16 @@ export default function FamilyFeudPage() {
   // Game state
   const [team1Name, setTeam1Name] = useState("فريق 1");
   const [team2Name, setTeam2Name] = useState("فريق 2");
+  const [team1Emoji, setTeam1Emoji] = useState("👑");
+  const [team2Emoji, setTeam2Emoji] = useState("🏛️");
   const [team1Score, setTeam1Score] = useState(0);
   const [team2Score, setTeam2Score] = useState(0);
   const [currentTeam, setCurrentTeam] = useState<1 | 2>(1);
   const [strikes, setStrikes] = useState(0);
   const [round, setRound] = useState(1);
-  const totalRounds = 5;
+  const [totalRounds, setTotalRounds] = useState(5);
+  const [stealTimerDuration, setStealTimerDuration] = useState(0);
+  const [roundTimerDuration, setRoundTimerDuration] = useState(0);
   const [gamePhase, setGamePhase] = useState<"faceoff" | "gameboard" | "steal" | "fast_money" | "game_over">("faceoff");
 
   // Questions
@@ -3985,6 +4957,26 @@ export default function FamilyFeudPage() {
   // Round history
   const [roundHistory, setRoundHistory] = useState<{ round: number; team: 1 | 2; points: number; type: string }[]>([]);
 
+  // Game statistics
+  const [gameStats, setGameStats] = useState({
+    team1Correct: 0,
+    team2Correct: 0,
+    team1Strikes: 0,
+    team2Strikes: 0,
+    totalSteals: 0,
+    successfulSteals: 0,
+    fastMoneyScore1: 0,
+    fastMoneyScore2: 0,
+  });
+
+  // Round timer
+  const [roundTimeLeft, setRoundTimeLeft] = useState(0);
+  const [roundTimerRunning, setRoundTimerRunning] = useState(false);
+  const roundTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Ref for internal strike to avoid ordering issues
+  const handleAddStrikeInternalRef = useRef<() => void>(() => {});
+
   // Shuffle and pick questions
   const initializeQuestions = useCallback(() => {
     const shuffled = [...ALL_QUESTIONS].sort(() => Math.random() - 0.5);
@@ -4002,21 +4994,36 @@ export default function FamilyFeudPage() {
         answers: q.answers.map((a) => ({ ...a, revealed: false })),
       }));
     setFmQuestions(fmShuffled);
-  }, []);
+  }, [totalRounds]);
 
   // Start game
   const handleStartGame = useCallback(
-    (t1Name: string, t2Name: string) => {
-      setTeam1Name(t1Name);
-      setTeam2Name(t2Name);
+    (settings: { team1Name: string; team2Name: string; team1Emoji: string; team2Emoji: string; totalRounds: number; stealTimer: number; roundTimer: number }) => {
+      setTeam1Name(settings.team1Name);
+      setTeam2Name(settings.team2Name);
+      setTeam1Emoji(settings.team1Emoji);
+      setTeam2Emoji(settings.team2Emoji);
       setTeam1Score(0);
       setTeam2Score(0);
       setRound(1);
       setCurrentTeam(1);
       setStrikes(0);
+      setTotalRounds(settings.totalRounds);
+      setStealTimerDuration(settings.stealTimer);
+      setRoundTimerDuration(settings.roundTimer);
       setGamePhase("faceoff");
       setUiPhase("game");
       setShowGameOver(false);
+      setGameStats({
+        team1Correct: 0,
+        team2Correct: 0,
+        team1Strikes: 0,
+        team2Strikes: 0,
+        totalSteals: 0,
+        successfulSteals: 0,
+        fastMoneyScore1: 0,
+        fastMoneyScore2: 0,
+      });
       initializeQuestions();
     },
     [initializeQuestions]
@@ -4031,11 +5038,60 @@ export default function FamilyFeudPage() {
         const t = setTimeout(() => {
           setCurrentAnswers(q.answers.map((a) => ({ ...a, revealed: false })));
           setRoundScore(0);
+          // Start round timer if enabled
+          if (roundTimerDuration > 0) {
+            setRoundTimeLeft(roundTimerDuration);
+            setRoundTimerRunning(true);
+          }
         }, 0);
         return () => clearTimeout(t);
       }
     }
-  }, [round, selectedQuestions, totalRounds]);
+  }, [round, selectedQuestions, totalRounds, roundTimerDuration]);
+
+  // Round timer countdown
+  useEffect(() => {
+    if (roundTimerRunning && roundTimeLeft > 0 && gamePhase === "gameboard") {
+      if (roundTimeLeft <= 5) playCountdown();
+      roundTimerRef.current = setTimeout(() => {
+        setRoundTimeLeft((prev) => prev - 1);
+      }, 1000);
+    } else if (roundTimerRunning && roundTimeLeft === 0 && gamePhase === "gameboard") {
+      roundTimerRef.current = setTimeout(() => {
+        setRoundTimerRunning(false);
+        playBuzz();
+        handleAddStrikeInternalRef.current();
+      }, 0);
+    }
+    return () => {
+      if (roundTimerRef.current) clearTimeout(roundTimerRef.current);
+    };
+  }, [roundTimerRunning, roundTimeLeft, gamePhase, playCountdown, playBuzz]);
+
+  // Internal strike handler (without useCallback dependency)
+  const handleAddStrikeInternal = useCallback(() => {
+    setStrikes((prev) => {
+      const newStrikes = prev + 1;
+      if (newStrikes >= 3) {
+        strikesTeamRef.current = currentTeam;
+        playSteal();
+        setGamePhase("steal");
+      }
+      return newStrikes;
+    });
+    setFeedback({ show: true, correct: false });
+    setTimeout(() => setFeedback({ show: false, correct: false }), 1500);
+    // Track stats
+    setGameStats((prev) => ({
+      ...prev,
+      [currentTeam === 1 ? "team1Strikes" : "team2Strikes"]: prev[currentTeam === 1 ? "team1Strikes" : "team2Strikes"] + 1,
+    }));
+  }, [currentTeam, playSteal]);
+
+  // Keep ref in sync
+  useEffect(() => {
+    handleAddStrikeInternalRef.current = handleAddStrikeInternal;
+  }, [handleAddStrikeInternal]);
 
   // Handle face-off team selection
   const handleFaceOffStart = useCallback(
@@ -4072,6 +5128,12 @@ export default function FamilyFeudPage() {
             revealStreakRef.current = 0;
             setRevealStreak(0);
           }, 3000);
+
+          // Track stats
+          setGameStats((prev) => ({
+            ...prev,
+            [currentTeam === 1 ? "team1Correct" : "team2Correct"]: prev[currentTeam === 1 ? "team1Correct" : "team2Correct"] + 1,
+          }));
         }
         return updated;
       });
@@ -4088,11 +5150,19 @@ export default function FamilyFeudPage() {
         strikesTeamRef.current = currentTeam;
         playSteal();
         setGamePhase("steal");
+        setGameStats((prev2) => ({ ...prev2, totalSteals: prev2.totalSteals + 1 }));
       }
       return newStrikes;
     });
     setFeedback({ show: true, correct: false });
     setTimeout(() => setFeedback({ show: false, correct: false }), 1500);
+    // Track stats
+    setGameStats((prev) => ({
+      ...prev,
+      [currentTeam === 1 ? "team1Strikes" : "team2Strikes"]: prev[currentTeam === 1 ? "team1Strikes" : "team2Strikes"] + 1,
+    }));
+    // Stop round timer on strike
+    setRoundTimerRunning(false);
   }, [playStrike, playSteal, currentTeam]);
 
   // Pass to other team
@@ -4165,6 +5235,8 @@ export default function FamilyFeudPage() {
     setRoundScore(0);
     roundPointsAwardedRef.current = true;
     playCorrect();
+    // Stop round timer
+    setRoundTimerRunning(false);
 
     // Show big result card
     const stealingTeamName = stealingTeam === 1 ? team1Name : team2Name;
@@ -4175,6 +5247,9 @@ export default function FamilyFeudPage() {
 
     // Track history
     setRoundHistory((prev) => [...prev, { round, team: stealingTeam, points: allPoints, type: "سرقة" }]);
+
+    // Track stats - successful steal
+    setGameStats((prev) => ({ ...prev, successfulSteals: prev.successfulSteals + 1 }));
 
     setTimeout(() => {
       setShowRoundResult(false);
@@ -4345,11 +5420,15 @@ export default function FamilyFeudPage() {
 
   // End game
   const handleEndGame = useCallback(() => {
-    setTeam1Score((prev) => prev + fmScore1);
-    setTeam2Score((prev) => prev + fmScore2);
+    const finalScore1 = team1Score + fmScore1;
+    const finalScore2 = team2Score + fmScore2;
+    setTeam1Score(finalScore1);
+    setTeam2Score(finalScore2);
     setShowGameOver(true);
     setGamePhase("game_over");
     playWin();
+    // Track fast money stats
+    setGameStats((prev) => ({ ...prev, fastMoneyScore1: fmScore1, fastMoneyScore2: fmScore2 }));
   }, [fmScore1, fmScore2, playWin]);
 
   // Reset
@@ -4517,9 +5596,12 @@ export default function FamilyFeudPage() {
           team2Name={team2Name}
           team1Score={team1Score}
           team2Score={team2Score}
+          team1Emoji={team1Emoji}
+          team2Emoji={team2Emoji}
           onRestart={handleReset}
           onHome={handleReset}
           roundHistory={roundHistory}
+          gameStats={gameStats}
         />
       ) : gamePhase === "faceoff" && currentQuestion ? (
         <div className="flex-1 flex flex-col">
@@ -4697,6 +5779,8 @@ export default function FamilyFeudPage() {
             team2Score={team2Score}
             team1Name={team1Name}
             team2Name={team2Name}
+            team1Emoji={team1Emoji}
+            team2Emoji={team2Emoji}
             strikes={strikes}
             onRevealAnswer={handleRevealAnswer}
             onAddStrike={handleAddStrike}
@@ -4709,6 +5793,8 @@ export default function FamilyFeudPage() {
             totalRounds={totalRounds}
             roundScore={roundScore}
             questionCategory={getQuestionCategory(currentQuestion)}
+            roundTimeLeft={roundTimeLeft}
+            roundTimerRunning={roundTimerRunning}
           />
 
           {/* Next Round Button */}

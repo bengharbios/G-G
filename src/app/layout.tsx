@@ -14,7 +14,7 @@ export const metadata: Metadata = {
   title: "ألعاب الغريب — منصة ألعاب جماعية عربية",
   description: "منصة ألعاب اجتماعية وحربية عربية. العب مع أصحابك في نفس الوقت من أي مكان - بدون تسجيل، بدون تطبيق.",
   icons: {
-    icon: "https://z-cdn.chatglm.cn/z-ai/static/logo.svg",
+    icon: "/favicon.png",
   },
 };
 
