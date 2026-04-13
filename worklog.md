@@ -122,3 +122,37 @@ Stage Summary:
 - Sound effects enhance gameplay at all key moments
 - Points remaining counter helps host track game progress
 - Animated background adds atmosphere during gameplay
+
+---
+Task ID: 6
+Agent: Main Agent
+Task: Fix FaceOff 'بز' overlay blocking team buttons
+
+Work Log:
+- Fixed bug where "بَزّ!" countdown text appeared as an overlay covering the team selection buttons
+- Added `showBuzz` state that auto-fades after 1 second using setTimeout
+- Added `pointer-events-none` to "بَزّ!" overlay so clicks pass through during animation
+- Updated team button activation logic to use `buzzerActive` flag instead of `countdown === 0`
+- Changed buzz prompt text from "🔔 بَزّ الآن!" to "🔔 اختر الفريق الذي سيبدأ!"
+- Fixed lint error by wrapping `setShowBuzz(true)` call in setTimeout inside useEffect
+- Pushed to GitHub: commit f1a3960
+
+Stage Summary:
+- FaceOff screen no longer gets stuck on "بَزّ!" text
+- Team buttons properly activate after countdown finishes
+- "بَزّ!" text auto-fades after 1 second, allowing smooth team selection
+- Game flow: countdown 3→2→1 → "بَزّ!" (1s) → team buttons active → select team
+
+Current project status:
+- G-G repo on GitHub, Vercel auto-deploys from main
+- 7 games total: 6 available + 3 coming soon
+- Family Feud fully functional with host mode and room mode
+- Dark theme (slate-950) with amber/gold accents
+
+Unresolved issues:
+- Diwaniya (online) mode for Family Feud is placeholder only - needs full API implementation
+
+Priority recommendations for next phase:
+- Implement full Diwaniya (online) mode for Family Feud with API routes
+- Add more Arabic questions (currently 80+ of 170 translated)
+- Test all game flows thoroughly
