@@ -598,3 +598,78 @@ Priority recommendations for next phase:
 - QA testing via agent-browser on Vercel deployment
 - Consider adding player name input validation
 - Consider adding round timer pause/resume functionality
+
+---
+Task ID: 13
+Agent: Main Agent
+Task: Fix 6 user-reported issues in Family Feud game
+
+Work Log:
+
+**Bug Fix 1 - Countdown numbers not centered in circle:**
+- The CountdownRing SVG had `className="absolute"` without positioning, so it didn't center over the countdown number
+- Changed SVG to `className="absolute inset-0 m-auto"` to auto-center it
+- Added explicit dimensions to the parent div: `w-[140px] h-[140px] sm:w-[160px] sm:h-[160px] flex items-center justify-center`
+- Numbers now properly appear centered within the countdown circle
+
+**Bug Fix 2 - Removed answer search bar for full-screen game:**
+- The search input ("ابحث عن إجابة...") with dropdown was taking up space and preventing the game from being full-screen
+- Removed the search state (`searchQuery`, `searchMatches`) and the entire search input + dropdown JSX from GameBoardView
+- Game now uses full screen height properly without the search bar taking extra space
+
+**Bug Fix 3 - Game state persistence (save/restore):**
+- Added localStorage-based game state saving that persists during gameplay
+- Save triggered debounced (500ms) on key state changes: scores, round, phase, strikes, team, answers
+- On mount, checks for saved game state and automatically restores it (questions, scores, teams, round, etc.)
+- Added `clearSavedState()` to reset/handleExitToHome callbacks to clean up when leaving
+- Players can now navigate away and return to their game in progress
+
+**Bug Fix 4 - Exit confirmation dialog:**
+- Added `ExitDialog` component matching Mafia game's pattern (🚪 icon, "الخروج من اللعبة؟" text)
+- Dialog message: "سيتم حفظ تقدم اللعبة ويمكنك العودة إليها لاحقاً"
+- Two buttons: "نعم، اخرج" (red) and "إلغاء" (outline)
+- Added `showExitDialog` state and `handleExitToHome` callback
+- All "الرئيسية" links in game headers replaced with exit dialog buttons
+
+**Bug Fix 5 - Unified header across all game phases:**
+- Created `GameHeader` component with configurable props: phaseLabel, phaseLabelVariant, showScoreBar, showSoundToggle, showFastMoneyBtn, showRoundHistory, onExit
+- Replaced 4 different inline headers (faceoff, gameboard, steal, fast_money) with single unified component
+- Consistent layout: logo + title (left), controls + badge + exit button (right), score bar below
+- Steal phase uses "rose" variant with pulse animation, fast money uses "gold" gradient variant
+- Round history now uses dynamic team emojis (team1Emoji/team2Emoji) instead of hardcoded 👑/🏛️
+
+**Bug Fix 6 - Platform logo update:**
+- Copied new favicon.png to platform-logo.png so the new logo appears in all game headers
+- Logo now consistent across: homepage header, game landing page, all gameplay phases, footer
+
+**Lint Fixes:**
+- Wrapped localStorage restore setState calls in setTimeout(0) to avoid cascading renders lint error
+- Fixed handleRevealAnswer useCallback missing `currentTeam` dependency
+- Fixed handleEndGame useCallback missing `team1Score`, `team2Score` dependencies
+- Zero lint errors in familyfeud/page.tsx
+
+Stage Summary:
+- All 6 user-reported issues fixed
+- Countdown numbers properly centered in circle animation
+- Full-screen game layout without search bar
+- Game state saved/restored via localStorage
+- Exit confirmation dialog on all "الرئيسية" buttons
+- Unified professional header across all game phases
+- New platform logo visible in all headers
+- Zero lint errors
+- Dev server compiles successfully
+
+Current project status:
+- G-G repo on GitHub, Vercel auto-deploys from main
+- 7 games total: 6 available + 3 coming soon
+- Family Feud game fully functional with all user-reported fixes applied
+
+Unresolved issues:
+- Diwaniya (online) mode for Family Feud is placeholder only
+- Headers across different games (Mafia, Tobol, etc.) are not yet unified (only Family Feud unified internally)
+
+Priority recommendations for next phase:
+- Unify headers across ALL games on the platform (not just Family Feud)
+- Implement full Diwaniya (online) mode for Family Feud
+- Add more Arabic questions with categories
+- QA testing via agent-browser on Vercel deployment

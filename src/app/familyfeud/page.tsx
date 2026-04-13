@@ -1399,7 +1399,7 @@ function CountdownRing({ value, max }: { value: number; max: number }) {
   const strokeDashoffset = circumference - (value / max) * circumference;
 
   return (
-    <svg height={radius * 2} width={radius * 2} className="absolute">
+    <svg height={radius * 2} width={radius * 2} className="absolute inset-0 m-auto">
       {/* Background ring */}
       <circle
         stroke="rgba(251,191,36,0.15)"
@@ -1784,6 +1784,205 @@ function BrandedFooter() {
           © {new Date().getFullYear()} ألعاب الغريب — جميع الحقوق محفوظة
         </p>
       </div>
+    </div>
+  );
+}
+
+// ============================================================
+// Exit Confirmation Dialog
+// ============================================================
+function ExitDialog({ show, onConfirm, onCancel }: { show: boolean; onConfirm: () => void; onCancel: () => void }) {
+  return (
+    <AnimatePresence>
+      {show && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 p-4"
+          onClick={onCancel}
+        >
+          <motion.div
+            initial={{ scale: 0.9, y: 20 }}
+            animate={{ scale: 1, y: 0 }}
+            exit={{ scale: 0.9, y: 20 }}
+            onClick={(e) => e.stopPropagation()}
+            className="bg-slate-900 border border-slate-700 rounded-2xl p-6 max-w-sm w-full shadow-2xl"
+          >
+            <div className="text-center">
+              <div className="text-5xl mb-3">🚪</div>
+              <h3 className="text-lg font-bold text-slate-200 mb-2">
+                الخروج من اللعبة؟
+              </h3>
+              <p className="text-sm text-slate-400 mb-6">
+                سيتم حفظ تقدم اللعبة ويمكنك العودة إليها لاحقاً. هل تريد الخروج؟
+              </p>
+              <div className="flex gap-3">
+                <Button
+                  onClick={onConfirm}
+                  className="flex-1 bg-gradient-to-l from-red-700 to-red-900 hover:from-red-600 hover:to-red-800 text-white font-bold h-11"
+                >
+                  نعم، اخرج
+                </Button>
+                <Button
+                  onClick={onCancel}
+                  variant="outline"
+                  className="flex-1 border-slate-600 text-slate-300 hover:bg-slate-800 h-11"
+                >
+                  إلغاء
+                </Button>
+              </div>
+            </div>
+          </motion.div>
+        </motion.div>
+      )}
+    </AnimatePresence>
+  );
+}
+
+// ============================================================
+// Unified Game Header (for all gameplay phases)
+// ============================================================
+function GameHeader({
+  phaseLabel,
+  phaseLabelVariant = "amber",
+  showScoreBar = true,
+  showSoundToggle = true,
+  showFastMoneyBtn = false,
+  onFastMoney,
+  showRoundHistory = false,
+  roundHistory,
+  onExit,
+  team1Name,
+  team2Name,
+  team1Score,
+  team2Score,
+  team1Emoji,
+  team2Emoji,
+}: {
+  phaseLabel: string;
+  phaseLabelVariant?: "amber" | "rose" | "gold";
+  showScoreBar?: boolean;
+  showSoundToggle?: boolean;
+  showFastMoneyBtn?: boolean;
+  onFastMoney?: () => void;
+  showRoundHistory?: boolean;
+  roundHistory?: { round: number; team: 1 | 2; points: number; type: string }[];
+  onExit: () => void;
+  team1Name: string;
+  team2Name: string;
+  team1Score: number;
+  team2Score: number;
+  team1Emoji: string;
+  team2Emoji: string;
+}) {
+  const badgeStyles = {
+    amber: "border-amber-500/50 text-amber-400",
+    rose: "border-rose-500/50 text-rose-400 animate-pulse",
+    gold: "bg-gradient-to-l from-amber-600 to-yellow-600 text-white border-0",
+  };
+
+  return (
+    <div className="sticky top-0 z-50 border-b border-slate-800/30 bg-slate-950/95 backdrop-blur-md">
+      <div className="max-w-7xl mx-auto flex items-center justify-between h-12 px-4">
+        {/* Logo + Home */}
+        <div className="flex items-center gap-2">
+          <a href="/" className="flex items-center gap-2">
+            <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-amber-500 to-rose-600 flex items-center justify-center shadow-lg shadow-amber-500/20">
+              <img
+                src="/platform-logo.png"
+                alt="ألعاب الغريب"
+                className="w-6 h-6 rounded-lg object-contain"
+                onError={(e) => {
+                  const target = e.target as HTMLImageElement;
+                  target.style.display = "none";
+                  target.parentElement!.innerHTML = "<span class='text-white text-xs font-black'>غ</span>";
+                }}
+              />
+            </div>
+            <span className="text-sm font-black bg-gradient-to-l from-amber-400 via-rose-300 to-amber-400 bg-clip-text text-transparent">
+              ألعاب الغريب
+            </span>
+          </a>
+        </div>
+
+        {/* Right side controls */}
+        <div className="flex items-center gap-2 sm:gap-3">
+          {showSoundToggle && (
+            <SoundToggleButton soundEnabled={true} onToggle={() => {}} compact />
+          )}
+          {showFastMoneyBtn && onFastMoney && (
+            <Button
+              onClick={onFastMoney}
+              variant="ghost"
+              className="text-slate-500 hover:text-yellow-400 hover:bg-yellow-950/30 gap-1 text-[10px] h-8 px-2"
+            >
+              <Zap className="w-3 h-3" />
+              <span className="hidden sm:inline">المال السريع</span>
+            </Button>
+          )}
+          <Badge variant="outline" className={`${badgeStyles[phaseLabelVariant]} text-[10px] px-2`}>
+            {phaseLabel}
+          </Badge>
+          <Button
+            onClick={onExit}
+            variant="ghost"
+            className="text-slate-400 hover:text-red-400 hover:bg-red-950/30 gap-1.5 text-xs h-8 px-2"
+          >
+            <HomeIcon className="w-4 h-4" />
+            <span className="hidden sm:inline">الرئيسية</span>
+          </Button>
+        </div>
+      </div>
+
+      {/* Score bar */}
+      {showScoreBar && (
+        <div className="max-w-md mx-auto flex items-center justify-between px-3 py-1 border-t border-slate-800/30">
+          <div className="flex items-center gap-1.5">
+            <span className="text-xs font-black text-amber-400">{team1Emoji} {team1Name}</span>
+            <motion.span
+              key={team1Score}
+              initial={{ scale: 1.3, color: "#fbbf24" }}
+              animate={{ scale: 1 }}
+              className="text-xs font-black tabular-nums"
+            >
+              {team1Score}
+            </motion.span>
+          </div>
+          <span className="text-slate-600 text-[10px] font-bold">VS</span>
+          <div className="flex items-center gap-1.5">
+            <motion.span
+              key={team2Score}
+              initial={{ scale: 1.3 }}
+              animate={{ scale: 1 }}
+              className="text-xs font-black tabular-nums"
+            >
+              {team2Score}
+            </motion.span>
+            <span className="text-xs font-black text-rose-400">{team2Name} {team2Emoji}</span>
+          </div>
+        </div>
+      )}
+
+      {/* Round History */}
+      {showRoundHistory && roundHistory && roundHistory.length > 0 && (
+        <div className="max-w-md mx-auto px-3 pb-1.5 flex gap-1 overflow-x-auto scrollbar-thin">
+          {roundHistory.map((rh, i) => (
+            <div
+              key={i}
+              className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-bold shrink-0 border ${
+                rh.team === 1
+                  ? "bg-amber-900/30 border-amber-500/20 text-amber-400"
+                  : "bg-rose-900/30 border-rose-500/20 text-rose-400"
+              }`}
+            >
+              <span>{rh.team === 1 ? team1Emoji : team2Emoji}</span>
+              <span>+{rh.points}</span>
+              <span className="text-slate-500">{rh.type}</span>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -3254,7 +3453,7 @@ function FaceOffScreen({
             className="absolute inset-0 flex items-center justify-center z-30 pointer-events-none bg-black/30 backdrop-blur-sm"
           >
             {/* Countdown Ring */}
-            <div className="relative">
+            <div className="relative w-[140px] h-[140px] sm:w-[160px] sm:h-[160px] flex items-center justify-center">
               <CountdownRing value={countdown} max={3} />
               <motion.div
                 initial={{ scale: 2, opacity: 0 }}
@@ -3676,16 +3875,7 @@ function GameBoardView({
   const pointsRemaining = totalPoints - revealedPoints;
   const maxScore = Math.max(team1Score, team2Score, 1);
 
-  // Answer search state
-  const [searchQuery, setSearchQuery] = useState("");
-  const searchMatches = searchQuery.trim().length > 0
-    ? answers.filter(
-        (a) =>
-          !a.revealed &&
-          (a.text.includes(searchQuery.trim()) ||
-            searchQuery.trim().includes(a.text))
-      )
-    : [];
+  // Search removed for full-screen game experience
 
   return (
     <div className="flex-1 flex flex-col p-3 sm:p-4 gap-3 relative" dir="rtl">
@@ -3895,60 +4085,7 @@ function GameBoardView({
         </motion.div>
       </motion.div>
 
-      {/* Answer Search Input */}
-      {phase === "playing" && (
-        <div className="relative">
-          <div className="relative">
-            <Input
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="ابحث عن إجابة..."
-              className="bg-slate-800/60 border-slate-700/40 text-slate-200 placeholder:text-slate-600 h-9 text-xs pr-8"
-              dir="rtl"
-            />
-            <span className="absolute top-1/2 right-3 -translate-y-1/2 text-xs text-slate-500">
-              🔍
-            </span>
-          </div>
-          {/* Search Dropdown */}
-          <AnimatePresence>
-            {searchQuery.trim().length > 0 && (
-              <motion.div
-                initial={{ opacity: 0, y: -5, scale: 0.95 }}
-                animate={{ opacity: 1, y: 0, scale: 1 }}
-                exit={{ opacity: 0, y: -5, scale: 0.95 }}
-                transition={{ duration: 0.15 }}
-                className="absolute top-full left-0 right-0 mt-1 z-40 bg-slate-800 border border-slate-700/60 rounded-xl overflow-hidden shadow-xl"
-              >
-                {searchMatches.length > 0 ? (
-                  <div className="py-1 max-h-32 overflow-y-auto">
-                    {searchMatches.map((a) => {
-                      const idx = answers.indexOf(a);
-                      return (
-                        <button
-                          key={idx}
-                          onClick={() => {
-                            onRevealAnswer(idx);
-                            setSearchQuery("");
-                          }}
-                          className="w-full flex items-center justify-between px-3 py-2 hover:bg-emerald-900/40 transition-colors text-right cursor-pointer"
-                        >
-                          <span className="text-xs text-emerald-300 font-bold">{a.text}</span>
-                          <span className="text-[10px] text-slate-500">{a.points} نقطة</span>
-                        </button>
-                      );
-                    })}
-                  </div>
-                ) : (
-                  <div className="px-3 py-2.5 text-center">
-                    <span className="text-xs text-slate-500">لا تطابق</span>
-                  </div>
-                )}
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </div>
-      )}
+
 
       {/* Strike Marks */}
       <div className="flex justify-center gap-3">
@@ -4974,6 +5111,9 @@ export default function FamilyFeudPage() {
   const [roundTimerRunning, setRoundTimerRunning] = useState(false);
   const roundTimerRef = useRef<NodeJS.Timeout | null>(null);
 
+  // Exit confirmation dialog
+  const [showExitDialog, setShowExitDialog] = useState(false);
+
   // Ref for internal strike to avoid ordering issues
   const handleAddStrikeInternalRef = useRef<() => void>(() => {});
 
@@ -5028,6 +5168,92 @@ export default function FamilyFeudPage() {
     },
     [initializeQuestions]
   );
+
+  // ============================
+  // GAME STATE PERSISTENCE (localStorage)
+  // ============================
+  const SAVE_KEY = "familyfeud_game_state";
+
+  const saveGameState = useCallback(() => {
+    if (uiPhase !== "game") return;
+    try {
+      const state = {
+        team1Name, team2Name, team1Emoji, team2Emoji,
+        team1Score, team2Score, currentTeam, strikes, round, totalRounds,
+        stealTimerDuration, roundTimerDuration, gamePhase,
+        selectedQuestions, currentAnswers, roundScore,
+        fmQuestions, fmAnswers1, fmAnswers2, fmRevealed1, fmRevealed2,
+        fmScore1, fmScore2, fmPhase, fmSelected1, fmSelected2,
+        showGameOver, roundHistory, gameStats,
+      };
+      localStorage.setItem(SAVE_KEY, JSON.stringify(state));
+    } catch {}
+  }, [uiPhase, team1Name, team2Name, team1Emoji, team2Emoji, team1Score, team2Score, currentTeam, strikes, round, totalRounds, stealTimerDuration, roundTimerDuration, gamePhase, selectedQuestions, currentAnswers, roundScore, fmQuestions, fmAnswers1, fmAnswers2, fmRevealed1, fmRevealed2, fmScore1, fmScore2, fmPhase, fmSelected1, fmSelected2, showGameOver, roundHistory, gameStats]);
+
+  // Save state on every relevant change (debounced)
+  useEffect(() => {
+    if (uiPhase !== "game") return;
+    const t = setTimeout(saveGameState, 500);
+    return () => clearTimeout(t);
+  }, [uiPhase, saveGameState, team1Score, team2Score, round, gamePhase, strikes, currentTeam, currentAnswers, fmScore1, fmScore2, fmPhase]);
+
+  // Restore saved game state on mount
+  const savedGameRef = useRef(false);
+  useEffect(() => {
+    if (savedGameRef.current) return;
+    savedGameRef.current = true;
+    try {
+      const saved = localStorage.getItem(SAVE_KEY);
+      if (!saved) return;
+      const state = JSON.parse(saved);
+      if (state && state.uiPhase === "game" && state.selectedQuestions?.length > 0) {
+        setTimeout(() => {
+          setTeam1Name(state.team1Name || "فريق 1");
+          setTeam2Name(state.team2Name || "فريق 2");
+          setTeam1Emoji(state.team1Emoji || "👑");
+          setTeam2Emoji(state.team2Emoji || "🏛️");
+          setTeam1Score(state.team1Score || 0);
+          setTeam2Score(state.team2Score || 0);
+          setCurrentTeam(state.currentTeam || 1);
+          setStrikes(state.strikes || 0);
+          setRound(state.round || 1);
+          setTotalRounds(state.totalRounds || 5);
+          setStealTimerDuration(state.stealTimerDuration || 0);
+          setRoundTimerDuration(state.roundTimerDuration || 0);
+          setGamePhase(state.gamePhase || "faceoff");
+          setSelectedQuestions(state.selectedQuestions || []);
+          setCurrentAnswers(state.currentAnswers || []);
+          setRoundScore(state.roundScore || 0);
+          setFmQuestions(state.fmQuestions || []);
+          setFmAnswers1(state.fmAnswers1 || []);
+          setFmAnswers2(state.fmAnswers2 || []);
+          setFmRevealed1(state.fmRevealed1 || []);
+          setFmRevealed2(state.fmRevealed2 || []);
+          setFmScore1(state.fmScore1 || 0);
+          setFmScore2(state.fmScore2 || 0);
+          setFmPhase(state.fmPhase || "intro");
+          setFmSelected1(state.fmSelected1 || []);
+          setFmSelected2(state.fmSelected2 || []);
+          setShowGameOver(state.showGameOver || false);
+          setRoundHistory(state.roundHistory || []);
+          setGameStats(state.gameStats || { team1Correct: 0, team2Correct: 0, team1Strikes: 0, team2Strikes: 0, totalSteals: 0, successfulSteals: 0, fastMoneyScore1: 0, fastMoneyScore2: 0 });
+          setUiPhase("game");
+        }, 0);
+      }
+    } catch {}
+  }, []);
+
+  // Clear saved state on exit / reset
+  const clearSavedState = useCallback(() => {
+    try { localStorage.removeItem(SAVE_KEY); } catch {}
+  }, []);
+
+  // Handle exit to home
+  const handleExitToHome = useCallback(() => {
+    clearSavedState();
+    setShowExitDialog(false);
+    window.location.href = "/";
+  }, [clearSavedState]);
 
   // Setup current round
   useEffect(() => {
@@ -5138,7 +5364,7 @@ export default function FamilyFeudPage() {
         return updated;
       });
     },
-    [playReveal, playCorrect]
+    [playReveal, playCorrect, currentTeam]
   );
 
   // Add strike
@@ -5429,10 +5655,11 @@ export default function FamilyFeudPage() {
     playWin();
     // Track fast money stats
     setGameStats((prev) => ({ ...prev, fastMoneyScore1: fmScore1, fastMoneyScore2: fmScore2 }));
-  }, [fmScore1, fmScore2, playWin]);
+  }, [fmScore1, fmScore2, playWin, team1Score, team2Score]);
 
   // Reset
   const handleReset = useCallback(() => {
+    clearSavedState();
     setUiPhase("landing");
     setGamePhase("faceoff");
     setTeam1Score(0);
@@ -5444,7 +5671,14 @@ export default function FamilyFeudPage() {
     setFmPhase("intro");
     setTimerRunning(false);
     setTimeLeft(20);
-  }, []);
+    setRoundHistory([]);
+    setGameStats({
+      team1Correct: 0, team2Correct: 0,
+      team1Strikes: 0, team2Strikes: 0,
+      totalSteals: 0, successfulSteals: 0,
+      fastMoneyScore1: 0, fastMoneyScore2: 0,
+    });
+  }, [clearSavedState]);
 
   // ============================
   // LOADING STATE
@@ -5550,6 +5784,11 @@ export default function FamilyFeudPage() {
 
       {/* Feedback Overlay */}
       <div className="relative z-10 flex flex-col min-h-screen">
+      <ExitDialog
+        show={showExitDialog}
+        onConfirm={handleExitToHome}
+        onCancel={() => setShowExitDialog(false)}
+      />
       <FeedbackOverlay
         show={feedback.show}
         correct={feedback.correct}
@@ -5605,66 +5844,19 @@ export default function FamilyFeudPage() {
         />
       ) : gamePhase === "faceoff" && currentQuestion ? (
         <div className="flex-1 flex flex-col">
-          {/* Branded Header for game pages */}
-          <div className="sticky top-0 z-50 border-b border-slate-800/30 bg-slate-950/95 backdrop-blur-md">
-            <div className="max-w-7xl mx-auto flex items-center justify-between h-12 px-4">
-              <a href="/" className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-amber-500 to-rose-600 flex items-center justify-center shadow-lg shadow-amber-500/20">
-                  <img
-                    src="/platform-logo.png"
-                    alt="ألعاب الغريب"
-                    className="w-6 h-6 rounded-lg object-contain"
-                    onError={(e) => {
-                      const target = e.target as HTMLImageElement;
-                      target.style.display = 'none';
-                      target.parentElement!.innerHTML = "<span class='text-white text-xs font-black'>غ</span>";
-                    }}
-                  />
-                </div>
-                <span className="text-sm font-black bg-gradient-to-l from-amber-400 via-rose-300 to-amber-400 bg-clip-text text-transparent">
-                  ألعاب الغريب
-                </span>
-              </a>
-              <div className="flex items-center gap-3">
-                <SoundToggleButton soundEnabled={soundEnabled} onToggle={() => setSoundEnabled(!soundEnabled)} compact />
-                <Badge variant="outline" className="border-amber-500/50 text-amber-400 text-[10px] px-2">
-                  ⚔️ المواجهة — الجولة {round}/{totalRounds}
-                </Badge>
-                <a
-                  href="/"
-                  className="text-xs text-slate-400 hover:text-white transition-colors"
-                >
-                  الرئيسية
-                </a>
-              </div>
-            </div>
-            {/* Score bar */}
-            <div className="max-w-md mx-auto flex items-center justify-between px-3 py-1 border-t border-slate-800/30">
-              <div className="flex items-center gap-1.5">
-                <span className="text-xs font-black text-amber-400">👑 {team1Name}</span>
-                <motion.span
-                  key={team1Score}
-                  initial={{ scale: 1.3, color: "#fbbf24" }}
-                  animate={{ scale: 1 }}
-                  className="text-xs font-black tabular-nums"
-                >
-                  {team1Score}
-                </motion.span>
-              </div>
-              <span className="text-slate-600 text-[10px] font-bold">VS</span>
-              <div className="flex items-center gap-1.5">
-                <motion.span
-                  key={team2Score}
-                  initial={{ scale: 1.3 }}
-                  animate={{ scale: 1 }}
-                  className="text-xs font-black tabular-nums"
-                >
-                  {team2Score}
-                </motion.span>
-                <span className="text-xs font-black text-rose-400">{team2Name} 🏛️</span>
-              </div>
-            </div>
-          </div>
+          <GameHeader
+            phaseLabel={`⚔️ المواجهة — الجولة ${round}/${totalRounds}`}
+            phaseLabelVariant="amber"
+            showScoreBar={true}
+            showSoundToggle={true}
+            onExit={() => setShowExitDialog(true)}
+            team1Name={team1Name}
+            team2Name={team2Name}
+            team1Score={team1Score}
+            team2Score={team2Score}
+            team1Emoji={team1Emoji}
+            team2Emoji={team2Emoji}
+          />
 
           <FaceOffScreen
             question={currentQuestion.question}
@@ -5676,100 +5868,27 @@ export default function FamilyFeudPage() {
         </div>
       ) : gamePhase === "gameboard" && currentQuestion ? (
         <div className="flex-1 flex flex-col">
-          {/* Branded Header for game pages */}
-          <div className="sticky top-0 z-50 border-b border-slate-800/30 bg-slate-950/95 backdrop-blur-md">
-            <div className="max-w-7xl mx-auto flex items-center justify-between h-12 px-4">
-              <a href="/" className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-amber-500 to-rose-600 flex items-center justify-center shadow-lg shadow-amber-500/20">
-                  <img
-                    src="/platform-logo.png"
-                    alt="ألعاب الغريب"
-                    className="w-6 h-6 rounded-lg object-contain"
-                    onError={(e) => {
-                      const target = e.target as HTMLImageElement;
-                      target.style.display = 'none';
-                      target.parentElement!.innerHTML = "<span class='text-white text-xs font-black'>غ</span>";
-                    }}
-                  />
-                </div>
-                <span className="text-sm font-black bg-gradient-to-l from-amber-400 via-rose-300 to-amber-400 bg-clip-text text-transparent">
-                  ألعاب الغريب
-                </span>
-              </a>
-              <div className="flex items-center gap-3">
-                <SoundToggleButton soundEnabled={soundEnabled} onToggle={() => setSoundEnabled(!soundEnabled)} compact />
-                <Button
-                  onClick={() => {
-                    roundPointsAwardedRef.current = true;
-                    setRound(totalRounds);
-                    handleNextRound();
-                  }}
-                  variant="ghost"
-                  className="text-slate-500 hover:text-yellow-400 hover:bg-yellow-950/30 gap-1 text-[10px] h-8 px-2"
-                >
-                  <Zap className="w-3 h-3" />
-                  المال السريع
-                </Button>
-                <Badge variant="outline" className="border-amber-500/50 text-amber-400 text-[10px] px-2">
-                  👑 العراب — الجولة {round}/{totalRounds}
-                </Badge>
-                <a
-                  href="/"
-                  className="text-xs text-slate-400 hover:text-white transition-colors"
-                >
-                  الرئيسية
-                </a>
-              </div>
-            </div>
-            {/* Score bar + round history */}
-            <div className="border-t border-slate-800/30">
-              <div className="max-w-md mx-auto flex items-center justify-between px-3 py-1">
-                <div className="flex items-center gap-1.5">
-                  <span className="text-xs font-black text-amber-400">👑 {team1Name}</span>
-                  <motion.span
-                    key={team1Score}
-                    initial={{ scale: 1.3, color: "#fbbf24" }}
-                    animate={{ scale: 1 }}
-                    className="text-xs font-black tabular-nums"
-                  >
-                    {team1Score}
-                  </motion.span>
-                </div>
-                <span className="text-slate-600 text-[10px] font-bold">VS</span>
-                <div className="flex items-center gap-1.5">
-                  <motion.span
-                    key={team2Score}
-                    initial={{ scale: 1.3 }}
-                    animate={{ scale: 1 }}
-                    className="text-xs font-black tabular-nums"
-                  >
-                    {team2Score}
-                  </motion.span>
-                  <span className="text-xs font-black text-rose-400">{team2Name} 🏛️</span>
-                </div>
-              </div>
-            </div>
-            {/* Round History Indicator */}
-            {roundHistory.length > 0 && (
-              <div className="max-w-md mx-auto px-3 pb-1.5 flex gap-1 overflow-x-auto scrollbar-thin">
-                {roundHistory.map((rh, i) => (
-                  <div
-                    key={i}
-                    className={cn(
-                      "flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-bold shrink-0 border",
-                      rh.team === 1
-                        ? "bg-amber-900/30 border-amber-500/20 text-amber-400"
-                        : "bg-rose-900/30 border-rose-500/20 text-rose-400"
-                    )}
-                  >
-                    <span>{rh.team === 1 ? "👑" : "🏛️"}</span>
-                    <span>+{rh.points}</span>
-                    <span className="text-slate-500">{rh.type}</span>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
+          <GameHeader
+            phaseLabel={`👑 العراب — الجولة ${round}/${totalRounds}`}
+            phaseLabelVariant="amber"
+            showScoreBar={true}
+            showSoundToggle={true}
+            showFastMoneyBtn={true}
+            onFastMoney={() => {
+              roundPointsAwardedRef.current = true;
+              setRound(totalRounds);
+              handleNextRound();
+            }}
+            showRoundHistory={true}
+            roundHistory={roundHistory}
+            onExit={() => setShowExitDialog(true)}
+            team1Name={team1Name}
+            team2Name={team2Name}
+            team1Score={team1Score}
+            team2Score={team2Score}
+            team1Emoji={team1Emoji}
+            team2Emoji={team2Emoji}
+          />
 
           <GameBoardView
             question={currentQuestion.question}
@@ -5824,26 +5943,19 @@ export default function FamilyFeudPage() {
         </div>
       ) : gamePhase === "steal" && currentQuestion ? (
         <div className="flex-1 flex flex-col">
-          {/* Game top bar */}
-          <div className="sticky top-0 z-50 border-b border-rose-500/30 bg-slate-950/90 backdrop-blur-sm">
-            <div className="max-w-md mx-auto flex items-center justify-between px-3 py-1.5">
-              <Button
-                onClick={handleReset}
-                variant="ghost"
-                className="text-slate-400 hover:text-red-400 hover:bg-red-950/30 gap-1.5 text-xs h-8 px-2"
-              >
-                <HomeIcon className="w-4 h-4" />
-              </Button>
-              <Badge variant="outline" className="border-rose-500/50 text-rose-400 text-[10px] px-2 animate-pulse">
-                ⚡ فرصة السرقة
-              </Badge>
-              <div className="flex items-center gap-2">
-                <span className="text-xs text-amber-400 font-bold">{team1Score}</span>
-                <span className="text-slate-600">-</span>
-                <span className="text-xs text-rose-400 font-bold">{team2Score}</span>
-              </div>
-            </div>
-          </div>
+          <GameHeader
+            phaseLabel="⚡ فرصة السرقة"
+            phaseLabelVariant="rose"
+            showScoreBar={true}
+            showSoundToggle={false}
+            onExit={() => setShowExitDialog(true)}
+            team1Name={team1Name}
+            team2Name={team2Name}
+            team1Score={team1Score}
+            team2Score={team2Score}
+            team1Emoji={team1Emoji}
+            team2Emoji={team2Emoji}
+          />
 
           {/* Pulsing border during steal phase */}
           <motion.div
@@ -5882,56 +5994,19 @@ export default function FamilyFeudPage() {
         </div>
       ) : gamePhase === "fast_money" ? (
         <div className="flex-1 flex flex-col">
-          {/* Branded Header for game pages */}
-          <div className="sticky top-0 z-50 border-b border-slate-800/30 bg-slate-950/95 backdrop-blur-md">
-            <div className="max-w-7xl mx-auto flex items-center justify-between h-12 px-4">
-              <a href="/" className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-amber-500 to-rose-600 flex items-center justify-center shadow-lg shadow-amber-500/20">
-                  <img
-                    src="/platform-logo.png"
-                    alt="ألعاب الغريب"
-                    className="w-6 h-6 rounded-lg object-contain"
-                    onError={(e) => {
-                      const target = e.target as HTMLImageElement;
-                      target.style.display = 'none';
-                      target.parentElement!.innerHTML = "<span class='text-white text-xs font-black'>غ</span>";
-                    }}
-                  />
-                </div>
-                <span className="text-sm font-black bg-gradient-to-l from-amber-400 via-rose-300 to-amber-400 bg-clip-text text-transparent">
-                  ألعاب الغريب
-                </span>
-              </a>
-              <div className="flex items-center gap-3">
-                <SoundToggleButton soundEnabled={soundEnabled} onToggle={() => setSoundEnabled(!soundEnabled)} compact />
-                <Badge className="bg-gradient-to-l from-amber-600 to-yellow-600 text-white text-[10px] px-2">
-                  💰 المال السريع
-                </Badge>
-                <a
-                  href="/"
-                  className="text-xs text-slate-400 hover:text-white transition-colors"
-                >
-                  الرئيسية
-                </a>
-              </div>
-            </div>
-            {/* Score bar */}
-            <div className="max-w-md mx-auto flex items-center justify-between px-3 py-1 border-t border-slate-800/30">
-              <div className="flex items-center gap-1.5">
-                <span className="text-xs font-black text-amber-400">👑 {team1Name}</span>
-                <span className="text-xs font-black tabular-nums">
-                  {team1Score + fmScore1}
-                </span>
-              </div>
-              <span className="text-slate-600 text-[10px] font-bold">VS</span>
-              <div className="flex items-center gap-1.5">
-                <span className="text-xs font-black tabular-nums">
-                  {team2Score + fmScore2}
-                </span>
-                <span className="text-xs font-black text-rose-400">{team2Name} 🏛️</span>
-              </div>
-            </div>
-          </div>
+          <GameHeader
+            phaseLabel="💰 المال السريع"
+            phaseLabelVariant="gold"
+            showScoreBar={true}
+            showSoundToggle={true}
+            onExit={() => setShowExitDialog(true)}
+            team1Name={team1Name}
+            team2Name={team2Name}
+            team1Score={team1Score + fmScore1}
+            team2Score={team2Score + fmScore2}
+            team1Emoji={team1Emoji}
+            team2Emoji={team2Emoji}
+          />
 
           <FastMoneyScreen
             team1Name={team1Name}
