@@ -2326,9 +2326,8 @@ function FaceOffScreen({
   const [countdown, setCountdown] = useState<number | null>(3);
   const [buzzerActive, setBuzzerActive] = useState(false);
   const [selectedTeam, setSelectedTeam] = useState<1 | 2 | null>(null);
-  const [showBuzz, setShowBuzz] = useState(false);
+  const [showGo, setShowGo] = useState(false);
   const [faceoffStep, setFaceoffStep] = useState<"select_team" | "verify_answer" | "other_team_chance">("select_team");
-  const [revealedAnswers, setRevealedAnswers] = useState<Set<number>>(new Set());
   const selectionTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
@@ -2337,9 +2336,9 @@ function FaceOffScreen({
       const timer = setTimeout(() => setCountdown(countdown - 1), 800);
       return () => clearTimeout(timer);
     } else {
-      const t0 = setTimeout(() => setShowBuzz(true), 0);
+      const t0 = setTimeout(() => setShowGo(true), 0);
       const t1 = setTimeout(() => setBuzzerActive(true), 100);
-      const t2 = setTimeout(() => setShowBuzz(false), 1000);
+      const t2 = setTimeout(() => setShowGo(false), 1000);
       return () => { clearTimeout(t0); clearTimeout(t1); clearTimeout(t2); };
     }
   }, [countdown]);
@@ -2362,13 +2361,11 @@ function FaceOffScreen({
 
   const handleCorrect = () => {
     if (!selectedTeam) return;
-    // Don't reveal any answer yet - just let the team start playing
     onTeamStart(selectedTeam);
   };
 
   const handleWrong = () => {
     if (!selectedTeam) return;
-    // Give the OTHER team a chance
     const otherTeam: 1 | 2 = selectedTeam === 1 ? 2 : 1;
     setSelectedTeam(otherTeam);
     setFaceoffStep("other_team_chance");
@@ -2380,67 +2377,26 @@ function FaceOffScreen({
   };
 
   const handleOtherWrong = () => {
-    // Both teams failed - nobody starts, go to gameboard with team 1 as default
     onTeamStart(1);
   };
 
   return (
-    <div className="flex-1 flex flex-col items-center p-3 sm:p-4 gap-3 relative overflow-hidden" dir="rtl">
+    <div className="flex-1 flex flex-col items-center p-3 sm:p-4 gap-2.5 relative overflow-hidden" dir="rtl">
       {/* Animated background glows */}
       <div className="absolute inset-0 pointer-events-none overflow-hidden">
         <motion.div
-          animate={{
-            scale: [1, 1.3, 1],
-            opacity: [0.15, 0.25, 0.15],
-          }}
+          animate={{ scale: [1, 1.3, 1], opacity: [0.15, 0.25, 0.15] }}
           transition={{ duration: 4, repeat: Infinity }}
           className="absolute -top-20 -right-20 w-64 h-64 bg-amber-500/20 rounded-full blur-[80px]"
         />
         <motion.div
-          animate={{
-            scale: [1, 1.3, 1],
-            opacity: [0.15, 0.25, 0.15],
-          }}
+          animate={{ scale: [1, 1.3, 1], opacity: [0.15, 0.25, 0.15] }}
           transition={{ duration: 4, repeat: Infinity, delay: 2 }}
           className="absolute -bottom-20 -left-20 w-64 h-64 bg-rose-500/20 rounded-full blur-[80px]"
         />
       </div>
 
-      {/* Question */}
-      <motion.div
-        initial={{ opacity: 0, y: -20 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="text-center relative z-10"
-      >
-        <motion.p
-          initial={{ opacity: 0, scale: 0.8 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ delay: 0.2 }}
-          className="text-xs font-bold text-amber-400/80 mb-2 tracking-wider"
-        >
-          ⚔️ المواجهة
-        </motion.p>
-        <h2 className="text-lg sm:text-xl font-black text-white max-w-md leading-relaxed">
-          &quot;{question}&quot;
-        </h2>
-        {faceoffStep === "select_team" && (
-          <p className="text-xs text-slate-500 mt-1">
-            اختر الفريق الذي ضغط أولاً
-          </p>
-        )}
-        {faceoffStep === "verify_answer" && selectedTeam && (
-          <p className="text-xs text-amber-300 mt-1 font-bold">
-            {selectedTeam === 1 ? team1Name : team2Name} أعطى إجابة... هل هي على اللوحة؟
-          </p>
-        )}
-        {faceoffStep === "other_team_chance" && selectedTeam && (
-          <p className="text-xs text-rose-300 mt-1 font-bold">
-            فرصة لـ {selectedTeam === 1 ? team1Name : team2Name}... هل إجابته على اللوحة؟
-          </p>
-        )}
-      </motion.div>
-
-      {/* Countdown overlay */}
+      {/* ===== COUNTDOWN OVERLAY ===== */}
       <AnimatePresence>
         {countdown !== null && countdown > 0 && (
           <motion.div
@@ -2449,7 +2405,7 @@ function FaceOffScreen({
             animate={{ scale: 1, opacity: 1 }}
             exit={{ scale: 0.5, opacity: 0 }}
             transition={{ duration: 0.6, type: "spring", stiffness: 200 }}
-            className="absolute inset-0 flex items-center justify-center z-30 pointer-events-none"
+            className="absolute inset-0 flex items-center justify-center z-30 pointer-events-none bg-black/30 backdrop-blur-sm"
           >
             <div className="text-8xl sm:text-9xl font-black text-transparent bg-clip-text bg-gradient-to-b from-amber-300 to-rose-400 drop-shadow-2xl">
               {countdown}
@@ -2458,302 +2414,320 @@ function FaceOffScreen({
         )}
       </AnimatePresence>
 
-      {/* Go! text - auto-fades after 1 second */}
+      {/* ===== "يلا!" GO TEXT ===== */}
       <AnimatePresence>
-        {showBuzz && (
+        {showGo && (
           <motion.div
             initial={{ scale: 3, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
             exit={{ scale: 0.5, opacity: 0, y: -50 }}
             transition={{ duration: 0.5 }}
-            className="absolute inset-0 flex items-center justify-center z-30 pointer-events-none"
+            className="absolute inset-0 flex items-center justify-center z-30 pointer-events-none bg-black/20 backdrop-blur-sm"
           >
             <div className="text-6xl sm:text-7xl font-black text-emerald-400 drop-shadow-[0_0_30px_rgba(52,211,153,0.5)]">
-              بَزّ!
+              يلا!
             </div>
           </motion.div>
         )}
       </AnimatePresence>
 
-      {/* ============ SELECT TEAM STEP ============ */}
-      {faceoffStep === "select_team" && (
-        <>
-          {/* Buzz in text */}
-          <AnimatePresence>
-            {buzzerActive && !showBuzz && !selectedTeam && (
-              <motion.div
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0 }}
-                className="relative z-10"
-              >
-                <motion.div
-                  animate={{ scale: [1, 1.1, 1], opacity: [0.7, 1, 0.7] }}
-                  transition={{ duration: 1.2, repeat: Infinity }}
-                  className="text-sm font-bold text-amber-300 bg-amber-500/10 border border-amber-500/30 rounded-full px-4 py-1"
-                >
-                  🔔 اختر الفريق الذي ضغط أولاً!
-                </motion.div>
-              </motion.div>
-            )}
-          </AnimatePresence>
+      {/* ===== QUESTION (always visible) ===== */}
+      <motion.div
+        initial={{ opacity: 0, y: -20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="text-center relative z-10 w-full"
+      >
+        <motion.p
+          initial={{ opacity: 0, scale: 0.8 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ delay: 0.2 }}
+          className="text-xs font-bold text-amber-400/80 mb-1.5 tracking-wider"
+        >
+          ⚔️ المواجهة
+        </motion.p>
+        <h2 className="text-base sm:text-lg font-black text-white max-w-md leading-relaxed mx-auto">
+          &quot;{question}&quot;
+        </h2>
+        {faceoffStep === "select_team" && buzzerActive && !selectedTeam && (
+          <motion.p
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            className="text-xs text-amber-300 mt-1 font-bold"
+          >
+            اختر الفريق الذي ضغط أولاً
+          </motion.p>
+        )}
+        {faceoffStep === "verify_answer" && selectedTeam && (
+          <motion.p
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            className="text-xs text-emerald-300 mt-1 font-bold"
+          >
+            {selectedTeam === 1 ? team1Name : team2Name} أعطى إجابة... هل هي على اللوحة؟
+          </motion.p>
+        )}
+        {faceoffStep === "other_team_chance" && selectedTeam && (
+          <motion.p
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            className="text-xs text-rose-300 mt-1 font-bold"
+          >
+            فرصة لـ {selectedTeam === 1 ? team1Name : team2Name}... هل إجابته على اللوحة؟
+          </motion.p>
+        )}
+      </motion.div>
 
-          {/* Team selected indicator */}
-          <AnimatePresence>
-            {selectedTeam && (
-              <motion.div
-                initial={{ opacity: 0, scale: 0.5 }}
-                animate={{ opacity: 1, scale: 1 }}
-                exit={{ opacity: 0 }}
-                className={cn(
-                  "z-30 text-xl font-black px-5 py-2.5 rounded-2xl border-2",
-                  selectedTeam === 1
-                    ? "text-amber-200 bg-amber-950/90 border-amber-400/50 shadow-lg shadow-amber-500/30"
-                    : "text-rose-200 bg-rose-950/90 border-rose-400/50 shadow-lg shadow-rose-500/30"
-                )}
-              >
-                {selectedTeam === 1 ? "👑" : "🏛️"} {selectedTeam === 1 ? team1Name : team2Name}!
-              </motion.div>
-            )}
-          </AnimatePresence>
-
-          {/* Undo button */}
-          <AnimatePresence>
-            {selectedTeam && (
-              <motion.button
-                initial={{ opacity: 0, scale: 0.8 }}
-                animate={{ opacity: 1, scale: 1 }}
-                exit={{ opacity: 0, scale: 0.8 }}
-                onClick={handleUndo}
-                className="flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-800/80 border-2 border-slate-600/50 hover:border-amber-400/50 text-slate-300 hover:text-amber-300 text-xs font-bold transition-all cursor-pointer relative z-10"
-              >
-                <RotateCcw className="w-3.5 h-3.5" />
-                تراجع
-              </motion.button>
-            )}
-          </AnimatePresence>
-
-          {/* Teams */}
-          <div className="flex items-center gap-3 sm:gap-6 w-full max-w-md relative z-10 mt-auto">
-            {/* Team 1 Button */}
-            <motion.button
-              whileTap={{ scale: 0.93 }}
-              whileHover={{ scale: 1.03 }}
-              onClick={() => handleTeamSelect(1)}
-              disabled={!buzzerActive}
-              className={cn(
-                "flex-1 relative rounded-2xl p-4 sm:p-6 text-center transition-all cursor-pointer overflow-hidden",
-                buzzerActive
-                  ? "border-2 border-amber-400/70 bg-gradient-to-b from-amber-800/60 to-amber-900/40"
-                  : "border-2 border-amber-500/20 bg-gradient-to-b from-amber-900/30 to-amber-950/20 opacity-50"
-              )}
-            >
-              {buzzerActive && (
-                <motion.div
-                  animate={{ opacity: [0.3, 0.6, 0.3] }}
-                  transition={{ duration: 1.5, repeat: Infinity }}
-                  className="absolute inset-0 bg-gradient-to-b from-amber-500/20 to-transparent rounded-2xl pointer-events-none"
-                />
-              )}
-              <motion.div
-                animate={buzzerActive ? { scale: [1, 1.1, 1] } : {}}
-                transition={{ repeat: Infinity, duration: 1.2 }}
-                className="text-3xl sm:text-4xl mb-2"
-              >
-                👑
-              </motion.div>
-              <p className="text-sm sm:text-base font-bold text-amber-200">{team1Name}</p>
-            </motion.button>
-
-            {/* VS Badge */}
-            <motion.div
-              initial={{ scale: 0, rotate: -180 }}
-              animate={{ scale: 1, rotate: 0 }}
-              transition={{ delay: 0.5, type: "spring", stiffness: 200 }}
-              className="relative shrink-0"
-            >
-              <motion.div
-                animate={{ scale: [1, 1.15, 1], rotate: [0, 5, -5, 0] }}
-                transition={{ duration: 3, repeat: Infinity }}
-                className="w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-gradient-to-br from-amber-500 via-rose-500 to-amber-600 flex items-center justify-center shadow-lg shadow-rose-500/30 border-2 border-white/20"
-              >
-                <span className="text-lg sm:text-xl font-black text-white drop-shadow-lg">VS</span>
-              </motion.div>
-              <motion.div
-                animate={{ scale: [1, 1.4, 1], opacity: [0.4, 0.1, 0.4] }}
-                transition={{ duration: 2, repeat: Infinity }}
-                className="absolute inset-0 rounded-full bg-gradient-to-br from-amber-400/30 to-rose-400/30 blur-sm"
-              />
-            </motion.div>
-
-            {/* Team 2 Button */}
-            <motion.button
-              whileTap={{ scale: 0.93 }}
-              whileHover={{ scale: 1.03 }}
-              onClick={() => handleTeamSelect(2)}
-              disabled={!buzzerActive}
-              className={cn(
-                "flex-1 relative rounded-2xl p-4 sm:p-6 text-center transition-all cursor-pointer overflow-hidden",
-                buzzerActive
-                  ? "border-2 border-rose-400/70 bg-gradient-to-b from-rose-800/60 to-rose-900/40"
-                  : "border-2 border-rose-500/20 bg-gradient-to-b from-rose-900/30 to-rose-950/20 opacity-50"
-              )}
-            >
-              {buzzerActive && (
-                <motion.div
-                  animate={{ opacity: [0.3, 0.6, 0.3] }}
-                  transition={{ duration: 1.5, repeat: Infinity, delay: 0.75 }}
-                  className="absolute inset-0 bg-gradient-to-b from-rose-500/20 to-transparent rounded-2xl pointer-events-none"
-                />
-              )}
-              <motion.div
-                animate={buzzerActive ? { scale: [1, 1.1, 1] } : {}}
-                transition={{ repeat: Infinity, duration: 1.2, delay: 0.6 }}
-                className="text-3xl sm:text-4xl mb-2"
-              >
-                🏛️
-              </motion.div>
-              <p className="text-sm sm:text-base font-bold text-rose-200">{team2Name}</p>
-            </motion.button>
-          </div>
-        </>
-      )}
-
-      {/* ============ VERIFY ANSWER STEP ============ */}
-      {(faceoffStep === "verify_answer" || faceoffStep === "other_team_chance") && selectedTeam && (
-        <>
-          {/* Answers board for host to check */}
+      {/* ===== ANSWERS BOARD (always visible for host) ===== */}
+      <motion.div
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.3, duration: 0.4 }}
+        className={cn(
+          "w-full max-w-md relative z-10 space-y-1.5 rounded-2xl border-2 p-3 transition-all duration-500",
+          faceoffStep === "select_team"
+            ? "border-slate-700/50 bg-slate-900/60"
+            : faceoffStep === "verify_answer"
+              ? "border-emerald-400/40 bg-emerald-950/10 shadow-lg shadow-emerald-500/10"
+              : "border-rose-400/40 bg-rose-950/10 shadow-lg shadow-rose-500/10"
+        )}
+      >
+        {/* Subtle glow when verifying */}
+        {(faceoffStep === "verify_answer" || faceoffStep === "other_team_chance") && (
           <motion.div
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ duration: 0.3 }}
+            animate={{ opacity: [0.3, 0.6, 0.3], scale: [1, 1.01, 1] }}
+            transition={{ duration: 2, repeat: Infinity }}
             className={cn(
-              "w-full max-w-md relative z-10 space-y-2 rounded-2xl border-2 p-3",
+              "absolute inset-0 rounded-2xl pointer-events-none",
               faceoffStep === "verify_answer"
-                ? "border-emerald-400/40 bg-emerald-950/10 shadow-lg shadow-emerald-500/10"
-                : "border-rose-400/40 bg-rose-950/10 shadow-lg shadow-rose-500/10"
+                ? "bg-gradient-to-b from-emerald-500/10 to-transparent"
+                : "bg-gradient-to-b from-rose-500/10 to-transparent"
+            )}
+          />
+        )}
+        <p className="text-[10px] font-bold text-slate-500 mb-1 text-center relative z-10">
+          📋 الإجابات (مرئية للمستضيف فقط)
+        </p>
+        {answers.map((answer, idx) => (
+          <motion.div
+            key={idx}
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ delay: 0.3 + idx * 0.04 }}
+            className="flex items-center gap-3 rounded-xl px-3 py-2 border bg-slate-800/60 border-slate-700/40 cursor-default"
+          >
+            <div className="w-7 h-7 rounded-full flex items-center justify-center text-[11px] font-black shrink-0 border bg-slate-700 text-slate-400 border-slate-600">
+              {idx + 1}
+            </div>
+            <span className="flex-1 text-sm font-bold truncate text-slate-300">
+              {answer.text}
+            </span>
+            <span className="text-base font-black tabular-nums text-amber-400 shrink-0">
+              {answer.points}
+            </span>
+          </motion.div>
+        ))}
+      </motion.div>
+
+      {/* ===== TEAM SELECTED INDICATOR ===== */}
+      <AnimatePresence>
+        {selectedTeam && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.5 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0 }}
+            className={cn(
+              "z-10 text-lg font-black px-5 py-2 rounded-2xl border-2",
+              selectedTeam === 1
+                ? "text-amber-200 bg-amber-950/90 border-amber-400/50 shadow-lg shadow-amber-500/30"
+                : "text-rose-200 bg-rose-950/90 border-rose-400/50 shadow-lg shadow-rose-500/30"
             )}
           >
-            {/* Animated glow border */}
-            <motion.div
-              animate={{
-                opacity: [0.3, 0.6, 0.3],
-                scale: [1, 1.01, 1],
-              }}
-              transition={{ duration: 2, repeat: Infinity }}
-              className={cn(
-                "absolute inset-0 rounded-2xl pointer-events-none",
-                faceoffStep === "verify_answer"
-                  ? "bg-gradient-to-b from-emerald-500/10 to-transparent"
-                  : "bg-gradient-to-b from-rose-500/10 to-transparent"
-              )}
-            />
-            <p className="text-[10px] font-bold text-slate-500 mb-1 text-center relative z-10">
-              📋 الإجابات (مرئية للمستضيف فقط)
-            </p>
-            {answers.map((answer, idx) => {
-              const isRevealed = revealedAnswers.has(idx);
-              return (
-                <motion.div
-                  key={idx}
-                  initial={{ opacity: 0, x: 20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: idx * 0.05 }}
-                  className={cn(
-                    "flex items-center gap-3 rounded-xl px-3 py-2 border transition-all hover:scale-[1.02] cursor-default",
-                    isRevealed
-                      ? "bg-emerald-900/40 border-emerald-400/40"
-                      : "bg-slate-800/60 border-slate-700/40 hover:border-slate-600/60"
-                  )}
-                >
-                  <div className={cn(
-                    "w-8 h-8 rounded-full flex items-center justify-center text-xs font-black shrink-0 border",
-                    isRevealed
-                      ? "bg-emerald-600 text-white border-emerald-400"
-                      : "bg-slate-700 text-slate-400 border-slate-600"
-                  )}>
-                    {idx + 1}
-                  </div>
-                  <span className={cn(
-                    "flex-1 text-sm font-bold truncate",
-                    isRevealed ? "text-emerald-200" : "text-slate-300"
-                  )}>
-                    {answer.text}
-                  </span>
-                  <span className="text-lg font-black tabular-nums text-amber-400 shrink-0">
-                    {answer.points}
-                  </span>
-                </motion.div>
-              );
-            })}
+            {selectedTeam === 1 ? "👑" : "🏛️"} {selectedTeam === 1 ? team1Name : team2Name}
           </motion.div>
+        )}
+      </AnimatePresence>
 
-          {/* Action buttons */}
-          <div className="w-full max-w-md relative z-10 mt-auto space-y-2 pb-2">
-            {faceoffStep === "verify_answer" && (
-              <>
-                <motion.button
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  whileTap={{ scale: 0.97 }}
-                  onClick={handleCorrect}
-                  className={cn(
-                    "w-full flex items-center justify-center gap-2 py-3 rounded-2xl border-2 font-black text-base cursor-pointer transition-all",
-                    selectedTeam === 1
-                      ? "bg-emerald-900/50 border-emerald-400/60 text-emerald-200 hover:bg-emerald-800/60"
-                      : "bg-emerald-900/50 border-emerald-400/60 text-emerald-200 hover:bg-emerald-800/60"
-                  )}
-                >
-                  <CheckCircle className="w-5 h-5" />
-                  إجابة صحيحة — {selectedTeam === 1 ? team1Name : team2Name} يبدأ
-                </motion.button>
-                <motion.button
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.1 }}
-                  whileTap={{ scale: 0.97 }}
-                  onClick={handleWrong}
-                  className="w-full flex items-center justify-center gap-2 py-3 rounded-2xl border-2 bg-red-900/40 border-red-400/50 text-red-200 font-black text-base cursor-pointer hover:bg-red-800/50 transition-all"
-                >
-                  <XCircle className="w-5 h-5" />
-                  إجابة خاطئة — فرصة للفريق الآخر
-                </motion.button>
-              </>
-            )}
+      {/* ===== UNDO BUTTON ===== */}
+      <AnimatePresence>
+        {selectedTeam && (
+          <motion.button
+            initial={{ opacity: 0, scale: 0.8 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.8 }}
+            onClick={handleUndo}
+            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-800/80 border-2 border-slate-600/50 hover:border-amber-400/50 text-slate-300 hover:text-amber-300 text-xs font-bold transition-all cursor-pointer relative z-10"
+          >
+            <RotateCcw className="w-3.5 h-3.5" />
+            تراجع
+          </motion.button>
+        )}
+      </AnimatePresence>
 
-            {faceoffStep === "other_team_chance" && (
-              <>
-                <motion.button
-                  initial={{ opacity: 0, y: 20 }}
+      {/* ===== BOTTOM ACTIONS ===== */}
+      <div className="w-full max-w-md relative z-10 mt-auto space-y-2 pb-2">
+        {/* SELECT TEAM STEP: Team buttons */}
+        {faceoffStep === "select_team" && (
+          <>
+            {/* Pulsing prompt */}
+            <AnimatePresence>
+              {buzzerActive && !showGo && !selectedTeam && (
+                <motion.div
+                  initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
-                  whileTap={{ scale: 0.97 }}
-                  onClick={handleOtherCorrect}
-                  className={cn(
-                    "w-full flex items-center justify-center gap-2 py-3 rounded-2xl border-2 font-black text-base cursor-pointer transition-all",
-                    selectedTeam === 1
-                      ? "bg-emerald-900/50 border-emerald-400/60 text-emerald-200 hover:bg-emerald-800/60"
-                      : "bg-emerald-900/50 border-emerald-400/60 text-emerald-200 hover:bg-emerald-800/60"
-                  )}
+                  exit={{ opacity: 0 }}
+                  className="text-center mb-2"
                 >
-                  <CheckCircle className="w-5 h-5" />
-                  إجابة صحيحة — {selectedTeam === 1 ? team1Name : team2Name} يبدأ
-                </motion.button>
-                <motion.button
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.1 }}
-                  whileTap={{ scale: 0.97 }}
-                  onClick={handleOtherWrong}
-                  className="w-full flex items-center justify-center gap-2 py-3 rounded-2xl border-2 bg-orange-900/40 border-orange-400/50 text-orange-200 font-black text-base cursor-pointer hover:bg-orange-800/50 transition-all"
+                  <motion.div
+                    animate={{ scale: [1, 1.05, 1], opacity: [0.8, 1, 0.8] }}
+                    transition={{ duration: 1.5, repeat: Infinity }}
+                    className="inline-flex items-center gap-2 text-sm font-bold text-amber-300 bg-amber-500/10 border border-amber-500/30 rounded-full px-4 py-1.5"
+                  >
+                    🔔 اختر الفريق الذي ضغط أولاً!
+                  </motion.div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            {/* Teams row */}
+            <div className="flex items-center gap-3 sm:gap-4 w-full">
+              {/* Team 1 Button */}
+              <motion.button
+                whileTap={{ scale: 0.93 }}
+                whileHover={{ scale: 1.03 }}
+                onClick={() => handleTeamSelect(1)}
+                disabled={!buzzerActive}
+                className={cn(
+                  "flex-1 relative rounded-2xl p-3 sm:p-4 text-center transition-all cursor-pointer overflow-hidden",
+                  buzzerActive
+                    ? "border-2 border-amber-400/70 bg-gradient-to-b from-amber-800/60 to-amber-900/40"
+                    : "border-2 border-amber-500/20 bg-gradient-to-b from-amber-900/30 to-amber-950/20 opacity-50"
+                )}
+              >
+                {buzzerActive && (
+                  <motion.div
+                    animate={{ opacity: [0.3, 0.6, 0.3] }}
+                    transition={{ duration: 1.5, repeat: Infinity }}
+                    className="absolute inset-0 bg-gradient-to-b from-amber-500/20 to-transparent rounded-2xl pointer-events-none"
+                  />
+                )}
+                <motion.div
+                  animate={buzzerActive ? { scale: [1, 1.1, 1] } : {}}
+                  transition={{ repeat: Infinity, duration: 1.2 }}
+                  className="text-2xl sm:text-3xl mb-1"
                 >
-                  <SkipForward className="w-5 h-5" />
-                  إجابة خاطئة أيضاً — ابدأ اللعب بالطريقة العادية
-                </motion.button>
-              </>
-            )}
-          </div>
-        </>
-      )}
+                  👑
+                </motion.div>
+                <p className="text-xs sm:text-sm font-bold text-amber-200">{team1Name}</p>
+              </motion.button>
+
+              {/* VS Badge */}
+              <motion.div
+                initial={{ scale: 0, rotate: -180 }}
+                animate={{ scale: 1, rotate: 0 }}
+                transition={{ delay: 0.5, type: "spring", stiffness: 200 }}
+                className="relative shrink-0"
+              >
+                <motion.div
+                  animate={{ scale: [1, 1.15, 1], rotate: [0, 5, -5, 0] }}
+                  transition={{ duration: 3, repeat: Infinity }}
+                  className="w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-gradient-to-br from-amber-500 via-rose-500 to-amber-600 flex items-center justify-center shadow-lg shadow-rose-500/30 border-2 border-white/20"
+                >
+                  <span className="text-sm sm:text-lg font-black text-white drop-shadow-lg">VS</span>
+                </motion.div>
+                <motion.div
+                  animate={{ scale: [1, 1.4, 1], opacity: [0.4, 0.1, 0.4] }}
+                  transition={{ duration: 2, repeat: Infinity }}
+                  className="absolute inset-0 rounded-full bg-gradient-to-br from-amber-400/30 to-rose-400/30 blur-sm"
+                />
+              </motion.div>
+
+              {/* Team 2 Button */}
+              <motion.button
+                whileTap={{ scale: 0.93 }}
+                whileHover={{ scale: 1.03 }}
+                onClick={() => handleTeamSelect(2)}
+                disabled={!buzzerActive}
+                className={cn(
+                  "flex-1 relative rounded-2xl p-3 sm:p-4 text-center transition-all cursor-pointer overflow-hidden",
+                  buzzerActive
+                    ? "border-2 border-rose-400/70 bg-gradient-to-b from-rose-800/60 to-rose-900/40"
+                    : "border-2 border-rose-500/20 bg-gradient-to-b from-rose-900/30 to-rose-950/20 opacity-50"
+                )}
+              >
+                {buzzerActive && (
+                  <motion.div
+                    animate={{ opacity: [0.3, 0.6, 0.3] }}
+                    transition={{ duration: 1.5, repeat: Infinity, delay: 0.75 }}
+                    className="absolute inset-0 bg-gradient-to-b from-rose-500/20 to-transparent rounded-2xl pointer-events-none"
+                  />
+                )}
+                <motion.div
+                  animate={buzzerActive ? { scale: [1, 1.1, 1] } : {}}
+                  transition={{ repeat: Infinity, duration: 1.2, delay: 0.6 }}
+                  className="text-2xl sm:text-3xl mb-1"
+                >
+                  🏛️
+                </motion.div>
+                <p className="text-xs sm:text-sm font-bold text-rose-200">{team2Name}</p>
+              </motion.button>
+            </div>
+          </>
+        )}
+
+        {/* VERIFY ANSWER STEP: Correct / Wrong */}
+        {faceoffStep === "verify_answer" && selectedTeam && (
+          <>
+            <motion.button
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              whileTap={{ scale: 0.97 }}
+              onClick={handleCorrect}
+              className="w-full flex items-center justify-center gap-2 py-3.5 rounded-2xl border-2 bg-emerald-900/50 border-emerald-400/60 text-emerald-200 font-black text-base cursor-pointer hover:bg-emerald-800/60 transition-all"
+            >
+              <CheckCircle className="w-5 h-5" />
+              إجابة صحيحة — {selectedTeam === 1 ? team1Name : team2Name} يبدأ
+            </motion.button>
+            <motion.button
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.1 }}
+              whileTap={{ scale: 0.97 }}
+              onClick={handleWrong}
+              className="w-full flex items-center justify-center gap-2 py-3.5 rounded-2xl border-2 bg-red-900/40 border-red-400/50 text-red-200 font-black text-base cursor-pointer hover:bg-red-800/50 transition-all"
+            >
+              <XCircle className="w-5 h-5" />
+              إجابة خاطئة — فرصة للفريق الآخر
+            </motion.button>
+          </>
+        )}
+
+        {/* OTHER TEAM CHANCE STEP */}
+        {faceoffStep === "other_team_chance" && selectedTeam && (
+          <>
+            <motion.button
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              whileTap={{ scale: 0.97 }}
+              onClick={handleOtherCorrect}
+              className="w-full flex items-center justify-center gap-2 py-3.5 rounded-2xl border-2 bg-emerald-900/50 border-emerald-400/60 text-emerald-200 font-black text-base cursor-pointer hover:bg-emerald-800/60 transition-all"
+            >
+              <CheckCircle className="w-5 h-5" />
+              إجابة صحيحة — {selectedTeam === 1 ? team1Name : team2Name} يبدأ
+            </motion.button>
+            <motion.button
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.1 }}
+              whileTap={{ scale: 0.97 }}
+              onClick={handleOtherWrong}
+              className="w-full flex items-center justify-center gap-2 py-3.5 rounded-2xl border-2 bg-orange-900/40 border-orange-400/50 text-orange-200 font-black text-base cursor-pointer hover:bg-orange-800/50 transition-all"
+            >
+              <SkipForward className="w-5 h-5" />
+              إجابة خاطئة أيضاً — ابدأ اللعب بالطريقة العادية
+            </motion.button>
+          </>
+        )}
+      </div>
     </div>
   );
 }
