@@ -2178,6 +2178,7 @@ function FaceOffScreen({
   const [buzzerActive, setBuzzerActive] = useState(false);
   const [selectedTeam, setSelectedTeam] = useState<1 | 2 | null>(null);
   const [showBuzz, setShowBuzz] = useState(false);
+  const selectionTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     if (countdown === null) return;
@@ -2194,10 +2195,18 @@ function FaceOffScreen({
 
   const handleTeamSelect = (team: 1 | 2) => {
     setSelectedTeam(team);
-    setTimeout(() => {
+    selectionTimerRef.current = setTimeout(() => {
       if (team === 1) onTeam1Start();
       else onTeam2Start();
     }, 600);
+  };
+
+  const handleUndo = () => {
+    if (selectionTimerRef.current) {
+      clearTimeout(selectionTimerRef.current);
+      selectionTimerRef.current = null;
+    }
+    setSelectedTeam(null);
   };
 
   return (
@@ -2315,6 +2324,22 @@ function FaceOffScreen({
           >
             {selectedTeam === 1 ? "👑" : "🏛️"} {selectedTeam === 1 ? team1Name : team2Name}!
           </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Undo button */}
+      <AnimatePresence>
+        {selectedTeam && (
+          <motion.button
+            initial={{ opacity: 0, scale: 0.8 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.8 }}
+            onClick={handleUndo}
+            className="mt-4 flex items-center gap-2 px-5 py-2.5 rounded-xl bg-slate-800/80 border-2 border-slate-600/50 hover:border-amber-400/50 text-slate-300 hover:text-amber-300 text-sm font-bold transition-all cursor-pointer relative z-10"
+          >
+            <RotateCcw className="w-4 h-4" />
+            تراجع عن الاختيار
+          </motion.button>
         )}
       </AnimatePresence>
 
@@ -2873,6 +2898,11 @@ function FastMoneyScreen({
   timeLeft,
   timerRunning,
   roundScore,
+  fmSelected1,
+  fmSelected2,
+  onSelectFM1,
+  onSelectFM2,
+  onPhaseChange,
 }: {
   team1Name: string;
   team2Name: string;
@@ -2891,6 +2921,11 @@ function FastMoneyScreen({
   timeLeft: number;
   timerRunning: boolean;
   roundScore: number;
+  fmSelected1: number[];
+  fmSelected2: number[];
+  onSelectFM1: (questionIdx: number, answerIdx: number) => void;
+  onSelectFM2: (questionIdx: number, answerIdx: number) => void;
+  onPhaseChange: (phase: string) => void;
 }) {
   const [phase, setPhase] = useState<"intro" | "team1" | "team2" | "results">("intro");
 
@@ -2987,55 +3022,65 @@ function FastMoneyScreen({
 
         {/* Questions */}
         <div className="flex-1 max-h-[50vh] overflow-y-auto space-y-2">
-          {fmQuestions.map((q, i) => (
-            <Card key={i} className="bg-slate-900/80 border-slate-700/40">
-              <CardContent className="p-3">
-                <p className="text-xs font-bold text-white mb-2">
-                  {i + 1}. {q.question}
-                </p>
-                <div className="flex gap-2">
-                  <Input
-                    value={fmAnswers1[i] || ""}
-                    onChange={(e) => onInputFM1(i, e.target.value)}
-                    placeholder="إجابة اللاعب..."
-                    className="flex-1 bg-slate-800/60 border-amber-900/40 text-amber-100 placeholder:text-amber-800/30 h-9 text-sm"
-                    dir="rtl"
-                  />
-                  <Button
-                    onClick={() => onRevealFM1(i)}
-                    variant="outline"
-                    size="sm"
-                    className="border-slate-700 text-slate-400 hover:text-slate-200 h-9 px-3"
-                  >
-                    <Eye className="w-3 h-3" />
-                  </Button>
-                </div>
-                {fmRevealed1[i] && (
-                  <motion.div
-                    initial={{ opacity: 0, y: -5 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className="mt-2 space-y-1"
-                  >
-                    {q.answers.map((a, j) => (
-                      <div
-                        key={j}
-                        className={cn(
-                          "flex items-center justify-between text-xs px-2 py-1 rounded",
-                          fmAnswers1[i] &&
-                            a.text.includes(fmAnswers1[i].trim().charAt(0))
-                            ? "bg-emerald-900/40 border border-emerald-500/30"
-                            : "bg-slate-800/40"
-                        )}
-                      >
-                        <span className="text-slate-300">{a.text}</span>
-                        <span className="text-slate-500">{a.points}</span>
-                      </div>
-                    ))}
-                  </motion.div>
-                )}
-              </CardContent>
-            </Card>
-          ))}
+          {fmQuestions.map((q, i) => {
+            const isRevealed = fmRevealed1[i];
+            const selectedAnswerIdx = fmSelected1[i];
+            return (
+              <Card key={i} className="bg-slate-900/80 border-slate-700/40">
+                <CardContent className="p-3">
+                  <p className="text-xs font-bold text-white mb-2">
+                    {i + 1}. {q.question}
+                  </p>
+                  {isRevealed ? (
+                    <div className="space-y-1">
+                      {q.answers.map((a, j) => (
+                        <div
+                          key={j}
+                          className={cn(
+                            "flex items-center justify-between text-xs px-3 py-2 rounded-lg border transition-all",
+                            selectedAnswerIdx === j
+                              ? "bg-emerald-900/40 border-emerald-500/50 text-emerald-200"
+                              : "bg-slate-800/40 border-slate-700/30 text-slate-500"
+                          )}
+                        >
+                          <span className="flex items-center gap-2">
+                            {selectedAnswerIdx === j && <CheckCircle className="w-3 h-3 text-emerald-400" />}
+                            {a.text}
+                          </span>
+                          <span className="font-bold">{a.points}</span>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 gap-1.5">
+                      {q.answers.map((a, j) => (
+                        <motion.button
+                          key={j}
+                          whileTap={{ scale: 0.97 }}
+                          onClick={() => onSelectFM1(i, j)}
+                          className="flex items-center justify-between text-xs px-3 py-2.5 rounded-lg bg-slate-800/60 border border-slate-700/40 hover:border-amber-400/50 hover:bg-amber-900/20 text-slate-300 hover:text-amber-200 transition-all cursor-pointer text-right"
+                        >
+                          <span>{a.text}</span>
+                          <span className="font-bold text-amber-400/60">{a.points}</span>
+                        </motion.button>
+                      ))}
+                    </div>
+                  )}
+                  {!isRevealed && (
+                    <Button
+                      onClick={() => onRevealFM1(i)}
+                      variant="outline"
+                      size="sm"
+                      className="w-full mt-2 border-emerald-500/30 text-emerald-400 hover:text-emerald-300 hover:bg-emerald-900/20 h-8 text-xs"
+                    >
+                      <Eye className="w-3 h-3 ml-1" />
+                      تأكيد الإجابة
+                    </Button>
+                  )}
+                </CardContent>
+              </Card>
+            );
+          })}
         </div>
 
         <Button
@@ -3099,59 +3144,82 @@ function FastMoneyScreen({
 
         {/* Questions */}
         <div className="flex-1 max-h-[50vh] overflow-y-auto space-y-2">
-          {fmQuestions.map((q, i) => (
-            <Card key={i} className="bg-slate-900/80 border-slate-700/40">
-              <CardContent className="p-3">
-                <p className="text-xs font-bold text-white mb-2">
-                  {i + 1}. {q.question}
-                </p>
-                <div className="flex gap-2">
-                  <Input
-                    value={fmAnswers2[i] || ""}
-                    onChange={(e) => onInputFM2(i, e.target.value)}
-                    placeholder="إجابة اللاعب..."
-                    className="flex-1 bg-slate-800/60 border-rose-900/40 text-rose-100 placeholder:text-rose-800/30 h-9 text-sm"
-                    dir="rtl"
-                  />
-                  <Button
-                    onClick={() => onRevealFM2(i)}
-                    variant="outline"
-                    size="sm"
-                    className="border-slate-700 text-slate-400 hover:text-slate-200 h-9 px-3"
-                  >
-                    <Eye className="w-3 h-3" />
-                  </Button>
-                </div>
-                {fmRevealed2[i] && (
-                  <motion.div
-                    initial={{ opacity: 0, y: -5 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className="mt-2 space-y-1"
-                  >
-                    {q.answers.map((a, j) => (
-                      <div
-                        key={j}
-                        className={cn(
-                          "flex items-center justify-between text-xs px-2 py-1 rounded",
-                          fmAnswers2[i] &&
-                            a.text.includes(fmAnswers2[i].trim().charAt(0))
-                            ? "bg-emerald-900/40 border border-emerald-500/30"
-                            : "bg-slate-800/40"
-                        )}
-                      >
-                        <span className="text-slate-300">{a.text}</span>
-                        <span className="text-slate-500">{a.points}</span>
-                      </div>
-                    ))}
-                  </motion.div>
-                )}
-              </CardContent>
-            </Card>
-          ))}
+          {fmQuestions.map((q, i) => {
+            const isRevealed = fmRevealed2[i];
+            const selectedAnswerIdx = fmSelected2[i];
+            const team1AnswerIdx = fmSelected1[i];
+            return (
+              <Card key={i} className="bg-slate-900/80 border-slate-700/40">
+                <CardContent className="p-3">
+                  <p className="text-xs font-bold text-white mb-2">
+                    {i + 1}. {q.question}
+                  </p>
+                  {isRevealed ? (
+                    <div className="space-y-1">
+                      {q.answers.map((a, j) => (
+                        <div
+                          key={j}
+                          className={cn(
+                            "flex items-center justify-between text-xs px-3 py-2 rounded-lg border transition-all",
+                            selectedAnswerIdx === j
+                              ? "bg-emerald-900/40 border-emerald-500/50 text-emerald-200"
+                              : "bg-slate-800/40 border-slate-700/30 text-slate-500"
+                          )}
+                        >
+                          <span className="flex items-center gap-2">
+                            {selectedAnswerIdx === j && <CheckCircle className="w-3 h-3 text-emerald-400" />}
+                            {a.text}
+                          </span>
+                          <span className="font-bold">{a.points}</span>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 gap-1.5">
+                      {q.answers.map((a, j) => {
+                        const disabledByTeam1 = j === team1AnswerIdx;
+                        return (
+                          <motion.button
+                            key={j}
+                            whileTap={{ scale: 0.97 }}
+                            onClick={() => onSelectFM2(i, j)}
+                            disabled={disabledByTeam1}
+                            className={cn(
+                              "flex items-center justify-between text-xs px-3 py-2.5 rounded-lg border transition-all text-right",
+                              disabledByTeam1
+                                ? "opacity-40 line-through pointer-events-none bg-red-900/20 border-red-500/20 text-slate-500"
+                                : "bg-slate-800/60 border-slate-700/40 hover:border-rose-400/50 hover:bg-rose-900/20 text-slate-300 hover:text-rose-200 cursor-pointer"
+                            )}
+                          >
+                            <span>{a.text}</span>
+                            <span className={cn("font-bold", disabledByTeam1 ? "text-slate-600" : "text-rose-400/60")}>{a.points}</span>
+                          </motion.button>
+                        );
+                      })}
+                    </div>
+                  )}
+                  {!isRevealed && (
+                    <Button
+                      onClick={() => onRevealFM2(i)}
+                      variant="outline"
+                      size="sm"
+                      className="w-full mt-2 border-emerald-500/30 text-emerald-400 hover:text-emerald-300 hover:bg-emerald-900/20 h-8 text-xs"
+                    >
+                      <Eye className="w-3 h-3 ml-1" />
+                      تأكيد الإجابة
+                    </Button>
+                  )}
+                </CardContent>
+              </Card>
+            );
+          })}
         </div>
 
         <Button
-          onClick={() => setPhase("results")}
+          onClick={() => {
+            setPhase("results");
+            onPhaseChange("results");
+          }}
           className="bg-gradient-to-l from-amber-600 to-yellow-600 text-white font-bold h-10"
         >
           عرض النتائج
@@ -3354,6 +3422,8 @@ export default function FamilyFeudPage() {
   const [timeLeft, setTimeLeft] = useState(20);
   const [timerRunning, setTimerRunning] = useState(false);
   const [fmPhase, setFmPhase] = useState<"intro" | "team1" | "team2" | "results">("intro");
+  const [fmSelected1, setFmSelected1] = useState<number[]>([]);
+  const [fmSelected2, setFmSelected2] = useState<number[]>([]);
   const [showGameOver, setShowGameOver] = useState(false);
 
   // Feedback
@@ -3497,6 +3567,8 @@ export default function FamilyFeudPage() {
       setFmRevealed2(Array(5).fill(false));
       setFmScore1(0);
       setFmScore2(0);
+      setFmSelected1([]);
+      setFmSelected2([]);
       setTimerRunning(false);
       setTimeLeft(20);
     } else {
@@ -3649,6 +3721,33 @@ export default function FamilyFeudPage() {
     setTimeLeft(20);
     setTimerRunning(true);
   }, []);
+
+  // Fast Money selection handlers
+  const handleSelectFM1 = useCallback((questionIdx: number, answerIdx: number) => {
+    setFmSelected1((prev) => {
+      const updated = [...prev];
+      updated[questionIdx] = answerIdx;
+      return updated;
+    });
+    setFmAnswers1((prev) => {
+      const updated = [...prev];
+      updated[questionIdx] = fmQuestions[questionIdx]?.answers[answerIdx]?.text || "";
+      return updated;
+    });
+  }, [fmQuestions]);
+
+  const handleSelectFM2 = useCallback((questionIdx: number, answerIdx: number) => {
+    setFmSelected2((prev) => {
+      const updated = [...prev];
+      updated[questionIdx] = answerIdx;
+      return updated;
+    });
+    setFmAnswers2((prev) => {
+      const updated = [...prev];
+      updated[questionIdx] = fmQuestions[questionIdx]?.answers[answerIdx]?.text || "";
+      return updated;
+    });
+  }, [fmQuestions]);
 
   // Fast Money reveal handlers
   const handleRevealFM1 = useCallback(
@@ -4086,6 +4185,11 @@ export default function FamilyFeudPage() {
             timeLeft={timeLeft}
             timerRunning={timerRunning}
             roundScore={fmScore1 + fmScore2}
+            fmSelected1={fmSelected1}
+            fmSelected2={fmSelected2}
+            onSelectFM1={handleSelectFM1}
+            onSelectFM2={handleSelectFM2}
+            onPhaseChange={(phase) => setFmPhase(phase as "intro" | "team1" | "team2" | "results")}
           />
 
           {/* Fast Money Results */}
