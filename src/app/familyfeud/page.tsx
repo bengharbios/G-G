@@ -43,8 +43,10 @@ function useHydrated() {
 // ============================================================
 // Sound Effects Hook (Web Audio API)
 // ============================================================
-function useSoundEffects() {
+function useSoundEffects(soundEnabled: boolean) {
   const audioCtxRef = useRef<AudioContext | null>(null);
+  const enabledRef = useRef(soundEnabled);
+  useEffect(() => { enabledRef.current = soundEnabled; }, [soundEnabled]);
 
   const getCtx = useCallback(() => {
     if (!audioCtxRef.current) {
@@ -57,6 +59,7 @@ function useSoundEffects() {
   }, []);
 
   const playCorrect = useCallback(() => {
+    if (!enabledRef.current) return;
     try {
       const ctx = getCtx();
       const osc = ctx.createOscillator();
@@ -75,6 +78,7 @@ function useSoundEffects() {
   }, [getCtx]);
 
   const playBuzz = useCallback(() => {
+    if (!enabledRef.current) return;
     try {
       const ctx = getCtx();
       const osc = ctx.createOscillator();
@@ -92,6 +96,7 @@ function useSoundEffects() {
   }, [getCtx]);
 
   const playStrike = useCallback(() => {
+    if (!enabledRef.current) return;
     try {
       const ctx = getCtx();
       const osc = ctx.createOscillator();
@@ -121,6 +126,7 @@ function useSoundEffects() {
   }, [getCtx]);
 
   const playReveal = useCallback(() => {
+    if (!enabledRef.current) return;
     try {
       const ctx = getCtx();
       const osc = ctx.createOscillator();
@@ -139,6 +145,7 @@ function useSoundEffects() {
   }, [getCtx]);
 
   const playSteal = useCallback(() => {
+    if (!enabledRef.current) return;
     try {
       const ctx = getCtx();
       // Tension rising
@@ -158,6 +165,7 @@ function useSoundEffects() {
   }, [getCtx]);
 
   const playWin = useCallback(() => {
+    if (!enabledRef.current) return;
     try {
       const ctx = getCtx();
       const notes = [523, 659, 784, 1047, 784, 1047];
@@ -177,6 +185,7 @@ function useSoundEffects() {
   }, [getCtx]);
 
   const playCountdown = useCallback(() => {
+    if (!enabledRef.current) return;
     try {
       const ctx = getCtx();
       const osc = ctx.createOscillator();
@@ -1808,11 +1817,24 @@ function LandingPage({
 // ============================================================
 function TeamSetup({
   onStartGame,
+  soundEnabled,
+  setSoundEnabled,
 }: {
   onStartGame: (team1Name: string, team2Name: string) => void;
+  soundEnabled: boolean;
+  setSoundEnabled: (v: boolean) => void;
 }) {
   const [team1Name, setTeam1Name] = useState("فريق 1");
   const [team2Name, setTeam2Name] = useState("فريق 2");
+  const [totalRounds, setTotalRounds] = useState(5);
+  const [stealTimer, setStealTimer] = useState(0); // 0=off, 30, 60
+  const [showSettings, setShowSettings] = useState(false);
+
+  const handleSwapNames = () => {
+    const tmp = team1Name;
+    setTeam1Name(team2Name);
+    setTeam2Name(tmp);
+  };
 
   return (
     <div className="flex-1 flex items-center justify-center p-3 sm:p-4" dir="rtl">
@@ -1821,16 +1843,33 @@ function TeamSetup({
         animate={{ opacity: 1, y: 0 }}
         className="max-w-lg w-full"
       >
-        <h2 className="text-2xl sm:text-3xl font-black text-center mb-2">
+        <h2 className="text-2xl sm:text-3xl font-black text-center mb-1">
           <span className="bg-gradient-to-l from-amber-400 to-rose-400 bg-clip-text text-transparent">
             إعداد الفرق
           </span>
         </h2>
-        <p className="text-sm text-slate-500 text-center mb-6">
-          أدخل اسمي الفريقين اللذين سيتنافسان
+        <p className="text-xs text-slate-500 text-center mb-1">
+          العراب - وضع المستضيف
         </p>
+        <div className="flex justify-center mb-5">
+          <Badge className="bg-amber-900/40 border border-amber-500/30 text-amber-400 text-[10px]">
+            👑 أنت المقدم - تتحكم باللعبة كاملة
+          </Badge>
+        </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 relative">
+          {/* Swap Button (centered between team cards on sm+) */}
+          <div className="hidden sm:flex absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-20">
+            <motion.button
+              whileTap={{ scale: 0.85 }}
+              whileHover={{ scale: 1.1 }}
+              onClick={handleSwapNames}
+              className="w-10 h-10 rounded-full bg-slate-800 border-2 border-slate-600 hover:border-amber-500/60 flex items-center justify-center shadow-lg cursor-pointer"
+            >
+              <span className="text-base">🔄</span>
+            </motion.button>
+          </div>
+
           {/* Team 1 */}
           <Card className="bg-slate-900/80 border-amber-500/30">
             <CardContent className="p-4">
@@ -1843,13 +1882,16 @@ function TeamSetup({
                   <p className="text-[10px] text-amber-400/60">بدأ المواجهة</p>
                 </div>
               </div>
-              <Input
-                value={team1Name}
-                onChange={(e) => setTeam1Name(e.target.value)}
-                placeholder="اسم الفريق الأول"
-                className="bg-slate-800/60 border-amber-900/40 text-amber-100 placeholder:text-amber-800/40 h-11 text-sm"
-                dir="rtl"
-              />
+              <div className="relative">
+                <div className="absolute top-1/2 right-3 -translate-y-1/2 w-2.5 h-2.5 rounded-full bg-amber-500 shadow-sm shadow-amber-500/50 z-10" />
+                <Input
+                  value={team1Name}
+                  onChange={(e) => setTeam1Name(e.target.value)}
+                  placeholder="اسم الفريق الأول"
+                  className="bg-slate-800/60 border-amber-900/40 text-amber-100 placeholder:text-amber-800/40 h-11 text-sm pr-7"
+                  dir="rtl"
+                />
+              </div>
             </CardContent>
           </Card>
 
@@ -1865,15 +1907,30 @@ function TeamSetup({
                   <p className="text-[10px] text-rose-400/60">المنافس</p>
                 </div>
               </div>
-              <Input
-                value={team2Name}
-                onChange={(e) => setTeam2Name(e.target.value)}
-                placeholder="اسم الفريق الثاني"
-                className="bg-slate-800/60 border-rose-900/40 text-rose-100 placeholder:text-rose-800/40 h-11 text-sm"
-                dir="rtl"
-              />
+              <div className="relative">
+                <div className="absolute top-1/2 right-3 -translate-y-1/2 w-2.5 h-2.5 rounded-full bg-rose-500 shadow-sm shadow-rose-500/50 z-10" />
+                <Input
+                  value={team2Name}
+                  onChange={(e) => setTeam2Name(e.target.value)}
+                  placeholder="اسم الفريق الثاني"
+                  className="bg-slate-800/60 border-rose-900/40 text-rose-100 placeholder:text-rose-800/40 h-11 text-sm pr-7"
+                  dir="rtl"
+                />
+              </div>
             </CardContent>
           </Card>
+
+          {/* Mobile Swap Button */}
+          <div className="sm:hidden flex justify-center">
+            <motion.button
+              whileTap={{ scale: 0.9 }}
+              onClick={handleSwapNames}
+              className="flex items-center gap-1.5 text-xs text-slate-400 hover:text-amber-400 transition-colors cursor-pointer"
+            >
+              <span>🔄</span>
+              <span>تبديل الأسماء</span>
+            </motion.button>
+          </div>
         </div>
 
         {/* Host Info */}
@@ -1889,19 +1946,145 @@ function TeamSetup({
           </CardContent>
         </Card>
 
-        <div className="text-center mt-6">
+        {/* Game Settings Panel */}
+        <div className="mt-3">
           <Button
+            variant="ghost"
+            onClick={() => setShowSettings(!showSettings)}
+            className="w-full text-slate-400 hover:text-amber-300 hover:bg-amber-500/5 gap-2 text-sm py-2 justify-center"
+          >
+            <Info className="w-4 h-4" />
+            <span>إعدادات اللعبة</span>
+            <motion.span
+              animate={{ rotate: showSettings ? 90 : 0 }}
+              className="text-slate-500"
+            >
+              ‹
+            </motion.span>
+          </Button>
+          <AnimatePresence>
+            {showSettings && (
+              <motion.div
+                initial={{ height: 0, opacity: 0 }}
+                animate={{ height: "auto", opacity: 1 }}
+                exit={{ height: 0, opacity: 0 }}
+                transition={{ duration: 0.3 }}
+                className="overflow-hidden"
+              >
+                <Card className="bg-slate-900/60 border-slate-700/40">
+                  <CardContent className="p-4 space-y-4">
+                    {/* Number of Rounds */}
+                    <div>
+                      <p className="text-xs font-bold text-slate-300 mb-2">
+                        🎯 عدد الجولات
+                      </p>
+                      <div className="flex gap-2">
+                        {[3, 5, 7].map((n) => (
+                          <motion.button
+                            key={n}
+                            whileTap={{ scale: 0.95 }}
+                            onClick={() => setTotalRounds(n)}
+                            className={cn(
+                              "flex-1 rounded-xl py-2.5 text-sm font-bold border-2 transition-all cursor-pointer",
+                              totalRounds === n
+                                ? "bg-amber-500/20 border-amber-500/60 text-amber-300 shadow-sm shadow-amber-500/20"
+                                : "bg-slate-800/40 border-slate-700/40 text-slate-400 hover:border-slate-600"
+                            )}
+                          >
+                            {n} جولات
+                          </motion.button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Steal Timer */}
+                    <div>
+                      <p className="text-xs font-bold text-slate-300 mb-2">
+                        ⏱️ مؤقت السرقة
+                      </p>
+                      <div className="flex gap-2">
+                        {[
+                          { val: 0, label: "بدون" },
+                          { val: 30, label: "30 ثانية" },
+                          { val: 60, label: "60 ثانية" },
+                        ].map((opt) => (
+                          <motion.button
+                            key={opt.val}
+                            whileTap={{ scale: 0.95 }}
+                            onClick={() => setStealTimer(opt.val)}
+                            className={cn(
+                              "flex-1 rounded-xl py-2.5 text-xs font-bold border-2 transition-all cursor-pointer",
+                              stealTimer === opt.val
+                                ? "bg-rose-500/20 border-rose-500/60 text-rose-300 shadow-sm shadow-rose-500/20"
+                                : "bg-slate-800/40 border-slate-700/40 text-slate-400 hover:border-slate-600"
+                            )}
+                          >
+                            {opt.label}
+                          </motion.button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Sound Effects */}
+                    <div>
+                      <p className="text-xs font-bold text-slate-300 mb-2">
+                        🔊 المؤثرات الصوتية
+                      </p>
+                      <div className="flex items-center justify-between bg-slate-800/40 rounded-xl p-3 border border-slate-700/40">
+                        <span className="text-xs text-slate-400">
+                          {soundEnabled ? "مفعّل" : "مكتّم"}
+                        </span>
+                        <motion.button
+                          whileTap={{ scale: 0.9 }}
+                          onClick={() => setSoundEnabled(!soundEnabled)}
+                          className={cn(
+                            "w-12 h-7 rounded-full relative transition-colors cursor-pointer",
+                            soundEnabled
+                              ? "bg-amber-500/60 shadow-sm shadow-amber-500/30"
+                              : "bg-slate-700"
+                          )}
+                        >
+                          <motion.div
+                            animate={{ x: soundEnabled ? 20 : 2 }}
+                            transition={{ type: "spring", stiffness: 500, damping: 30 }}
+                            className="absolute top-1 w-5 h-5 rounded-full bg-white shadow-md"
+                          />
+                        </motion.button>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
+
+        {/* Store settings in data attributes for main to pick up */}
+        <input type="hidden" id="settings-totalRounds" value={totalRounds} />
+        <input type="hidden" id="settings-stealTimer" value={stealTimer} />
+
+        <div className="text-center mt-6">
+          <motion.button
+            whileTap={{ scale: 0.95 }}
             onClick={() =>
               onStartGame(
                 team1Name.trim() || "فريق 1",
                 team2Name.trim() || "فريق 2"
               )
             }
-            className="bg-gradient-to-l from-amber-600 to-rose-600 hover:from-amber-500 hover:to-rose-500 text-white font-bold px-10 py-6"
+            className="relative bg-gradient-to-l from-amber-600 to-rose-600 hover:from-amber-500 hover:to-rose-500 text-white font-bold px-12 py-6 rounded-xl shadow-lg shadow-amber-500/20 cursor-pointer overflow-hidden"
           >
-            <Play className="w-5 h-5 ml-2" />
-            ابدأ اللعبة
-          </Button>
+            {/* Pulsing glow animation */}
+            <motion.div
+              animate={{ opacity: [0.3, 0.7, 0.3], scale: [1, 1.05, 1] }}
+              transition={{ duration: 2, repeat: Infinity }}
+              className="absolute inset-0 bg-gradient-to-l from-amber-400/30 to-rose-400/30 rounded-xl pointer-events-none"
+            />
+            <span className="relative flex items-center gap-2 text-lg">
+              <Play className="w-5 h-5" />
+              ابدأ اللعبة
+            </span>
+          </motion.button>
         </div>
       </motion.div>
     </div>
@@ -2295,6 +2478,17 @@ function GameBoardView({
   const pointsRemaining = totalPoints - revealedPoints;
   const maxScore = Math.max(team1Score, team2Score, 1);
 
+  // Answer search state
+  const [searchQuery, setSearchQuery] = useState("");
+  const searchMatches = searchQuery.trim().length > 0
+    ? answers.filter(
+        (a) =>
+          !a.revealed &&
+          (a.text.includes(searchQuery.trim()) ||
+            searchQuery.trim().includes(a.text))
+      )
+    : [];
+
   return (
     <div className="flex-1 flex flex-col p-3 sm:p-4 gap-3" dir="rtl">
       {/* Team Score Panels with VS Badge */}
@@ -2423,6 +2617,61 @@ function GameBoardView({
           </span>
         </motion.div>
       </div>
+
+      {/* Answer Search Input */}
+      {phase === "playing" && (
+        <div className="relative">
+          <div className="relative">
+            <Input
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="ابحث عن إجابة..."
+              className="bg-slate-800/60 border-slate-700/40 text-slate-200 placeholder:text-slate-600 h-9 text-xs pr-8"
+              dir="rtl"
+            />
+            <span className="absolute top-1/2 right-3 -translate-y-1/2 text-xs text-slate-500">
+              🔍
+            </span>
+          </div>
+          {/* Search Dropdown */}
+          <AnimatePresence>
+            {searchQuery.trim().length > 0 && (
+              <motion.div
+                initial={{ opacity: 0, y: -5, scale: 0.95 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: -5, scale: 0.95 }}
+                transition={{ duration: 0.15 }}
+                className="absolute top-full left-0 right-0 mt-1 z-40 bg-slate-800 border border-slate-700/60 rounded-xl overflow-hidden shadow-xl"
+              >
+                {searchMatches.length > 0 ? (
+                  <div className="py-1 max-h-32 overflow-y-auto">
+                    {searchMatches.map((a) => {
+                      const idx = answers.indexOf(a);
+                      return (
+                        <button
+                          key={idx}
+                          onClick={() => {
+                            onRevealAnswer(idx);
+                            setSearchQuery("");
+                          }}
+                          className="w-full flex items-center justify-between px-3 py-2 hover:bg-emerald-900/40 transition-colors text-right cursor-pointer"
+                        >
+                          <span className="text-xs text-emerald-300 font-bold">{a.text}</span>
+                          <span className="text-[10px] text-slate-500">{a.points} نقطة</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div className="px-3 py-2.5 text-center">
+                    <span className="text-xs text-slate-500">لا تطابق</span>
+                  </div>
+                )}
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
+      )}
 
       {/* Strike Marks */}
       <div className="flex justify-center gap-3">
