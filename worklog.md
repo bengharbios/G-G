@@ -370,3 +370,84 @@ Priority recommendations for next phase:
 - Implement full Diwaniya (online) mode for Family Feud with API routes
 - Add more Arabic questions for variety
 - Improve animations and visual polish
+
+---
+Task ID: 11
+Agent: Main Agent
+Task: Fix bugs and improve styling in Family Feud game
+
+Work Log:
+
+**Bug Fixes:**
+1. **Bug 1 - Click handling issues (CSS overlays intercepting clicks):**
+   - Added `pointer-events-none` to the FaceOff countdown overlay (z-30) that was blocking clicks during countdown
+   - Added `max-w-full` to `HostAnswerSlot` button container to prevent text overflow by ~152px
+   - Added `cursor-default` styling when revealed to prevent misleading cursor
+   - Verified all decorative animated overlays already have `pointer-events-none`
+
+2. **Bug 2 - Text overflow on answer buttons:**
+   - Added `max-w-full` class to the `motion.button` in `HostAnswerSlot` to constrain button width
+   - Points container already had `shrink-0`, text container already had `min-w-0`
+
+3. **Bug 3 - Fast Money button freezes page:**
+   - Removed the `confirm()` dialog from the "المال السريع" button in the gameboard header
+   - Button now directly calls `handleNextRound()` after setting round to totalRounds
+   - No more modal dialog blocking the UI thread
+
+4. **Unused prop warning:**
+   - Removed `onAnswerReveal` prop from `FaceOffScreen` component interface and type definition
+   - Removed the prop from the parent call site
+
+**Styling Improvements:**
+1. **Landing Page Enhancements:**
+   - Added `SparkleParticles` component with 12 animated sparkle dots behind the game title
+   - Added sound toggle icon (🔊/🔇) next to "Family Feud" text on landing page
+   - Passed `soundEnabled` and `setSoundEnabled` props to `LandingPage` component
+
+2. **FaceOff Screen Polish:**
+   - Added glowing animated border around the verify_answer section (emerald glow for verify, rose for other_team_chance)
+   - Added `motion.div` wrapper with scale/opacity transition when entering verify step
+   - Added `hover:scale-[1.02]` and `hover:border-slate-600/60` effects to answer list cards
+   - Added `cursor-default` to prevent misleading pointer on answer cards
+
+3. **Game Board Polish:**
+   - Added subtle glow effect on question text area using animated boxShadow (amber pulse)
+   - Enhanced `StrikeMark` component with more dramatic animation: multi-step scale bounce [0, 1.5, 0.8, 1.1, 1], extended rotation [-30, 10, -5, 0], and animated textShadow glow
+   - Increased strike animation duration from 0.4s to 0.6s with spring physics
+
+4. **General Improvements:**
+   - Added `overflow-x-hidden` to the main game container div to prevent horizontal scrolling
+   - Added `style={{ scrollBehavior: "smooth" }}` for smooth scroll behavior
+
+**New Features:**
+1. **Sound Toggle in Header:**
+   - Created `SoundToggleButton` component with compact/normal modes
+   - Added sound toggle button in FaceOff header (compact mode)
+   - Added sound toggle button in GameBoard header (compact mode)
+   - Added sound toggle button in Fast Money header (compact mode)
+   - Toggle is accessible from all gameplay phases
+
+2. **Question Category Badges:**
+   - Added `category` and `categoryIcon` optional fields to `Question` interface
+   - Added categories to 20 questions manually (طعام 🍕, حياة يومية 🌙, طبيعة 🔥, etc.)
+   - Created `getQuestionCategory()` helper function that auto-detects categories for questions without manual tags (food, animals, home, careers, sports, fears, children, entertainment, travel, daily life)
+   - Added `questionCategory` prop to `GameBoardView` component
+   - Displayed category badge next to the question number badge
+
+3. **Answer Reveal Streak Effect:**
+   - Added `revealStreakRef`, `revealStreakTimerRef`, and `revealStreak` state for tracking consecutive reveals
+   - Modified `handleRevealAnswer` to increment streak counter on each reveal
+   - Auto-resets streak after 3 seconds of no reveals
+   - Added animated streak indicator (🔥 x2, 🔥 x3, etc.) at bottom of screen using `AnimatePresence`
+   - Streak indicator appears when 2+ answers are revealed in sequence
+
+**Code Quality:**
+- Zero ESLint errors in familyfeud/page.tsx
+- All changes properly typed with TypeScript
+- Dev server compiles successfully without errors
+
+Stage Summary:
+- All 4 reported bugs fixed (click handling, text overflow, confirm() freeze, unused prop)
+- 4 styling improvements applied (landing sparkle, faceoff glow, board glow, general fixes)
+- 3 new features added (sound toggle, category badges, streak counter)
+- Zero lint errors, clean compilation

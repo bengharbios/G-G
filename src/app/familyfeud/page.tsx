@@ -229,6 +229,35 @@ interface Answer {
 interface Question {
   question: string;
   answers: Answer[];
+  category?: string;
+  categoryIcon?: string;
+}
+
+// Helper to get category info for questions
+function getQuestionCategory(q: Question): { icon: string; label: string } {
+  if (q.category && q.categoryIcon) return { icon: q.categoryIcon, label: q.category };
+  const text = q.question;
+  if (text.includes("طعام") || text.includes("بيتزا") || text.includes("بسكويت") || text.includes("لزج") || text.includes("شراب") || text.includes("أكل") || text.includes("عشاء") || text.includes("قهوة") || text.includes("فطور"))
+    return { icon: "🍕", label: "طعام" };
+  if (text.includes("حيوان") || text.includes("كلب") || text.includes("قط"))
+    return { icon: "🐾", label: "حيوانات" };
+  if (text.includes("مكان") || text.includes("منزل") || text.includes("مرآب"))
+    return { icon: "🏠", label: "منزل" };
+  if (text.includes("مهنة") || text.includes("عمل"))
+    return { icon: "👔", label: "مهن" };
+  if (text.includes("رياض") || text.includes("كرة"))
+    return { icon: "⚽", label: "رياضة" };
+  if (text.includes("خاف") || text.includes("مخيف"))
+    return { icon: "😱", label: "مخاوف" };
+  if (text.includes("أطفال") || text.includes("طفل"))
+    return { icon: "👶", label: "أطفال" };
+  if (text.includes("لعب") || text.includes("ألعاب") || text.includes("حفل") || text.includes("ترفيه"))
+    return { icon: "🎮", label: "ترفيه" };
+  if (text.includes("سفر") || text.includes("طائرة") || text.includes("رحلة"))
+    return { icon: "✈️", label: "سفر" };
+  if (text.includes("نوم") || text.includes("ليل") || text.includes("صباح"))
+    return { icon: "🌙", label: "حياة يومية" };
+  return { icon: "❓", label: "عام" };
 }
 
 // ============================================================
@@ -238,6 +267,7 @@ const ALL_QUESTIONS: Question[] = [
   // --- 65 questions from provided list ---
   {
     question: "اذكر شيئاً تأكله مع البسكويت:",
+    category: "طعام", categoryIcon: "🍕",
     answers: [
       { text: "شوربة", points: 28, revealed: false },
       { text: "جبنة", points: 24, revealed: false },
@@ -248,6 +278,7 @@ const ALL_QUESTIONS: Question[] = [
   },
   {
     question: "اذكر شيئاً يفعله الناس غالباً في الليل:",
+    category: "حياة يومية", categoryIcon: "🌙",
     answers: [
       { text: "قراءة كتاب", points: 26, revealed: false },
       { text: "استخدام الهاتف", points: 23, revealed: false },
@@ -258,6 +289,7 @@ const ALL_QUESTIONS: Question[] = [
   },
   {
     question: "اذكر أشياء ساخنة:",
+    category: "طبيعة", categoryIcon: "🔥",
     answers: [
       { text: "نار", points: 26, revealed: false },
       { text: "قهوة", points: 24, revealed: false },
@@ -268,6 +300,7 @@ const ALL_QUESTIONS: Question[] = [
   },
   {
     question: "اذكر شيئاً مفتوناً به الكثير من الأطفال:",
+    category: "ترفيه", categoryIcon: "🎮",
     answers: [
       { text: "ألعاب فيديو/كمبيوتر", points: 41, revealed: false },
       { text: "حلويات/وجبات سريعة", points: 29, revealed: false },
@@ -277,6 +310,7 @@ const ALL_QUESTIONS: Question[] = [
   },
   {
     question: "اذكر شيئاً يخاف منه بعض الناس ركوبه:",
+    category: "سفر", categoryIcon: "✈️",
     answers: [
       { text: "طائرة", points: 44, revealed: false },
       { text: "دراجة نارية", points: 21, revealed: false },
@@ -288,6 +322,7 @@ const ALL_QUESTIONS: Question[] = [
   },
   {
     question: "اذكر مكاناً ذا طاقة عالية يذهب إليه الناس:",
+    category: "ترفيه", categoryIcon: "🎭",
     answers: [
       { text: "ملعب رياضي", points: 28, revealed: false },
       { text: "حفل موسيقي", points: 27, revealed: false },
@@ -298,6 +333,7 @@ const ALL_QUESTIONS: Question[] = [
   },
   {
     question: "اذكر شيئاً شائعاً يخاف منه الناس:",
+    category: "مخاوف", categoryIcon: "😱",
     answers: [
       { text: "الارتفاعات", points: 50, revealed: false },
       { text: "العناكب", points: 25, revealed: false },
@@ -307,6 +343,7 @@ const ALL_QUESTIONS: Question[] = [
   },
   {
     question: "اذكر شيئاً يفقده الرجال طوال الوقت:",
+    category: "حياة يومية", categoryIcon: "🔑",
     answers: [
       { text: "المفاتيح", points: 50, revealed: false },
       { text: "الهاتف", points: 25, revealed: false },
@@ -316,6 +353,7 @@ const ALL_QUESTIONS: Question[] = [
   },
   {
     question: "اذكر حيواناً له رقبة طويلة:",
+    category: "حيوانات", categoryIcon: "🦒",
     answers: [
       { text: "زرافة", points: 78, revealed: false },
       { text: "نعامة", points: 10, revealed: false },
@@ -326,6 +364,7 @@ const ALL_QUESTIONS: Question[] = [
   },
   {
     question: "اذكر مكاناً تجد فيه النساء مفاتيحهن:",
+    category: "منزل", categoryIcon: "🏠",
     answers: [
       { text: "في المنزل", points: 55, revealed: false },
       { text: "في المول", points: 17, revealed: false },
@@ -336,6 +375,7 @@ const ALL_QUESTIONS: Question[] = [
   },
   {
     question: "اذكر مكاناً تقابل فيه الناس شريك حياتهم:",
+    category: "علاقات", categoryIcon: "💕",
     answers: [
       { text: "المدرسة/الجامعة", points: 56, revealed: false },
       { text: "الكنيسة/المسجد", points: 26, revealed: false },
@@ -346,6 +386,7 @@ const ALL_QUESTIONS: Question[] = [
   },
   {
     question: "إذا كان عليك إنفاق ألف دولار في ساعة، ماذا تشتري؟",
+    category: "تسوق", categoryIcon: "🛒",
     answers: [
       { text: "ملابس", points: 22, revealed: false },
       { text: "إلكترونيات", points: 20, revealed: false },
@@ -356,6 +397,7 @@ const ALL_QUESTIONS: Question[] = [
   },
   {
     question: "ما الذي يضعه الناس في البيتزا ولا يجب أن يكون هناك؟",
+    category: "طعام", categoryIcon: "🍕",
     answers: [
       { text: "أناناس", points: 44, revealed: false },
       { text: "سردين/سمك", points: 21, revealed: false },
@@ -364,6 +406,7 @@ const ALL_QUESTIONS: Question[] = [
   },
   {
     question: "ما هو الشيء الذي يجب أن يفعله الناس بعد الأكل؟",
+    category: "حياة يومية", categoryIcon: "🪥",
     answers: [
       { text: "غسل الأسنان", points: 26, revealed: false },
       { text: "تمشيط الشعر", points: 23, revealed: false },
@@ -374,6 +417,7 @@ const ALL_QUESTIONS: Question[] = [
   },
   {
     question: "اذكر مكاناً يختبئ فيه الوحش عند الأطفال:",
+    category: "أطفال", categoryIcon: "👹",
     answers: [
       { text: "تحت السرير", points: 45, revealed: false },
       { text: "داخل الخزانة", points: 36, revealed: false },
@@ -384,6 +428,7 @@ const ALL_QUESTIONS: Question[] = [
   },
   {
     question: "اذكر شيئاً تفقدره عندما تنقطع الكهرباء:",
+    category: "منزل", categoryIcon: "💡",
     answers: [
       { text: "التلفزيون", points: 50, revealed: false },
       { text: "الراديو", points: 23, revealed: false },
@@ -393,6 +438,7 @@ const ALL_QUESTIONS: Question[] = [
   },
   {
     question: "اذكر مناسبة يرتدي فيها الناس ملابس خاصة:",
+    category: "مناسبات", categoryIcon: "👗",
     answers: [
       { text: "التخرج", points: 32, revealed: false },
       { text: "الزفاف", points: 26, revealed: false },
@@ -403,6 +449,7 @@ const ALL_QUESTIONS: Question[] = [
   },
   {
     question: "ما الشيء الذي يخيف الناس في الأفعوانية؟",
+    category: "مخاوف", categoryIcon: "🎢",
     answers: [
       { text: "السرعة", points: 77, revealed: false },
       { text: "الارتفاع", points: 8, revealed: false },
@@ -412,6 +459,7 @@ const ALL_QUESTIONS: Question[] = [
   },
   {
     question: "ما أول شيء تفعله في الصباح؟",
+    category: "حياة يومية", categoryIcon: "☀️",
     answers: [
       { text: "الهاتف", points: 59, revealed: false },
       { text: "طعام/شراب", points: 12, revealed: false },
@@ -422,6 +470,7 @@ const ALL_QUESTIONS: Question[] = [
   },
   {
     question: "اذكر آلة موسيقية يسهل العزف عليها:",
+    category: "موسيقى", categoryIcon: "🎵",
     answers: [
       { text: "جيتار", points: 69, revealed: false },
       { text: "بانجو", points: 21, revealed: false },
@@ -1040,6 +1089,80 @@ const FAST_MONEY_QUESTIONS: Question[] = [
 ];
 
 // ============================================================
+// Sound Toggle Button Component
+// ============================================================
+function SoundToggleButton({
+  soundEnabled,
+  onToggle,
+  compact = false,
+}: {
+  soundEnabled: boolean;
+  onToggle: () => void;
+  compact?: boolean;
+}) {
+  return (
+    <motion.button
+      whileTap={{ scale: 0.9 }}
+      onClick={onToggle}
+      className={cn(
+        "rounded-full flex items-center justify-center transition-colors cursor-pointer border",
+        compact
+          ? "w-7 h-7 border-slate-700/50 bg-slate-900/60 hover:bg-slate-800/80"
+          : "w-9 h-9 border-slate-700/50 bg-slate-900/60 hover:bg-slate-800/80"
+      )}
+      title={soundEnabled ? "كتم الصوت" : "تشغيل الصوت"}
+    >
+      {soundEnabled ? (
+        <span className={compact ? "text-xs" : "text-sm"}>🔊</span>
+      ) : (
+        <span className={compact ? "text-xs" : "text-sm"}>🔇</span>
+      )}
+    </motion.button>
+  );
+}
+
+// ============================================================
+// Sparkle Particles for Landing Page
+// ============================================================
+function SparkleParticles() {
+  const sparkles = Array.from({ length: 12 }, (_, i) => ({
+    delay: i * 0.4,
+    x: 10 + Math.random() * 80,
+    y: 5 + Math.random() * 40,
+    size: 2 + Math.random() * 3,
+    duration: 2 + Math.random() * 2,
+  }));
+
+  return (
+    <div className="absolute inset-0 pointer-events-none overflow-hidden">
+      {sparkles.map((s, i) => (
+        <motion.div
+          key={i}
+          animate={{
+            opacity: [0, 0.8, 0],
+            scale: [0, 1.2, 0],
+            rotate: [0, 180],
+          }}
+          transition={{
+            duration: s.duration,
+            repeat: Infinity,
+            delay: s.delay,
+            ease: "easeInOut",
+          }}
+          className="absolute rounded-full bg-amber-300/40"
+          style={{
+            left: `${s.x}%`,
+            top: `${s.y}%`,
+            width: s.size,
+            height: s.size,
+          }}
+        />
+      ))}
+    </div>
+  );
+}
+
+// ============================================================
 // Confetti Effect
 // ============================================================
 const CONFETTI_EMOJIS = ["🎉", "🎊", "✨", "🌟", "💫", "🏆", "🥇", "🎆"];
@@ -1409,21 +1532,29 @@ function StrikeMark({ show, index }: { show: boolean; index: number }) {
       initial={false}
       animate={
         show
-          ? { scale: [0, 1.3, 1], opacity: [0, 1], rotate: [0, -20, 0] }
+          ? { scale: [0, 1.5, 0.8, 1.1, 1], opacity: [0, 1], rotate: [0, -30, 10, -5, 0] }
           : { scale: 0, opacity: 0 }
       }
-      transition={{ duration: 0.4, delay: index * 0.1 }}
+      transition={{ duration: 0.6, delay: index * 0.15, type: "spring", stiffness: 300 }}
       className="text-3xl sm:text-4xl font-black"
     >
-      <span
+      <motion.span
+        animate={show ? {
+          textShadow: [
+            "0 0 4px rgba(239,68,68,0.5)",
+            "0 0 20px rgba(239,68,68,0.8)",
+            "0 0 8px rgba(239,68,68,0.5)",
+          ],
+        } : {}}
+        transition={{ duration: 1, repeat: show ? 1 : 0 }}
         className={
           show
-            ? "text-red-500 drop-shadow-[0_0_8px_rgba(239,68,68,0.5)]"
+            ? "text-red-500 drop-shadow-[0_0_12px_rgba(239,68,68,0.6)]"
             : "text-transparent"
         }
       >
         ✕
-      </span>
+      </motion.span>
     </motion.div>
   );
 }
@@ -1454,7 +1585,8 @@ function HostAnswerSlot({
         onClick={onReveal}
         disabled={revealed}
         className={cn(
-          "relative flex items-center gap-3 rounded-2xl px-4 py-3.5 border-2 overflow-hidden transition-all duration-300 w-full text-right group",
+          "relative flex items-center gap-3 rounded-2xl px-4 py-3.5 border-2 overflow-hidden transition-all duration-300 w-full max-w-full text-right group",
+          revealed && "cursor-default",
           revealed
             ? "bg-gradient-to-l from-emerald-800/70 via-emerald-900/50 to-emerald-950/40 border-emerald-400/60 shadow-lg shadow-emerald-500/20"
             : "bg-slate-800/70 border-slate-700/50 hover:border-amber-500/60 hover:bg-slate-800/90 cursor-pointer"
@@ -1554,9 +1686,13 @@ function HostAnswerSlot({
 function LandingPage({
   onStartGodfather,
   onStartDiwaniya,
+  soundEnabled,
+  setSoundEnabled,
 }: {
   onStartGodfather: () => void;
   onStartDiwaniya: () => void;
+  soundEnabled: boolean;
+  setSoundEnabled: (v: boolean) => void;
 }) {
   const [selectedMode, setSelectedMode] = useState<"godfather" | "diwaniya" | null>(null);
   const [showRules, setShowRules] = useState(false);
@@ -1575,7 +1711,8 @@ function LandingPage({
         className="max-w-lg w-full"
       >
         {/* Game Icon */}
-        <div className="text-center mb-6">
+        <div className="text-center mb-6 relative">
+          <SparkleParticles />
           <motion.div
             animate={{ rotate: [0, 5, -5, 0], scale: [1, 1.05, 1] }}
             transition={{ duration: 3, repeat: Infinity }}
@@ -1588,7 +1725,10 @@ function LandingPage({
               فاميلي فيود
             </span>
           </h1>
-          <p className="text-sm text-slate-400 font-bold">Family Feud</p>
+          <div className="flex items-center justify-center gap-2">
+            <p className="text-sm text-slate-400 font-bold">Family Feud</p>
+            <SoundToggleButton soundEnabled={soundEnabled} onToggle={() => setSoundEnabled(!soundEnabled)} />
+          </div>
         </div>
 
         {/* Mode Selection */}
@@ -2176,14 +2316,12 @@ function FaceOffScreen({
   team1Name,
   team2Name,
   onTeamStart,
-  onAnswerReveal,
 }: {
   question: string;
   answers: Answer[];
   team1Name: string;
   team2Name: string;
   onTeamStart: (team: 1 | 2, revealedAnswerIdx?: number) => void;
-  onAnswerReveal: (index: number) => void;
 }) {
   const [countdown, setCountdown] = useState<number | null>(3);
   const [buzzerActive, setBuzzerActive] = useState(false);
@@ -2311,7 +2449,7 @@ function FaceOffScreen({
             animate={{ scale: 1, opacity: 1 }}
             exit={{ scale: 0.5, opacity: 0 }}
             transition={{ duration: 0.6, type: "spring", stiffness: 200 }}
-            className="absolute inset-0 flex items-center justify-center z-30"
+            className="absolute inset-0 flex items-center justify-center z-30 pointer-events-none"
           >
             <div className="text-8xl sm:text-9xl font-black text-transparent bg-clip-text bg-gradient-to-b from-amber-300 to-rose-400 drop-shadow-2xl">
               {countdown}
@@ -2485,8 +2623,32 @@ function FaceOffScreen({
       {(faceoffStep === "verify_answer" || faceoffStep === "other_team_chance") && selectedTeam && (
         <>
           {/* Answers board for host to check */}
-          <div className="w-full max-w-md relative z-10 space-y-2">
-            <p className="text-[10px] font-bold text-slate-500 mb-1 text-center">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ duration: 0.3 }}
+            className={cn(
+              "w-full max-w-md relative z-10 space-y-2 rounded-2xl border-2 p-3",
+              faceoffStep === "verify_answer"
+                ? "border-emerald-400/40 bg-emerald-950/10 shadow-lg shadow-emerald-500/10"
+                : "border-rose-400/40 bg-rose-950/10 shadow-lg shadow-rose-500/10"
+            )}
+          >
+            {/* Animated glow border */}
+            <motion.div
+              animate={{
+                opacity: [0.3, 0.6, 0.3],
+                scale: [1, 1.01, 1],
+              }}
+              transition={{ duration: 2, repeat: Infinity }}
+              className={cn(
+                "absolute inset-0 rounded-2xl pointer-events-none",
+                faceoffStep === "verify_answer"
+                  ? "bg-gradient-to-b from-emerald-500/10 to-transparent"
+                  : "bg-gradient-to-b from-rose-500/10 to-transparent"
+              )}
+            />
+            <p className="text-[10px] font-bold text-slate-500 mb-1 text-center relative z-10">
               📋 الإجابات (مرئية للمستضيف فقط)
             </p>
             {answers.map((answer, idx) => {
@@ -2498,10 +2660,10 @@ function FaceOffScreen({
                   animate={{ opacity: 1, x: 0 }}
                   transition={{ delay: idx * 0.05 }}
                   className={cn(
-                    "flex items-center gap-3 rounded-xl px-3 py-2 border transition-all",
+                    "flex items-center gap-3 rounded-xl px-3 py-2 border transition-all hover:scale-[1.02] cursor-default",
                     isRevealed
                       ? "bg-emerald-900/40 border-emerald-400/40"
-                      : "bg-slate-800/60 border-slate-700/40"
+                      : "bg-slate-800/60 border-slate-700/40 hover:border-slate-600/60"
                   )}
                 >
                   <div className={cn(
@@ -2524,7 +2686,7 @@ function FaceOffScreen({
                 </motion.div>
               );
             })}
-          </div>
+          </motion.div>
 
           {/* Action buttons */}
           <div className="w-full max-w-md relative z-10 mt-auto space-y-2 pb-2">
@@ -2618,6 +2780,7 @@ function GameBoardView({
   round,
   totalRounds,
   roundScore,
+  questionCategory,
 }: {
   question: string;
   answers: Answer[];
@@ -2637,6 +2800,7 @@ function GameBoardView({
   round: number;
   totalRounds: number;
   roundScore: number;
+  questionCategory?: { icon: string; label: string };
 }) {
   // Calculate points remaining (unrevealed)
   const totalPoints = answers.reduce((sum, a) => sum + a.points, 0);
@@ -2757,23 +2921,45 @@ function GameBoardView({
         </motion.div>
       </div>
 
-      {/* Question Number Badge */}
+      {/* Question Number Badge + Category */}
       <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ delay: 0.2 }}
-        className="flex justify-center"
+        className="flex justify-center gap-2"
       >
         <Badge className="bg-slate-800/80 border border-slate-700/50 text-slate-400 text-[10px] px-3">
           📋 السؤال {round} من {totalRounds}
         </Badge>
+        {questionCategory && (
+          <Badge className="bg-amber-950/50 border border-amber-500/30 text-amber-300 text-[10px] px-2">
+            {questionCategory.icon} {questionCategory.label}
+          </Badge>
+        )}
       </motion.div>
 
       {/* Question + Points Remaining */}
-      <div className="text-center py-1">
-        <h2 className="text-base sm:text-lg font-black text-white leading-relaxed">
-          &quot;{question}&quot;
-        </h2>
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ delay: 0.2 }}
+        className="text-center py-1"
+      >
+        <motion.div
+          animate={{
+            boxShadow: [
+              "0 0 0px rgba(251,191,36,0)",
+              "0 0 20px rgba(251,191,36,0.15)",
+              "0 0 0px rgba(251,191,36,0)",
+            ],
+          }}
+          transition={{ duration: 3, repeat: Infinity }}
+          className="rounded-2xl px-3 py-2"
+        >
+          <h2 className="text-base sm:text-lg font-black text-white leading-relaxed">
+            &quot;{question}&quot;
+          </h2>
+        </motion.div>
         <motion.div
           initial={{ opacity: 0, y: 5 }}
           animate={{ opacity: 1, y: 0 }}
@@ -2794,7 +2980,7 @@ function GameBoardView({
             النقاط المتبقية: {pointsRemaining}
           </span>
         </motion.div>
-      </div>
+      </motion.div>
 
       {/* Answer Search Input */}
       {phase === "playing" && (
@@ -3626,6 +3812,11 @@ export default function FamilyFeudPage() {
     answer?: string;
   }>({ show: false, correct: false });
 
+  // Streak tracking for answer reveals
+  const revealStreakRef = useRef(0);
+  const revealStreakTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const [revealStreak, setRevealStreak] = useState(0);
+
   const timerRef = useRef<NodeJS.Timeout | null>(null);
 
   // Refs for bug-free steal logic
@@ -3719,6 +3910,15 @@ export default function FamilyFeudPage() {
           setTimeout(() => setFeedback({ show: false, correct: false }), 1500);
           playReveal();
           setTimeout(() => playCorrect(), 200);
+
+          // Streak tracking
+          revealStreakRef.current += 1;
+          setRevealStreak(revealStreakRef.current);
+          if (revealStreakTimerRef.current) clearTimeout(revealStreakTimerRef.current);
+          revealStreakTimerRef.current = setTimeout(() => {
+            revealStreakRef.current = 0;
+            setRevealStreak(0);
+          }, 3000);
         }
         return updated;
       });
@@ -4042,6 +4242,8 @@ export default function FamilyFeudPage() {
           <LandingPage
             onStartGodfather={() => setUiPhase("godfather_setup")}
             onStartDiwaniya={() => setUiPhase("diwaniya_setup")}
+            soundEnabled={soundEnabled}
+            setSoundEnabled={setSoundEnabled}
           />
         </main>
         <BrandedFooter />
@@ -4079,7 +4281,7 @@ export default function FamilyFeudPage() {
   const currentQuestion = selectedQuestions[round - 1];
 
   return (
-    <div className="min-h-screen flex flex-col bg-slate-950 relative overflow-hidden">
+    <div className="min-h-screen flex flex-col bg-slate-950 relative overflow-hidden overflow-x-hidden" style={{ scrollBehavior: "smooth" }}>
       {/* Animated gradient background during gameplay */}
       {uiPhase === "game" && (
         <div className="fixed inset-0 pointer-events-none z-0">
@@ -4130,6 +4332,32 @@ export default function FamilyFeudPage() {
         points={roundResultPoints}
       />
 
+      {/* Streak Indicator */}
+      <AnimatePresence>
+        {revealStreak >= 2 && (
+          <motion.div
+            initial={{ opacity: 0, y: 30, scale: 0.5 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -20, scale: 0.5 }}
+            transition={{ type: "spring", stiffness: 400 }}
+            className="fixed bottom-24 left-1/2 -translate-x-1/2 z-[150] pointer-events-none"
+          >
+            <div className="flex items-center gap-2 px-4 py-2 rounded-full bg-gradient-to-l from-amber-600 to-rose-600 shadow-lg shadow-amber-500/30 border border-amber-400/30">
+              <motion.span
+                animate={{ scale: [1, 1.3, 1] }}
+                transition={{ duration: 0.3 }}
+                className="text-lg"
+              >
+                🔥
+              </motion.span>
+              <span className="text-sm font-black text-white">
+                x{revealStreak}
+              </span>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {showGameOver ? (
         <GameOverScreen
           team1Name={team1Name}
@@ -4163,6 +4391,7 @@ export default function FamilyFeudPage() {
                 </span>
               </a>
               <div className="flex items-center gap-3">
+                <SoundToggleButton soundEnabled={soundEnabled} onToggle={() => setSoundEnabled(!soundEnabled)} compact />
                 <Badge variant="outline" className="border-amber-500/50 text-amber-400 text-[10px] px-2">
                   ⚔️ المواجهة — الجولة {round}/{totalRounds}
                 </Badge>
@@ -4208,7 +4437,6 @@ export default function FamilyFeudPage() {
             team1Name={team1Name}
             team2Name={team2Name}
             onTeamStart={(team) => handleFaceOffStart(team)}
-            onAnswerReveal={handleRevealAnswer}
           />
         </div>
       ) : gamePhase === "gameboard" && currentQuestion ? (
@@ -4234,13 +4462,12 @@ export default function FamilyFeudPage() {
                 </span>
               </a>
               <div className="flex items-center gap-3">
+                <SoundToggleButton soundEnabled={soundEnabled} onToggle={() => setSoundEnabled(!soundEnabled)} compact />
                 <Button
                   onClick={() => {
-                    if (confirm("هل تريد تخطي الجولات المتبقية والذهاب لجولة المال السريع؟")) {
-                      roundPointsAwardedRef.current = true;
-                      setRound(totalRounds);
-                      handleNextRound();
-                    }
+                    roundPointsAwardedRef.current = true;
+                    setRound(totalRounds);
+                    handleNextRound();
                   }}
                   variant="ghost"
                   className="text-slate-500 hover:text-yellow-400 hover:bg-yellow-950/30 gap-1 text-[10px] h-8 px-2"
@@ -4328,6 +4555,7 @@ export default function FamilyFeudPage() {
             round={round}
             totalRounds={totalRounds}
             roundScore={roundScore}
+            questionCategory={getQuestionCategory(currentQuestion)}
           />
 
           {/* Next Round Button */}
@@ -4409,6 +4637,7 @@ export default function FamilyFeudPage() {
               round={round}
               totalRounds={totalRounds}
               roundScore={roundScore}
+              questionCategory={getQuestionCategory(currentQuestion)}
             />
           </motion.div>
         </div>
@@ -4435,6 +4664,7 @@ export default function FamilyFeudPage() {
                 </span>
               </a>
               <div className="flex items-center gap-3">
+                <SoundToggleButton soundEnabled={soundEnabled} onToggle={() => setSoundEnabled(!soundEnabled)} compact />
                 <Badge className="bg-gradient-to-l from-amber-600 to-yellow-600 text-white text-[10px] px-2">
                   💰 المال السريع
                 </Badge>
