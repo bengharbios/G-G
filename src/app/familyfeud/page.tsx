@@ -287,14 +287,14 @@ function getQuestionCategory(q: Question): { icon: string; label: string } {
 const ALL_QUESTIONS: Question[] = [
   // --- 65 questions from provided list ---
   {
-    question: "اذكر شيئاً تأكله مع البسكويت:",
-    category: "طعام", categoryIcon: "🍕",
+    question: "اذكر شيئاً تأكله مع الخبز:",
+    category: "طعام", categoryIcon: "🍞",
     answers: [
-      { text: "شوربة", points: 28, revealed: false },
+      { text: "فول مدمس", points: 25, revealed: false },
       { text: "جبنة", points: 24, revealed: false },
-      { text: "زبدة فول سوداني", points: 21, revealed: false },
-      { text: "شطة/فلفل", points: 16, revealed: false },
-      { text: "لحوم مقطعة", points: 11, revealed: false },
+      { text: "زيت زيتون", points: 21, revealed: false },
+      { text: "بيض", points: 16, revealed: false },
+      { text: "طحينة", points: 14, revealed: false },
     ],
   },
   {
@@ -303,7 +303,7 @@ const ALL_QUESTIONS: Question[] = [
     answers: [
       { text: "قراءة كتاب", points: 26, revealed: false },
       { text: "استخدام الهاتف", points: 23, revealed: false },
-      { text: "لعب ألعاب لوحية", points: 20, revealed: false },
+      { text: "مشاهدة المسلسلات", points: 20, revealed: false },
       { text: "لعب ألعاب فيديو", points: 17, revealed: false },
       { text: "تأمل", points: 14, revealed: false },
     ],
@@ -315,8 +315,8 @@ const ALL_QUESTIONS: Question[] = [
       { text: "نار", points: 26, revealed: false },
       { text: "قهوة", points: 24, revealed: false },
       { text: "شاي", points: 21, revealed: false },
-      { text: "موقد", points: 16, revealed: false },
-      { text: "مدفأة", points: 13, revealed: false },
+      { text: "شمس", points: 16, revealed: false },
+      { text: "صحراء", points: 13, revealed: false },
     ],
   },
   {
@@ -335,7 +335,7 @@ const ALL_QUESTIONS: Question[] = [
     answers: [
       { text: "طائرة", points: 44, revealed: false },
       { text: "دراجة نارية", points: 21, revealed: false },
-      { text: "أفعوانية", points: 16, revealed: false },
+      { text: "أفعوانية/لعبة ملاهي", points: 16, revealed: false },
       { text: "قارب", points: 4, revealed: false },
       { text: "حصان", points: 4, revealed: false },
       { text: "مصعد", points: 3, revealed: false },
@@ -347,7 +347,7 @@ const ALL_QUESTIONS: Question[] = [
     answers: [
       { text: "ملعب رياضي", points: 28, revealed: false },
       { text: "حفل موسيقي", points: 27, revealed: false },
-      { text: "بار/نادي", points: 15, revealed: false },
+      { text: "حفل زفاف", points: 15, revealed: false },
       { text: "سينما", points: 8, revealed: false },
       { text: "مدينة ملاهي", points: 6, revealed: false },
     ],
@@ -391,7 +391,7 @@ const ALL_QUESTIONS: Question[] = [
       { text: "في المول", points: 17, revealed: false },
       { text: "في حقيبة اليد", points: 10, revealed: false },
       { text: "في السيارة", points: 7, revealed: false },
-      { text: "في بار", points: 6, revealed: false },
+      { text: "في المكتب", points: 6, revealed: false },
     ],
   },
   {
@@ -442,8 +442,8 @@ const ALL_QUESTIONS: Question[] = [
     answers: [
       { text: "تحت السرير", points: 45, revealed: false },
       { text: "داخل الخزانة", points: 36, revealed: false },
-      { text: "في القبو", points: 7, revealed: false },
-      { text: "في العلية", points: 2, revealed: false },
+      { text: "خلف الباب", points: 7, revealed: false },
+      { text: "الخزانة/الملزقة", points: 2, revealed: false },
       { text: "تحت الدرج", points: 2, revealed: false },
     ],
   },
@@ -452,8 +452,8 @@ const ALL_QUESTIONS: Question[] = [
     category: "منزل", categoryIcon: "💡",
     answers: [
       { text: "التلفزيون", points: 50, revealed: false },
-      { text: "الراديو", points: 23, revealed: false },
-      { text: "المكنسة الكهربائية", points: 13, revealed: false },
+      { text: "الواي فاي/الإنترنت", points: 23, revealed: false },
+      { text: "المكيف", points: 13, revealed: false },
       { text: "الإضاءة", points: 4, revealed: false },
     ],
   },
@@ -465,7 +465,7 @@ const ALL_QUESTIONS: Question[] = [
       { text: "الزفاف", points: 26, revealed: false },
       { text: "العطلات", points: 20, revealed: false },
       { text: "حفل ميلاد", points: 14, revealed: false },
-      { text: "حفل بكالوريوس", points: 8, revealed: false },
+      { text: "حفل تخريج جامعي", points: 8, revealed: false },
     ],
   },
   {
@@ -486,7 +486,7 @@ const ALL_QUESTIONS: Question[] = [
       { text: "طعام/شراب", points: 12, revealed: false },
       { text: "قهوة", points: 12, revealed: false },
       { text: "طفل يبكي", points: 11, revealed: false },
-      { text: "سجائر", points: 2, revealed: false },
+      { text: "إفطار", points: 2, revealed: false },
     ],
   },
   {
@@ -494,7 +494,7 @@ const ALL_QUESTIONS: Question[] = [
     category: "موسيقى", categoryIcon: "🎵",
     answers: [
       { text: "جيتار", points: 69, revealed: false },
-      { text: "بانجو", points: 21, revealed: false },
+      { text: "الدف", points: 21, revealed: false },
       { text: "قيثارة", points: 4, revealed: false },
       { text: "بيانو", points: 2, revealed: false },
     ],
@@ -512,7 +512,7 @@ const ALL_QUESTIONS: Question[] = [
     question: "ما نوع المشروبات التي تسبب المتاعب؟",
     answers: [
       { text: "قهوة", points: 37, revealed: false },
-      { text: "بيرة", points: 28, revealed: false },
+      { text: "مشروبات غازية", points: 28, revealed: false },
       { text: "شاي", points: 17, revealed: false },
       { text: "مشاكل", points: 8, revealed: false },
     ],
@@ -533,7 +533,7 @@ const ALL_QUESTIONS: Question[] = [
       { text: "تبديل المقعد", points: 39, revealed: false },
       { text: "تغطية الأنف", points: 24, revealed: false },
       { text: "إدارة الرأس", points: 6, revealed: false },
-      { text: "رش عطر", points: 6, revealed: false },
+      { text: "فتح النافذة", points: 6, revealed: false },
     ],
   },
   {
@@ -542,14 +542,14 @@ const ALL_QUESTIONS: Question[] = [
       { text: "بيت مسكون", points: 27, revealed: false },
       { text: "بيت الكلب", points: 8, revealed: false },
       { text: "بيت زجاجي", points: 6, revealed: false },
-      { text: "مرحاض خارجي", points: 5, revealed: false },
+      { text: "بيت مهجور", points: 5, revealed: false },
     ],
   },
   {
     question: "اذكر مكاناً تحب فيه النوم:",
     answers: [
       { text: "السرير", points: 46, revealed: false },
-      { text: "الحمام/الدش", points: 27, revealed: false },
+      { text: "غرفة المعيشة", points: 27, revealed: false },
       { text: "السينما", points: 9, revealed: false },
       { text: "السيارة", points: 4, revealed: false },
     ],
@@ -570,7 +570,7 @@ const ALL_QUESTIONS: Question[] = [
       { text: "العنقاء", points: 25, revealed: false },
       { text: "الجن", points: 20, revealed: false },
       { text: "الغيلان", points: 12, revealed: false },
-      { text: "الرخ", points: 8, revealed: false },
+      { text: "العنكبوت العملاق", points: 8, revealed: false },
     ],
   },
   {
@@ -587,7 +587,7 @@ const ALL_QUESTIONS: Question[] = [
     answers: [
       { text: "الرقص", points: 45, revealed: false },
       { text: "التحدث مع الناس", points: 21, revealed: false },
-      { text: "الشرب", points: 18, revealed: false },
+      { text: "أكل الحلويات", points: 18, revealed: false },
       { text: "الأكل", points: 8, revealed: false },
     ],
   },
@@ -616,7 +616,7 @@ const ALL_QUESTIONS: Question[] = [
       { text: "كابتن أمريكا", points: 22, revealed: false },
       { text: "آيرون مان", points: 22, revealed: false },
       { text: "الرجل الأسود", points: 20, revealed: false },
-      { text: "الرجل الأخضر/هالك", points: 15, revealed: false },
+      { text: "الهالك", points: 15, revealed: false },
       { text: "ثور", points: 15, revealed: false },
     ],
   },
@@ -668,7 +668,7 @@ const ALL_QUESTIONS: Question[] = [
     ],
   },
   {
-    question: "ما وجبة خفيفة صحية يتناولها الأطفال؟",
+    question: "وجبة خفيفة يحبها الأطفال:",
     answers: [
       { text: "رقائق بطاطس", points: 40, revealed: false },
       { text: "تفاح", points: 22, revealed: false },
@@ -693,7 +693,7 @@ const ALL_QUESTIONS: Question[] = [
       { text: "قضم الأظافر", points: 20, revealed: false },
       { text: "الإفراط في الأكل", points: 15, revealed: false },
       { text: "السب", points: 10, revealed: false },
-      { text: "الشرب", points: 10, revealed: false },
+      { text: "الكسل", points: 10, revealed: false },
     ],
   },
   {
@@ -709,7 +709,7 @@ const ALL_QUESTIONS: Question[] = [
   {
     question: "ما الذي يأخذه الناس معهم في السفر؟",
     answers: [
-      { text: "أدوات تنظيف شخصية", points: 29, revealed: false },
+      { text: "حقائب سفر", points: 29, revealed: false },
       { text: "ملابس/أحذية", points: 28, revealed: false },
       { text: "مال/بطاقة ائتمان", points: 20, revealed: false },
       { text: "أدوية", points: 9, revealed: false },
@@ -748,10 +748,10 @@ const ALL_QUESTIONS: Question[] = [
     question: "ما أشياء عديمة الفائدة تجدها في كل بيت؟",
     answers: [
       { text: "بطاريات", points: 28, revealed: false },
-      { text: "كابلات عشوائية", points: 22, revealed: false },
+      { text: "شواحن قديمة", points: 22, revealed: false },
       { text: "شريط لاصق", points: 18, revealed: false },
       { text: "مفاتيح قديمة", points: 16, revealed: false },
-      { text: "قوائم طعام", points: 16, revealed: false },
+      { text: "أكياس بلاستيك", points: 16, revealed: false },
     ],
   },
   // --- Additional 30+ translated questions ---
@@ -762,7 +762,7 @@ const ALL_QUESTIONS: Question[] = [
       { text: "كرة السلة", points: 25, revealed: false },
       { text: "التنس", points: 15, revealed: false },
       { text: "كرة الطائرة", points: 10, revealed: false },
-      { text: "البيسبول", points: 5, revealed: false },
+      { text: "كرة اليد", points: 5, revealed: false },
     ],
   },
   {
@@ -776,13 +776,13 @@ const ALL_QUESTIONS: Question[] = [
     ],
   },
   {
-    question: "اذكر سبباً يجعل الناس يذهبون لكاليفورنيا:",
+    question: "اذكر سبباً يجعل الناس يسافرون لدبي:",
     answers: [
-      { text: "هوليوود", points: 30, revealed: false },
-      { text: "الشواطئ", points: 25, revealed: false },
-      { text: "ديزني لاند", points: 20, revealed: false },
-      { text: "الطقس", points: 15, revealed: false },
-      { text: "وادي السيليكون", points: 10, revealed: false },
+      { text: "التسوق", points: 30, revealed: false },
+      { text: "برج خليفة", points: 25, revealed: false },
+      { text: "الأماكن الترفيهية", points: 20, revealed: false },
+      { text: "الشواطئ", points: 15, revealed: false },
+      { text: "العمل", points: 10, revealed: false },
     ],
   },
   {
@@ -800,7 +800,7 @@ const ALL_QUESTIONS: Question[] = [
     answers: [
       { text: "سريع", points: 45, revealed: false },
       { text: "عاجل", points: 20, revealed: false },
-      { text: "مجنون", points: 15, revealed: false },
+      { text: "سريع البرق", points: 15, revealed: false },
       { text: "فوري", points: 12, revealed: false },
       { text: "خاطف", points: 8, revealed: false },
     ],
@@ -856,7 +856,7 @@ const ALL_QUESTIONS: Question[] = [
     ],
   },
   {
-    question: "اذكر شيئاً يفعله الناس في الموعد الأول:",
+    question: "اذكر شيئاً يفعله الناس في أول لقاء:",
     answers: [
       { text: "السينما", points: 30, revealed: false },
       { text: "العشاء", points: 25, revealed: false },
@@ -942,7 +942,7 @@ const ALL_QUESTIONS: Question[] = [
       { text: "اللصوص", points: 25, revealed: false },
       { text: "الأصوات", points: 20, revealed: false },
       { text: "العناكب", points: 15, revealed: false },
-      { text: "الظل", points: 10, revealed: false },
+      { text: "القطط السوداء", points: 10, revealed: false },
     ],
   },
   {
@@ -1022,7 +1022,7 @@ const ALL_QUESTIONS: Question[] = [
       { text: "غسل الأطباق", points: 35, revealed: false },
       { text: "تنظيف الحمام", points: 30, revealed: false },
       { text: "كنس الأرض", points: 15, revealed: false },
-      { text: "نشر الغسيل", points: 10, revealed: false },
+      { text: "تعليق الغسيل", points: 10, revealed: false },
       { text: "تنظيف الفرن", points: 10, revealed: false },
     ],
   },
@@ -1115,7 +1115,7 @@ const ALL_QUESTIONS: Question[] = [
     question: "ما أغنية يحفظها الكل؟",
     category: "ترفيه", categoryIcon: "🎵",
     answers: [
-      { text: "تان تان تان", points: 20, revealed: false },
+      { text: "أغنية طلال مداح", points: 20, revealed: false },
       { text: "أغنية عيد ميلاد", points: 18, revealed: false },
       { text: "أنشودة بلادي", points: 15, revealed: false },
       { text: "أغنية الاطفال", points: 12, revealed: false },
@@ -1150,7 +1150,7 @@ const ALL_QUESTIONS: Question[] = [
     answers: [
       { text: "السرير", points: 50, revealed: false },
       { text: "الأريكة", points: 20, revealed: false },
-      { text: "الكنبة", points: 15, revealed: false },
+      { text: "السجاد", points: 15, revealed: false },
       { text: "السيارة", points: 10, revealed: false },
       { text: "العمل", points: 5, revealed: false },
     ],
@@ -1507,6 +1507,282 @@ const ALL_QUESTIONS: Question[] = [
       { text: "سفر", points: 15, revealed: false },
     ],
   },
+  // --- Questions adapted from prepscholar.com for Arab culture ---
+  {
+    question: "أين يُطلب منك استخدام صوتك الهادئ؟",
+    category: "أماكن", categoryIcon: "📚",
+    answers: [
+      { text: "المكتبة", points: 30, revealed: false },
+      { text: "المسجد", points: 25, revealed: false },
+      { text: "المستشفى", points: 20, revealed: false },
+      { text: "السينما", points: 15, revealed: false },
+      { text: "الفصل الدراسي", points: 10, revealed: false },
+    ],
+  },
+  {
+    question: "ماذا تجد في بيت مسكون؟",
+    category: "مخاوف", categoryIcon: "👻",
+    answers: [
+      { text: "أشباح", points: 30, revealed: false },
+      { text: "عناكب", points: 20, revealed: false },
+      { text: "فئران", points: 18, revealed: false },
+      { text: "أصوات غريبة", points: 17, revealed: false },
+      { text: "غبار", points: 15, revealed: false },
+    ],
+  },
+  {
+    question: "ماذا تفعل قبل النوم؟",
+    category: "حياة يومية", categoryIcon: "🌙",
+    answers: [
+      { text: "غسل الأسنان", points: 23, revealed: false },
+      { text: "فحص الهاتف", points: 22, revealed: false },
+      { text: "قراءة القرآن", points: 20, revealed: false },
+      { text: "الاستحمام", points: 20, revealed: false },
+      { text: "إطفاء الأنوار", points: 15, revealed: false },
+    ],
+  },
+  {
+    question: "ما الذي يجعلك بصحة وقوة؟",
+    category: "صحة", categoryIcon: "💪",
+    answers: [
+      { text: "الرياضة", points: 30, revealed: false },
+      { text: "نوم كافي", points: 25, revealed: false },
+      { text: "أكل صحي", points: 22, revealed: false },
+      { text: "شرب ماء كثير", points: 15, revealed: false },
+      { text: "الفيتامينات", points: 8, revealed: false },
+    ],
+  },
+  {
+    question: "ماذا يفعل الكلب عادة؟",
+    category: "حيوانات", categoryIcon: "🐕",
+    answers: [
+      { text: "ينبح", points: 30, revealed: false },
+      { text: "يجري", points: 25, revealed: false },
+      { text: "يقفز", points: 20, revealed: false },
+      { text: "يعض", points: 15, revealed: false },
+      { text: "يلعب", points: 10, revealed: false },
+    ],
+  },
+  {
+    question: "ما الأشياء التي تأتي بشكل زوجي؟",
+    category: "عام", categoryIcon: "👯",
+    answers: [
+      { text: "الحذاء", points: 24, revealed: false },
+      { text: "الجوارب", points: 22, revealed: false },
+      { text: "العيون", points: 20, revealed: false },
+      { text: "الأيدي", points: 18, revealed: false },
+      { text: "الأذنين", points: 16, revealed: false },
+    ],
+  },
+  {
+    question: "ماذا تجد في المطبخ؟",
+    category: "منزل", categoryIcon: "🍳",
+    answers: [
+      { text: "الثلاجة", points: 25, revealed: false },
+      { text: "الفرن", points: 22, revealed: false },
+      { text: "المقلاة", points: 18, revealed: false },
+      { text: "الأطباق", points: 17, revealed: false },
+      { text: "حوض الغسيل", points: 18, revealed: false },
+    ],
+  },
+  {
+    question: "ماذا تفعل في يوم صيفي حار؟",
+    category: "ترفيه", categoryIcon: "☀️",
+    answers: [
+      { text: "السباحة", points: 30, revealed: false },
+      { text: "البقاء في المكيف", points: 25, revealed: false },
+      { text: "شرب المشروبات الباردة", points: 20, revealed: false },
+      { text: "الذهاب للبحر", points: 15, revealed: false },
+      { text: "أكل آيس كريم", points: 10, revealed: false },
+    ],
+  },
+  {
+    question: "ماذا تفعل بعد تصوير سيلفي؟",
+    category: "تكنولوجيا", categoryIcon: "🤳",
+    answers: [
+      { text: "أضيف فلتر", points: 25, revealed: false },
+      { text: "أرسله لصديق", points: 22, revealed: false },
+      { text: "أنشره في الانستقرام", points: 20, revealed: false },
+      { text: "أحذفه وأصور غيره", points: 18, revealed: false },
+      { text: "أرسله بالواتساب", points: 15, revealed: false },
+    ],
+  },
+  {
+    question: "ما أكثر أكل يأكله الناس بالإيد؟",
+    category: "طعام", categoryIcon: "🍔",
+    answers: [
+      { text: "شاورما", points: 28, revealed: false },
+      { text: "برجر", points: 22, revealed: false },
+      { text: "فلافل", points: 20, revealed: false },
+      { text: "بيتزا", points: 18, revealed: false },
+      { text: "ساندويتش", points: 12, revealed: false },
+    ],
+  },
+  {
+    question: "ما سبب عدم الرد على الرسالة؟",
+    category: "تكنولوجيا", categoryIcon: "📱",
+    answers: [
+      { text: "نسيت", points: 28, revealed: false },
+      { text: "مشغول", points: 25, revealed: false },
+      { text: "ما قرأتها", points: 20, revealed: false },
+      { text: "ما أعرف أيش أرد", points: 15, revealed: false },
+      { text: "السوشيال ميديا", points: 12, revealed: false },
+    ],
+  },
+  {
+    question: "ما الشيء اللي ما تطلع من البيت بدونه؟",
+    category: "حياة يومية", categoryIcon: "🔑",
+    answers: [
+      { text: "الجوال", points: 35, revealed: false },
+      { text: "المفاتيح", points: 25, revealed: false },
+      { text: "المحفظة", points: 20, revealed: false },
+      { text: "الماء", points: 12, revealed: false },
+      { text: "النعال", points: 8, revealed: false },
+    ],
+  },
+  {
+    question: "ما الشيء اللي يشجع الأهل أبنائهم عليه؟",
+    category: "عائلة", categoryIcon: "👨‍👩‍👦",
+    answers: [
+      { text: "الدراسة", points: 30, revealed: false },
+      { text: "الصلاة", points: 25, revealed: false },
+      { text: "الرياضة", points: 20, revealed: false },
+      { text: "قراءة الكتب", points: 15, revealed: false },
+      { text: "احترام الآخرين", points: 10, revealed: false },
+    ],
+  },
+  {
+    question: "ما الشيء اللي دايم ينفذ من البيت بسرعة؟",
+    category: "منزل", categoryIcon: "🏠",
+    answers: [
+      { text: "الخبز", points: 30, revealed: false },
+      { text: "الحليب", points: 25, revealed: false },
+      { text: "الماء", points: 18, revealed: false },
+      { text: "البيض", points: 15, revealed: false },
+      { text: "المناديل", points: 12, revealed: false },
+    ],
+  },
+  {
+    question: "كيف كان الناس يتواصلون قبل الجوال؟",
+    category: "تكنولوجيا", categoryIcon: "📞",
+    answers: [
+      { text: "الزيارات", points: 30, revealed: false },
+      { text: "الهاتف الأرضي", points: 25, revealed: false },
+      { text: "الرسائل الورقية", points: 20, revealed: false },
+      { text: "البريد", points: 15, revealed: false },
+      { text: "الجيران", points: 10, revealed: false },
+    ],
+  },
+  {
+    question: "ماذا يفعل الضيوف في العرس؟",
+    category: "مناسبات", categoryIcon: "💒",
+    answers: [
+      { text: "الرقص", points: 30, revealed: false },
+      { text: "الأكل", points: 25, revealed: false },
+      { text: "تصوير الفيديو", points: 20, revealed: false },
+      { text: "تهنئة العروسين", points: 15, revealed: false },
+      { text: "تقديم الهدايا", points: 10, revealed: false },
+    ],
+  },
+  {
+    question: "ما أهم رقم يحفظه الناس؟",
+    category: "حياة يومية", categoryIcon: "🔢",
+    answers: [
+      { text: "رقم الجوال", points: 30, revealed: false },
+      { text: "رقم البنك/آيبان", points: 25, revealed: false },
+      { text: "الرقم السري", points: 20, revealed: false },
+      { text: "رقم الأهل", points: 15, revealed: false },
+      { text: "رقم الطوارئ", points: 10, revealed: false },
+    ],
+  },
+  {
+    question: "ما الشيء اللي يصير مرة كل أربع سنين؟",
+    category: "رياضة", categoryIcon: "🏆",
+    answers: [
+      { text: "كأس العالم", points: 35, revealed: false },
+      { text: "الأولمبياد", points: 25, revealed: false },
+      { text: "الانتخابات", points: 20, revealed: false },
+      { text: "خسوف القمر", points: 12, revealed: false },
+      { text: "النهائي العربي", points: 8, revealed: false },
+    ],
+  },
+  {
+    question: "ما الموضوع اللي ما تحب يتكلم عنه في العزومات؟",
+    category: "علاقات", categoryIcon: "🤐",
+    answers: [
+      { text: "السياسة", points: 32, revealed: false },
+      { text: "الراتب والمال", points: 25, revealed: false },
+      { text: "مشاكل عائلية", points: 20, revealed: false },
+      { text: "موضوع الزواج", points: 13, revealed: false },
+      { text: "الدين", points: 10, revealed: false },
+    ],
+  },
+  {
+    question: "ما الشيء اللي دايم يكون في المطبخ ولا ينفد؟",
+    category: "طعام", categoryIcon: "🧂",
+    answers: [
+      { text: "الأرز", points: 30, revealed: false },
+      { text: "الزيت", points: 25, revealed: false },
+      { text: "البهارات", points: 20, revealed: false },
+      { text: "الملح", points: 15, revealed: false },
+      { text: "البصل", points: 10, revealed: false },
+    ],
+  },
+  {
+    question: "ماذا يفعل الناس لما يرون حشرة؟",
+    category: "حياة يومية", categoryIcon: "🐛",
+    answers: [
+      { text: "يصرخون", points: 30, revealed: false },
+      { text: "يبتعدون", points: 25, revealed: false },
+      { text: "يقتلونها", points: 22, revealed: false },
+      { text: "يطلبون مساعدة", points: 15, revealed: false },
+      { text: "يصورونها", points: 8, revealed: false },
+    ],
+  },
+  {
+    question: "اذكر شيئاً يزعجك في المطعم:",
+    category: "حياة يومية", categoryIcon: "🍽️",
+    answers: [
+      { text: "الخدمة البطيئة", points: 30, revealed: false },
+      { text: "الطعام البارد", points: 25, revealed: false },
+      { text: "الضجيج", points: 20, revealed: false },
+      { text: "الحسبة الغالية", points: 15, revealed: false },
+      { text: "نظافة المكان", points: 10, revealed: false },
+    ],
+  },
+  {
+    question: "ما أكثر شي يخلي الواحد يحس بالملل؟",
+    category: "حياة يومية", categoryIcon: "😴",
+    answers: [
+      { text: "الانتظار", points: 28, revealed: false },
+      { text: "الجلوس بدون ما يفعل شي", points: 25, revealed: false },
+      { text: "الاجتماعات الطويلة", points: 20, revealed: false },
+      { text: "الرحلات الطويلة", points: 17, revealed: false },
+      { text: "عدم وجود إنترنت", points: 10, revealed: false },
+    ],
+  },
+  {
+    question: "اذكر فاكهة يحبها الكل:",
+    category: "طعام", categoryIcon: "🍎",
+    answers: [
+      { text: "التمر", points: 30, revealed: false },
+      { text: "المانجو", points: 25, revealed: false },
+      { text: "البرتقال", points: 18, revealed: false },
+      { text: "التفاح", points: 15, revealed: false },
+      { text: "البطيخ", points: 12, revealed: false },
+    ],
+  },
+  {
+    question: "ما أول شيء يخطر في بالك لما تسمع كلمة 'مطار'؟",
+    category: "سفر", categoryIcon: "✈️",
+    answers: [
+      { text: "سفر", points: 32, revealed: false },
+      { text: "تأخير", points: 25, revealed: false },
+      { text: "جواز سفر", points: 20, revealed: false },
+      { text: "حقائب", points: 13, revealed: false },
+      { text: "فحص الأمن", points: 10, revealed: false },
+    ],
+  },
 ];
 
 // Fast Money questions (separate set)
@@ -1561,6 +1837,56 @@ const FAST_MONEY_QUESTIONS: Question[] = [
       { text: "العائلة", points: 18, revealed: false },
       { text: "المال", points: 15, revealed: false },
       { text: "المشاكل", points: 10, revealed: false },
+    ],
+  },
+  {
+    question: "مشروب تحبه:",
+    answers: [
+      { text: "القهوة", points: 30, revealed: false },
+      { text: "الشاي", points: 25, revealed: false },
+      { text: "الماء", points: 18, revealed: false },
+      { text: "العصير", points: 15, revealed: false },
+      { text: "الكولا", points: 12, revealed: false },
+    ],
+  },
+  {
+    question: "مادة دراسية:",
+    answers: [
+      { text: "الرياضيات", points: 28, revealed: false },
+      { text: "اللغة العربية", points: 25, revealed: false },
+      { text: "الإنجليزي", points: 20, revealed: false },
+      { text: "العلوم", points: 17, revealed: false },
+      { text: "التربية الإسلامية", points: 10, revealed: false },
+    ],
+  },
+  {
+    question: "شيء تفعله في العطلة:",
+    answers: [
+      { text: "سفر", points: 30, revealed: false },
+      { text: "نوم", points: 22, revealed: false },
+      { text: "خروج مع الأصدقاء", points: 20, revealed: false },
+      { text: "مشاهدة مسلسلات", points: 18, revealed: false },
+      { text: "رياضة", points: 10, revealed: false },
+    ],
+  },
+  {
+    question: "اسم فريق كرة قدم:",
+    answers: [
+      { text: "الهلال", points: 25, revealed: false },
+      { text: "النصر", points: 25, revealed: false },
+      { text: "الأهلي", points: 20, revealed: false },
+      { text: "الزمالك", points: 15, revealed: false },
+      { text: "الرجاء", points: 15, revealed: false },
+    ],
+  },
+  {
+    question: "شيء موجود في كل بيت عربي:",
+    answers: [
+      { text: "قهوة عربية", points: 30, revealed: false },
+      { text: "قرآن", points: 25, revealed: false },
+      { text: "تبخير", points: 20, revealed: false },
+      { text: "سجادة صلاة", points: 15, revealed: false },
+      { text: "صينية تمور", points: 10, revealed: false },
     ],
   },
 ];
