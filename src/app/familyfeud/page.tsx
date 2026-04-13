@@ -2341,21 +2341,28 @@ function GameBoardView({
         )}
 
         {phase === "steal" && (
-          <div className="flex gap-2">
-            <Button
-              onClick={onSteal}
-              className="flex-1 bg-gradient-to-l from-emerald-600 to-emerald-800 hover:from-emerald-500 hover:to-emerald-700 text-white font-bold h-10 text-sm"
-            >
-              <CheckCircle className="w-4 h-4 ml-1" />
-              سرقة ناجحة!
-            </Button>
-            <Button
-              onClick={onNoSteal}
-              className="flex-1 bg-gradient-to-l from-red-700 to-red-900 hover:from-red-600 hover:to-red-800 text-white font-bold h-10 text-sm"
-            >
-              <XCircle className="w-4 h-4 ml-1" />
-              سرقة فاشلة
-            </Button>
+          <div className="space-y-2">
+            <div className="text-center text-xs text-slate-400 bg-slate-800/50 rounded-lg px-3 py-2">
+              <span className="text-rose-300 font-bold">{currentTeam === 1 ? team1Name : team2Name}</span>
+              {" "}أخذ 3 إخفاقات ← فرصة السرقة لـ{" "}
+              <span className="text-emerald-300 font-bold">{currentTeam === 1 ? team2Name : team1Name}</span>
+            </div>
+            <div className="flex gap-2">
+              <Button
+                onClick={onSteal}
+                className="flex-1 bg-gradient-to-l from-emerald-600 to-emerald-800 hover:from-emerald-500 hover:to-emerald-700 text-white font-bold h-10 text-sm"
+              >
+                <CheckCircle className="w-4 h-4 ml-1" />
+                ✅ سرقة ناجحة
+              </Button>
+              <Button
+                onClick={onNoSteal}
+                className="flex-1 bg-gradient-to-l from-red-700 to-red-900 hover:from-red-600 hover:to-red-800 text-white font-bold h-10 text-sm"
+              >
+                <XCircle className="w-4 h-4 ml-1" />
+                ❌ سرقة فاشلة
+              </Button>
+            </div>
           </div>
         )}
 
@@ -2981,41 +2988,52 @@ export default function FamilyFeudPage() {
   }, [round, totalRounds]);
 
   const handleSteal = useCallback(() => {
-    // Reveal all and give points to stealing team
+    // Successful steal: the OTHER team (stealing team) gets ALL round points
     const allPoints = currentAnswers.reduce((sum, a) => sum + a.points, 0);
-    if (currentTeam === 1) {
+    // The stealing team is the OPPOSITE of the team that got 3 strikes
+    const stealingTeam = currentTeam === 1 ? 2 : 1;
+    if (stealingTeam === 1) {
       setTeam1Score((prev) => prev + allPoints);
     } else {
       setTeam2Score((prev) => prev + allPoints);
     }
     setCurrentAnswers((prev) => prev.map((a) => ({ ...a, revealed: true })));
+    playCorrect();
     setFeedback({
       show: true,
       correct: true,
-      answer: `سرقة ناجحة! +${allPoints} نقاط`,
+      answer: `🎉 سرقة ناجحة! ${stealingTeam === 1 ? team1Name : team2Name} يأخذ +${allPoints} نقاط`,
     });
     setTimeout(() => {
       setFeedback({ show: false, correct: false });
       handleNextRound();
-    }, 2000);
-  }, [currentAnswers, currentTeam, handleNextRound]);
+    }, 2500);
+  }, [currentAnswers, currentTeam, team1Name, team2Name, handleNextRound, playCorrect]);
 
-  // No steal
+  // No steal (failed steal)
   const handleNoSteal = useCallback(() => {
-    // Give points to the team that was playing (opposite of current)
-    const allPoints = currentAnswers.reduce((sum, a) => sum + a.points, 0);
+    // Failed steal: the ORIGINAL team (currentTeam) keeps only their revealed points
+    // The stealing team gets NOTHING
+    const revealedPoints = currentAnswers
+      .filter((a) => a.revealed)
+      .reduce((sum, a) => sum + a.points, 0);
     if (currentTeam === 1) {
-      setTeam2Score((prev) => prev + allPoints);
+      setTeam1Score((prev) => prev + revealedPoints);
     } else {
-      setTeam1Score((prev) => prev + allPoints);
+      setTeam2Score((prev) => prev + revealedPoints);
     }
     setCurrentAnswers((prev) => prev.map((a) => ({ ...a, revealed: true })));
-    setFeedback({ show: true, correct: false, answer: "سرقة فاشلة!" });
+    playStrike();
+    setFeedback({
+      show: true,
+      correct: false,
+      answer: `❌ سرقة فاشلة! ${currentTeam === 1 ? team1Name : team2Name} يحتفظ بـ ${revealedPoints} نقاط فقط`,
+    });
     setTimeout(() => {
       setFeedback({ show: false, correct: false });
       handleNextRound();
-    }, 2000);
-  }, [currentAnswers, currentTeam, handleNextRound]);
+    }, 2500);
+  }, [currentAnswers, currentTeam, team1Name, team2Name, handleNextRound, playStrike]);
 
   // Reveal all
   const handleRevealAll = useCallback(() => {
