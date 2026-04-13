@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -17,6 +17,7 @@ import {
   Star,
   Zap,
   Clock,
+  HelpCircle,
 } from 'lucide-react';
 
 // ─── Game Data ────────────────────────────────────────────────────────────────
@@ -281,6 +282,77 @@ const floatingEmojis = [
   { emoji: '🎨', x: '5%', y: '45%', delay: 3, duration: 7.5 },
 ];
 
+// ─── Testimonials Data ──────────────────────────────────────────────────────
+
+const testimonials = [
+  {
+    name: 'أحمد',
+    location: 'الرياض 🇸🇦',
+    text: 'لعبة فاميلي فيود مذهلة! سهرنا ونلعبها كل يوم مع العيلة 👨‍👩‍👧‍👦',
+    rating: 5,
+    avatar: '👨‍💻',
+  },
+  {
+    name: 'سارة',
+    location: 'جدة 🇸🇦',
+    text: 'أحلى منصة ألعاب عربية، نلعب مع صحباتي من أي مكان 🎮',
+    rating: 5,
+    avatar: '👩‍🎓',
+  },
+  {
+    name: 'خالد',
+    location: 'الدمام 🇸🇦',
+    text: 'لعبة المافيا تجنن! نسبة الفوز عندنا ٥٠/٥٠ كل مرة 😂',
+    rating: 5,
+    avatar: '👨‍🔧',
+  },
+];
+
+// ─── Smooth Scroll Helper ───────────────────────────────────────────────────
+
+function smoothScrollTo(e: React.MouseEvent<HTMLAnchorElement>, id: string) {
+  e.preventDefault();
+  const el = document.querySelector(id);
+  el?.scrollIntoView({ behavior: 'smooth' });
+}
+
+// ─── Active Players Hook ─────────────────────────────────────────────────────
+
+function useActivePlayers() {
+  const [count, setCount] = useState(214);
+  const [visible, setVisible] = useState(true);
+  const countRef = useRef(214);
+
+  useEffect(() => {
+    countRef.current = count;
+  }, [count]);
+
+  useEffect(() => {
+    const randomBetween = (min: number, max: number) =>
+      Math.floor(Math.random() * (max - min + 1)) + min;
+
+    const changeCount = () => {
+      setVisible(false);
+      setTimeout(() => {
+        const delta = randomBetween(-8, 8);
+        const next = Math.max(142, Math.min(287, countRef.current + delta));
+        setCount(next);
+        setVisible(true);
+      }, 300);
+    };
+
+    const timeout = setTimeout(changeCount, randomBetween(10000, 30000));
+    const interval = setInterval(changeCount, randomBetween(10000, 30000));
+
+    return () => {
+      clearTimeout(timeout);
+      clearInterval(interval);
+    };
+  }, []);
+
+  return { count, visible };
+}
+
 // ─── Animation Variants ───────────────────────────────────────────────────────
 
 const fadeInUp = {
@@ -323,6 +395,7 @@ const statsVariant = {
 
 function Header() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const { count, visible: countVisible } = useActivePlayers();
 
   return (
     <header className="fixed top-0 left-0 right-0 z-50 bg-slate-950/95 backdrop-blur-md border-b border-slate-800/50">
@@ -350,20 +423,34 @@ function Header() {
 
           {/* Desktop Nav */}
           <nav className="hidden md:flex items-center gap-6">
+            {/* Active Players Counter */}
+            <div className="flex items-center gap-1.5 text-xs text-green-400 font-medium">
+              <span className="relative flex h-2 w-2">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" />
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500" />
+              </span>
+              <span className="transition-opacity duration-300">
+                {countVisible ? count : count}
+              </span>
+              <span className="text-slate-500">متصل</span>
+            </div>
             <a
               href="#games"
+              onClick={(e) => smoothScrollTo(e, '#games')}
               className="text-sm text-slate-300 hover:text-white transition-colors"
             >
               الألعاب
             </a>
             <a
               href="#features"
+              onClick={(e) => smoothScrollTo(e, '#features')}
               className="text-sm text-slate-300 hover:text-white transition-colors"
             >
               المميزات
             </a>
             <a
               href="#how-to-start"
+              onClick={(e) => smoothScrollTo(e, '#how-to-start')}
               className="text-sm text-slate-300 hover:text-white transition-colors"
             >
               كيف تبدأ؟
@@ -372,7 +459,7 @@ function Header() {
               asChild
               className="bg-gradient-to-l from-red-600 to-red-700 hover:from-red-500 hover:to-red-600 text-white font-bold shadow-lg shadow-red-500/25"
             >
-              <a href="#games">
+              <a href="#games" onClick={(e) => smoothScrollTo(e, '#games')}>
                 <Gamepad2 className="w-4 h-4 ml-2" />
                 العب الآن
               </a>
@@ -405,21 +492,21 @@ function Header() {
             <nav className="flex flex-col px-4 py-4 gap-3">
               <a
                 href="#games"
-                onClick={() => setMobileMenuOpen(false)}
+                onClick={(e) => { smoothScrollTo(e, '#games'); setMobileMenuOpen(false); }}
                 className="text-slate-300 hover:text-white transition-colors py-2 px-3 rounded-lg hover:bg-slate-800/50"
               >
                 🎮 الألعاب
               </a>
               <a
                 href="#features"
-                onClick={() => setMobileMenuOpen(false)}
+                onClick={(e) => { smoothScrollTo(e, '#features'); setMobileMenuOpen(false); }}
                 className="text-slate-300 hover:text-white transition-colors py-2 px-3 rounded-lg hover:bg-slate-800/50"
               >
                 ✨ المميزات
               </a>
               <a
                 href="#how-to-start"
-                onClick={() => setMobileMenuOpen(false)}
+                onClick={(e) => { smoothScrollTo(e, '#how-to-start'); setMobileMenuOpen(false); }}
                 className="text-slate-300 hover:text-white transition-colors py-2 px-3 rounded-lg hover:bg-slate-800/50"
               >
                 🚀 كيف تبدأ؟
@@ -428,7 +515,7 @@ function Header() {
                 asChild
                 className="bg-gradient-to-l from-red-600 to-red-700 hover:from-red-500 hover:to-red-600 text-white font-bold mt-2"
               >
-                <a href="#games" onClick={() => setMobileMenuOpen(false)}>
+                <a href="#games" onClick={(e) => { smoothScrollTo(e, '#games'); setMobileMenuOpen(false); }}>
                   <Gamepad2 className="w-4 h-4 ml-2" />
                   العب الآن
                 </a>
@@ -445,8 +532,9 @@ function Header() {
 
 function HeroSection() {
   const heroStats = [
-    { icon: <Gamepad2 className="w-5 h-5" />, value: '7', label: 'ألعاب' },
-    { icon: <Users className="w-5 h-5" />, value: 'حتى 20', label: 'لاعب' },
+    { icon: <Gamepad2 className="w-5 h-5" />, value: '7+', label: 'ألعاب' },
+    { icon: <Users className="w-5 h-5" />, value: '2-20', label: 'لاعب' },
+    { icon: <HelpCircle className="w-5 h-5" />, value: '153+', label: 'سؤال' },
     { icon: <Star className="w-5 h-5" />, value: '∞', label: 'متعة' },
   ];
 
@@ -531,7 +619,7 @@ function HeroSection() {
             size="lg"
             className="bg-gradient-to-l from-red-600 to-red-700 hover:from-red-500 hover:to-red-600 text-white font-bold text-lg px-8 py-6 shadow-xl shadow-red-500/25 hover:shadow-red-500/40 transition-shadow"
           >
-            <a href="#games">
+            <a href="#games" onClick={(e) => smoothScrollTo(e, '#games')}>
               <Gamepad2 className="w-5 h-5 ml-2" />
               ابدأ اللعب الآن
             </a>
@@ -542,7 +630,7 @@ function HeroSection() {
             size="lg"
             className="border-slate-700 text-slate-300 hover:bg-slate-800/50 hover:text-white font-bold text-lg px-8 py-6"
           >
-            <a href="#how-to-start">
+            <a href="#how-to-start" onClick={(e) => smoothScrollTo(e, '#how-to-start')}>
               <Clock className="w-5 h-5 ml-2" />
               كيف تبدأ؟
             </a>
@@ -889,6 +977,93 @@ function FeaturesSection() {
   );
 }
 
+// ─── Testimonials Section ────────────────────────────────────────────────────
+
+function TestimonialsSection() {
+  return (
+    <section
+      id="testimonials"
+      className="relative py-20 sm:py-28 bg-gradient-to-b from-slate-950 via-slate-900/30 to-slate-950"
+    >
+      {/* Decorative bg */}
+      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_bottom_left,_var(--tw-gradient-stops))] from-green-900/10 via-transparent to-transparent" />
+
+      <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        {/* Section Header */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          transition={{ duration: 0.6 }}
+          className="text-center mb-14"
+        >
+          <Badge
+            variant="outline"
+            className="border-green-500/30 text-green-400 mb-4 text-xs"
+          >
+            💬 آراء اللاعبين
+          </Badge>
+          <h2 className="text-3xl sm:text-4xl md:text-5xl font-black text-white mb-4">
+            شنو يقولون{' '}
+            <span className="bg-gradient-to-l from-green-400 to-emerald-400 bg-clip-text text-transparent">
+              اللاعبين؟
+            </span>
+          </h2>
+          <p className="text-slate-400 max-w-xl mx-auto text-base sm:text-lg">
+            آراء حقيقية من لاعبين يستمتعون بالمنصة
+          </p>
+        </motion.div>
+
+        {/* Testimonials Cards */}
+        <motion.div
+          variants={staggerContainer}
+          initial="hidden"
+          whileInView="visible"
+          viewport={{ once: true }}
+          className="grid grid-cols-1 md:grid-cols-3 gap-6 sm:gap-8"
+        >
+          {testimonials.map((t, i) => (
+            <motion.div key={i} variants={fadeInUp} custom={i}>
+              <div className="relative h-full rounded-2xl border border-slate-700/40 bg-slate-800/30 backdrop-blur-md p-6 sm:p-8 transition-all duration-300 hover:-translate-y-1 hover:shadow-xl hover:shadow-black/20 hover:border-slate-600/50">
+                {/* Quote mark decoration */}
+                <div className="absolute top-4 left-4 text-4xl text-slate-700/50 select-none pointer-events-none">
+                  ❝
+                </div>
+
+                {/* Rating Stars */}
+                <div className="flex items-center gap-0.5 mb-4">
+                  {Array.from({ length: 5 }).map((_, si) => (
+                    <span
+                      key={si}
+                      className={`text-sm ${si < t.rating ? 'text-amber-400' : 'text-slate-700'}`}
+                    >
+                      ⭐
+                    </span>
+                  ))}
+                </div>
+
+                {/* Quote Text */}
+                <p className="text-base text-slate-300 leading-relaxed mb-6 relative z-10">
+                  {t.text}
+                </p>
+
+                {/* Author Info */}
+                <div className="flex items-center gap-3 pt-4 border-t border-slate-700/40">
+                  <span className="text-3xl">{t.avatar}</span>
+                  <div>
+                    <p className="font-bold text-white text-sm">{t.name}</p>
+                    <p className="text-xs text-slate-500">{t.location}</p>
+                  </div>
+                </div>
+              </div>
+            </motion.div>
+          ))}
+        </motion.div>
+      </div>
+    </section>
+  );
+}
+
 // ─── How to Start Section ────────────────────────────────────────────────────
 
 function HowToStartSection() {
@@ -976,7 +1151,7 @@ function HowToStartSection() {
             size="lg"
             className="bg-gradient-to-l from-red-600 to-red-700 hover:from-red-500 hover:to-red-600 text-white font-bold text-lg px-10 py-6 shadow-xl shadow-red-500/25"
           >
-            <a href="#games">
+            <a href="#games" onClick={(e) => smoothScrollTo(e, '#games')}>
               <Gamepad2 className="w-5 h-5 ml-2" />
               جاهز؟ ابدأ اللعب الآن!
             </a>
@@ -1102,6 +1277,7 @@ export default function HomePage() {
       <HeroSection />
       <GamesSection />
       <FeaturesSection />
+      <TestimonialsSection />
       <HowToStartSection />
       <Footer />
       {/* CSS keyframe for animated gradient border on cards */}

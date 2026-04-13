@@ -252,6 +252,23 @@ interface Question {
   answers: Answer[];
   category?: string;
   categoryIcon?: string;
+  difficulty?: 'easy' | 'medium' | 'hard';
+}
+
+// Helper to get difficulty based on total points
+function getQuestionDifficulty(points: number): 'easy' | 'medium' | 'hard' {
+  if (points <= 40) return 'easy';
+  if (points <= 70) return 'medium';
+  return 'hard';
+}
+
+// Get difficulty info for display
+function getDifficultyInfo(diff: 'easy' | 'medium' | 'hard'): { icon: string; label: string; color: string } {
+  switch (diff) {
+    case 'easy': return { icon: '🟢', label: 'سهل', color: 'bg-emerald-500/20 border-emerald-500/60 text-emerald-300' };
+    case 'medium': return { icon: '🟡', label: 'متوسط', color: 'bg-amber-500/20 border-amber-500/60 text-amber-300' };
+    case 'hard': return { icon: '🔴', label: 'صعب', color: 'bg-rose-500/20 border-rose-500/60 text-rose-300' };
+  }
 }
 
 // Helper to get category info for questions
@@ -3407,7 +3424,7 @@ function TeamSetup({
   soundEnabled,
   setSoundEnabled,
 }: {
-  onStartGame: (settings: { team1Name: string; team2Name: string; team1Emoji: string; team2Emoji: string; totalRounds: number; stealTimer: number; roundTimer: number }) => void;
+  onStartGame: (settings: { team1Name: string; team2Name: string; team1Emoji: string; team2Emoji: string; totalRounds: number; stealTimer: number; roundTimer: number; difficultyFilter: 'all' | 'easy' | 'medium' | 'hard' }) => void;
   soundEnabled: boolean;
   setSoundEnabled: (v: boolean) => void;
 }) {
@@ -3418,6 +3435,7 @@ function TeamSetup({
   const [totalRounds, setTotalRounds] = useState(5);
   const [stealTimer, setStealTimer] = useState(0); // 0=off, 30, 60
   const [roundTimer, setRoundTimer] = useState(0); // 0=off, 30, 60, 90
+  const [difficultyFilter, setDifficultyFilter] = useState<'all' | 'easy' | 'medium' | 'hard'>('all');
   const [showSettings, setShowSettings] = useState(false);
   const [setupStep, setSetupStep] = useState(1); // 1, 2, 3
 
@@ -3848,6 +3866,41 @@ function TeamSetup({
                       </div>
                     </div>
 
+                    {/* Difficulty Filter */}
+                    <div>
+                      <p className="text-xs font-bold text-slate-300 mb-2">
+                        🎯 مستوى الصعوبة
+                      </p>
+                      <div className="flex gap-2">
+                        {[
+                          { val: 'all' as const, label: 'الكل' },
+                          { val: 'easy' as const, label: 'سهل فقط' },
+                          { val: 'medium' as const, label: 'متوسط فقط' },
+                          { val: 'hard' as const, label: 'صعب فقط' },
+                        ].map((opt) => (
+                          <motion.button
+                            key={opt.val}
+                            whileTap={{ scale: 0.95 }}
+                            onClick={() => setDifficultyFilter(opt.val)}
+                            className={cn(
+                              "flex-1 rounded-xl py-2.5 text-[10px] font-bold border-2 transition-all cursor-pointer",
+                              difficultyFilter === opt.val
+                                ? opt.val === 'easy'
+                                  ? 'bg-emerald-500/20 border-emerald-500/60 text-emerald-300 shadow-sm shadow-emerald-500/20'
+                                  : opt.val === 'medium'
+                                    ? 'bg-amber-500/20 border-amber-500/60 text-amber-300 shadow-sm shadow-amber-500/20'
+                                    : opt.val === 'hard'
+                                      ? 'bg-rose-500/20 border-rose-500/60 text-rose-300 shadow-sm shadow-rose-500/20'
+                                      : 'bg-slate-500/20 border-slate-500/60 text-slate-300 shadow-sm shadow-slate-500/20'
+                                : 'bg-slate-800/40 border-slate-700/40 text-slate-400 hover:border-slate-600'
+                            )}
+                          >
+                            {opt.val === 'easy' ? '🟢' : opt.val === 'medium' ? '🟡' : opt.val === 'hard' ? '🔴' : '🎯'} {opt.label}
+                          </motion.button>
+                        ))}
+                      </div>
+                    </div>
+
                     {/* Sound Effects */}
                     <div>
                       <p className="text-xs font-bold text-slate-300 mb-2">
@@ -3899,6 +3952,7 @@ function TeamSetup({
                 totalRounds,
                 stealTimer,
                 roundTimer,
+                difficultyFilter,
               })
             }
             className="relative bg-gradient-to-l from-amber-600 to-rose-600 hover:from-amber-500 hover:to-rose-500 text-white font-bold px-12 py-6 rounded-xl shadow-lg shadow-amber-500/20 cursor-pointer overflow-hidden"
@@ -4484,6 +4538,9 @@ function GameBoardView({
   onNoSteal,
   onRevealAll,
   onSkipQuestion,
+  onUseHint,
+  hintsUsed,
+  questionDifficulty,
   phase,
   round,
   totalRounds,
@@ -4509,6 +4566,9 @@ function GameBoardView({
   onNoSteal: () => void;
   onRevealAll: () => void;
   onSkipQuestion: () => void;
+  onUseHint: () => void;
+  hintsUsed: number;
+  questionDifficulty?: 'easy' | 'medium' | 'hard';
   phase: "playing" | "steal";
   round: number;
   totalRounds: number;
@@ -4522,6 +4582,8 @@ function GameBoardView({
   const revealedPoints = answers.filter(a => a.revealed).reduce((sum, a) => sum + a.points, 0);
   const pointsRemaining = totalPoints - revealedPoints;
   const maxScore = Math.max(team1Score, team2Score, 1);
+  const difficultyInfo = questionDifficulty ? getDifficultyInfo(questionDifficulty) : null;
+  const hasUnrevealed = answers.some(a => !a.revealed);
 
   // Search removed for full-screen game experience
 
@@ -4685,6 +4747,11 @@ function GameBoardView({
         {questionCategory && (
           <Badge className="bg-amber-950/50 border border-amber-500/30 text-amber-300 text-[10px] px-2">
             {questionCategory.icon} {questionCategory.label}
+          </Badge>
+        )}
+        {difficultyInfo && (
+          <Badge className={cn("text-[10px] px-2 border", difficultyInfo.color)}>
+            {difficultyInfo.icon} {difficultyInfo.label}
           </Badge>
         )}
       </motion.div>
@@ -4968,26 +5035,44 @@ function GameBoardView({
         )}
 
         {phase !== "steal" && (
-        <motion.button
-          whileHover={{ scale: 1.02 }}
-          whileTap={{ scale: 0.98 }}
-          onClick={onRevealAll}
-          className="w-full relative overflow-hidden rounded-xl border border-slate-700 hover:border-amber-500/40 text-slate-400 hover:text-amber-200 hover:bg-slate-800/80 h-9 text-xs font-bold transition-all cursor-pointer"
-        >
-          <motion.div
-            animate={{ backgroundPosition: ["0% 50%", "200% 50%"] }}
-            transition={{ duration: 3, repeat: Infinity, ease: "linear" }}
-            className="absolute inset-0 opacity-0 hover:opacity-100 transition-opacity"
-            style={{
-              background: "linear-gradient(90deg, transparent, rgba(251,191,36,0.05), transparent)",
-              backgroundSize: "200% 100%",
-            }}
-          />
-          <span className="relative flex items-center justify-center gap-1">
-            <Eye className="w-3 h-3" />
-            كشف جميع الإجابات ✨
-          </span>
-        </motion.button>
+        <div className="flex gap-2">
+          <motion.button
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
+            onClick={onUseHint}
+            disabled={hintsUsed >= 2 || !hasUnrevealed}
+            className={cn(
+              "flex-1 relative overflow-hidden rounded-xl border h-9 text-xs font-bold transition-all cursor-pointer",
+              hintsUsed >= 2 || !hasUnrevealed
+                ? "border-slate-700/40 text-slate-600 bg-slate-800/30 cursor-not-allowed"
+                : "border-violet-500/40 hover:border-violet-400/60 text-violet-300 hover:text-violet-200 hover:bg-slate-800/80"
+            )}
+          >
+            <span className="relative flex items-center justify-center gap-1">
+              💡 تلميح ({2 - hintsUsed})
+            </span>
+          </motion.button>
+          <motion.button
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
+            onClick={onRevealAll}
+            className="flex-[2] relative overflow-hidden rounded-xl border border-slate-700 hover:border-amber-500/40 text-slate-400 hover:text-amber-200 hover:bg-slate-800/80 h-9 text-xs font-bold transition-all cursor-pointer"
+          >
+            <motion.div
+              animate={{ backgroundPosition: ["0% 50%", "200% 50%"] }}
+              transition={{ duration: 3, repeat: Infinity, ease: "linear" }}
+              className="absolute inset-0 opacity-0 hover:opacity-100 transition-opacity"
+              style={{
+                background: "linear-gradient(90deg, transparent, rgba(251,191,36,0.05), transparent)",
+                backgroundSize: "200% 100%",
+              }}
+            />
+            <span className="relative flex items-center justify-center gap-1">
+              <Eye className="w-3 h-3" />
+              كشف جميع الإجابات ✨
+            </span>
+          </motion.button>
+        </div>
         )}
       </div>
     </div>
@@ -5830,6 +5915,18 @@ export default function FamilyFeudPage() {
   const [roundTimerRunning, setRoundTimerRunning] = useState(false);
   const roundTimerRef = useRef<NodeJS.Timeout | null>(null);
 
+  // Difficulty filter
+  const [difficultyFilter, setDifficultyFilter] = useState<'all' | 'easy' | 'medium' | 'hard'>('all');
+
+  // 300+ celebration
+  const [celebration300, setCelebration300] = useState<{ show: boolean; teamName: string }>({ show: false, teamName: '' });
+  const prevTeam1ScoreRef = useRef(0);
+  const prevTeam2ScoreRef = useRef(0);
+
+  // Hint system
+  const [hintsUsedThisRound, setHintsUsedThisRound] = useState(0);
+  const hintsUsedThisRoundRef = useRef(0);
+
   // Exit confirmation dialog
   const [showExitDialog, setShowExitDialog] = useState(false);
 
@@ -5841,11 +5938,23 @@ export default function FamilyFeudPage() {
 
   // Shuffle and pick questions
   const initializeQuestions = useCallback(() => {
-    const shuffled = [...ALL_QUESTIONS].sort(() => Math.random() - 0.5);
-    const picked = shuffled.slice(0, totalRounds).map((q) => ({
-      ...q,
-      answers: q.answers.map((a) => ({ ...a, revealed: false })),
-    }));
+    // Filter questions by difficulty
+    const filtered = difficultyFilter === 'all'
+      ? ALL_QUESTIONS
+      : ALL_QUESTIONS.filter((q) => {
+          const totalPts = q.answers.reduce((sum, a) => sum + a.points, 0);
+          return getQuestionDifficulty(totalPts) === difficultyFilter;
+        });
+    const pool = filtered.length >= totalRounds ? filtered : ALL_QUESTIONS;
+    const shuffled = [...pool].sort(() => Math.random() - 0.5);
+    const picked = shuffled.slice(0, totalRounds).map((q) => {
+      const totalPts = q.answers.reduce((sum, a) => sum + a.points, 0);
+      return {
+        ...q,
+        difficulty: q.difficulty || getQuestionDifficulty(totalPts),
+        answers: q.answers.map((a) => ({ ...a, revealed: false })),
+      };
+    });
     setSelectedQuestions(picked);
 
     const fmShuffled = [...FAST_MONEY_QUESTIONS]
@@ -5856,11 +5965,11 @@ export default function FamilyFeudPage() {
         answers: q.answers.map((a) => ({ ...a, revealed: false })),
       }));
     setFmQuestions(fmShuffled);
-  }, [totalRounds]);
+  }, [totalRounds, difficultyFilter]);
 
   // Start game
   const handleStartGame = useCallback(
-    (settings: { team1Name: string; team2Name: string; team1Emoji: string; team2Emoji: string; totalRounds: number; stealTimer: number; roundTimer: number }) => {
+    (settings: { team1Name: string; team2Name: string; team1Emoji: string; team2Emoji: string; totalRounds: number; stealTimer: number; roundTimer: number; difficultyFilter: 'all' | 'easy' | 'medium' | 'hard' }) => {
       setTeam1Name(settings.team1Name);
       setTeam2Name(settings.team2Name);
       setTeam1Emoji(settings.team1Emoji);
@@ -5873,6 +5982,12 @@ export default function FamilyFeudPage() {
       setTotalRounds(settings.totalRounds);
       setStealTimerDuration(settings.stealTimer);
       setRoundTimerDuration(settings.roundTimer);
+      setDifficultyFilter(settings.difficultyFilter);
+      setCelebration300({ show: false, teamName: '' });
+      prevTeam1ScoreRef.current = 0;
+      prevTeam2ScoreRef.current = 0;
+      setHintsUsedThisRound(0);
+      hintsUsedThisRoundRef.current = 0;
       setGamePhase("faceoff");
       setUiPhase("game");
       setShowGameOver(false);
@@ -5888,7 +6003,7 @@ export default function FamilyFeudPage() {
       });
       initializeQuestions();
     },
-    [initializeQuestions]
+    [initializeQuestions, difficultyFilter]
   );
 
   // ============================
@@ -6127,6 +6242,9 @@ export default function FamilyFeudPage() {
   // Handle steal
   // Next round
   const handleNextRound = useCallback(() => {
+    // Reset hints for new round
+    setHintsUsedThisRound(0);
+    hintsUsedThisRoundRef.current = 0;
     if (round >= totalRounds) {
       setGamePhase("fast_money");
       setFmPhase("intro");
@@ -6270,6 +6388,57 @@ export default function FamilyFeudPage() {
     setShowRoundResult(true);
     setTimeout(() => setShowRoundResult(false), 2500);
   }, [currentAnswers, currentTeam, roundScore, round, team1Name, team2Name]);
+
+  // Use hint: reveal a random unrevealed answer with half points
+  const handleUseHint = useCallback(() => {
+    if (hintsUsedThisRoundRef.current >= 2) return;
+    const unrevealedIndices = currentAnswers
+      .map((a, i) => (!a.revealed ? i : -1))
+      .filter((i) => i >= 0);
+    if (unrevealedIndices.length === 0) return;
+    const randomIdx = unrevealedIndices[Math.floor(Math.random() * unrevealedIndices.length)];
+    const answer = currentAnswers[randomIdx];
+    const halfPoints = Math.floor(answer.points / 2);
+    setCurrentAnswers((prev) => {
+      const updated = [...prev];
+      updated[randomIdx] = { ...updated[randomIdx], revealed: true };
+      return updated;
+    });
+    setRoundScore((rs) => rs + halfPoints);
+    setHintsUsedThisRound((prev) => prev + 1);
+    hintsUsedThisRoundRef.current += 1;
+    setFeedback({
+      show: true,
+      correct: true,
+      answer: `💡 تلميح: ${answer.text} - ${halfPoints} نقاط (النصف)`,
+    });
+    setTimeout(() => setFeedback({ show: false, correct: false }), 2000);
+    playReveal();
+  }, [currentAnswers, playReveal]);
+
+  // 300+ points celebration effect
+  useEffect(() => {
+    if (prevTeam1ScoreRef.current < 300 && team1Score >= 300) {
+      requestAnimationFrame(() => {
+        setCelebration300({ show: true, teamName: team1Name });
+      });
+      playWin();
+      const t = setTimeout(() => setCelebration300({ show: false, teamName: '' }), 3000);
+      return () => clearTimeout(t);
+    }
+    if (prevTeam2ScoreRef.current < 300 && team2Score >= 300) {
+      requestAnimationFrame(() => {
+        setCelebration300({ show: true, teamName: team2Name });
+      });
+      playWin();
+      const t = setTimeout(() => setCelebration300({ show: false, teamName: '' }), 3000);
+      return () => clearTimeout(t);
+    }
+    prevTeam1ScoreRef.current = team1Score;
+    prevTeam2ScoreRef.current = team2Score;
+  }, [team1Score, team2Score, team1Name, team2Name, playWin]);
+
+  // Reset hints on round change (integrated into next round flow via ref)
 
   // Skip question (reveal all, 0 points, next round)
   const handleSkipQuestion = useCallback(() => {
@@ -6568,6 +6737,50 @@ export default function FamilyFeudPage() {
         points={roundResultPoints}
       />
 
+      {/* 300+ Points Celebration */}
+      <AnimatePresence>
+        {celebration300.show && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.3, y: 50 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.8, y: -30 }}
+            transition={{ type: "spring", stiffness: 300, damping: 20 }}
+            className="fixed inset-0 z-[200] flex items-center justify-center pointer-events-none"
+          >
+            <div className="relative">
+              {/* Glow backdrop */}
+              <motion.div
+                animate={{ opacity: [0.3, 0.6, 0.3], scale: [1, 1.1, 1] }}
+                transition={{ duration: 1.5, repeat: Infinity }}
+                className="absolute inset-0 bg-gradient-radial from-amber-500/30 to-transparent rounded-full blur-xl"
+              />
+              <div className="relative bg-gradient-to-br from-amber-600 via-rose-600 to-amber-700 rounded-3xl px-10 py-8 shadow-2xl shadow-amber-500/40 border-2 border-amber-300/50 text-center">
+                <motion.div
+                  animate={{ rotate: [0, -5, 5, 0], scale: [1, 1.1, 1] }}
+                  transition={{ duration: 0.8, repeat: 3 }}
+                  className="text-5xl mb-3"
+                >
+                  🏆
+                </motion.div>
+                <p className="text-xl sm:text-2xl font-black text-white mb-1">
+                  {celebration300.teamName}
+                </p>
+                <p className="text-lg sm:text-xl font-black text-amber-200">
+                  وصل لـ 300 نقطة!
+                </p>
+                <motion.div
+                  animate={{ opacity: [0.5, 1, 0.5] }}
+                  transition={{ duration: 1, repeat: Infinity }}
+                  className="mt-2 text-3xl"
+                >
+                  🎉✨🎊
+                </motion.div>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Streak Indicator */}
       <AnimatePresence>
         {revealStreak >= 2 && (
@@ -6675,6 +6888,9 @@ export default function FamilyFeudPage() {
             onNoSteal={handleNoSteal}
             onRevealAll={handleRevealAll}
             onSkipQuestion={handleSkipQuestion}
+            onUseHint={handleUseHint}
+            hintsUsed={hintsUsedThisRound}
+            questionDifficulty={currentQuestion.difficulty}
             phase="playing"
             round={round}
             totalRounds={totalRounds}
@@ -6755,6 +6971,9 @@ export default function FamilyFeudPage() {
               onNoSteal={handleNoSteal}
               onRevealAll={handleRevealAll}
               onSkipQuestion={handleSkipQuestion}
+              onUseHint={handleUseHint}
+              hintsUsed={hintsUsedThisRound}
+              questionDifficulty={currentQuestion.difficulty}
               phase="steal"
               round={round}
               totalRounds={totalRounds}
