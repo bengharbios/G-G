@@ -338,11 +338,11 @@ const ALL_QUESTIONS: Question[] = [
   {
     question: "إذا كان عليك إنفاق ألف دولار في ساعة، ماذا تشتري؟",
     answers: [
-      { text: "أطفال", points: 16, revealed: false },
-      { text: "سيارة", points: 14, revealed: false },
-      { text: "منزل", points: 10, revealed: false },
-      { text: "حيوان أليف", points: 10, revealed: false },
-      { text: "كمبيوتر", points: 9, revealed: false },
+      { text: "ملابس", points: 22, revealed: false },
+      { text: "إلكترونيات", points: 20, revealed: false },
+      { text: "هاتف", points: 18, revealed: false },
+      { text: "ذهب/مجوهرات", points: 15, revealed: false },
+      { text: "طعام", points: 12, revealed: false },
     ],
   },
   {
@@ -364,7 +364,7 @@ const ALL_QUESTIONS: Question[] = [
     ],
   },
   {
-    question: "اذكر شيئاً يخاف منه الأطفال تحت السرير:",
+    question: "اذكر مكاناً يختبئ فيه الوحش عند الأطفال:",
     answers: [
       { text: "تحت السرير", points: 45, revealed: false },
       { text: "داخل الخزانة", points: 36, revealed: false },
@@ -441,10 +441,11 @@ const ALL_QUESTIONS: Question[] = [
   {
     question: "اذكر مهنة تبدأ بحرف السين:",
     answers: [
-      { text: "سائق", points: 62, revealed: false },
-      { text: "قاضي", points: 19, revealed: false },
-      { text: "صائغ", points: 5, revealed: false },
-      { text: "صحفي", points: 4, revealed: false },
+      { text: "سائق", points: 40, revealed: false },
+      { text: "سكرتير", points: 20, revealed: false },
+      { text: "ساعي بريد", points: 15, revealed: false },
+      { text: "ساحر", points: 15, revealed: false },
+      { text: "سباك", points: 10, revealed: false },
     ],
   },
   {
@@ -873,13 +874,13 @@ const ALL_QUESTIONS: Question[] = [
     ],
   },
   {
-    question: "اذكر مهنة تبدأ بحرف الدال:",
+    question: "اذكر مهنة يعرفها الجميع:",
     answers: [
       { text: "طبيب", points: 35, revealed: false },
-      { text: "مدير", points: 20, revealed: false },
-      { text: "محامي", points: 15, revealed: false },
-      { text: "رسام", points: 10, revealed: false },
-      { text: "ضابط", points: 5, revealed: false },
+      { text: "معلم", points: 25, revealed: false },
+      { text: "مهندس", points: 20, revealed: false },
+      { text: "محامي", points: 12, revealed: false },
+      { text: "شرطي", points: 8, revealed: false },
     ],
   },
   {
@@ -1243,7 +1244,155 @@ function FeedbackOverlay({
 }
 
 // ============================================================
-// Strike Mark
+// Round Result Card (Big animated overlay for steal/no-steal results)
+// ============================================================
+function RoundResultCard({
+  show,
+  type,
+  teamName,
+  points,
+}: {
+  show: boolean;
+  type: "steal_success" | "steal_fail" | "round_complete";
+  teamName: string;
+  points: number;
+}) {
+  const isSuccess = type === "steal_success";
+  const isFail = type === "steal_fail";
+
+  return (
+    <AnimatePresence>
+      {show && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.3 }}
+          className="fixed inset-0 z-[150] flex items-center justify-center bg-black/60 backdrop-blur-sm"
+        >
+          {isSuccess && <ConfettiOverlay />}
+          <motion.div
+            initial={{ scale: 0, rotate: -15, y: 50 }}
+            animate={{ scale: 1, rotate: 0, y: 0 }}
+            exit={{ scale: 0.5, rotate: 15, y: -50, opacity: 0 }}
+            transition={{ type: "spring", stiffness: 280, damping: 22 }}
+            className={cn(
+              "max-w-sm w-full mx-4 rounded-3xl border-[3px] p-6 sm:p-8 text-center shadow-2xl relative overflow-hidden",
+              isSuccess
+                ? "bg-gradient-to-b from-emerald-950/95 to-emerald-900/90 border-emerald-400/60 shadow-emerald-500/40"
+                : isFail
+                  ? "bg-gradient-to-b from-red-950/95 to-red-900/90 border-red-400/60 shadow-red-500/40"
+                  : "bg-gradient-to-b from-amber-950/95 to-amber-900/90 border-amber-400/60 shadow-amber-500/40"
+            )}
+          >
+            {/* Background glow */}
+            <motion.div
+              animate={{ opacity: [0.2, 0.5, 0.2], scale: [1, 1.1, 1] }}
+              transition={{ duration: 2, repeat: Infinity }}
+              className={cn(
+                "absolute inset-0 pointer-events-none blur-3xl",
+                isSuccess ? "bg-emerald-500/20" : isFail ? "bg-red-500/20" : "bg-amber-500/20"
+              )}
+            />
+
+            <div className="relative z-10">
+              <motion.div
+                initial={{ scale: 0, rotate: -180 }}
+                animate={{ scale: 1, rotate: 0 }}
+                transition={{ delay: 0.15, type: "spring", stiffness: 300 }}
+                className="text-6xl mb-4"
+              >
+                {isSuccess ? "🎯" : isFail ? "🛡️" : "⚡"}
+              </motion.div>
+
+              <motion.h3
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.25 }}
+                className={cn(
+                  "text-2xl sm:text-3xl font-black mb-2",
+                  isSuccess ? "text-emerald-300" : isFail ? "text-red-300" : "text-amber-300"
+                )}
+              >
+                {isSuccess ? "سرقة ناجحة!" : isFail ? "سرقة فاشلة!" : "جولة مكتملة!"}
+              </motion.h3>
+
+              <motion.p
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.35 }}
+                className={cn(
+                  "text-sm sm:text-base mb-5",
+                  isSuccess ? "text-emerald-200/80" : isFail ? "text-red-200/80" : "text-amber-200/80"
+                )}
+              >
+                {isSuccess
+                  ? `${teamName} يسرق الجولة!`
+                  : isFail
+                    ? `${teamName} يحتفظ بنقاطه!`
+                    : `${teamName} يكشف كل الإجابات!`}
+              </motion.p>
+
+              <motion.div
+                initial={{ scale: 0 }}
+                animate={{ scale: 1 }}
+                transition={{ delay: 0.4, type: "spring", stiffness: 400 }}
+                className={cn(
+                  "rounded-2xl px-6 py-4 inline-block border",
+                  isSuccess
+                    ? "bg-emerald-800/60 border-emerald-500/30"
+                    : isFail
+                      ? "bg-red-800/60 border-red-500/30"
+                      : "bg-amber-800/60 border-amber-500/30"
+                )}
+              >
+                <span
+                  className={cn(
+                    "text-4xl sm:text-5xl font-black tabular-nums",
+                    isSuccess ? "text-emerald-300" : isFail ? "text-red-300" : "text-amber-300"
+                  )}
+                >
+                  {isFail ? points : `+${points}`}
+                </span>
+                <p
+                  className={cn(
+                    "text-xs mt-1",
+                    isSuccess ? "text-emerald-400/60" : isFail ? "text-red-400/60" : "text-amber-400/60"
+                  )}
+                >
+                  {isFail ? "نقاط محفوظة" : "نقاط"}
+                </p>
+              </motion.div>
+
+              {/* Decorative sparkles */}
+              {isSuccess && (
+                <>
+                  <motion.div
+                    animate={{ scale: [0, 1.5, 0], rotate: [0, 180] }}
+                    transition={{ delay: 0.5, duration: 1.2 }}
+                    className="absolute top-4 right-8 text-2xl opacity-80"
+                  >
+                    ✨
+                  </motion.div>
+                  <motion.div
+                    animate={{ scale: [0, 1.5, 0], rotate: [0, -180] }}
+                    transition={{ delay: 0.7, duration: 1.2 }}
+                    className="absolute bottom-8 left-8 text-2xl opacity-80"
+                  >
+                    ✨
+                  </motion.div>
+                </>
+              )}
+            </div>
+          </motion.div>
+        </motion.div>
+      )}
+    </AnimatePresence>
+  );
+}
+
+// ============================================================
+// Strike Mark (animated X marks)
 // ============================================================
 function StrikeMark({ show, index }: { show: boolean; index: number }) {
   return (
@@ -2305,6 +2454,29 @@ function GameBoardView({
         )}
       </div>
 
+      {/* Round Progress Bar */}
+      <div className="px-1">
+        <div className="flex items-center gap-2">
+          <div className="flex-1 h-2 bg-slate-800/60 rounded-full overflow-hidden">
+            <motion.div
+              animate={{ width: `${(answers.filter((a) => a.revealed).length / Math.max(answers.length, 1)) * 100}%` }}
+              transition={{ duration: 0.5, ease: "easeOut" }}
+              className={cn(
+                "h-full rounded-full",
+                phase === "steal"
+                  ? "bg-gradient-to-l from-rose-400 to-amber-500"
+                  : currentTeam === 1
+                    ? "bg-gradient-to-l from-amber-400 to-amber-600"
+                    : "bg-gradient-to-l from-rose-400 to-rose-600"
+              )}
+            />
+          </div>
+          <span className="text-[10px] font-bold text-slate-500 tabular-nums shrink-0">
+            {answers.filter((a) => a.revealed).length}/{answers.length}
+          </span>
+        </div>
+      </div>
+
       {/* Answer Board */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 flex-1 max-h-[45vh] overflow-y-auto scrollbar-thin">
         {answers.map((answer, i) => (
@@ -2341,31 +2513,82 @@ function GameBoardView({
         )}
 
         {phase === "steal" && (
-          <div className="space-y-2">
-            <div className="text-center text-xs text-slate-400 bg-slate-800/50 rounded-lg px-3 py-2">
-              <span className="text-rose-300 font-bold">{currentTeam === 1 ? team1Name : team2Name}</span>
-              {" "}أخذ 3 إخفاقات ← فرصة السرقة لـ{" "}
-              <span className="text-emerald-300 font-bold">{currentTeam === 1 ? team2Name : team1Name}</span>
-            </div>
-            <div className="flex gap-2">
-              <Button
+          <div className="space-y-3">
+            {/* Dramatic steal banner */}
+            <motion.div
+              initial={{ opacity: 0, y: -10, scale: 0.9 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              transition={{ type: "spring", stiffness: 300 }}
+              className="relative overflow-hidden rounded-2xl border-2 border-rose-500/50 bg-gradient-to-l from-rose-950/80 via-amber-950/60 to-rose-950/80 p-4 text-center"
+            >
+              <motion.div
+                animate={{ opacity: [0.3, 0.7, 0.3] }}
+                transition={{ duration: 2, repeat: Infinity }}
+                className="absolute inset-0 bg-gradient-to-l from-rose-500/10 to-amber-500/10 pointer-events-none"
+              />
+              <div className="relative z-10">
+                <motion.div
+                  animate={{ scale: [1, 1.1, 1] }}
+                  transition={{ duration: 1.5, repeat: Infinity }}
+                  className="text-2xl sm:text-3xl font-black text-transparent bg-clip-text bg-gradient-to-l from-amber-300 via-rose-300 to-amber-300 mb-1"
+                >
+                  ⚡ فرصة السرقة! ⚡
+                </motion.div>
+                <p className="text-xs sm:text-sm text-slate-300">
+                  <span className="text-red-300 font-bold">{currentTeam === 1 ? team2Name : team1Name}</span>
+                  {" "}أخذ 3 إخفاقات ← فرصة السرقة لـ{" "}
+                  <span className={cn(
+                    "font-black px-3 py-0.5 rounded-full",
+                    currentTeam === 1
+                      ? "bg-amber-500/20 text-amber-300 border border-amber-500/30"
+                      : "bg-rose-500/20 text-rose-300 border border-rose-500/30"
+                  )}>
+                    {currentTeam === 1 ? team1Name : team2Name}
+                  </span>
+                </p>
+              </div>
+            </motion.div>
+
+            <div className="flex gap-3">
+              <motion.button
+                whileHover={{ scale: 1.03 }}
+                whileTap={{ scale: 0.97 }}
                 onClick={onSteal}
-                className="flex-1 bg-gradient-to-l from-emerald-600 to-emerald-800 hover:from-emerald-500 hover:to-emerald-700 text-white font-bold h-10 text-sm"
+                className="flex-1 relative rounded-2xl bg-gradient-to-l from-emerald-600 to-emerald-800 hover:from-emerald-500 hover:to-emerald-700 text-white font-bold p-4 text-center overflow-hidden border border-emerald-400/40 shadow-lg shadow-emerald-500/20 cursor-pointer"
               >
-                <CheckCircle className="w-4 h-4 ml-1" />
-                ✅ سرقة ناجحة
-              </Button>
-              <Button
+                <motion.div
+                  animate={{ opacity: [0.2, 0.5, 0.2] }}
+                  transition={{ duration: 2, repeat: Infinity }}
+                  className="absolute inset-0 bg-gradient-to-l from-emerald-400/20 to-transparent pointer-events-none"
+                />
+                <div className="relative z-10">
+                  <div className="text-2xl mb-1">🎯</div>
+                  <div className="text-sm sm:text-base font-black">سرقة ناجحة</div>
+                  <div className="text-[10px] text-emerald-200/60 mt-0.5">الفريق يسرق كل النقاط</div>
+                </div>
+              </motion.button>
+              <motion.button
+                whileHover={{ scale: 1.03 }}
+                whileTap={{ scale: 0.97 }}
                 onClick={onNoSteal}
-                className="flex-1 bg-gradient-to-l from-red-700 to-red-900 hover:from-red-600 hover:to-red-800 text-white font-bold h-10 text-sm"
+                className="flex-1 relative rounded-2xl bg-gradient-to-l from-red-700 to-red-900 hover:from-red-600 hover:to-red-800 text-white font-bold p-4 text-center overflow-hidden border border-red-400/40 shadow-lg shadow-red-500/20 cursor-pointer"
               >
-                <XCircle className="w-4 h-4 ml-1" />
-                ❌ سرقة فاشلة
-              </Button>
+                <motion.div
+                  animate={{ opacity: [0.2, 0.4, 0.2] }}
+                  transition={{ duration: 2, repeat: Infinity, delay: 1 }}
+                  className="absolute inset-0 bg-gradient-to-l from-red-400/20 to-transparent pointer-events-none"
+                />
+                <div className="relative z-10">
+                  <div className="text-2xl mb-1">🛡️</div>
+                  <div className="text-sm sm:text-base font-black">سرقة فاشلة</div>
+                  <div className="text-[10px] text-red-200/60 mt-0.5">الفريق يحتفظ بنقاطه</div>
+                </div>
+              </motion.button>
             </div>
           </div>
         )}
 
+        {phase !== "steal" && (
         <Button
           onClick={onRevealAll}
           variant="outline"
@@ -2374,6 +2597,7 @@ function GameBoardView({
           <Eye className="w-3 h-3 ml-1" />
           كشف جميع الإجابات
         </Button>
+        )}
       </div>
     </div>
   );
@@ -2702,6 +2926,7 @@ function GameOverScreen({
   team2Score,
   onRestart,
   onHome,
+  roundHistory,
 }: {
   team1Name: string;
   team2Name: string;
@@ -2709,6 +2934,7 @@ function GameOverScreen({
   team2Score: number;
   onRestart: () => void;
   onHome: () => void;
+  roundHistory: { round: number; team: 1 | 2; points: number; type: string }[];
 }) {
   const winner =
     team1Score > team2Score
@@ -2806,6 +3032,35 @@ function GameOverScreen({
             الرئيسية
           </Button>
         </div>
+
+        {/* Round History */}
+        {roundHistory.length > 0 && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.8 }}
+            className="mt-6 text-right"
+          >
+            <p className="text-xs text-slate-500 font-bold mb-2 text-center">📊 ملخص الجولات</p>
+            <div className="flex flex-wrap gap-1.5 justify-center">
+              {roundHistory.map((rh, i) => (
+                <div
+                  key={i}
+                  className={cn(
+                    "flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-bold border",
+                    rh.team === 1
+                      ? "bg-amber-950/60 border-amber-500/30 text-amber-300"
+                      : "bg-rose-950/60 border-rose-500/30 text-rose-300"
+                  )}
+                >
+                  <span>{rh.type === "سرقة" ? "🎯" : rh.type === "محفوظ" ? "🛡️" : rh.type === "كشف" ? "👁️" : "⚡"}</span>
+                  <span>ج{rh.round}</span>
+                  <span>+{rh.points}</span>
+                </div>
+              ))}
+            </div>
+          </motion.div>
+        )}
       </motion.div>
     </div>
   );
@@ -2861,6 +3116,19 @@ export default function FamilyFeudPage() {
 
   const timerRef = useRef<NodeJS.Timeout | null>(null);
 
+  // Refs for bug-free steal logic
+  const strikesTeamRef = useRef<1 | 2>(1); // Which team got 3 strikes
+  const roundPointsAwardedRef = useRef(false); // Whether points were awarded this round
+
+  // Round result display
+  const [showRoundResult, setShowRoundResult] = useState(false);
+  const [roundResultType, setRoundResultType] = useState<"steal_success" | "steal_fail" | "round_complete">("round_complete");
+  const [roundResultTeamName, setRoundResultTeamName] = useState("");
+  const [roundResultPoints, setRoundResultPoints] = useState(0);
+
+  // Round history
+  const [roundHistory, setRoundHistory] = useState<{ round: number; team: 1 | 2; points: number; type: string }[]>([]);
+
   // Shuffle and pick questions
   const initializeQuestions = useCallback(() => {
     const shuffled = [...ALL_QUESTIONS].sort(() => Math.random() - 0.5);
@@ -2903,6 +3171,7 @@ export default function FamilyFeudPage() {
     if (round <= totalRounds && selectedQuestions.length > 0) {
       const q = selectedQuestions[round - 1];
       if (q) {
+        roundPointsAwardedRef.current = false;
         const t = setTimeout(() => {
           setCurrentAnswers(q.answers.map((a) => ({ ...a, revealed: false })));
           setRoundScore(0);
@@ -2951,6 +3220,7 @@ export default function FamilyFeudPage() {
     setStrikes((prev) => {
       const newStrikes = prev + 1;
       if (newStrikes >= 3) {
+        strikesTeamRef.current = currentTeam;
         playSteal();
         setGamePhase("steal");
       }
@@ -2958,7 +3228,7 @@ export default function FamilyFeudPage() {
     });
     setFeedback({ show: true, correct: false });
     setTimeout(() => setFeedback({ show: false, correct: false }), 1500);
-  }, [playStrike, playSteal]);
+  }, [playStrike, playSteal, currentTeam]);
 
   // Pass to other team
   const handlePassToOtherTeam = useCallback(() => {
@@ -2987,53 +3257,97 @@ export default function FamilyFeudPage() {
     }
   }, [round, totalRounds]);
 
+  // Award round points (if not yet awarded) then go to next round
+  const handleAwardAndNextRound = useCallback(() => {
+    if (!roundPointsAwardedRef.current && currentAnswers.length > 0) {
+      const allPoints = currentAnswers.reduce((sum, a) => sum + a.points, 0);
+      if (currentTeam === 1) {
+        setTeam1Score((prev) => prev + allPoints);
+      } else {
+        setTeam2Score((prev) => prev + allPoints);
+      }
+      roundPointsAwardedRef.current = true;
+      playCorrect();
+
+      // Track history
+      setRoundHistory((prev) => [...prev, { round, team: currentTeam, points: allPoints, type: "كامل" }]);
+
+      // Show result card briefly
+      setRoundResultType("round_complete");
+      setRoundResultTeamName(currentTeam === 1 ? team1Name : team2Name);
+      setRoundResultPoints(allPoints);
+      setShowRoundResult(true);
+      setTimeout(() => setShowRoundResult(false), 1500);
+    }
+    handleNextRound();
+  }, [currentAnswers, currentTeam, handleNextRound, playCorrect, round, team1Name, team2Name]);
+
+  // Handle steal (successful) - OTHER team gets ALL round points
   const handleSteal = useCallback(() => {
-    // Successful steal: the OTHER team (stealing team) gets ALL round points
+    const teamThatGotStrikes = strikesTeamRef.current;
+    const stealingTeam: 1 | 2 = teamThatGotStrikes === 1 ? 2 : 1;
     const allPoints = currentAnswers.reduce((sum, a) => sum + a.points, 0);
-    // The stealing team is the OPPOSITE of the team that got 3 strikes
-    const stealingTeam = currentTeam === 1 ? 2 : 1;
+
     if (stealingTeam === 1) {
       setTeam1Score((prev) => prev + allPoints);
     } else {
       setTeam2Score((prev) => prev + allPoints);
     }
-    setCurrentAnswers((prev) => prev.map((a) => ({ ...a, revealed: true })));
-    playCorrect();
-    setFeedback({
-      show: true,
-      correct: true,
-      answer: `🎉 سرقة ناجحة! ${stealingTeam === 1 ? team1Name : team2Name} يأخذ +${allPoints} نقاط`,
-    });
-    setTimeout(() => {
-      setFeedback({ show: false, correct: false });
-      handleNextRound();
-    }, 2500);
-  }, [currentAnswers, currentTeam, team1Name, team2Name, handleNextRound, playCorrect]);
 
-  // No steal (failed steal)
+    setCurrentAnswers((prev) => prev.map((a) => ({ ...a, revealed: true })));
+    setRoundScore(0);
+    roundPointsAwardedRef.current = true;
+    playCorrect();
+
+    // Show big result card
+    const stealingTeamName = stealingTeam === 1 ? team1Name : team2Name;
+    setRoundResultType("steal_success");
+    setRoundResultTeamName(stealingTeamName);
+    setRoundResultPoints(allPoints);
+    setShowRoundResult(true);
+
+    // Track history
+    setRoundHistory((prev) => [...prev, { round, team: stealingTeam, points: allPoints, type: "سرقة" }]);
+
+    setTimeout(() => {
+      setShowRoundResult(false);
+      handleNextRound();
+    }, 2800);
+  }, [currentAnswers, team1Name, team2Name, handleNextRound, playCorrect, round]);
+
+  // No steal (failed steal) - ORIGINAL team keeps revealed points
   const handleNoSteal = useCallback(() => {
-    // Failed steal: the ORIGINAL team (currentTeam) keeps only their revealed points
-    // The stealing team gets NOTHING
+    const teamThatGotStrikes = strikesTeamRef.current;
     const revealedPoints = currentAnswers
       .filter((a) => a.revealed)
       .reduce((sum, a) => sum + a.points, 0);
-    if (currentTeam === 1) {
+
+    if (teamThatGotStrikes === 1) {
       setTeam1Score((prev) => prev + revealedPoints);
     } else {
       setTeam2Score((prev) => prev + revealedPoints);
     }
+
     setCurrentAnswers((prev) => prev.map((a) => ({ ...a, revealed: true })));
+    setRoundScore(0);
+    roundPointsAwardedRef.current = true;
     playStrike();
-    setFeedback({
-      show: true,
-      correct: false,
-      answer: `❌ سرقة فاشلة! ${currentTeam === 1 ? team1Name : team2Name} يحتفظ بـ ${revealedPoints} نقاط فقط`,
-    });
+
+    // Show big result card
+    const originalTeamName = teamThatGotStrikes === 1 ? team1Name : team2Name;
+    setRoundResultType("steal_fail");
+    setRoundResultTeamName(originalTeamName);
+    setRoundResultPoints(revealedPoints);
+    setShowRoundResult(true);
+
+    // Track history
+    setRoundHistory((prev) => [...prev, { round, team: teamThatGotStrikes, points: revealedPoints, type: "محفوظ" }]);
+
     setTimeout(() => {
-      setFeedback({ show: false, correct: false });
+      setShowRoundResult(false);
       handleNextRound();
-    }, 2500);
-  }, [currentAnswers, currentTeam, team1Name, team2Name, handleNextRound, playStrike]);
+    }, 2800);
+  }, [currentAnswers, team1Name, team2Name, handleNextRound, playStrike, round]);
 
   // Reveal all
   const handleRevealAll = useCallback(() => {
@@ -3042,12 +3356,25 @@ export default function FamilyFeudPage() {
       return sum;
     }, 0);
     setCurrentAnswers((prev) => prev.map((a) => ({ ...a, revealed: true })));
+    const totalAwarded = roundScore + points;
     if (currentTeam === 1) {
-      setTeam1Score((prev) => prev + roundScore + points);
+      setTeam1Score((prev) => prev + totalAwarded);
     } else {
-      setTeam2Score((prev) => prev + roundScore + points);
+      setTeam2Score((prev) => prev + totalAwarded);
     }
-  }, [currentAnswers, currentTeam, roundScore]);
+    roundPointsAwardedRef.current = true;
+    setRoundScore(0);
+
+    // Track history
+    setRoundHistory((prev) => [...prev, { round, team: currentTeam, points: totalAwarded, type: "كشف" }]);
+
+    // Show result card
+    setRoundResultType("round_complete");
+    setRoundResultTeamName(currentTeam === 1 ? team1Name : team2Name);
+    setRoundResultPoints(totalAwarded);
+    setShowRoundResult(true);
+    setTimeout(() => setShowRoundResult(false), 2500);
+  }, [currentAnswers, currentTeam, roundScore, round, team1Name, team2Name]);
 
   // Timer for Fast Money
   useEffect(() => {
@@ -3254,6 +3581,14 @@ export default function FamilyFeudPage() {
         answer={feedback.answer}
       />
 
+      {/* Round Result Card */}
+      <RoundResultCard
+        show={showRoundResult}
+        type={roundResultType}
+        teamName={roundResultTeamName}
+        points={roundResultPoints}
+      />
+
       {showGameOver ? (
         <GameOverScreen
           team1Name={team1Name}
@@ -3262,6 +3597,7 @@ export default function FamilyFeudPage() {
           team2Score={team2Score}
           onRestart={handleReset}
           onHome={handleReset}
+          roundHistory={roundHistory}
         />
       ) : gamePhase === "faceoff" && currentQuestion ? (
         <div className="flex-1 flex flex-col">
@@ -3310,11 +3646,45 @@ export default function FamilyFeudPage() {
                 👑 العراب - الجولة {round}/{totalRounds}
               </Badge>
               <div className="flex items-center gap-2">
-                <span className="text-xs text-amber-400 font-bold">{team1Score}</span>
-                <span className="text-slate-600">-</span>
-                <span className="text-xs text-rose-400 font-bold">{team2Score}</span>
+                <motion.span
+                  key={team1Score}
+                  initial={{ scale: 1.3, color: "#fbbf24" }}
+                  animate={{ scale: 1 }}
+                  className="text-xs font-black tabular-nums"
+                >
+                  <span className="text-amber-400">👑 {team1Score}</span>
+                </motion.span>
+                <span className="text-slate-600 text-[10px]">VS</span>
+                <motion.span
+                  key={team2Score}
+                  initial={{ scale: 1.3 }}
+                  animate={{ scale: 1 }}
+                  className="text-xs font-black tabular-nums"
+                >
+                  <span className="text-rose-400">🏛️ {team2Score}</span>
+                </motion.span>
               </div>
             </div>
+            {/* Round History Indicator */}
+            {roundHistory.length > 0 && (
+              <div className="max-w-md mx-auto px-3 pb-1.5 flex gap-1 overflow-x-auto scrollbar-thin">
+                {roundHistory.map((rh, i) => (
+                  <div
+                    key={i}
+                    className={cn(
+                      "flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-bold shrink-0 border",
+                      rh.team === 1
+                        ? "bg-amber-900/30 border-amber-500/20 text-amber-400"
+                        : "bg-rose-900/30 border-rose-500/20 text-rose-400"
+                    )}
+                  >
+                    <span>{rh.team === 1 ? "👑" : "🏛️"}</span>
+                    <span>+{rh.points}</span>
+                    <span className="text-slate-500">{rh.type}</span>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
 
           <GameBoardView
@@ -3332,7 +3702,7 @@ export default function FamilyFeudPage() {
             onSteal={handleSteal}
             onNoSteal={handleNoSteal}
             onRevealAll={handleRevealAll}
-            phase={gamePhase === "steal" ? "steal" : "playing"}
+            phase="playing"
             round={round}
             totalRounds={totalRounds}
             roundScore={roundScore}
@@ -3342,7 +3712,7 @@ export default function FamilyFeudPage() {
           {currentAnswers.every((a) => a.revealed) && (
             <div className="px-3 pb-3">
               <Button
-                onClick={handleNextRound}
+                onClick={handleAwardAndNextRound}
                 className="w-full bg-gradient-to-l from-amber-600 to-rose-600 text-white font-bold h-11"
               >
                 {round >= totalRounds
@@ -3356,7 +3726,7 @@ export default function FamilyFeudPage() {
       ) : gamePhase === "steal" && currentQuestion ? (
         <div className="flex-1 flex flex-col">
           {/* Game top bar */}
-          <div className="sticky top-0 z-50 border-b border-slate-800/50 bg-slate-950/90 backdrop-blur-sm">
+          <div className="sticky top-0 z-50 border-b border-rose-500/30 bg-slate-950/90 backdrop-blur-sm">
             <div className="max-w-md mx-auto flex items-center justify-between px-3 py-1.5">
               <Button
                 onClick={handleReset}
@@ -3376,26 +3746,39 @@ export default function FamilyFeudPage() {
             </div>
           </div>
 
-          <GameBoardView
-            question={currentQuestion.question}
-            answers={currentAnswers}
-            currentTeam={currentTeam === 1 ? 2 : 1}
-            team1Score={team1Score}
-            team2Score={team2Score}
-            team1Name={team1Name}
-            team2Name={team2Name}
-            strikes={strikes}
-            onRevealAnswer={handleRevealAnswer}
-            onAddStrike={handleAddStrike}
-            onPassToOtherTeam={handlePassToOtherTeam}
-            onSteal={handleSteal}
-            onNoSteal={handleNoSteal}
-            onRevealAll={handleRevealAll}
-            phase="steal"
-            round={round}
-            totalRounds={totalRounds}
-            roundScore={roundScore}
-          />
+          {/* Pulsing border during steal phase */}
+          <motion.div
+            animate={{
+              borderColor: [
+                "rgba(244,63,94,0.3)",
+                "rgba(251,146,60,0.5)",
+                "rgba(244,63,94,0.3)",
+              ],
+            }}
+            transition={{ duration: 2, repeat: Infinity }}
+            className="flex-1 flex flex-col mx-2 my-2 sm:mx-4 sm:my-3 border-2 rounded-3xl overflow-hidden"
+          >
+            <GameBoardView
+              question={currentQuestion.question}
+              answers={currentAnswers}
+              currentTeam={currentTeam === 1 ? 2 : 1}
+              team1Score={team1Score}
+              team2Score={team2Score}
+              team1Name={team1Name}
+              team2Name={team2Name}
+              strikes={strikes}
+              onRevealAnswer={handleRevealAnswer}
+              onAddStrike={handleAddStrike}
+              onPassToOtherTeam={handlePassToOtherTeam}
+              onSteal={handleSteal}
+              onNoSteal={handleNoSteal}
+              onRevealAll={handleRevealAll}
+              phase="steal"
+              round={round}
+              totalRounds={totalRounds}
+              roundScore={roundScore}
+            />
+          </motion.div>
         </div>
       ) : gamePhase === "fast_money" ? (
         <div className="flex-1 flex flex-col">
