@@ -3390,16 +3390,37 @@ function LandingPage({
               <Card className="bg-slate-900/80 border-slate-700/50">
                 <CardContent className="pt-4 text-xs sm:text-sm text-slate-300 space-y-3">
                   <div>
-                    <h4 className="font-bold text-amber-400 mb-1">
+                    <h4 className="font-bold text-amber-400 mb-1.5">
                       👑 وضع العراب (المقدم):
                     </h4>
                     <ul className="space-y-1 text-slate-400 pr-4">
                       <li>• أنت المقدم مثل ستيف هارفي في البرنامج</li>
                       <li>• ترى جميع الإجابات والنقاط مسبقاً</li>
                       <li>• اضغط على الإجابة لكشفها عند التخمين الصحيح</li>
-                      <li>• 3 إخفاقات = فرصة سرقة للفريق الآخر</li>
-                      <li>• 5 جولات عادية + جولة المال السريع</li>
                     </ul>
+                  </div>
+                  <div className="pt-2 border-t border-slate-700/50">
+                    <h4 className="font-bold text-amber-400 mb-1.5">
+                      🎮 مراحل اللعبة:
+                    </h4>
+                    <ol className="space-y-2 text-slate-400 pr-4 list-decimal">
+                      <li>
+                        <span className="font-bold text-amber-300">⚔️ مرحلة المواجهة:</span>
+                        الفريق الذي يضغط أولاً يجيب. إذا إجابة صحيحة يبدأ اللعب. إذا خاطئة، الفريق الآخر يحاول.
+                      </li>
+                      <li>
+                        <span className="font-bold text-amber-300">🎮 مرحلة اللعب:</span>
+                        المستضيف يكشف الإجابات واحدة تلو الأخرى. 3 إخفاقات = فرصة سرقة!
+                      </li>
+                      <li>
+                        <span className="font-bold text-amber-300">🎯 مرحلة السرقة:</span>
+                        الفريق الآخر يمكنه سرقة كل النقاط بإجابة صحيحة واحدة.
+                      </li>
+                      <li>
+                        <span className="font-bold text-amber-300">💰 المال السريع:</span>
+                        كل فريق يجيب على 5 أسئلة. النقاط مضاعفة (×2)!
+                      </li>
+                    </ol>
                   </div>
                   <div className="pt-2 border-t border-slate-700/50">
                     <p className="text-amber-400/80 text-xs">
@@ -4637,10 +4658,20 @@ function GameBoardView({
   const difficultyInfo = questionDifficulty ? getDifficultyInfo(questionDifficulty) : null;
   const hasUnrevealed = answers.some(a => !a.revealed);
 
+  // Screen shake on strike - use strikes as key so motion.div re-mounts and replays animation
+  const shakeKey = `${round}-${strikes}`;
+
   // Search removed for full-screen game experience
 
   return (
-    <div className="flex-1 flex flex-col p-3 sm:p-4 gap-3 relative" dir="rtl">
+    <motion.div
+      key={shakeKey}
+      initial={{ x: 0 }}
+      animate={strikes > 0 ? { x: [0, -8, 8, -6, 6, -3, 3, 0] } : { x: 0 }}
+      transition={{ duration: 0.5 }}
+      className="flex-1 flex flex-col p-3 sm:p-4 gap-3 relative"
+      dir="rtl"
+    >
       {/* Team Score Panels with VS Badge */}
       <div className="flex items-stretch gap-2 sm:gap-3">
         {/* Team 1 Score Panel */}
@@ -4848,6 +4879,24 @@ function GameBoardView({
             )}
           >
             النقاط المتبقية: {pointsRemaining}
+          </span>
+        </motion.div>
+        {/* Remaining Answers Counter */}
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.3 }}
+          className="mt-1"
+        >
+          <span
+            className={cn(
+              "text-[10px] font-bold tabular-nums",
+              answers.filter((a) => a.revealed).length / Math.max(answers.length, 1) >= 0.5
+                ? "text-emerald-400"
+                : "text-amber-400"
+            )}
+          >
+            {answers.filter((a) => a.revealed).length} من {answers.length} إجابة مكشوفة
           </span>
         </motion.div>
       </motion.div>
@@ -5127,7 +5176,7 @@ function GameBoardView({
         </div>
         )}
       </div>
-    </div>
+    </motion.div>
   );
 }
 
@@ -5799,6 +5848,43 @@ function GameOverScreen({
           show={true}
         />
 
+        {/* Most Valuable Round Highlight */}
+        {roundHistory.length > 0 && (() => {
+          const bestRound = roundHistory.reduce((best, rh) => rh.points > best.points ? rh : best, roundHistory[0]);
+          return bestRound.points > 0 ? (
+            <motion.div
+              initial={{ opacity: 0, y: 15, scale: 0.9 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              transition={{ delay: 1.1, type: "spring", stiffness: 200 }}
+              className="mt-4"
+            >
+              <div className="relative inline-flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-gradient-to-l from-amber-600/20 via-yellow-500/10 to-amber-600/20 border border-amber-500/40 shadow-lg shadow-amber-500/10">
+                <motion.div
+                  animate={{ rotate: [0, 10, -10, 0] }}
+                  transition={{ duration: 2, repeat: Infinity }}
+                  className="text-xl"
+                >
+                  🏆
+                </motion.div>
+                <div className="text-right">
+                  <p className="text-[10px] font-bold text-amber-400/70">أعلى نقطة في جولة واحدة</p>
+                  <p className="text-sm font-black">
+                    <span className="bg-gradient-to-l from-amber-300 to-yellow-400 bg-clip-text text-transparent">
+                      ج{bestRound.round}
+                    </span>
+                    <span className="text-slate-500 mx-1">·</span>
+                    <span className="text-amber-200">{bestRound.type}</span>
+                    <span className="text-slate-500 mx-1">·</span>
+                    <Badge className="bg-gradient-to-l from-amber-600 to-yellow-500 text-white text-xs px-2 py-0.5 font-black">
+                      +{bestRound.points}
+                    </Badge>
+                  </p>
+                </div>
+              </div>
+            </motion.div>
+          ) : null;
+        })()}
+
         {/* Score Difference Indicator */}
         {!isTie && winner && (
           <motion.div
@@ -6349,8 +6435,8 @@ export default function FamilyFeudPage() {
           playReveal();
           setTimeout(() => playCorrect(), 200);
 
-          // Top answer celebration sound (30+ points = #1 answer)
-          if (updated[index].points >= 30) {
+          // Top answer celebration sound (#1 answer by index)
+          if (index === 0) {
             setTimeout(() => playTopAnswer(), 350);
           }
 
