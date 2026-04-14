@@ -5516,6 +5516,8 @@ function GameOverScreen({
   onHome,
   roundHistory,
   gameStats,
+  regularRoundScore1,
+  regularRoundScore2,
 }: {
   team1Name: string;
   team2Name: string;
@@ -5536,6 +5538,8 @@ function GameOverScreen({
     fastMoneyScore1: number;
     fastMoneyScore2: number;
   };
+  regularRoundScore1: number;
+  regularRoundScore2: number;
 }) {
   const winner =
     team1Score > team2Score
@@ -5544,6 +5548,10 @@ function GameOverScreen({
         ? team2Name
         : null;
   const isTie = team1Score === team2Score;
+
+  // Calculate fast money scores from the difference
+  const fastMoneyOnly1 = team1Score - regularRoundScore1;
+  const fastMoneyOnly2 = team2Score - regularRoundScore2;
 
   return (
     <div className="flex-1 flex items-center justify-center p-4 relative overflow-hidden" dir="rtl">
@@ -5632,6 +5640,19 @@ function GameOverScreen({
               <CardContent className="p-4 relative z-10">
                 <p className="text-2xl mb-1">{team1Emoji}</p>
                 <p className="text-sm font-bold text-amber-300">{team1Name}</p>
+                {/* Score breakdown */}
+                <div className="mt-1 mb-1 space-y-0.5">
+                  <div className="flex justify-between text-[10px]">
+                    <span className="text-slate-400">الجولات العادية</span>
+                    <span className="font-bold text-slate-300">{regularRoundScore1}</span>
+                  </div>
+                  {fastMoneyOnly1 > 0 && (
+                    <div className="flex justify-between text-[10px]">
+                      <span className="text-emerald-400">💰 المال السريع</span>
+                      <span className="font-bold text-emerald-400">+{fastMoneyOnly1}</span>
+                    </div>
+                  )}
+                </div>
                 <motion.p
                   initial={{ scale: 0.5 }}
                   animate={{ scale: 1 }}
@@ -5679,6 +5700,19 @@ function GameOverScreen({
               <CardContent className="p-4 relative z-10">
                 <p className="text-2xl mb-1">{team2Emoji}</p>
                 <p className="text-sm font-bold text-rose-300">{team2Name}</p>
+                {/* Score breakdown */}
+                <div className="mt-1 mb-1 space-y-0.5">
+                  <div className="flex justify-between text-[10px]">
+                    <span className="text-slate-400">الجولات العادية</span>
+                    <span className="font-bold text-slate-300">{regularRoundScore2}</span>
+                  </div>
+                  {fastMoneyOnly2 > 0 && (
+                    <div className="flex justify-between text-[10px]">
+                      <span className="text-emerald-400">💰 المال السريع</span>
+                      <span className="font-bold text-emerald-400">+{fastMoneyOnly2}</span>
+                    </div>
+                  )}
+                </div>
                 <motion.p
                   initial={{ scale: 0.5 }}
                   animate={{ scale: 1 }}
@@ -5871,6 +5905,12 @@ export default function FamilyFeudPage() {
   const [fmSelected2, setFmSelected2] = useState<number[]>([]);
   const [showGameOver, setShowGameOver] = useState(false);
 
+  // Track regular round scores (before fast money) for score breakdown display
+  const [regularRoundScore1, setRegularRoundScore1] = useState(0);
+  const [regularRoundScore2, setRegularRoundScore2] = useState(0);
+  const regularRoundScore1Ref = useRef(0);
+  const regularRoundScore2Ref = useRef(0);
+
   // Feedback
   const [feedback, setFeedback] = useState<{
     show: boolean;
@@ -5936,6 +5976,10 @@ export default function FamilyFeudPage() {
   // Ref for internal strike to avoid ordering issues
   const handleAddStrikeInternalRef = useRef<() => void>(() => {});
 
+  // LocalStorage keys for tracking used questions across games
+  const USED_QUESTIONS_KEY = "familyfeud_used_questions";
+  const USED_FM_QUESTIONS_KEY = "familyfeud_used_fm_questions";
+
   // Shuffle and pick questions
   const initializeQuestions = useCallback(() => {
     // Filter questions by difficulty
@@ -5946,7 +5990,26 @@ export default function FamilyFeudPage() {
           return getQuestionDifficulty(totalPts) === difficultyFilter;
         });
     const pool = filtered.length >= totalRounds ? filtered : ALL_QUESTIONS;
-    const shuffled = [...pool].sort(() => Math.random() - 0.5);
+
+    // Track used questions across games
+    let usedIndices: number[] = [];
+    let usedFmIndices: number[] = [];
+    try {
+      usedIndices = JSON.parse(localStorage.getItem(USED_QUESTIONS_KEY) || '[]');
+      usedFmIndices = JSON.parse(localStorage.getItem(USED_FM_QUESTIONS_KEY) || '[]');
+    } catch {}
+
+    // Filter regular questions to exclude recently used ones
+    let filteredPool = pool.filter((q) => {
+      const idx = ALL_QUESTIONS.indexOf(q);
+      return idx === -1 || !usedIndices.includes(idx);
+    });
+    // If remaining pool is too small, reset used history
+    if (filteredPool.length < totalRounds) {
+      usedIndices = [];
+      filteredPool = pool;
+    }
+    const shuffled = [...filteredPool].sort(() => Math.random() - 0.5);
     const picked = shuffled.slice(0, totalRounds).map((q) => {
       const totalPts = q.answers.reduce((sum, a) => sum + a.points, 0);
       return {
@@ -5957,14 +6020,49 @@ export default function FamilyFeudPage() {
     });
     setSelectedQuestions(picked);
 
-    const fmShuffled = [...FAST_MONEY_QUESTIONS]
+    // Save used regular question indices
+    const newUsedIndices = [...usedIndices];
+    picked.forEach((q) => {
+      const idx = ALL_QUESTIONS.findIndex((aq) => aq.question === q.question);
+      if (idx !== -1 && !newUsedIndices.includes(idx)) {
+        newUsedIndices.push(idx);
+      }
+    });
+    // Keep last 100 used indices max
+    try {
+      localStorage.setItem(USED_QUESTIONS_KEY, JSON.stringify(newUsedIndices.slice(-100)));
+    } catch {}
+
+    // Filter fast money questions to exclude recently used ones
+    const fmNeeded = Math.min(5, FAST_MONEY_QUESTIONS.length);
+    let filteredFmPool = FAST_MONEY_QUESTIONS.filter((q) => {
+      const idx = FAST_MONEY_QUESTIONS.indexOf(q);
+      return idx === -1 || !usedFmIndices.includes(idx);
+    });
+    if (filteredFmPool.length < fmNeeded) {
+      usedFmIndices = [];
+      filteredFmPool = FAST_MONEY_QUESTIONS;
+    }
+    const fmShuffled = [...filteredFmPool]
       .sort(() => Math.random() - 0.5)
-      .slice(0, 5)
+      .slice(0, fmNeeded)
       .map((q) => ({
         ...q,
         answers: q.answers.map((a) => ({ ...a, revealed: false })),
       }));
     setFmQuestions(fmShuffled);
+
+    // Save used fast money question indices
+    const newUsedFmIndices = [...usedFmIndices];
+    fmShuffled.forEach((q) => {
+      const idx = FAST_MONEY_QUESTIONS.findIndex((fq) => fq.question === q.question);
+      if (idx !== -1 && !newUsedFmIndices.includes(idx)) {
+        newUsedFmIndices.push(idx);
+      }
+    });
+    try {
+      localStorage.setItem(USED_FM_QUESTIONS_KEY, JSON.stringify(newUsedFmIndices.slice(-50)));
+    } catch {}
   }, [totalRounds, difficultyFilter]);
 
   // Start game
@@ -6246,6 +6344,11 @@ export default function FamilyFeudPage() {
     setHintsUsedThisRound(0);
     hintsUsedThisRoundRef.current = 0;
     if (round >= totalRounds) {
+      // Save regular round scores before entering fast money
+      regularRoundScore1Ref.current = team1Score;
+      regularRoundScore2Ref.current = team2Score;
+      setRegularRoundScore1(team1Score);
+      setRegularRoundScore2(team2Score);
       setGamePhase("fast_money");
       setFmPhase("intro");
       setFmAnswers1(Array(5).fill(""));
@@ -6263,7 +6366,7 @@ export default function FamilyFeudPage() {
       setStrikes(0);
       setGamePhase("faceoff");
     }
-  }, [round, totalRounds]);
+  }, [round, totalRounds, team1Score, team2Score]);
 
   // Award round points (if not yet awarded) then go to next round
   const handleAwardAndNextRound = useCallback(() => {
@@ -6819,6 +6922,8 @@ export default function FamilyFeudPage() {
           onHome={handleReset}
           roundHistory={roundHistory}
           gameStats={gameStats}
+          regularRoundScore1={regularRoundScore1}
+          regularRoundScore2={regularRoundScore2}
         />
       ) : gamePhase === "faceoff" && currentQuestion ? (
         <div className="flex-1 flex flex-col">
@@ -7043,20 +7148,48 @@ export default function FamilyFeudPage() {
               <Card className="bg-slate-900/80 border-amber-500/30 mb-3">
                 <CardContent className="p-4">
                   <h3 className="text-sm font-bold text-white mb-3 text-center">
-                    نتائج المال السريع
+                    💰 نتائج المال السريع
                   </h3>
                   <div className="grid grid-cols-2 gap-3 mb-3">
-                    <div className="text-center">
-                      <p className="text-xs text-amber-400">{team1Name}</p>
-                      <p className="text-xl font-black text-amber-300">
-                        +{fmScore1}
-                      </p>
+                    {/* Team 1 breakdown */}
+                    <div className="text-center bg-amber-950/30 rounded-xl p-3 border border-amber-500/20">
+                      <p className="text-xs font-bold text-amber-400 mb-2">{team1Name}</p>
+                      <div className="space-y-1">
+                        <div className="flex justify-between text-[10px] text-slate-400">
+                          <span>الجولات العادية</span>
+                          <span className="font-bold text-white">{team1Score}</span>
+                        </div>
+                        <div className="flex justify-between text-[10px] text-emerald-400">
+                          <span>💰 المال السريع</span>
+                          <span className="font-bold">+{fmScore1}</span>
+                        </div>
+                        <div className="border-t border-amber-500/20 pt-1 mt-1">
+                          <div className="flex justify-between text-xs">
+                            <span className="text-amber-300 font-bold">المجموع</span>
+                            <span className="font-black text-amber-300 text-base">{team1Score + fmScore1}</span>
+                          </div>
+                        </div>
+                      </div>
                     </div>
-                    <div className="text-center">
-                      <p className="text-xs text-rose-400">{team2Name}</p>
-                      <p className="text-xl font-black text-rose-300">
-                        +{fmScore2}
-                      </p>
+                    {/* Team 2 breakdown */}
+                    <div className="text-center bg-rose-950/30 rounded-xl p-3 border border-rose-500/20">
+                      <p className="text-xs font-bold text-rose-400 mb-2">{team2Name}</p>
+                      <div className="space-y-1">
+                        <div className="flex justify-between text-[10px] text-slate-400">
+                          <span>الجولات العادية</span>
+                          <span className="font-bold text-white">{team2Score}</span>
+                        </div>
+                        <div className="flex justify-between text-[10px] text-emerald-400">
+                          <span>💰 المال السريع</span>
+                          <span className="font-bold">+{fmScore2}</span>
+                        </div>
+                        <div className="border-t border-rose-500/20 pt-1 mt-1">
+                          <div className="flex justify-between text-xs">
+                            <span className="text-rose-300 font-bold">المجموع</span>
+                            <span className="font-black text-rose-300 text-base">{team2Score + fmScore2}</span>
+                          </div>
+                        </div>
+                      </div>
                     </div>
                   </div>
                   <Button
