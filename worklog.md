@@ -1073,3 +1073,61 @@ Priority recommendations for next phase:
 - Implement Diwaniya (online) mode for Family Feud
 - Add more Arabic questions for variety
 - QA testing on Vercel deployment
+
+---
+Task ID: 18
+Agent: Main Agent
+Task: QA review, bug fixes, styling improvements, new features
+
+Work Log:
+
+**QA Testing (via agent-browser on Vercel):**
+- Tested full game flow: Landing → Mode Selection → Team Setup → Faceoff → Game Board
+- Verified all existing features deployed and working on g-g-brown.vercel.app
+- Found 1 visual bug on homepage: Arabic heading missing spaces
+
+**Bug Fixes (2):**
+1. **Homepage Arabic Text Bug**: "اخترلعبتكالمفضلة" → "اختر لعبتك المفضلة" (added non-breaking spaces for proper RTL rendering)
+2. **Faceoff Question Quotes**: Changed `&quot;{question}&quot;` to `«{question}»` (proper Arabic quotation marks) in both FaceOffScreen and GameBoardView
+
+**New Features (3):**
+1. **Visual Faceoff Step Indicator**: 3-step horizontal stepper showing current faceoff phase:
+   - Step 1: "اختيار الفريق" (amber when active)
+   - Step 2: "التحقق من الإجابة" (amber when active)
+   - Step 3: "فرصة الفريق الآخر" (amber when active)
+   - Completed steps shown in emerald, connected by colored lines
+   - Hidden during countdown, visible after team selection phase starts
+
+2. **Animated Score Change Popup**: Floating "+X نقاط" animation at bottom-center when points awarded:
+   - Triggered in 4 scoring functions: handleAwardAndNextRound, handleSteal, handleNoSteal, handleRevealAll
+   - Team-colored (amber/rose) with backdrop blur and border
+   - AnimatePresence with spring animations, auto-hides after 1.5s
+
+3. **Improved Fast Money Results Card**:
+   - Gradient border effect (amber → yellow → rose)
+   - Pulsing 💰 icon animations
+   - Larger total scores (text-xl) with glow text-shadow effects
+   - Spring entry animation (scale + y translation)
+   - Total score pop animation with spring delay
+
+**Lint:** Zero errors in familyfeud/page.tsx and page.tsx
+
+Stage Summary:
+- Commit: 40c38f2, pushed to GitHub
+- Vercel auto-deploys from main
+- All 5 improvements completed with zero new lint errors
+
+Current project status:
+- G-G repo on GitHub (commit 40c38f2), Vercel auto-deploys from main
+- 7+ games total: 7 available + 3 coming soon
+- Family Feud: 153+ questions, full game flow, score animations, visual step indicators
+- Homepage: all text properly formatted
+
+Unresolved issues:
+- Diwaniya (online) mode for Family Feud is still placeholder only
+
+Priority recommendations for next phase:
+- Implement Diwaniya (online) mode for Family Feud with WebSocket
+- Add more Arabic questions for variety (target 200+)
+- Add more game settings (timer pause/resume)
+- Consider mobile app-like experience improvements
