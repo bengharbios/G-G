@@ -1020,3 +1020,56 @@ Priority recommendations for next phase:
 - Implement Diwaniya (online) mode for Family Feud with WebSocket
 - Add more culturally relevant Arabic questions
 - Test complete game flow with difficulty filter and hint system
+
+---
+Task ID: 16
+Agent: Main Agent
+Task: Fix 2 user-reported bugs - repeated questions + missing score breakdown
+
+Work Log:
+
+**Bug 1 - Repeated Questions Across Games (CRITICAL):**
+- User reported: "المشاكل من الممكن ان تعاد نفس الأسئلة عند بداية لعبة جديدة"
+- Root cause: `initializeQuestions()` only shuffled ALL_QUESTIONS randomly with no memory of previous games
+- Fix: Added localStorage-based tracking of used question indices across games
+  - New keys: `familyfeud_used_questions` and `familyfeud_used_fm_questions`
+  - On game start: reads used indices, filters pool to exclude used questions
+  - Auto-resets history when unused pool < totalRounds (max 100 regular, 50 FM)
+  - Same logic for FAST_MONEY_QUESTIONS
+  - handleReset() does NOT clear used history (persists across games)
+
+**Bug 2 - Results Page Missing Score Breakdown (CRITICAL):**
+- User reported: "في صفحة النتائج يظهر نتائج المرحلة الاولى فقط ولا يحتسب المرحلة الثانية"
+- Root cause: Fast money results card only showed `+X` without total context
+- Fix Part A - Fast Money Results Card:
+  - Now shows full breakdown: الجولات العادية + 💰 المال السريع = المجموع
+  - Each team gets a styled card with color theming (amber/rose)
+  - Clear visual separation between regular and fast money scores
+- Fix Part B - State Tracking:
+  - Added `regularRoundScore1/2` state and refs
+  - `handleNextRound()` captures scores before entering fast_money phase
+- Fix Part C - GameOverScreen:
+  - Added `regularRoundScore1/2` props
+  - Each score card now shows breakdown: regular + fast money = total
+  - `fastMoneyOnly1/2` calculated as difference for display
+
+**Lint:** Zero errors in familyfeud/page.tsx
+
+Stage Summary:
+- Commit: afff339, pushed to GitHub
+- Questions no longer repeat across consecutive games
+- Results clearly show both stages with score breakdown
+- 149 lines added, 16 removed
+
+Current project status:
+- G-G repo on GitHub (commit afff339), Vercel auto-deploys from main
+- Family Feud fully functional with all reported bugs fixed
+- Question variety improved across games
+
+Unresolved issues:
+- Diwaniya (online) mode for Family Feud is still placeholder only
+
+Priority recommendations for next phase:
+- Implement Diwaniya (online) mode for Family Feud
+- Add more Arabic questions for variety
+- QA testing on Vercel deployment
