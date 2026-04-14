@@ -1131,3 +1131,54 @@ Priority recommendations for next phase:
 - Add more Arabic questions for variety (target 200+)
 - Add more game settings (timer pause/resume)
 - Consider mobile app-like experience improvements
+
+---
+Task ID: 19
+Agent: Main Agent
+Task: QA review, styling improvements, and new features
+
+Work Log:
+
+**QA Testing (via agent-browser on Vercel):**
+- Verified homepage text fix deployed ("اختر لعبتك المفضلة" with spaces)
+- Tested full game flow: Landing → Mode → Setup (3 steps) → Faceoff → Game Board
+- Verified Arabic quotes «» deployed on faceoff and gameboard question display
+- Confirmed team setup wizard flow: step 1 (emojis) → step 2 (names) → step 3 (settings)
+- Checked score change animation, fast money results card styling
+
+**New Features (5):**
+1. **Screen Shake on Strike**: Added key-based framer-motion shake animation to GameBoardView. When strikes increase, composite key (round-strikes) changes, triggering remount with shake motion: x: [0, -8, 8, -6, 6, -3, 3, 0] over 0.5s. No extra state needed.
+
+2. **Remaining Answers Counter**: Added progress indicator below points remaining pill on game board. Shows "X من Y إجابة مكشوفة". Color-coded: amber when < 50% revealed, emerald when ≥ 50%.
+
+3. **Most Valuable Round Highlight**: New section in GameOverScreen between AnimatedBarChart and score difference. Uses reduce() on roundHistory to find highest-scoring round. Shows round number, type badge (سرقة/كامل/محفوظ/كشف), and points with golden gradient and trophy animation.
+
+4. **Enhanced Rules Modal**: Replaced basic rules with 4-step game flow explanation:
+   - ⚔️ مرحلة المواجهة (faceoff: first buzz, correct/wrong, other team chance)
+   - 🎮 مرحلة اللعب (playing: reveal answers one by one, 3 strikes = steal chance)
+   - 🎯 مرحلة السرقة (steal: other team steals all points with one correct answer)
+   - 💰 المال السريع (fast money: 5 questions each, ×2 points multiplier)
+
+5. **Top Answer Sound Fix**: Changed playTopAnswer() trigger from "30+ points" to "index === 0" so the special bell sound only plays when the actual #1 ranked answer is revealed.
+
+**Lint:** Zero errors in familyfeud/page.tsx
+
+Stage Summary:
+- Commit: bdda5b2, pushed to GitHub
+- Vercel auto-deploys from main
+- All 5 improvements completed with zero lint errors
+
+Current project status:
+- G-G repo on GitHub (commit bdda5b2), Vercel auto-deploys from main
+- 7+ games total: 7 available + 3 coming soon
+- Family Feud: 153+ questions, full game polish, all phases enhanced
+- Game features: screen shake, answer counter, top answer sound, rules, MVP highlight
+
+Unresolved issues:
+- Diwaniya (online) mode for Family Feud is still placeholder only
+
+Priority recommendations for next phase:
+- Add more Arabic questions (target 200+)
+- Implement Diwaniya (online) mode for Family Feud with WebSocket
+- Add player name validation in team setup
+- Consider adding a "daily challenge" or tournament mode
