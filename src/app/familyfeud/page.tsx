@@ -4218,8 +4218,60 @@ function FaceOffScreen({
         >
           ⚔️ المواجهة
         </motion.p>
+
+        {/* Visual Step Indicator */}
+        {countdown === null && (
+          <motion.div
+            initial={{ opacity: 0, y: -5 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.3 }}
+            className="flex items-center justify-center gap-3 mb-2"
+          >
+            {[
+              { key: "select_team", label: "اختيار الفريق" },
+              { key: "verify_answer", label: "التحقق من الإجابة" },
+              { key: "other_team_chance", label: "فرصة الفريق الآخر" },
+            ].map((step, i) => {
+              const stepIndex = ["select_team", "verify_answer", "other_team_chance"].indexOf(faceoffStep);
+              const isActive = faceoffStep === step.key;
+              const isCompleted = stepIndex > i;
+              return (
+                <div key={step.key} className="flex items-center gap-2">
+                  {i > 0 && (
+                    <div className={`w-4 h-0.5 rounded-full transition-colors duration-300 ${isCompleted ? "bg-emerald-400" : "bg-slate-700"}`} />
+                  )}
+                  <motion.div
+                    animate={{
+                      scale: isActive ? 1.15 : 1,
+                    }}
+                    transition={{ duration: 0.3 }}
+                    className="flex flex-col items-center gap-0.5"
+                  >
+                    <div
+                      className={`w-3 h-3 rounded-full transition-colors duration-300 ${
+                        isActive
+                          ? "bg-amber-400 shadow-lg shadow-amber-400/50"
+                          : isCompleted
+                            ? "bg-emerald-400"
+                            : "bg-slate-700"
+                      }`}
+                    />
+                    <span
+                      className={`text-[9px] font-bold transition-colors duration-300 ${
+                        isActive ? "text-amber-400" : isCompleted ? "text-emerald-400" : "text-slate-600"
+                      }`}
+                    >
+                      {step.label}
+                    </span>
+                  </motion.div>
+                </div>
+              );
+            })}
+          </motion.div>
+        )}
+
         <h2 className="text-base sm:text-lg font-black text-white max-w-md leading-relaxed mx-auto">
-          &quot;{question}&quot;
+          «{question}»
         </h2>
         {faceoffStep === "select_team" && buzzerActive && !selectedTeam && (
           <motion.p
@@ -4775,7 +4827,7 @@ function GameBoardView({
           className="rounded-2xl px-3 py-2"
         >
           <h2 className="text-base sm:text-lg font-black text-white leading-relaxed">
-            &quot;{question}&quot;
+            «{question}»
           </h2>
         </motion.div>
         <motion.div
@@ -5885,6 +5937,22 @@ export default function FamilyFeudPage() {
   const [roundTimerDuration, setRoundTimerDuration] = useState(0);
   const [gamePhase, setGamePhase] = useState<"faceoff" | "gameboard" | "steal" | "fast_money" | "game_over">("faceoff");
 
+  // Score change animation
+  const [scoreChangeAnimation, setScoreChangeAnimation] = useState<{
+    team: 1 | 2;
+    points: number;
+    visible: boolean;
+  }>({ team: 1, points: 0, visible: false });
+  const scoreAnimTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+  const showScoreAnimation = useCallback((team: 1 | 2, points: number) => {
+    if (scoreAnimTimerRef.current) clearTimeout(scoreAnimTimerRef.current);
+    setScoreChangeAnimation({ team, points, visible: true });
+    scoreAnimTimerRef.current = setTimeout(() => {
+      setScoreChangeAnimation((prev) => ({ ...prev, visible: false }));
+    }, 1500);
+  }, []);
+
   // Questions
   const [selectedQuestions, setSelectedQuestions] = useState<Question[]>([]);
   const [currentAnswers, setCurrentAnswers] = useState<Answer[]>([]);
@@ -6378,6 +6446,7 @@ export default function FamilyFeudPage() {
         setTeam2Score((prev) => prev + allPoints);
       }
       roundPointsAwardedRef.current = true;
+      showScoreAnimation(currentTeam, allPoints);
       playCorrect();
 
       // Track history
@@ -6391,7 +6460,7 @@ export default function FamilyFeudPage() {
       setTimeout(() => setShowRoundResult(false), 1500);
     }
     handleNextRound();
-  }, [currentAnswers, currentTeam, handleNextRound, playCorrect, round, team1Name, team2Name]);
+  }, [currentAnswers, currentTeam, handleNextRound, playCorrect, round, team1Name, team2Name, showScoreAnimation]);
 
   // Handle steal (successful) - OTHER team gets ALL round points
   const handleSteal = useCallback(() => {
@@ -6404,6 +6473,7 @@ export default function FamilyFeudPage() {
     } else {
       setTeam2Score((prev) => prev + allPoints);
     }
+    showScoreAnimation(stealingTeam, allPoints);
 
     setCurrentAnswers((prev) => prev.map((a) => ({ ...a, revealed: true })));
     setRoundScore(0);
@@ -6429,7 +6499,7 @@ export default function FamilyFeudPage() {
       setShowRoundResult(false);
       handleNextRound();
     }, 2800);
-  }, [currentAnswers, team1Name, team2Name, handleNextRound, playCorrect, round]);
+  }, [currentAnswers, team1Name, team2Name, handleNextRound, playCorrect, round, showScoreAnimation]);
 
   // No steal (failed steal) - ORIGINAL team keeps revealed points
   const handleNoSteal = useCallback(() => {
@@ -6443,6 +6513,7 @@ export default function FamilyFeudPage() {
     } else {
       setTeam2Score((prev) => prev + revealedPoints);
     }
+    showScoreAnimation(teamThatGotStrikes, revealedPoints);
 
     setCurrentAnswers((prev) => prev.map((a) => ({ ...a, revealed: true })));
     setRoundScore(0);
@@ -6463,7 +6534,7 @@ export default function FamilyFeudPage() {
       setShowRoundResult(false);
       handleNextRound();
     }, 2800);
-  }, [currentAnswers, team1Name, team2Name, handleNextRound, playStrike, round]);
+  }, [currentAnswers, team1Name, team2Name, handleNextRound, playStrike, round, showScoreAnimation]);
 
   // Reveal all
   const handleRevealAll = useCallback(() => {
@@ -6478,6 +6549,7 @@ export default function FamilyFeudPage() {
     } else {
       setTeam2Score((prev) => prev + totalAwarded);
     }
+    showScoreAnimation(currentTeam, totalAwarded);
     roundPointsAwardedRef.current = true;
     setRoundScore(0);
 
@@ -6490,7 +6562,7 @@ export default function FamilyFeudPage() {
     setRoundResultPoints(totalAwarded);
     setShowRoundResult(true);
     setTimeout(() => setShowRoundResult(false), 2500);
-  }, [currentAnswers, currentTeam, roundScore, round, team1Name, team2Name]);
+  }, [currentAnswers, currentTeam, roundScore, round, team1Name, team2Name, showScoreAnimation]);
 
   // Use hint: reveal a random unrevealed answer with half points
   const handleUseHint = useCallback(() => {
@@ -7145,66 +7217,125 @@ export default function FamilyFeudPage() {
           {/* Fast Money Results */}
           {fmPhase === "results" && (
             <div className="px-3 pb-4">
-              <Card className="bg-slate-900/80 border-amber-500/30 mb-3">
-                <CardContent className="p-4">
-                  <h3 className="text-sm font-bold text-white mb-3 text-center">
-                    💰 نتائج المال السريع
-                  </h3>
-                  <div className="grid grid-cols-2 gap-3 mb-3">
-                    {/* Team 1 breakdown */}
-                    <div className="text-center bg-amber-950/30 rounded-xl p-3 border border-amber-500/20">
-                      <p className="text-xs font-bold text-amber-400 mb-2">{team1Name}</p>
-                      <div className="space-y-1">
-                        <div className="flex justify-between text-[10px] text-slate-400">
-                          <span>الجولات العادية</span>
-                          <span className="font-bold text-white">{team1Score}</span>
+              <motion.div
+                initial={{ opacity: 0, scale: 0.9, y: 20 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                transition={{ duration: 0.5, type: "spring", stiffness: 200, damping: 20 }}
+              >
+                <div className="relative p-[2px] rounded-2xl bg-gradient-to-br from-amber-400 via-yellow-300 to-rose-400">
+                  <Card className="bg-slate-950 border-0 mb-0">
+                    <CardContent className="p-4">
+                      <h3 className="text-sm font-bold text-white mb-3 text-center flex items-center justify-center gap-2">
+                        <motion.span
+                          animate={{ scale: [1, 1.3, 1] }}
+                          transition={{ duration: 1.5, repeat: Infinity, ease: "easeInOut" }}
+                        >
+                          💰
+                        </motion.span>
+                        نتائج المال السريع
+                        <motion.span
+                          animate={{ scale: [1, 1.3, 1] }}
+                          transition={{ duration: 1.5, repeat: Infinity, ease: "easeInOut", delay: 0.75 }}
+                        >
+                          💰
+                        </motion.span>
+                      </h3>
+                      <div className="grid grid-cols-2 gap-3 mb-3">
+                        {/* Team 1 breakdown */}
+                        <div className="text-center bg-amber-950/30 rounded-xl p-3 border border-amber-500/20">
+                          <p className="text-xs font-bold text-amber-400 mb-2">{team1Name}</p>
+                          <div className="space-y-1">
+                            <div className="flex justify-between text-[10px] text-slate-400">
+                              <span>الجولات العادية</span>
+                              <span className="font-bold text-white">{team1Score}</span>
+                            </div>
+                            <div className="flex justify-between text-[10px] text-emerald-400">
+                              <span>💰 المال السريع</span>
+                              <span className="font-bold">+{fmScore1}</span>
+                            </div>
+                            <div className="border-t border-amber-500/20 pt-1 mt-1">
+                              <div className="flex justify-between text-xs">
+                                <span className="text-amber-300 font-bold">المجموع</span>
+                                <motion.span
+                                  initial={{ scale: 0.8 }}
+                                  animate={{ scale: 1 }}
+                                  transition={{ delay: 0.3, type: "spring" }}
+                                  className="font-black text-amber-300 text-xl"
+                                  style={{ textShadow: "0 0 20px rgba(251,191,36,0.5), 0 0 40px rgba(251,191,36,0.2)" }}
+                                >
+                                  {team1Score + fmScore1}
+                                </motion.span>
+                              </div>
+                            </div>
+                          </div>
                         </div>
-                        <div className="flex justify-between text-[10px] text-emerald-400">
-                          <span>💰 المال السريع</span>
-                          <span className="font-bold">+{fmScore1}</span>
-                        </div>
-                        <div className="border-t border-amber-500/20 pt-1 mt-1">
-                          <div className="flex justify-between text-xs">
-                            <span className="text-amber-300 font-bold">المجموع</span>
-                            <span className="font-black text-amber-300 text-base">{team1Score + fmScore1}</span>
+                        {/* Team 2 breakdown */}
+                        <div className="text-center bg-rose-950/30 rounded-xl p-3 border border-rose-500/20">
+                          <p className="text-xs font-bold text-rose-400 mb-2">{team2Name}</p>
+                          <div className="space-y-1">
+                            <div className="flex justify-between text-[10px] text-slate-400">
+                              <span>الجولات العادية</span>
+                              <span className="font-bold text-white">{team2Score}</span>
+                            </div>
+                            <div className="flex justify-between text-[10px] text-emerald-400">
+                              <span>💰 المال السريع</span>
+                              <span className="font-bold">+{fmScore2}</span>
+                            </div>
+                            <div className="border-t border-rose-500/20 pt-1 mt-1">
+                              <div className="flex justify-between text-xs">
+                                <span className="text-rose-300 font-bold">المجموع</span>
+                                <motion.span
+                                  initial={{ scale: 0.8 }}
+                                  animate={{ scale: 1 }}
+                                  transition={{ delay: 0.3, type: "spring" }}
+                                  className="font-black text-rose-300 text-xl"
+                                  style={{ textShadow: "0 0 20px rgba(251,113,133,0.5), 0 0 40px rgba(251,113,133,0.2)" }}
+                                >
+                                  {team2Score + fmScore2}
+                                </motion.span>
+                              </div>
+                            </div>
                           </div>
                         </div>
                       </div>
-                    </div>
-                    {/* Team 2 breakdown */}
-                    <div className="text-center bg-rose-950/30 rounded-xl p-3 border border-rose-500/20">
-                      <p className="text-xs font-bold text-rose-400 mb-2">{team2Name}</p>
-                      <div className="space-y-1">
-                        <div className="flex justify-between text-[10px] text-slate-400">
-                          <span>الجولات العادية</span>
-                          <span className="font-bold text-white">{team2Score}</span>
-                        </div>
-                        <div className="flex justify-between text-[10px] text-emerald-400">
-                          <span>💰 المال السريع</span>
-                          <span className="font-bold">+{fmScore2}</span>
-                        </div>
-                        <div className="border-t border-rose-500/20 pt-1 mt-1">
-                          <div className="flex justify-between text-xs">
-                            <span className="text-rose-300 font-bold">المجموع</span>
-                            <span className="font-black text-rose-300 text-base">{team2Score + fmScore2}</span>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                  <Button
-                    onClick={handleEndGame}
-                    className="w-full bg-gradient-to-l from-amber-600 to-yellow-600 text-white font-bold"
-                  >
-                    <Trophy className="w-4 h-4 ml-1" />
-                    إنهاء اللعبة
-                  </Button>
-                </CardContent>
-              </Card>
+                      <Button
+                        onClick={handleEndGame}
+                        className="w-full bg-gradient-to-l from-amber-600 to-yellow-600 text-white font-bold"
+                      >
+                        <Trophy className="w-4 h-4 ml-1" />
+                        إنهاء اللعبة
+                      </Button>
+                    </CardContent>
+                  </Card>
+                </div>
+              </motion.div>
             </div>
           )}
         </div>
       ) : null}
+      {/* Score Change Animation Popup */}
+      <AnimatePresence>
+        {scoreChangeAnimation.visible && (
+          <motion.div
+            key="score-anim"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -40 }}
+            transition={{ duration: 0.4, ease: "easeOut" }}
+            className="fixed bottom-8 left-1/2 -translate-x-1/2 z-50 pointer-events-none"
+          >
+            <div
+              className={`px-6 py-3 rounded-2xl font-black text-xl shadow-2xl backdrop-blur-md border ${
+                scoreChangeAnimation.team === 1
+                  ? "bg-amber-500/20 border-amber-400/40 text-amber-300 shadow-amber-500/30"
+                  : "bg-rose-500/20 border-rose-400/40 text-rose-300 shadow-rose-500/30"
+              }`}
+            >
+              +{scoreChangeAnimation.points} نقاط
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
       </div>
     </div>
   );

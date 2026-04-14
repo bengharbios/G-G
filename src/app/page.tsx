@@ -883,10 +883,10 @@ function GamesSection() {
             🎮 الألعاب المتاحة
           </Badge>
           <h2 className="text-3xl sm:text-4xl md:text-5xl font-black text-white mb-4">
-            اختر{' '}
+            اختر{'\u00A0'}
             <span className="bg-gradient-to-l from-red-400 to-orange-400 bg-clip-text text-transparent">
               لعبتك
-            </span>{' '}
+            </span>{'\u00A0'}
             المفضلة
           </h2>
           <p className="text-slate-400 max-w-xl mx-auto text-base sm:text-lg">
