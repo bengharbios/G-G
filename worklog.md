@@ -1182,3 +1182,55 @@ Priority recommendations for next phase:
 - Implement Diwaniya (online) mode for Family Feud with WebSocket
 - Add player name validation in team setup
 - Consider adding a "daily challenge" or tournament mode
+
+---
+Task ID: 16
+Agent: Main Agent + full-stack-developer
+Task: Add بحر و حرب (Sea & War) Arabic word puzzle game
+
+Work Log:
+- Created /src/lib/baharharb-questions.ts with 600 Arabic word puzzle questions
+  - Each question has 2 clues and 2 answers (shared root word pattern)
+  - Questions cover: Quran, poetry, history, science, geography, daily life
+  - TypeScript interface: BaharHarbQuestion { id, clues: [string, string], answers: [string, string] }
+- Created /src/app/baharharb/page.tsx (~1200 lines) - Complete game page with:
+  - Landing page: mode selection (العراب functional, الديوانية coming soon)
+  - Settings page: team names, teams/individuals toggle, question count (10/15/20/30)
+  - Game board: two clue cards (🌊 بحر, ⚔️ حرب), host reveal controls, team scoring
+  - Question deduplication via localStorage (tracks last 500 used question IDs)
+  - Game over screen with winner announcement and score breakdown
+- Added game card to homepage (src/app/page.tsx):
+  - Teal/emerald color theme
+  - "ذكاء" category, 2-20 players
+  - Features: العراب, فرق أو أفراد, 600+ سؤال, أدوات سحب عشوائي
+- Added CSS to globals.css:
+  - .baharharb-bg dark teal gradient background
+  - .baharharb-scrollbar custom scrollbar styling
+  - .pulse-glow-teal pulse glow animation
+  - .wave-float / .sword-swing custom animations
+- Zero lint errors in new files
+- Commit: db951c2, pushed to GitHub
+- Vercel auto-deploys from main
+
+Stage Summary:
+- بحر و حرب game fully functional at /baharharb with العراب (host) mode
+- 600 questions covering diverse Arabic knowledge categories
+- Teal/emerald themed design distinct from other games
+- Added to platform homepage as 8th available game
+- Game flow: Landing → Settings → Playing (host reveals clues/answers) → Game Over
+
+Current project status:
+- G-G repo on GitHub (commit db951c2), Vercel auto-deploys from main
+- 8 games total: 8 available + 3 coming soon
+- All games feature العراب and الديوانية mode options
+
+Unresolved issues:
+- بحر و حرب الديوانية (online) mode is placeholder only
+- Family Feud الديوانية (online) mode is placeholder only
+- Headers across different games are not yet unified
+
+Priority recommendations for next phase:
+- QA test the new بحر و حرب game
+- Add remaining 1062 questions (currently have 600 of 1662)
+- Style polish for بحر و حرب game
+- Implement online (الديوانية) mode for games
