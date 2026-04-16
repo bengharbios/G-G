@@ -1266,3 +1266,66 @@ Stage Summary:
 - Homepage shows latest version with all games
 - Successfully deployed to Vercel production
 - No pending changes needed
+
+---
+Task ID: 1
+Agent: Main Agent
+Task: Create game entry hub system (intermediate landing page before game entry)
+
+Work Log:
+
+**1. Extracted shared game data:**
+- Created `/src/lib/games-data.ts` with `GameData` interface and `games` array
+- Added `joinPath` field to each game specifying the room code join URL pattern (e.g., `/join/{code}?name={name}`, `/join/tobol/{code}?name={name}`)
+- Exported helper functions: `buildJoinUrl(gameId, code, name)` and `getGameById(gameId)`
+- Updated all available game `href` values from `/${gameId}` to `/play/${gameId}` (e.g., `/mafia` → `/play/mafia`)
+- Coming soon games keep `href: null`
+
+**2. Updated homepage to use shared module:**
+- Removed inline `GameData` interface and `games` array from `/src/app/page.tsx`
+- Added import: `import { games, type GameData } from '@/lib/games-data'`
+- Game cards now link to `/play/${gameId}` instead of directly to game URLs
+
+**3. Created game entry hub page:**
+- Created `/src/app/play/[gameId]/page.tsx` with two-phase flow:
+  - **Choose Mode** (default): Shows game info (emoji, title, description, player count, category, features) with two action cards:
+    - "العب كمستضيف" (Play as Host) / العراب — redirects to `/${gameId}` (actual game page)
+    - "أدخل كود الغرفة" (Enter Room Code) / الديوانية — shows join form
+  - **Join Mode**: Shows player name input + room code input + "انضم" button → redirects to game-specific join URL
+- Game-specific theme colors derived from `themeColor` field (gradient, glow, solid color)
+- RTL direction (`dir="rtl"`) throughout
+- Framer Motion animations: staggered entry, floating emoji, pulsing glow on host card, scale on tap
+- Dark theme (bg-slate-950, slate-900 cards) with game-themed gradient accents
+- 404 fallback if gameId not found in game list
+- Responsive mobile-first design
+- "How it works" explainer section with numbered steps
+- Error validation on join form (name and code required)
+- Enter key support for room code submission
+
+**4. Join URL routing:**
+- mafia/tabot/baharharb/familyfeud → `/join/{code}?name={name}`
+- tobol → `/join/tobol/{code}?name={name}`
+- prison → `/join/prison/{code}?name={name}`
+- risk → `/join/risk/{code}?name={name}`
+- risk2 → `/join/risk2/{code}?name={name}`
+
+**Lint:**
+- Zero lint errors in new/modified files (play/[gameId]/page.tsx, games-data.ts, page.tsx)
+- All pre-existing lint errors in join/mafia/risk/tobol/prison/risk2 pages remain unchanged
+
+Stage Summary:
+- Game entry hub system fully implemented at `/play/[gameId]`
+- Homepage game cards now route through entry hub instead of directly to games
+- Shared game data module prevents duplication between homepage and entry hub
+- Beautiful dark theme with game-specific accent colors
+- Full RTL Arabic support with animations
+
+Current project status:
+- G-G repo on GitHub, Vercel auto-deploys from main
+- 8 games total: 8 available + 3 coming soon (all available games route through /play/ entry hub)
+- Game entry hub supports both host mode and room code join mode
+
+Priority recommendations for next phase:
+- Test all game flows through the new entry hub
+- Consider adding game screenshots/previews to the entry hub
+- Add loading states during navigation transitions
