@@ -1589,3 +1589,37 @@ Stage Summary:
 - Users can manage their frames collection from profile page
 - Files modified: admin-db.ts, admin/page.tsx, profile/page.tsx
 - Files created: api/admin/frames/route.ts, api/admin/frames/grant/route.ts, api/frames/route.ts
+---
+Task ID: 16
+Agent: Main Agent
+Task: Fix pre-login icon visibility, fix frame grant bug, redesign profile page
+
+Work Log:
+- Fixed header to hide gems counter (💎 2,450) before login
+- Fixed header to hide notifications bell (🔔) before login
+- Fixed DailyRewardsSection to only render when authUser is not null
+- Fixed LuckySpinCard to only render when authUser is not null
+- Fixed frame grant bug: admin panel was sending username as userId instead of actual UUID
+- Added grantSelectedUser state to properly track selected user display info separately from userId
+- Improved user search in admin: now uses server-side search via ?search= query param
+- Added search by ID, username, displayName, and email in /api/admin/users
+- Added UUID validation fallback in /api/admin/frames/grant - resolves username to userId
+- Completely redesigned profile page with game-style layout:
+  - Centered avatar with large level ring SVG (148px) wrapping around it
+  - Equipped frame shown as glowing animated border around avatar
+  - Centered name/username/plan badge below avatar
+  - Beautiful ornate stats cards (Level, Gems, Games)
+  - XP progress bar with gradient fill and glow effects
+  - Frame Gallery section: grid of owned frames with equip/unequip functionality
+  - Equipped frame has green glow + checkmark indicator
+  - Collapsible settings sections (subscription, edit profile, change password, account info)
+- Deployed to Vercel: https://g-g-beta.vercel.app
+
+Stage Summary:
+- All 4 pre-login visibility issues fixed
+- Frame grant bug fixed (was using username instead of UUID)
+- Server-side user search added for admin panel
+- Profile page completely redesigned to game-style
+- Frame gallery with equip/unequip functionality added to profile
+- Zero new lint errors introduced
+- Deployed and live at g-g-beta.vercel.app
