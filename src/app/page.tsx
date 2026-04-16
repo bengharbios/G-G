@@ -445,6 +445,8 @@ const promoSlides = [
 function PromoBanner() {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [isPaused, setIsPaused] = useState(false);
+  const isTouchingRef = useRef(false);
+  const autoScrollRef = useRef(true);
 
   useEffect(() => {
     const el = scrollRef.current;
@@ -455,7 +457,7 @@ function PromoBanner() {
     const speed = 0.5;
 
     const step = () => {
-      if (!isPaused) {
+      if (!isPaused && !isTouchingRef.current && autoScrollRef.current) {
         scrollPos += speed;
         if (scrollPos >= el.scrollWidth / 2) {
           scrollPos = 0;
@@ -469,6 +471,17 @@ function PromoBanner() {
     return () => cancelAnimationFrame(animId);
   }, [isPaused]);
 
+  // Pause auto-scroll on touch, resume after 3s of no touch
+  const handleTouchStart = useCallback(() => {
+    isTouchingRef.current = true;
+    autoScrollRef.current = false;
+  }, []);
+  const handleTouchEnd = useCallback(() => {
+    isTouchingRef.current = false;
+    // Resume auto-scroll after 3 seconds
+    setTimeout(() => { autoScrollRef.current = true; }, 3000);
+  }, []);
+
   // Duplicate slides for seamless loop
   const allSlides = [...promoSlides, ...promoSlides];
 
@@ -477,16 +490,18 @@ function PromoBanner() {
       className="relative w-full overflow-hidden"
       onMouseEnter={() => setIsPaused(true)}
       onMouseLeave={() => setIsPaused(false)}
+      onTouchStart={handleTouchStart}
+      onTouchEnd={handleTouchEnd}
     >
       <div
         ref={scrollRef}
-        className="flex gap-3 overflow-hidden scrollbar-none py-2 px-3"
-        style={{ scrollBehavior: 'auto' }}
+        className="flex gap-3 overflow-x-auto scrollbar-none py-2 px-3 snap-x snap-mandatory"
+        style={{ scrollBehavior: 'auto', WebkitOverflowScrolling: 'touch' }}
       >
         {allSlides.map((slide, i) => (
           <div
             key={i}
-            className={`min-w-[280px] sm:min-w-[320px] flex-shrink-0 rounded-xl bg-gradient-to-l ${slide.bg} border border-white/5 p-4 cursor-default`}
+            className={`min-w-[260px] sm:min-w-[320px] flex-shrink-0 rounded-xl bg-gradient-to-l ${slide.bg} border border-white/5 p-4 cursor-default snap-start`}
           >
             <div className="flex items-center gap-3">
               <span className="text-3xl">{slide.emoji}</span>
@@ -498,7 +513,7 @@ function PromoBanner() {
           </div>
         ))}
       </div>
-      {/* Edge fades */}
+      {/* Edge fades - hidden during touch */}
       <div className="absolute inset-y-0 left-0 w-8 bg-gradient-to-r from-slate-950 to-transparent pointer-events-none z-10" />
       <div className="absolute inset-y-0 right-0 w-8 bg-gradient-to-l from-slate-950 to-transparent pointer-events-none z-10" />
     </div>
@@ -542,6 +557,8 @@ function EventsBannerSection() {
   const { events, loaded } = useActiveEvents();
   const scrollRef = useRef<HTMLDivElement>(null);
   const [isPaused, setIsPaused] = useState(false);
+  const isTouchingRef = useRef(false);
+  const autoScrollRef = useRef(true);
 
   useEffect(() => {
     const el = scrollRef.current;
@@ -552,7 +569,7 @@ function EventsBannerSection() {
     const speed = 0.4;
 
     const step = () => {
-      if (!isPaused) {
+      if (!isPaused && !isTouchingRef.current && autoScrollRef.current) {
         scrollPos += speed;
         if (scrollPos >= el.scrollWidth / 2) {
           scrollPos = 0;
@@ -566,6 +583,16 @@ function EventsBannerSection() {
     return () => cancelAnimationFrame(animId);
   }, [isPaused, events]);
 
+  // Pause auto-scroll on touch, resume after 3s of no touch
+  const handleTouchStart = useCallback(() => {
+    isTouchingRef.current = true;
+    autoScrollRef.current = false;
+  }, []);
+  const handleTouchEnd = useCallback(() => {
+    isTouchingRef.current = false;
+    setTimeout(() => { autoScrollRef.current = true; }, 3000);
+  }, []);
+
   if (!loaded || events.length === 0) return <PromoBanner />;
 
   const allEvents = [...events, ...events];
@@ -575,18 +602,20 @@ function EventsBannerSection() {
       className="relative w-full overflow-hidden"
       onMouseEnter={() => setIsPaused(true)}
       onMouseLeave={() => setIsPaused(false)}
+      onTouchStart={handleTouchStart}
+      onTouchEnd={handleTouchEnd}
     >
       <div
         ref={scrollRef}
-        className="flex gap-3 overflow-hidden scrollbar-none py-2 px-3"
-        style={{ scrollBehavior: 'auto' }}
+        className="flex gap-3 overflow-x-auto scrollbar-none py-2 px-3 snap-x snap-mandatory"
+        style={{ scrollBehavior: 'auto', WebkitOverflowScrolling: 'touch' }}
       >
         {allEvents.map((event, i) => {
           const colors = badgeColorMap[event.badgeColor] || badgeColorMap.amber;
           return (
             <div
               key={`${event.id}-${i}`}
-              className={`min-w-[280px] sm:min-w-[320px] flex-shrink-0 rounded-xl border ${colors.border} bg-gradient-to-l ${colors.bg} p-4 cursor-default shadow-lg ${colors.glow}`}
+              className={`min-w-[260px] sm:min-w-[320px] flex-shrink-0 rounded-xl border ${colors.border} bg-gradient-to-l ${colors.bg} p-4 cursor-default shadow-lg ${colors.glow} snap-start`}
             >
               <div className="flex items-start gap-3">
                 <span className="text-3xl">{event.badge}</span>
