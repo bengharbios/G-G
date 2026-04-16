@@ -26,6 +26,7 @@ import {
   Check,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import SubscriptionGuard from '@/components/SubscriptionGuard';
 import { allBaharHarbQuestions, BaharHarbQuestion } from '@/lib/baharharb-questions';
 
 // ============================================================
@@ -1129,76 +1130,63 @@ export default function BaharHarbPage() {
     setState(INITIAL_STATE);
   }, []);
 
-  // Loading state
-  if (!hydrated) {
-    return (
-      <div className="min-h-screen flex flex-col items-center justify-center baharharb-bg">
-        <div className="text-center flex-1 flex items-center justify-center">
-          <div>
-            <div className="text-5xl mb-4">🌊⚔️</div>
-            <p className="text-slate-400">جاري التحميل...</p>
+  return (
+    <SubscriptionGuard gameSlug="baharharb">
+      {!hydrated && (
+        <div className="min-h-screen flex flex-col items-center justify-center baharharb-bg">
+          <div className="text-center flex-1 flex items-center justify-center">
+            <div>
+              <div className="text-5xl mb-4">🌊⚔️</div>
+              <p className="text-slate-400">جاري التحميل...</p>
+            </div>
           </div>
+          <BrandedFooter />
         </div>
-        <BrandedFooter />
-      </div>
-    );
-  }
+      )}
 
-  // Landing Phase
-  if (state.phase === 'landing') {
-    return (
-      <div className="min-h-screen flex flex-col baharharb-bg">
-        <BrandedHeader title="بحر و حرب" />
-        <main className="flex-1">
-          <LandingPage onStart={() => dispatch({ mode: 'godfather', phase: 'settings' })} />
-        </main>
-        <BrandedFooter />
-      </div>
-    );
-  }
+      {hydrated && state.phase === 'landing' && (
+        <div className="min-h-screen flex flex-col baharharb-bg">
+          <BrandedHeader title="بحر و حرب" />
+          <main className="flex-1">
+            <LandingPage onStart={() => dispatch({ mode: 'godfather', phase: 'settings' })} />
+          </main>
+          <BrandedFooter />
+        </div>
+      )}
 
-  // Settings Phase
-  if (state.phase === 'settings') {
-    return (
-      <div className="min-h-screen flex flex-col baharharb-bg">
-        <BrandedHeader title="بحر و حرب" />
-        <main className="flex-1">
-          <SettingsPage onStart={startGame} onBack={resetToLanding} />
-        </main>
-        <BrandedFooter />
-      </div>
-    );
-  }
+      {hydrated && state.phase === 'settings' && (
+        <div className="min-h-screen flex flex-col baharharb-bg">
+          <BrandedHeader title="بحر و حرب" />
+          <main className="flex-1">
+            <SettingsPage onStart={startGame} onBack={resetToLanding} />
+          </main>
+          <BrandedFooter />
+        </div>
+      )}
 
-  // Playing Phase
-  if (state.phase === 'playing') {
-    return (
-      <div className="min-h-screen flex flex-col baharharb-bg">
-        <GameTopBar title={`سؤال ${state.currentQuestionIndex + 1}`} onHome={goHome} />
-        <main className="flex-1 flex flex-col">
-          <GameBoard
-            state={state}
-            dispatch={dispatch}
-            soundEnabled={soundEnabled}
-            onToggleSound={() => setSoundEnabled(!soundEnabled)}
-          />
-        </main>
-      </div>
-    );
-  }
+      {hydrated && state.phase === 'playing' && (
+        <div className="min-h-screen flex flex-col baharharb-bg">
+          <GameTopBar title={`سؤال ${state.currentQuestionIndex + 1}`} onHome={goHome} />
+          <main className="flex-1 flex flex-col">
+            <GameBoard
+              state={state}
+              dispatch={dispatch}
+              soundEnabled={soundEnabled}
+              onToggleSound={() => setSoundEnabled(!soundEnabled)}
+            />
+          </main>
+        </div>
+      )}
 
-  // Game Over Phase
-  if (state.phase === 'gameOver') {
-    return (
-      <div className="min-h-screen flex flex-col baharharb-bg">
-        <GameTopBar title="انتهت اللعبة" onHome={goHome} />
-        <main className="flex-1">
-          <GameOverPage state={state} onPlayAgain={resetToLanding} onHome={goHome} />
-        </main>
-        <BrandedFooter />
-      </div>
-    );
-  }
-
-  return null;
+      {hydrated && state.phase === 'gameOver' && (
+        <div className="min-h-screen flex flex-col baharharb-bg">
+          <GameTopBar title="انتهت اللعبة" onHome={goHome} />
+          <main className="flex-1">
+            <GameOverPage state={state} onPlayAgain={resetToLanding} onHome={goHome} />
+          </main>
+          <BrandedFooter />
+        </div>
+      )}
+    </SubscriptionGuard>
+  );
 }

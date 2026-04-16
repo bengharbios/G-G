@@ -1552,6 +1552,9 @@ export default function HomePage() {
         trialExpiresAt={profileData?.trialInfo?.expiresAt}
         isTrial={profileData?.subscriber?.isTrial}
         onLogout={handleLogout}
+        onLoginClick={() => { setProfileOpen(false); setTimeout(() => setLoginOpen(true), 150); }}
+        onRegisterClick={() => { setProfileOpen(false); setTimeout(() => setRegisterOpen(true), 150); }}
+        authUser={authUser}
       />
 
       {/* CSS keyframe for animated gradient border on cards */}

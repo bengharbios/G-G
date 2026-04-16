@@ -13,6 +13,9 @@ import { Separator } from '@/components/ui/separator';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { useToast } from '@/hooks/use-toast';
 import {
   User,
   Mail,
@@ -31,9 +34,27 @@ import {
   Trophy,
   Star,
   Fingerprint,
+  Pencil,
+  KeyRound,
+  LogIn,
+  UserPlus,
+  Loader2,
+  Eye,
+  EyeOff,
+  X,
 } from 'lucide-react';
 
 // ─── Types ────────────────────────────────────────────────────────────
+
+interface AuthUser {
+  id: string;
+  username: string;
+  email: string;
+  displayName: string;
+  phone: string;
+  avatar: string;
+  role: string;
+}
 
 interface UserProfileModalProps {
   open: boolean;
@@ -56,6 +77,9 @@ interface UserProfileModalProps {
   xpToNextLevel?: number;
   xpProgress?: number; // 0-100 percentage
   onLogout?: () => void;
+  onLoginClick?: () => void;
+  onRegisterClick?: () => void;
+  authUser?: AuthUser | null;
 }
 
 interface XPData {
@@ -442,6 +466,113 @@ function XPSkeleton() {
   );
 }
 
+// ─── Login Prompt Component ──────────────────────────────────────────
+
+function LoginPrompt({
+  onLoginClick,
+  onRegisterClick,
+}: {
+  onLoginClick?: () => void;
+  onRegisterClick?: () => void;
+}) {
+  return (
+    <div className="bg-slate-950 rounded-2xl border border-slate-800/60 overflow-hidden" dir="rtl">
+      {/* Top gradient */}
+      <div className="relative h-32 overflow-hidden">
+        <div className="absolute inset-0 bg-gradient-to-bl from-slate-800/60 via-slate-900/40 to-slate-950" />
+        <motion.div
+          className="absolute -top-10 -left-10 w-40 h-40 rounded-full opacity-10"
+          style={{ background: 'radial-gradient(circle, #64748b, transparent)' }}
+          animate={{ scale: [1, 1.2, 1], opacity: [0.08, 0.15, 0.08] }}
+          transition={{ repeat: Infinity, duration: 4 }}
+        />
+        <div
+          className="absolute inset-0 opacity-[0.03]"
+          style={{
+            backgroundImage:
+              'linear-gradient(rgba(255,255,255,.1) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.1) 1px, transparent 1px)',
+            backgroundSize: '20px 20px',
+          }}
+        />
+        {/* Lock icon */}
+        <div className="absolute inset-0 flex items-center justify-center">
+          <motion.div
+            initial={{ scale: 0.5, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            transition={{ type: 'spring', stiffness: 300, damping: 20, delay: 0.2 }}
+            className="w-16 h-16 rounded-full bg-slate-900/80 border border-slate-700/50 flex items-center justify-center"
+          >
+            <User className="w-8 h-8 text-slate-400" />
+          </motion.div>
+        </div>
+      </div>
+
+      <div className="p-6 space-y-5">
+        <motion.div
+          variants={itemVariants}
+          initial="hidden"
+          animate="visible"
+          className="text-center space-y-2"
+        >
+          <h2 className="text-xl font-black text-white">سجل دخولك للمتابعة</h2>
+          <p className="text-sm text-slate-400 leading-relaxed">
+            سجّل دخولك للاستمتاع بجميع الألعاب وتتبع مستواك وخبرتك
+          </p>
+        </motion.div>
+
+        <motion.div
+          variants={itemVariants}
+          initial="hidden"
+          animate="visible"
+          className="bg-slate-900/70 backdrop-blur-sm border border-slate-800/50 rounded-xl p-4 space-y-3"
+        >
+          <div className="flex items-center gap-3 text-sm">
+            <div className="w-8 h-8 rounded-lg bg-amber-500/10 border border-amber-500/20 flex items-center justify-center shrink-0">
+              <Trophy className="w-4 h-4 text-amber-400" />
+            </div>
+            <p className="text-slate-300 text-xs">تتبع مستواك وخبرتك في كل لعبة</p>
+          </div>
+          <div className="flex items-center gap-3 text-sm">
+            <div className="w-8 h-8 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center shrink-0">
+              <Gamepad2 className="w-4 h-4 text-emerald-400" />
+            </div>
+            <p className="text-slate-300 text-xs">الوصول لجميع الألعاب المتاحة</p>
+          </div>
+          <div className="flex items-center gap-3 text-sm">
+            <div className="w-8 h-8 rounded-lg bg-rose-500/10 border border-rose-500/20 flex items-center justify-center shrink-0">
+              <Crown className="w-4 h-4 text-rose-400" />
+            </div>
+            <p className="text-slate-300 text-xs">إدارة اشتراكك وملفك الشخصي</p>
+          </div>
+        </motion.div>
+
+        <motion.div
+          variants={itemVariants}
+          initial="hidden"
+          animate="visible"
+          className="space-y-3"
+        >
+          <Button
+            onClick={onLoginClick}
+            className="w-full h-11 bg-gradient-to-l from-emerald-600 to-emerald-700 hover:from-emerald-500 hover:to-emerald-600 text-white font-bold text-sm border border-emerald-500/20 transition-all shadow-lg shadow-emerald-500/10"
+          >
+            <LogIn className="w-4 h-4 ml-2" />
+            تسجيل الدخول
+          </Button>
+          <Button
+            onClick={onRegisterClick}
+            variant="outline"
+            className="w-full h-11 bg-slate-900/50 hover:bg-slate-800/50 text-slate-200 font-bold text-sm border border-slate-700/50 hover:border-slate-600/50 transition-all"
+          >
+            <UserPlus className="w-4 h-4 ml-2" />
+            إنشاء حساب جديد
+          </Button>
+        </motion.div>
+      </div>
+    </div>
+  );
+}
+
 // ─── Main Component ───────────────────────────────────────────────────
 
 export default function UserProfileModal({
@@ -460,17 +591,56 @@ export default function UserProfileModal({
   trialExpiresAt,
   isTrial = false,
   onLogout,
+  onLoginClick,
+  onRegisterClick,
+  authUser,
 }: UserProfileModalProps) {
+  const { toast } = useToast();
   const [codeCopied, setCodeCopied] = useState(false);
   const [playerIdCopied, setPlayerIdCopied] = useState(false);
   const [xpData, setXpData] = useState<XPData | null>(null);
   const [xpLoading, setXpLoading] = useState(false);
   const [xpError, setXpError] = useState(false);
 
+  // Edit profile state
+  const [isEditMode, setIsEditMode] = useState(false);
+  const [editDisplayName, setEditDisplayName] = useState('');
+  const [editPhone, setEditPhone] = useState('');
+  const [isSavingProfile, setIsSavingProfile] = useState(false);
+
+  // Change password state
+  const [showChangePassword, setShowChangePassword] = useState(false);
+  const [passwordCurrent, setPasswordCurrent] = useState('');
+  const [passwordNew, setPasswordNew] = useState('');
+  const [passwordConfirm, setPasswordConfirm] = useState('');
+  const [isChangingPassword, setIsChangingPassword] = useState(false);
+  const [showCurrentPw, setShowCurrentPw] = useState(false);
+  const [showNewPw, setShowNewPw] = useState(false);
+  const [showConfirmPw, setShowConfirmPw] = useState(false);
+
   const planBadge = getPlanBadge(subscriberPlan, isTrial);
   const daysRemaining = getDaysRemaining(endDate);
   const trialCountdown = useCountdown(trialExpiresAt);
   const subCountdown = useCountdown(endDate);
+
+  // Initialize edit fields when entering edit mode
+  useEffect(() => {
+    if (isEditMode) {
+      setEditDisplayName(authUser?.displayName ?? subscriberName ?? '');
+      setEditPhone(authUser?.phone ?? subscriberPhone ?? '');
+    }
+  }, [isEditMode, authUser, subscriberName, subscriberPhone]);
+
+  // Reset edit mode when modal closes
+  useEffect(() => {
+    if (!open) {
+      setIsEditMode(false);
+      setShowChangePassword(false);
+      setPasswordCurrent('');
+      setPasswordNew('');
+      setPasswordConfirm('');
+    }
+  }, [open]);
 
   // Fetch XP data when modal opens
   useEffect(() => {
@@ -551,6 +721,139 @@ export default function UserProfileModal({
     onOpenChange(false);
   }, [onLogout, onOpenChange]);
 
+  const handleSaveProfile = useCallback(async () => {
+    setIsSavingProfile(true);
+    try {
+      const res = await fetch('/api/auth/update-profile', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          displayName: editDisplayName,
+          phone: editPhone,
+        }),
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        toast({
+          title: 'تم تحديث الملف الشخصي',
+          description: 'تم حفظ التغييرات بنجاح',
+          variant: 'default',
+        });
+        setIsEditMode(false);
+      } else {
+        toast({
+          title: 'خطأ في التحديث',
+          description: data.error || 'حدث خطأ أثناء حفظ التغييرات',
+          variant: 'destructive',
+        });
+      }
+    } catch {
+      toast({
+        title: 'خطأ في الاتصال',
+        description: 'تعذر الاتصال بالخادم',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsSavingProfile(false);
+    }
+  }, [editDisplayName, editPhone, toast]);
+
+  const handleChangePassword = useCallback(async () => {
+    if (!passwordCurrent || !passwordNew || !passwordConfirm) {
+      toast({
+        title: 'حقول مطلوبة',
+        description: 'يرجى ملء جميع حقول كلمة المرور',
+        variant: 'destructive',
+      });
+      return;
+    }
+    if (passwordNew !== passwordConfirm) {
+      toast({
+        title: 'كلمات المرور غير متطابقة',
+        description: 'كلمة المرور الجديدة وتأكيدها غير متطابقتين',
+        variant: 'destructive',
+      });
+      return;
+    }
+    if (passwordNew.length < 6) {
+      toast({
+        title: 'كلمة مرور ضعيفة',
+        description: 'يجب أن تكون كلمة المرور الجديدة 6 أحرف على الأقل',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    setIsChangingPassword(true);
+    try {
+      const res = await fetch('/api/auth/change-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          currentPassword: passwordCurrent,
+          newPassword: passwordNew,
+        }),
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        toast({
+          title: 'تم تغيير كلمة المرور',
+          description: 'تم تحديث كلمة المرور بنجاح',
+          variant: 'default',
+        });
+        setShowChangePassword(false);
+        setPasswordCurrent('');
+        setPasswordNew('');
+        setPasswordConfirm('');
+      } else {
+        toast({
+          title: 'خطأ في التغيير',
+          description: data.error || 'حدث خطأ أثناء تغيير كلمة المرور',
+          variant: 'destructive',
+        });
+      }
+    } catch {
+      toast({
+        title: 'خطأ في الاتصال',
+        description: 'تعذر الاتصال بالخادم',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsChangingPassword(false);
+    }
+  }, [passwordCurrent, passwordNew, passwordConfirm, toast]);
+
+  // ── Login Prompt View ──
+  if (!authUser) {
+    return (
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent
+          className="sm:max-w-[400px] p-0 overflow-hidden border-0 bg-transparent"
+          showCloseButton={false}
+        >
+          <AnimatePresence mode="wait">
+            {open && (
+              <motion.div
+                key="login-prompt"
+                variants={modalVariants}
+                initial="hidden"
+                animate="visible"
+                exit="exit"
+              >
+                <LoginPrompt onLoginClick={onLoginClick} onRegisterClick={onRegisterClick} />
+              </motion.div>
+            )}
+          </AnimatePresence>
+          <DialogHeader className="sr-only">
+            <DialogTitle>تسجيل الدخول</DialogTitle>
+            <DialogDescription>سجل دخولك للمتابعة</DialogDescription>
+          </DialogHeader>
+        </DialogContent>
+      </Dialog>
+    );
+  }
+
+  // ── Authenticated Profile View ──
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
@@ -617,11 +920,19 @@ export default function UserProfileModal({
                   <div className={`absolute -inset-1 rounded-full bg-gradient-to-br ${planBadge.gradient} opacity-40 blur-sm`} />
                   {/* Avatar */}
                   <div
-                    className={`relative w-20 h-20 sm:w-[88px] sm:h-[88px] rounded-full bg-gradient-to-br ${planBadge.gradient} flex items-center justify-center border-4 border-slate-950 shadow-2xl`}
+                    className={`relative w-20 h-20 sm:w-[88px] sm:h-[88px] rounded-full bg-gradient-to-br ${planBadge.gradient} flex items-center justify-center border-4 border-slate-950 shadow-2xl overflow-hidden`}
                   >
-                    <span className="text-3xl sm:text-4xl font-black text-white drop-shadow-lg">
-                      {subscriberName ? subscriberName.charAt(0).toUpperCase() : '?'}
-                    </span>
+                    {authUser.avatar ? (
+                      <img
+                        src={authUser.avatar}
+                        alt={authUser.displayName}
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <span className="text-3xl sm:text-4xl font-black text-white drop-shadow-lg">
+                        {authUser.displayName ? authUser.displayName.charAt(0).toUpperCase() : '?'}
+                      </span>
+                    )}
                   </div>
                   {/* Plan badge */}
                   <div className="absolute -bottom-1 -left-1 px-2.5 py-0.5 rounded-full bg-slate-900 border border-slate-700/50 shadow-lg">
@@ -642,13 +953,111 @@ export default function UserProfileModal({
                     .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: rgba(100,116,139,0.5); }
                   `}</style>
                   <motion.div variants={itemVariants} className="space-y-5">
-                    {/* ── User Name ── */}
-                    <div className="text-right pr-1">
-                      <h2 className="text-xl sm:text-2xl font-black text-white">
-                        {subscriberName || 'مستخدم'}
-                      </h2>
-                      <p className="text-xs text-slate-500 mt-0.5">عضو في ألعاب الغريب</p>
+                    {/* ── User Name + Edit Button ── */}
+                    <div className="flex items-start justify-between gap-2 pr-1">
+                      <div className="min-w-0">
+                        <h2 className="text-xl sm:text-2xl font-black text-white truncate">
+                          {authUser.displayName || subscriberName || 'مستخدم'}
+                        </h2>
+                        <p className="text-xs text-slate-500 mt-0.5">عضو في ألعاب الغريب</p>
+                      </div>
+                      {!isEditMode && (
+                        <motion.button
+                          whileHover={{ scale: 1.1 }}
+                          whileTap={{ scale: 0.9 }}
+                          onClick={() => setIsEditMode(true)}
+                          className="shrink-0 w-9 h-9 rounded-xl bg-slate-800/60 border border-slate-700/40 flex items-center justify-center text-slate-400 hover:text-amber-400 hover:border-amber-500/30 hover:bg-slate-800 transition-all"
+                          title="تعديل الملف الشخصي"
+                        >
+                          <Pencil className="w-4 h-4" />
+                        </motion.button>
+                      )}
+                      {isEditMode && (
+                        <motion.button
+                          initial={{ scale: 0.8, opacity: 0 }}
+                          animate={{ scale: 1, opacity: 1 }}
+                          whileHover={{ scale: 1.1 }}
+                          whileTap={{ scale: 0.9 }}
+                          onClick={() => setIsEditMode(false)}
+                          className="shrink-0 w-9 h-9 rounded-xl bg-rose-500/10 border border-rose-500/20 flex items-center justify-center text-rose-400 hover:text-rose-300 hover:bg-rose-500/20 transition-all"
+                          title="إلغاء التعديل"
+                        >
+                          <X className="w-4 h-4" />
+                        </motion.button>
+                      )}
                     </div>
+
+                    {/* ── Edit Profile Mode ── */}
+                    <AnimatePresence>
+                      {isEditMode && (
+                        <motion.div
+                          initial={{ height: 0, opacity: 0 }}
+                          animate={{ height: 'auto', opacity: 1 }}
+                          exit={{ height: 0, opacity: 0 }}
+                          transition={{ duration: 0.3, ease: 'easeInOut' }}
+                          className="overflow-hidden"
+                        >
+                          <motion.div
+                            variants={itemVariants}
+                            className="bg-gradient-to-br from-amber-950/30 to-slate-900/50 backdrop-blur-sm border border-amber-500/20 rounded-xl p-4 space-y-4"
+                          >
+                            <div className="flex items-center gap-2">
+                              <Pencil className="w-4 h-4 text-amber-400" />
+                              <h3 className="text-sm font-bold text-amber-200">تعديل الملف الشخصي</h3>
+                            </div>
+
+                            {/* Display Name */}
+                            <div className="space-y-2">
+                              <Label className="text-xs text-slate-400">الاسم المعروض</Label>
+                              <Input
+                                value={editDisplayName}
+                                onChange={(e) => setEditDisplayName(e.target.value)}
+                                placeholder="أدخل اسمك المعروض"
+                                className="h-10 bg-slate-800/60 border-slate-700/50 text-white text-sm placeholder:text-slate-600 focus:border-amber-500/50 focus:ring-amber-500/20"
+                                dir="rtl"
+                              />
+                            </div>
+
+                            {/* Phone */}
+                            <div className="space-y-2">
+                              <Label className="text-xs text-slate-400">رقم الهاتف</Label>
+                              <Input
+                                value={editPhone}
+                                onChange={(e) => setEditPhone(e.target.value)}
+                                placeholder="أدخل رقم هاتفك"
+                                className="h-10 bg-slate-800/60 border-slate-700/50 text-white text-sm placeholder:text-slate-600 focus:border-amber-500/50 focus:ring-amber-500/20"
+                                dir="ltr"
+                                type="tel"
+                              />
+                            </div>
+
+                            {/* Action buttons */}
+                            <div className="flex items-center gap-2 pt-1">
+                              <Button
+                                onClick={handleSaveProfile}
+                                disabled={isSavingProfile}
+                                className="flex-1 h-10 bg-gradient-to-l from-amber-600 to-amber-700 hover:from-amber-500 hover:to-amber-600 text-white font-bold text-xs border border-amber-500/20 transition-all disabled:opacity-50"
+                              >
+                                {isSavingProfile ? (
+                                  <Loader2 className="w-4 h-4 ml-1.5 animate-spin" />
+                                ) : (
+                                  <CheckCircle2 className="w-4 h-4 ml-1.5" />
+                                )}
+                                حفظ التغييرات
+                              </Button>
+                              <Button
+                                onClick={() => setIsEditMode(false)}
+                                variant="outline"
+                                disabled={isSavingProfile}
+                                className="h-10 bg-slate-800/50 hover:bg-slate-700/50 text-slate-300 font-bold text-xs border border-slate-700/50 transition-all px-4"
+                              >
+                                إلغاء
+                              </Button>
+                            </div>
+                          </motion.div>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
 
                     {/* ── User Info Card ── */}
                     <motion.div
@@ -669,14 +1078,14 @@ export default function UserProfileModal({
                       )}
 
                       {/* Phone */}
-                      {subscriberPhone && (
+                      {(subscriberPhone || authUser.phone) && (
                         <div className="flex items-center gap-3 text-sm">
                           <div className="w-8 h-8 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center shrink-0">
                             <Phone className="w-4 h-4 text-emerald-400" />
                           </div>
                           <div className="min-w-0">
                             <p className="text-[10px] text-slate-500 mb-0.5">رقم الهاتف</p>
-                            <p className="text-slate-200 text-xs" dir="ltr">{subscriberPhone}</p>
+                            <p className="text-slate-200 text-xs" dir="ltr">{subscriberPhone || authUser.phone}</p>
                           </div>
                         </div>
                       )}
@@ -703,6 +1112,148 @@ export default function UserProfileModal({
                           </button>
                         </div>
                       )}
+                    </motion.div>
+
+                    {/* ── Change Password Section ── */}
+                    <motion.div variants={itemVariants}>
+                      <AnimatePresence mode="wait">
+                        {!showChangePassword ? (
+                          <motion.button
+                            key="pw-toggle-btn"
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            onClick={() => setShowChangePassword(true)}
+                            className="w-full flex items-center justify-center gap-2 bg-slate-900/50 border border-slate-800/50 hover:border-slate-700/60 hover:bg-slate-900/80 rounded-xl p-3 text-slate-400 hover:text-slate-200 transition-all group"
+                          >
+                            <KeyRound className="w-4 h-4 text-slate-500 group-hover:text-amber-400 transition-colors" />
+                            <span className="text-sm font-medium">تغيير كلمة المرور</span>
+                          </motion.button>
+                        ) : (
+                          <motion.div
+                            key="pw-form"
+                            initial={{ height: 0, opacity: 0 }}
+                            animate={{ height: 'auto', opacity: 1 }}
+                            exit={{ height: 0, opacity: 0 }}
+                            transition={{ duration: 0.3, ease: 'easeInOut' }}
+                            className="overflow-hidden"
+                          >
+                            <div className="bg-gradient-to-br from-slate-900/80 to-slate-900/60 backdrop-blur-sm border border-slate-700/40 rounded-xl p-4 space-y-3.5">
+                              <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-2">
+                                  <KeyRound className="w-4 h-4 text-amber-400" />
+                                  <h3 className="text-sm font-bold text-white">تغيير كلمة المرور</h3>
+                                </div>
+                                <motion.button
+                                  whileHover={{ scale: 1.1 }}
+                                  whileTap={{ scale: 0.9 }}
+                                  onClick={() => {
+                                    setShowChangePassword(false);
+                                    setPasswordCurrent('');
+                                    setPasswordNew('');
+                                    setPasswordConfirm('');
+                                  }}
+                                  className="w-7 h-7 rounded-lg bg-slate-800/60 border border-slate-700/40 flex items-center justify-center text-slate-400 hover:text-rose-400 hover:border-rose-500/30 transition-all"
+                                >
+                                  <X className="w-3.5 h-3.5" />
+                                </motion.button>
+                              </div>
+
+                              {/* Current Password */}
+                              <div className="space-y-1.5">
+                                <Label className="text-[11px] text-slate-400">كلمة المرور الحالية</Label>
+                                <div className="relative">
+                                  <Input
+                                    type={showCurrentPw ? 'text' : 'password'}
+                                    value={passwordCurrent}
+                                    onChange={(e) => setPasswordCurrent(e.target.value)}
+                                    placeholder="••••••••"
+                                    className="h-9 bg-slate-800/60 border-slate-700/50 text-white text-xs placeholder:text-slate-600 focus:border-amber-500/50 focus:ring-amber-500/20 pl-10"
+                                    dir="ltr"
+                                  />
+                                  <button
+                                    type="button"
+                                    onClick={() => setShowCurrentPw(!showCurrentPw)}
+                                    className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300 transition-colors"
+                                  >
+                                    {showCurrentPw ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                                  </button>
+                                </div>
+                              </div>
+
+                              {/* New Password */}
+                              <div className="space-y-1.5">
+                                <Label className="text-[11px] text-slate-400">كلمة المرور الجديدة</Label>
+                                <div className="relative">
+                                  <Input
+                                    type={showNewPw ? 'text' : 'password'}
+                                    value={passwordNew}
+                                    onChange={(e) => setPasswordNew(e.target.value)}
+                                    placeholder="••••••••"
+                                    className="h-9 bg-slate-800/60 border-slate-700/50 text-white text-xs placeholder:text-slate-600 focus:border-amber-500/50 focus:ring-amber-500/20 pl-10"
+                                    dir="ltr"
+                                  />
+                                  <button
+                                    type="button"
+                                    onClick={() => setShowNewPw(!showNewPw)}
+                                    className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300 transition-colors"
+                                  >
+                                    {showNewPw ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                                  </button>
+                                </div>
+                              </div>
+
+                              {/* Confirm New Password */}
+                              <div className="space-y-1.5">
+                                <Label className="text-[11px] text-slate-400">تأكيد كلمة المرور الجديدة</Label>
+                                <div className="relative">
+                                  <Input
+                                    type={showConfirmPw ? 'text' : 'password'}
+                                    value={passwordConfirm}
+                                    onChange={(e) => setPasswordConfirm(e.target.value)}
+                                    placeholder="••••••••"
+                                    className="h-9 bg-slate-800/60 border-slate-700/50 text-white text-xs placeholder:text-slate-600 focus:border-amber-500/50 focus:ring-amber-500/20 pl-10"
+                                    dir="ltr"
+                                  />
+                                  <button
+                                    type="button"
+                                    onClick={() => setShowConfirmPw(!showConfirmPw)}
+                                    className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300 transition-colors"
+                                  >
+                                    {showConfirmPw ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                                  </button>
+                                </div>
+                              </div>
+
+                              {/* Password mismatch warning */}
+                              {passwordConfirm && passwordNew !== passwordConfirm && (
+                                <motion.p
+                                  initial={{ opacity: 0, y: -4 }}
+                                  animate={{ opacity: 1, y: 0 }}
+                                  className="text-[10px] text-rose-400 flex items-center gap-1"
+                                >
+                                  <X className="w-3 h-3" />
+                                  كلمات المرور غير متطابقتين
+                                </motion.p>
+                              )}
+
+                              {/* Update button */}
+                              <Button
+                                onClick={handleChangePassword}
+                                disabled={isChangingPassword || !passwordCurrent || !passwordNew || !passwordConfirm}
+                                className="w-full h-9 bg-gradient-to-l from-amber-600/80 to-amber-700/80 hover:from-amber-500 hover:to-amber-600 text-white font-bold text-xs border border-amber-500/20 transition-all disabled:opacity-40"
+                              >
+                                {isChangingPassword ? (
+                                  <Loader2 className="w-3.5 h-3.5 ml-1.5 animate-spin" />
+                                ) : (
+                                  <CheckCircle2 className="w-3.5 h-3.5 ml-1.5" />
+                                )}
+                                تحديث كلمة المرور
+                              </Button>
+                            </div>
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
                     </motion.div>
 
                     {/* ── Level & XP Section ── */}
