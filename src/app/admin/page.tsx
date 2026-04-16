@@ -81,6 +81,18 @@ import {
   BarChart3,
   UserCheck,
   Store,
+  Gamepad2,
+  CreditCard,
+  MessageSquare,
+  MonitorPlay,
+  Send,
+  Zap,
+  Settings,
+  Eye,
+  EyeOff,
+  ToggleLeft,
+  Bell,
+  Mail,
 } from 'lucide-react';
 
 // ──────────────────────────────────────────────────────────────────────
@@ -148,9 +160,9 @@ interface GemOrderRow {
   updatedAt: string;
 }
 
-type ViewType = 'login' | 'dashboard' | 'events' | 'players' | 'premium' | 'orders';
+type ViewType = 'login' | 'dashboard' | 'games' | 'events' | 'players' | 'premium' | 'orders' | 'subscriptions' | 'sessions' | 'messages' | 'livetables' | 'gemtopup' | 'leaderboard' | 'settings';
 
-type TabType = 'dashboard' | 'events' | 'players' | 'premium' | 'orders';
+type TabType = 'dashboard' | 'games' | 'events' | 'players' | 'premium' | 'orders' | 'subscriptions' | 'sessions' | 'messages' | 'livetables' | 'gemtopup' | 'leaderboard' | 'settings';
 
 interface EventFormData {
   title: string;
@@ -796,12 +808,20 @@ export default function AdminPage() {
   // ADMIN PANEL (main layout)
   // ────────────────────────────────────────────────────────────────────
 
-  const navItems: { id: TabType; label: string; icon: React.ReactNode }[] = [
-    { id: 'dashboard', label: 'لوحة المعلومات', icon: <LayoutDashboard className="w-5 h-5" /> },
-    { id: 'events', label: 'الأحداث', icon: <Calendar className="w-5 h-5" /> },
-    { id: 'players', label: 'اللاعبين', icon: <Users className="w-5 h-5" /> },
-    { id: 'premium', label: 'الأرقام المميزة', icon: <Star className="w-5 h-5" /> },
-    { id: 'orders', label: 'طلبات الجواهر', icon: <Gem className="w-5 h-5" /> },
+  const navItems: { id: TabType; label: string; icon: React.ReactNode; section?: string }[] = [
+    { id: 'dashboard', label: 'لوحة المعلومات', icon: <LayoutDashboard className="w-5 h-5" />, section: 'رئيسية' },
+    { id: 'games', label: 'إدارة الألعاب', icon: <Gamepad2 className="w-5 h-5" />, section: 'رئيسية' },
+    { id: 'events', label: 'الأحداث', icon: <Calendar className="w-5 h-5" />, section: 'رئيسية' },
+    { id: 'players', label: 'اللاعبين', icon: <Users className="w-5 h-5" />, section: 'المحتوى' },
+    { id: 'leaderboard', label: 'المتصدرين', icon: <Trophy className="w-5 h-5" />, section: 'المحتوى' },
+    { id: 'premium', label: 'الأرقام المميزة', icon: <Star className="w-5 h-5" />, section: 'المحتوى' },
+    { id: 'orders', label: 'طلبات الجواهر', icon: <Gem className="w-5 h-5" />, section: 'المبيعات' },
+    { id: 'gemtopup', label: 'شحن الجواهر', icon: <Zap className="w-5 h-5" />, section: 'المبيعات' },
+    { id: 'subscriptions', label: 'الاشتراكات', icon: <CreditCard className="w-5 h-5" />, section: 'المبيعات' },
+    { id: 'sessions', label: 'الجلسات', icon: <MonitorPlay className="w-5 h-5" />, section: 'النشاط' },
+    { id: 'livetables', label: 'الطاولات المباشرة', icon: <Activity className="w-5 h-5" />, section: 'النشاط' },
+    { id: 'messages', label: 'الرسائل', icon: <MessageSquare className="w-5 h-5" />, section: 'النشاط' },
+    { id: 'settings', label: 'الإعدادات', icon: <Settings className="w-5 h-5" />, section: 'النظام' },
   ];
 
   const statCards = [
@@ -827,22 +847,31 @@ export default function AdminPage() {
             </div>
           </div>
           <Separator className="bg-slate-800/60 mb-2" />
-          <nav className="flex flex-col gap-1 flex-1">
-            {navItems.map((item) => (
-              <button
-                key={item.id}
-                onClick={() => handleTabChange(item.id)}
-                className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 ${
-                  activeTab === item.id
-                    ? 'bg-red-500/15 text-red-400 shadow-sm'
-                    : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
-                }`}
-              >
-                {item.icon}
-                {item.label}
-              </button>
-            ))}
-          </nav>
+          <ScrollArea className="flex-1 admin-scroll">
+            <nav className="flex flex-col gap-1">
+              {navItems.map((item, idx) => {
+                const showSection = item.section && (idx === 0 || navItems[idx - 1]?.section !== item.section);
+                return (
+                  <div key={item.id}>
+                    {showSection && (
+                      <p className="text-[10px] text-slate-600 font-bold uppercase px-3 pt-3 pb-1 first:pt-0">{item.section}</p>
+                    )}
+                    <button
+                      onClick={() => handleTabChange(item.id)}
+                      className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl text-sm font-medium transition-all duration-200 ${
+                        activeTab === item.id
+                          ? 'bg-red-500/15 text-red-400 shadow-sm'
+                          : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
+                      }`}
+                    >
+                      {item.icon}
+                      {item.label}
+                    </button>
+                  </div>
+                );
+              })}
+            </nav>
+          </ScrollArea>
           <Separator className="bg-slate-800/60 mb-2" />
           <div className="flex items-center gap-3 px-3 py-2">
             <div className="w-8 h-8 rounded-full bg-red-500/20 flex items-center justify-center text-red-400">
@@ -883,22 +912,31 @@ export default function AdminPage() {
                   </button>
                 </div>
                 <Separator className="bg-slate-800 mb-2" />
-                <nav className="flex flex-col gap-1 flex-1">
-                  {navItems.map((item) => (
-                    <button
-                      key={item.id}
-                      onClick={() => handleTabChange(item.id)}
-                      className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all ${
-                        activeTab === item.id
-                          ? 'bg-red-500/15 text-red-400'
-                          : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
-                      }`}
-                    >
-                      {item.icon}
-                      {item.label}
-                    </button>
-                  ))}
-                </nav>
+                <ScrollArea className="flex-1 admin-scroll">
+                  <nav className="flex flex-col gap-1">
+                    {navItems.map((item, idx) => {
+                      const showSection = item.section && (idx === 0 || navItems[idx - 1]?.section !== item.section);
+                      return (
+                        <div key={item.id}>
+                          {showSection && (
+                            <p className="text-[10px] text-slate-600 font-bold uppercase px-3 pt-3 pb-1 first:pt-0">{item.section}</p>
+                          )}
+                          <button
+                            onClick={() => handleTabChange(item.id)}
+                            className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl text-sm font-medium transition-all ${
+                              activeTab === item.id
+                                ? 'bg-red-500/15 text-red-400'
+                                : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
+                            }`}
+                          >
+                            {item.icon}
+                            {item.label}
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </nav>
+                </ScrollArea>
                 <Separator className="bg-slate-800 mb-2" />
                 <button
                   onClick={handleLogout}
@@ -1856,6 +1894,299 @@ export default function AdminPage() {
             </DialogFooter>
           </DialogContent>
         </Dialog>
+
+                {/* ══════════════════════════════════════════════════════ */}
+                {/* GAMES MANAGEMENT TAB                                    */}
+                {/* ══════════════════════════════════════════════════════ */}
+                {activeTab === 'games' && (
+                  <div className="space-y-6">
+                    <div className="flex items-center justify-between">
+                      <h2 className="text-xl font-bold text-white flex items-center gap-2">
+                        <Gamepad2 className="w-6 h-6 text-orange-400" />
+                        إدارة الألعاب
+                      </h2>
+                      <Badge variant="outline" className="text-slate-500 text-xs border-slate-700">8 ألعاب</Badge>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                      {[
+                        { name: 'المافيا', en: 'Mafia', emoji: '🕵️', href: '/mafia', status: 'نشط', players: '4-14', category: 'اجتماعية' },
+                        { name: 'طبول الحرب', en: 'War Drums', emoji: '🥁', href: '/tobol', status: 'نشط', players: '2-8', category: 'حربية' },
+                        { name: 'الهروب من التابوت', en: 'Escape Coffin', emoji: '🪦', href: '/tabot', status: 'نشط', players: '4-16', category: 'رعب' },
+                        { name: 'السجن', en: 'The Prison', emoji: '🔒', href: '/prison', status: 'نشط', players: '4-16', category: 'استراتيجية' },
+                        { name: 'المجازفة', en: 'Risk', emoji: '💣', href: '/risk', status: 'نشط', players: '2-8', category: 'مجازفة' },
+                        { name: 'المجازفة 2', en: 'Risk 2', emoji: '🎴', href: '/risk2', status: 'نشط', players: '2-10', category: 'مجازفة' },
+                        { name: 'بحر وحرب', en: 'Sea & War', emoji: '🌊⚔️', href: '/baharharb', status: 'نشط', players: '2-20', category: 'ذكاء' },
+                        { name: 'فاميلي فيود', en: 'Family Feud', emoji: '🏆', href: '/familyfeud', status: 'نشط', players: '2-10', category: 'اجتماعية' },
+                      ].map((game, i) => (
+                        <motion.div key={game.name} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05 }}>
+                          <Card className="bg-slate-900/80 border-slate-800/60 rounded-2xl p-5 hover:border-slate-700/80 transition-all group">
+                            <div className="flex items-start justify-between mb-3">
+                              <div className="flex items-center gap-3">
+                                <span className="text-3xl">{game.emoji}</span>
+                                <div>
+                                  <h3 className="font-bold text-white">{game.name}</h3>
+                                  <p className="text-xs text-slate-500">{game.en}</p>
+                                </div>
+                              </div>
+                              <Badge className="bg-emerald-500/20 text-emerald-400 border-emerald-500/30">{game.status}</Badge>
+                            </div>
+                            <div className="flex items-center gap-4 text-xs text-slate-500">
+                              <span className="flex items-center gap-1"><Users className="w-3 h-3" />{game.players}</span>
+                              <span>{game.category}</span>
+                              <a href={game.href} className="text-red-400 hover:text-red-300 mr-auto flex items-center gap-1">فتح <Eye className="w-3 h-3" /></a>
+                            </div>
+                          </Card>
+                        </motion.div>
+                      ))}
+                    </div>
+                    <div className="mt-4 p-4 rounded-xl border border-dashed border-slate-700 text-center">
+                      <p className="text-slate-500 text-sm">🏃 قريباً: لعبة الكلمات | تخمين الرسم | حرب الاستراتيجية</p>
+                    </div>
+                  </div>
+                )}
+
+                {/* ══════════════════════════════════════════════════════ */}
+                {/* LEADERBOARD TAB                                         */}
+                {/* ══════════════════════════════════════════════════════ */}
+                {activeTab === 'leaderboard' && (
+                  <div className="space-y-6">
+                    <h2 className="text-xl font-bold text-white flex items-center gap-2">
+                      <Trophy className="w-6 h-6 text-amber-400" />
+                      لوحة المتصدرين
+                    </h2>
+                    <Card className="bg-slate-900/80 border-slate-800/60 rounded-2xl p-6">
+                      <div className="flex items-center gap-4 mb-6">
+                        <div className="flex items-center gap-2 bg-amber-500/10 rounded-xl px-4 py-2">
+                          <Crown className="w-5 h-5 text-amber-400" />
+                          <span className="font-bold text-amber-400">🏆 المركز الأول</span>
+                        </div>
+                        <div className="flex items-center gap-2 bg-slate-500/10 rounded-xl px-4 py-2">
+                          <Medal className="w-5 h-5 text-slate-400" />
+                          <span className="font-bold text-slate-400">🥈 المركز الثاني</span>
+                        </div>
+                        <div className="flex items-center gap-2 bg-orange-700/10 rounded-xl px-4 py-2">
+                          <Award className="w-5 h-5 text-orange-600" />
+                          <span className="font-bold text-orange-500">🥉 المركز الثالث</span>
+                        </div>
+                      </div>
+                      <div className="text-center py-12 text-slate-500">
+                        <Trophy className="w-16 h-16 mx-auto mb-4 opacity-30" />
+                        <p className="text-lg font-medium">لا توجد بيانات متصدرين بعد</p>
+                        <p className="text-sm mt-1">ستظهر النتائج عندما يبدأ اللاعبون باللعب</p>
+                      </div>
+                    </Card>
+                  </div>
+                )}
+
+                {/* ══════════════════════════════════════════════════════ */}
+                {/* GEM TOP-UP TAB                                        */}
+                {/* ══════════════════════════════════════════════════════ */}
+                {activeTab === 'gemtopup' && (
+                  <div className="space-y-6">
+                    <h2 className="text-xl font-bold text-white flex items-center gap-2">
+                      <Zap className="w-6 h-6 text-yellow-400" />
+                      شحن الجواهر
+                    </h2>
+                    <Card className="bg-slate-900/80 border-slate-800/60 rounded-2xl p-6">
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+                        <div className="text-center p-4 rounded-xl bg-yellow-500/10 border border-yellow-500/20">
+                          <Zap className="w-8 h-8 text-yellow-400 mx-auto mb-2" />
+                          <p className="text-2xl font-bold text-yellow-400">💎 100</p>
+                          <p className="text-xs text-slate-500 mt-1">باقة صغيرة - 5 ر.س</p>
+                        </div>
+                        <div className="text-center p-4 rounded-xl bg-purple-500/10 border border-purple-500/20">
+                          <Zap className="w-8 h-8 text-purple-400 mx-auto mb-2" />
+                          <p className="text-2xl font-bold text-purple-400">💎 500</p>
+                          <p className="text-xs text-slate-500 mt-1">باقة متوسطة - 20 ر.س</p>
+                        </div>
+                        <div className="text-center p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/20">
+                          <Zap className="w-8 h-8 text-emerald-400 mx-auto mb-2" />
+                          <p className="text-2xl font-bold text-emerald-400">💎 2000</p>
+                          <p className="text-xs text-slate-500 mt-1">باقة كبيرة - 70 ر.س</p>
+                        </div>
+                      </div>
+                      <div className="text-center py-8 text-slate-500">
+                        <CreditCard className="w-12 h-12 mx-auto mb-3 opacity-30" />
+                        <p className="font-medium">لا توجد طلبات شحن حالياً</p>
+                      </div>
+                    </Card>
+                  </div>
+                )}
+
+                {/* ══════════════════════════════════════════════════════ */}
+                {/* SUBSCRIPTIONS TAB                                       */}
+                {/* ══════════════════════════════════════════════════════ */}
+                {activeTab === 'subscriptions' && (
+                  <div className="space-y-6">
+                    <h2 className="text-xl font-bold text-white flex items-center gap-2">
+                      <CreditCard className="w-6 h-6 text-cyan-400" />
+                      الاشتراكات
+                    </h2>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                      {[
+                        { name: 'اشتراك شهري', price: '15 ر.س', period: 'شهر', color: 'text-cyan-400', bg: 'bg-cyan-500/10', border: 'border-cyan-500/20', features: ['بدون إعلانات', 'أرقام مميزة', '10% خصم'] },
+                        { name: 'اشتراك ربع سنوي', price: '40 ر.س', period: '3 أشهر', color: 'text-violet-400', bg: 'bg-violet-500/10', border: 'border-violet-500/20', features: ['بدون إعلانات', 'أرقام مميزة', '20% خصم', 'أحداث حصرية'] },
+                        { name: 'اشتراك سنوي', price: '120 ر.س', period: 'سنة', color: 'text-amber-400', bg: 'bg-amber-500/10', border: 'border-amber-500/20', features: ['بدون إعلانات', 'أرقام مميزة', '30% خصم', 'أحداث حصرية', 'دعم أولوي'] },
+                      ].map((sub, i) => (
+                        <motion.div key={sub.name} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.1 }}>
+                          <Card className={`bg-slate-900/80 ${sub.border} rounded-2xl p-5 hover:shadow-lg transition-all`}>
+                            <h3 className={`font-bold ${sub.color} mb-1`}>{sub.name}</h3>
+                            <p className="text-sm text-slate-500 mb-3">كل {sub.period}</p>
+                            <p className={`text-3xl font-black ${sub.color} mb-4`}>{sub.price}</p>
+                            <ul className="space-y-1">
+                              {sub.features.map((f, fi) => (
+                                <li key={fi} className="text-xs text-slate-400 flex items-center gap-2"><Check className="w-3 h-3 text-emerald-400" />{f}</li>
+                              ))}
+                            </ul>
+                            <div className="mt-4 text-center text-slate-600 text-xs">0 مشترك حالياً</div>
+                          </Card>
+                        </motion.div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* ══════════════════════════════════════════════════════ */}
+                {/* SESSIONS TAB                                            */}
+                {/* ══════════════════════════════════════════════════════ */}
+                {activeTab === 'sessions' && (
+                  <div className="space-y-6">
+                    <h2 className="text-xl font-bold text-white flex items-center gap-2">
+                      <MonitorPlay className="w-6 h-6 text-blue-400" />
+                      الجلسات النشطة
+                    </h2>
+                    <Card className="bg-slate-900/80 border-slate-800/60 rounded-2xl p-6">
+                      <div className="flex items-center justify-between mb-4">
+                        <div className="flex items-center gap-2">
+                          <span className="relative flex h-2 w-2"><span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" /><span className="relative inline-flex rounded-full h-2 w-2 bg-green-500" /></span>
+                          <span className="text-sm text-slate-400">0 جلسة نشطة حالياً</span>
+                        </div>
+                      </div>
+                      <div className="text-center py-12 text-slate-500">
+                        <MonitorPlay className="w-16 h-16 mx-auto mb-4 opacity-30" />
+                        <p className="text-lg font-medium">لا توجد جلسات نشطة</p>
+                        <p className="text-sm mt-1">تظهر هنا عندما يكون لاعبون في غرف لعبة</p>
+                      </div>
+                    </Card>
+                  </div>
+                )}
+
+                {/* ══════════════════════════════════════════════════════ */}
+                {/* LIVE TABLES TAB                                         */}
+                {/* ══════════════════════════════════════════════════════ */}
+                {activeTab === 'livetables' && (
+                  <div className="space-y-6">
+                    <h2 className="text-xl font-bold text-white flex items-center gap-2">
+                      <Activity className="w-6 h-6 text-green-400" />
+                      الطاولات المباشرة
+                    </h2>
+                    <Card className="bg-slate-900/80 border-slate-800/60 rounded-2xl p-6">
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
+                        {[
+                          { label: 'طاولات نشطة', value: '0', color: 'text-green-400' },
+                          { label: 'إجمالي اللاعبين', value: '0', color: 'text-blue-400' },
+                          { label: 'ألعاب جارية', value: '0', color: 'text-amber-400' },
+                          { label: 'غرف انتظار', value: '0', color: 'text-slate-400' },
+                        ].map((s, i) => (
+                          <div key={i} className="text-center p-3 rounded-xl bg-slate-800/50">
+                            <p className={`text-2xl font-bold ${s.color}`}>{s.value}</p>
+                            <p className="text-xs text-slate-500">{s.label}</p>
+                          </div>
+                        ))}
+                      </div>
+                      <div className="text-center py-8 text-slate-500">
+                        <Activity className="w-12 h-12 mx-auto mb-3 opacity-30" />
+                        <p className="font-medium">لا توجد طاولات نشطة حالياً</p>
+                      </div>
+                    </Card>
+                  </div>
+                )}
+
+                {/* ══════════════════════════════════════════════════════ */}
+                {/* MESSAGES TAB                                            */}
+                {/* ══════════════════════════════════════════════════════ */}
+                {activeTab === 'messages' && (
+                  <div className="space-y-6">
+                    <h2 className="text-xl font-bold text-white flex items-center gap-2">
+                      <MessageSquare className="w-6 h-6 text-pink-400" />
+                      الرسائل
+                    </h2>
+                    <div className="flex items-center gap-3 mb-4">
+                      {['الكل', 'غير مقروءة', 'الم support'].map((f) => (
+                        <Button key={f} variant="outline" size="sm" className="border-slate-700 text-slate-400 hover:bg-slate-800 hover:text-white rounded-xl text-xs">{f}</Button>
+                      ))}
+                    </div>
+                    <Card className="bg-slate-900/80 border-slate-800/60 rounded-2xl p-6">
+                      <div className="text-center py-12 text-slate-500">
+                        <Mail className="w-16 h-16 mx-auto mb-4 opacity-30" />
+                        <p className="text-lg font-medium">لا توجد رسائل</p>
+                        <p className="text-sm mt-1">ستظهر هنا الرسائل الواردة من اللاعبين</p>
+                      </div>
+                    </Card>
+                  </div>
+                )}
+
+                {/* ══════════════════════════════════════════════════════ */}
+                {/* SETTINGS TAB                                            */}
+                {/* ══════════════════════════════════════════════════════ */}
+                {activeTab === 'settings' && (
+                  <div className="space-y-6">
+                    <h2 className="text-xl font-bold text-white flex items-center gap-2">
+                      <Settings className="w-6 h-6 text-slate-400" />
+                      إعدادات المنصة
+                    </h2>
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                      <Card className="bg-slate-900/80 border-slate-800/60 rounded-2xl p-6">
+                        <CardHeader className="p-0 pb-4"><CardTitle className="text-white text-base flex items-center gap-2"><Store className="w-5 h-5 text-slate-400" />معلومات المنصة</CardTitle></CardHeader>
+                        <CardContent className="p-0 space-y-4">
+                          <div className="space-y-2"><Label className="text-slate-300 text-sm">اسم المنصة</Label><Input defaultValue="ألعاب الغريب" className="bg-slate-800/60 border-slate-700 text-white rounded-xl" /></div>
+                          <div className="space-y-2"><Label className="text-slate-300 text-sm">رابط الشعار</Label><Input defaultValue="/platform-logo.png" className="bg-slate-800/60 border-slate-700 text-white rounded-xl" /></div>
+                          <div className="space-y-2"><Label className="text-slate-300 text-sm">الوصف</Label><Textarea defaultValue="منصة ألعاب اجتماعية عربية، العب مع أصحابك في نفس الوقت من أي مكان!" className="bg-slate-800/60 border-slate-700 text-white placeholder:text-slate-500 rounded-xl min-h-[80px] resize-none" /></div>
+                          <Button className="bg-red-600 hover:bg-red-500 text-white rounded-xl w-full"><Save className="w-4 h-4 ml-2" />حفظ التغييرات</Button>
+                        </CardContent>
+                      </Card>
+                      <Card className="bg-slate-900/80 border-slate-800/60 rounded-2xl p-6">
+                        <CardHeader className="p-0 pb-4"><CardTitle className="text-white text-base flex items-center gap-2"><Shield className="w-5 h-5 text-slate-400" />إعدادات الأمان</CardTitle></CardHeader>
+                        <CardContent className="p-0 space-y-4">
+                          <div className="flex items-center justify-between p-3 rounded-xl bg-slate-800/50">
+                            <div><p className="text-sm text-white font-medium">وضع الصيانة</p><p className="text-xs text-slate-500">تعطيل المنصة مؤقتاً</p></div>
+                            <Switch />
+                          </div>
+                          <div className="flex items-center justify-between p-3 rounded-xl bg-slate-800/50">
+                            <div><p className="text-sm text-white font-medium">التسجيل بالأرقام</p><p className="text-xs text-slate-500">السماح بالدخول بدون كلمة مرور</p></div>
+                            <Switch defaultChecked />
+                          </div>
+                          <div className="flex items-center justify-between p-3 rounded-xl bg-slate-800/50">
+                            <div><p className="text-sm text-white font-medium">وضع التطوير</p><p className="text-xs text-slate-500">إظهح معلومات تصحيحية</p></div>
+                            <Switch />
+                          </div>
+                        </CardContent>
+                      </Card>
+                      <Card className="bg-slate-900/80 border-slate-800/60 rounded-2xl p-6">
+                        <CardHeader className="p-0 pb-4"><CardTitle className="text-white text-base flex items-center gap-2"><Bell className="w-5 h-5 text-slate-400" />الإشعارات</CardTitle></CardHeader>
+                        <CardContent className="p-0 space-y-4">
+                          <div className="flex items-center justify-between p-3 rounded-xl bg-slate-800/50">
+                            <div><p className="text-sm text-white font-medium">إشعارات البريد</p><p className="text-xs text-slate-500">تلقي تنبيهات عند حدوث مشاكل</p></div>
+                            <Switch defaultChecked />
+                          </div>
+                          <div className="flex items-center justify-between p-3 rounded-xl bg-slate-800/50">
+                            <div><p className="text-sm text-white font-medium">إشعارات الطلبات</p><p className="text-xs text-slate-500">تنبيه عند وصول طلبات جديدة</p></div>
+                            <Switch defaultChecked />
+                          </div>
+                        </CardContent>
+                      </Card>
+                      <Card className="bg-slate-900/80 border-slate-800/60 rounded-2xl p-6">
+                        <CardHeader className="p-0 pb-4"><CardTitle className="text-white text-base flex items-center gap-2"><UserCheck className="w-5 h-5 text-slate-400" />بيانات المسؤول</CardTitle></CardHeader>
+                        <CardContent className="p-0 space-y-4">
+                          <div className="space-y-2"><Label className="text-slate-300 text-sm">اسم المستخدم</Label><Input defaultValue="admin" disabled className="bg-slate-800/60 border-slate-700 text-slate-500 rounded-xl" /></div>
+                          <div className="space-y-2"><Label className="text-slate-300 text-sm">البريد الإلكتروني</Label><Input defaultValue="admin@ghareeb.com" className="bg-slate-800/60 border-slate-700 text-white placeholder:text-slate-500 rounded-xl" /></div>
+                          <div className="space-y-2"><Label className="text-slate-300 text-sm">رقم التواصل</Label><Input defaultValue="+966 5X XXX XXXX" className="bg-slate-800/60 border-slate-700 text-white placeholder:text-slate-500 rounded-xl" /></div>
+                          <Button className="bg-red-600 hover:bg-red-500 text-white rounded-xl w-full"><Save className="w-4 h-4 ml-2" />حفظ التغييرات</Button>
+                        </CardContent>
+                      </Card>
+                    </div>
+                  </div>
+                )}
 
         {/* Delete Event Confirmation */}
         <AlertDialog open={!!deleteEventId} onOpenChange={(open) => !open && setDeleteEventId(null)}>
