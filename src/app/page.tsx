@@ -18,6 +18,7 @@ import {
   Zap,
   Clock,
   HelpCircle,
+  Settings,
 } from 'lucide-react';
 
 // ─── Game Data ────────────────────────────────────────────────────────────────
@@ -472,6 +473,13 @@ function Header() {
               className="text-sm text-slate-300 hover:text-white transition-colors"
             >
               كيف تبدأ؟
+            </a>
+            <a
+              href="/admin"
+              className="text-slate-500 hover:text-slate-300 transition-colors"
+              title="لوحة التحكم"
+            >
+              <Settings className="w-4 h-4" />
             </a>
             <Button
               asChild
