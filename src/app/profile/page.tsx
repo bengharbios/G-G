@@ -542,24 +542,26 @@ export default function ProfilePage() {
           console.error('Profile fetch error:', err);
           setError('حدث خطأ أثناء تحميل البيانات');
         }
-      } finally {
+      }
+
+      // Fetch user frames
+      try {
+        const framesRes = await fetch('/api/frames');
+        if (framesRes.ok) {
+          const framesData = await framesRes.json();
+          if (!cancelled && framesData.success) {
+            setUserFrames(framesData.userFrames || []);
+          }
+        }
+      } catch (frameErr) {
+        console.error('Frames fetch error:', frameErr);
+      }
+    } finally {
         if (!cancelled) setLoading(false);
       }
     }
 
     fetchAllData();
-    // Fetch user frames
-    try {
-      const framesRes = await fetch('/api/frames');
-      if (framesRes.ok) {
-        const framesData = await framesRes.json();
-        if (framesData.success) {
-          setUserFrames(framesData.userFrames || []);
-        }
-      }
-    } catch (err) {
-      console.error('Frames fetch error:', err);
-    }
 
     return () => { cancelled = true; };
   }, []);
