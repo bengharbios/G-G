@@ -1329,3 +1329,43 @@ Priority recommendations for next phase:
 - Test all game flows through the new entry hub
 - Consider adding game screenshots/previews to the entry hub
 - Add loading states during navigation transitions
+---
+Task ID: 16
+Agent: Main Agent
+Task: Add game code entry page + fix game flow
+
+Work Log:
+- Attempted to access Vercel deployment 8R8ipjs56 but it no longer exists (deleted/cleaned up)
+- Confirmed admin panel file (src/app/admin/page.tsx) is identical between old commit (54b8e63) and current HEAD
+- Created /src/lib/games-data.ts - shared game data module with all game info, join paths, and helper functions
+- Created /src/app/play/[gameId]/page.tsx - game entry hub page with:
+  - Game info display (emoji, title, description, features, player count, category)
+  - Two action modes: "العب كمستضيف" (Play as Host/العراب) and "أدخل كود الغرفة" (Enter Room Code/الديوانية)
+  - Code entry form with player name + room code inputs
+  - Proper routing to game-specific join URLs
+  - Game-specific theme colors and animations
+- Modified /src/app/page.tsx - changed game card hrefs from direct game URLs to /play/{gameId}
+- Successfully compiled and deployed to Vercel
+
+Stage Summary:
+- Games no longer enter directly - users see a landing page first with host/join options
+- Code entry is required for joining existing games (الديوانية mode)
+- Each game routes to the correct join URL (e.g., /join/tobol/{code}, /join/risk2/{code})
+- Homepage still has the correct template (user confirmed it was restored)
+- Commit: c11b205, deployed to https://g-g-beta.vercel.app
+
+Current project status:
+- G-G repo on GitHub (commit c11b205), Vercel auto-deploys from main
+- 8 games total: 8 available + 3 coming soon
+- Game entry now requires code for الديوانية mode
+- Admin panel with 13 tabs remains unchanged (identical to previous version)
+
+Unresolved issues:
+- Deployment 8R8ipjs56 is no longer accessible - exact version cannot be restored
+- User still reports admin panel pages are not the ones from 8R8ipjs56
+- Admin panel content in newer tabs (sessions, livetables, messages, etc.) may need improvement
+
+Priority recommendations:
+- Work with user to understand exactly what admin panel pages looked like in 8R8ipjs56
+- Improve admin panel tab content with real data and better UI
+- Test game code entry flow end-to-end
