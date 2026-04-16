@@ -785,16 +785,19 @@ function Header({ onProfileClick, onLoginClick, avatarLetter, level, authUser, o
 
 // ─── Quick Actions Row ───────────────────────────────────────────────────────
 
-function QuickActionsRow() {
+function QuickActionsRow({ isLoggedIn = false }: { isLoggedIn?: boolean }) {
   const { toast } = useToast();
 
-  const actions = [
+  // All quick actions shown only to logged-in users (store, events, etc. require auth)
+  const actions = isLoggedIn ? [
     { icon: <Calendar className="w-5 h-5" />, label: 'الأحداث', emoji: '🎪', color: 'from-rose-500/20 to-orange-500/20 border-rose-500/30', textColor: 'text-rose-400' },
     { icon: <ShoppingBag className="w-5 h-5" />, label: 'المتجر', emoji: '🛍️', color: 'from-amber-500/20 to-yellow-500/20 border-amber-500/30', textColor: 'text-amber-400' },
     { icon: <Trophy className="w-5 h-5" />, label: 'التصنيف', emoji: '🏆', color: 'from-emerald-500/20 to-teal-500/20 border-emerald-500/30', textColor: 'text-emerald-400' },
     { icon: <Gift className="w-5 h-5" />, label: 'ادعُ أصدقاءك', emoji: '🎁', color: 'from-purple-500/20 to-pink-500/20 border-purple-500/30', textColor: 'text-purple-400' },
     { icon: <Crown className="w-5 h-5" />, label: 'VIP', emoji: '👑', color: 'from-yellow-500/20 to-amber-500/20 border-yellow-500/30', textColor: 'text-yellow-400' },
-  ];
+  ] : [];
+
+  if (actions.length === 0) return null;
 
   return (
     <div className="flex gap-3 overflow-x-auto scrollbar-none pb-1 px-1">
@@ -1499,7 +1502,7 @@ export default function HomePage() {
   return (
     <div dir="rtl" className="min-h-screen bg-slate-950 text-white">
       <Header
-        onProfileClick={() => setProfileOpen(true)}
+        onProfileClick={() => { window.location.href = '/profile'; }}
         onLoginClick={() => setLoginOpen(true)}
         avatarLetter={authUser?.displayName?.charAt(0) || profileData?.subscriber?.name?.charAt(0)}
         level={undefined}
@@ -1515,10 +1518,12 @@ export default function HomePage() {
 
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-6">
-        {/* Quick Actions */}
-        <section className="py-4 sm:py-6">
-          <QuickActionsRow />
-        </section>
+        {/* Quick Actions - only when logged in */}
+        {authUser && (
+          <section className="py-4 sm:py-6">
+            <QuickActionsRow isLoggedIn={!!authUser} />
+          </section>
+        )}
 
         {/* Daily Rewards + Lucky Spin - only when logged in */}
         {authUser && (
@@ -1533,7 +1538,7 @@ export default function HomePage() {
       </main>
 
       <Footer />
-      <BottomNavigation eventsModalOpen={eventsModalOpen} setEventsModalOpen={setEventsModalOpen} onProfileClick={() => setProfileOpen(true)} />
+      <BottomNavigation eventsModalOpen={eventsModalOpen} setEventsModalOpen={setEventsModalOpen} onProfileClick={() => { window.location.href = '/profile'; }} />
 
       {/* Auth Modals */}
       <LoginModal

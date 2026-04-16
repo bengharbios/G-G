@@ -618,6 +618,13 @@ export default function UserProfileModal({
   const [showNewPw, setShowNewPw] = useState(false);
   const [showConfirmPw, setShowConfirmPw] = useState(false);
 
+  // Frames state
+  const [userFrames, setUserFrames] = useState<Array<{
+    id: string; frameId: string; isEquipped: boolean;
+    frame: { id: string; nameAr: string; rarity: string; gradientFrom: string; gradientTo: string; borderColor: string; glowColor: string; pattern: string; };
+  }>>([]);
+  const [equippingFrameId, setEquippingFrameId] = useState<string | null>(null);
+
   const planBadge = getPlanBadge(subscriberPlan, isTrial);
   const daysRemaining = getDaysRemaining(endDate);
   const trialCountdown = useCountdown(trialExpiresAt);
@@ -685,6 +692,43 @@ export default function UserProfileModal({
       cancelled = true;
     };
   }, [open, subscriberCode]);
+
+  // Fetch user frames when modal opens
+  useEffect(() => {
+    if (!open) return;
+    let cancelled = false;
+    fetch('/api/frames')
+      .then((r) => r.json())
+      .then((data) => {
+        if (!cancelled && data.success) setUserFrames(data.userFrames || []);
+      })
+      .catch(() => { /* silent */ });
+    return () => { cancelled = true; };
+  }, [open]);
+
+  const equippedFrame = userFrames.find((f) => f.isEquipped) || null;
+
+  const handleEquipFrame = useCallback(async (uf: typeof userFrames[number]) => {
+    setEquippingFrameId(uf.frameId);
+    try {
+      if (uf.isEquipped) {
+        const res = await fetch('/api/frames', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'equip', frameId: null }),
+        });
+        if (res.ok) setUserFrames((prev) => prev.map((f) => ({ ...f, isEquipped: false })));
+      } else {
+        const res = await fetch('/api/frames', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'equip', frameId: uf.frameId }),
+        });
+        if (res.ok) setUserFrames((prev) => prev.map((f) => ({ ...f, isEquipped: f.frameId === uf.frameId })));
+      }
+    } catch { /* silent */ }
+    finally { setEquippingFrameId(null); }
+  }, []);
 
   const resolvedGames = useMemo(() => {
     return allowedGames
@@ -1574,6 +1618,104 @@ export default function UserProfileModal({
                     </motion.div>
                   </motion.div>
                 </div>
+
+                {/* ── Frames Gallery ── */}
+                <motion.div variants={itemVariants}>
+                  <div className="bg-slate-900/70 backdrop-blur-sm border border-slate-800/50 rounded-xl p-4 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-amber-500/20 to-rose-500/20 border border-amber-500/20 flex items-center justify-center">
+                          <span className="text-sm">🖼️</span>
+                        </div>
+                        <div>
+                          <h3 className="text-sm font-bold text-white">الإطارات</h3>
+                          <p className="text-[10px] text-slate-500">{userFrames.length} إطار</p>
+                        </div>
+                      </div>
+                      {userFrames.length > 0 && (
+                        <button
+                          onClick={() => { onOpenChange(false); window.location.href = '/profile'; }}
+                          className="text-[10px] text-amber-400 hover:text-amber-300 font-medium"
+                        >
+                          عرض الكل ←
+                        </button>
+                      )}
+                    </div>
+                    {userFrames.length === 0 ? (
+                      <div className="text-center py-4">
+                        <p className="text-xs text-slate-500">لا تملك أي إطارات بعد</p>
+                      </div>
+                    ) : (
+                      <div className="flex gap-2 overflow-x-auto pb-1">
+                        {userFrames.slice(0, 6).map((uf) => {
+                          const isEquipping = equippingFrameId === uf.frameId;
+                          return (
+                            <motion.button
+                              key={uf.id}
+                              whileHover={{ scale: 1.05 }}
+                              whileTap={{ scale: 0.95 }}
+                              onClick={() => handleEquipFrame(uf)}
+                              disabled={isEquipping}
+                              className={`relative flex-shrink-0 p-2 rounded-lg transition-all ${
+                                uf.isEquipped
+                                  ? 'bg-emerald-950/30 border-2 border-emerald-500/40'
+                                  : 'bg-slate-800/40 border border-slate-700/30'
+                              }`}
+                            >
+                              <div className="relative w-12 h-12 mx-auto mb-1">
+                                <div
+                                  className="absolute -inset-0.5 rounded-full"
+                                  style={{
+                                    background: `linear-gradient(135deg, ${uf.frame.gradientFrom}, ${uf.frame.gradientTo})`,
+                                    padding: '2px',
+                                  }}
+                                >
+                                  <div className="w-full h-full rounded-full bg-slate-900 flex items-center justify-center overflow-hidden">
+                                    <span className="text-sm font-bold text-slate-400">
+                                      {authUser?.displayName?.charAt(0)?.toUpperCase() || '?'}
+                                    </span>
+                                  </div>
+                                </div>
+                                {uf.isEquipped && (
+                                  <div className="absolute -top-0.5 -right-0.5 w-4 h-4 rounded-full bg-emerald-500 border-2 border-slate-900 flex items-center justify-center">
+                                    <CheckCircle2 className="w-2.5 h-2.5 text-white" />
+                                  </div>
+                                )}
+                                {isEquipping && (
+                                  <div className="absolute inset-0 rounded-full bg-slate-950/60 flex items-center justify-center">
+                                    <Loader2 className="w-4 h-4 text-white animate-spin" />
+                                  </div>
+                                )}
+                              </div>
+                              <p className={`text-[9px] font-bold text-center truncate ${uf.isEquipped ? 'text-emerald-300' : 'text-slate-400'}`}>
+                                {uf.frame.nameAr}
+                              </p>
+                            </motion.button>
+                          );
+                        })}
+                        {userFrames.length > 6 && (
+                          <button
+                            onClick={() => { onOpenChange(false); window.location.href = '/profile'; }}
+                            className="flex-shrink-0 w-[56px] rounded-lg bg-slate-800/40 border border-slate-700/30 flex items-center justify-center"
+                          >
+                            <span className="text-xs text-slate-400">+{userFrames.length - 6}</span>
+                          </button>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </motion.div>
+
+                {/* ── View Full Profile Link ── */}
+                <motion.div variants={itemVariants}>
+                  <button
+                    onClick={() => { onOpenChange(false); window.location.href = '/profile'; }}
+                    className="w-full py-3 rounded-xl bg-gradient-to-l from-amber-950/40 to-slate-900/40 border border-amber-500/20 hover:border-amber-500/40 hover:from-amber-950/60 transition-all flex items-center justify-center gap-2"
+                  >
+                    <User className="w-4 h-4 text-amber-400" />
+                    <span className="text-sm font-bold text-amber-300">عرض الملف الشخصي الكامل</span>
+                  </button>
+                </motion.div>
 
                 {/* ── Logout Footer ── */}
                 <div className="border-t border-slate-800/60 p-4 bg-slate-950/95 backdrop-blur-sm">
