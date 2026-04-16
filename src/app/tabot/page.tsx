@@ -11,6 +11,8 @@ import { Badge } from '@/components/ui/badge';
 import { Home as HomeIcon, RotateCcw, Copy, Wifi, WifiOff } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useToast } from '@/hooks/use-toast';
+import SubscriptionGuard from '@/components/SubscriptionGuard';
+import GameLayout from '@/components/shared/GameLayout';
 
 function useHydrated() {
   return useSyncExternalStore(
@@ -20,94 +22,9 @@ function useHydrated() {
   );
 }
 
-// ============================================================
-// BrandedHeader for Tabot
-// ============================================================
 
-function BrandedHeader() {
-  return (
-    <div className="w-full border-b border-purple-800/30 bg-purple-950/80 backdrop-blur-md">
-      <div className="max-w-7xl mx-auto flex items-center justify-between h-14 px-4">
-        <a href="/" className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-purple-500 to-amber-600 flex items-center justify-center shadow-lg shadow-purple-500/20">
-            <img
-              src="/platform-logo.png"
-              alt="ألعاب الغريب"
-              className="w-7 h-7 rounded-lg object-contain"
-              onError={(e) => {
-                const target = e.target as HTMLImageElement;
-                target.style.display = 'none';
-                target.parentElement!.innerHTML = '<span class=\'text-white text-sm font-black\'>غ</span>';
-              }}
-            />
-          </div>
-          <h1 className="text-base sm:text-lg font-black bg-gradient-to-l from-purple-400 via-amber-300 to-purple-400 bg-clip-text text-transparent">
-            ألعاب الغريب
-          </h1>
-        </a>
 
-        <div className="flex items-center gap-4">
-          <span className="text-xs sm:text-sm font-bold text-slate-400">
-            ⚰️ الهروب من التابوت
-          </span>
-          <a
-            href="/"
-            className="text-xs text-slate-400 hover:text-white transition-colors"
-          >
-            الرئيسية
-          </a>
-        </div>
-      </div>
-    </div>
-  );
-}
 
-// ============================================================
-// BrandedFooter for Tabot
-// ============================================================
-
-function BrandedFooter() {
-  return (
-    <div className="w-full border-t border-purple-800/30 bg-purple-950/80">
-      <div className="max-w-7xl mx-auto flex flex-col items-center gap-2 py-3 px-4">
-        <div className="flex items-center gap-2">
-          <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-purple-500 to-amber-600 flex items-center justify-center">
-            <img
-              src="/platform-logo.png"
-              alt="ألعاب الغريب"
-              className="w-5 h-5 rounded-md object-contain"
-              onError={(e) => {
-                const target = e.target as HTMLImageElement;
-                target.style.display = 'none';
-                target.parentElement!.innerHTML = '<span class=\'text-white text-xs font-black\'>غ</span>';
-              }}
-            />
-          </div>
-          <span className="text-sm font-bold bg-gradient-to-l from-purple-400 via-amber-300 to-purple-400 bg-clip-text text-transparent">
-            ألعاب الغريب
-          </span>
-        </div>
-        <div className="flex flex-col items-center gap-1">
-          <div className="flex items-center gap-2 text-xs text-slate-500">
-            <span>💻 برمجة</span>
-            <span className="font-bold bg-gradient-to-l from-yellow-400 to-amber-500 bg-clip-text text-transparent">
-              الغريب
-            </span>
-          </div>
-          <div className="flex items-center gap-2 text-xs text-slate-500">
-            <span>🏠 برعاية</span>
-            <span className="font-bold bg-gradient-to-l from-purple-400 to-amber-400 bg-clip-text text-transparent">
-              ANA VIP 100034
-            </span>
-          </div>
-        </div>
-        <p className="text-[10px] text-slate-600 mt-1">
-          © {new Date().getFullYear()} ألعاب الغريب — جميع الحقوق محفوظة
-        </p>
-      </div>
-    </div>
-  );
-}
 
 // ============================================================
 // Persistent top navigation bar during gameplay
@@ -323,6 +240,18 @@ function useHostHeartbeat() {
 
 export default function TabotPage() {
   const { phase, setPhase, setGameMode, setRoomCode } = useTabotStore();
+
+  return (
+    <SubscriptionGuard gameSlug="tabot">
+      <GameLayout gameSlug="tabot" gameName="الهروب من التابوت" gameEmoji="⚰️" accentColor="purple">
+        <TabotContent />
+      </GameLayout>
+    </SubscriptionGuard>
+  );
+}
+
+function TabotContent() {
+  const { phase, setPhase, setGameMode, setRoomCode } = useTabotStore();
   const [creatingRoom, setCreatingRoom] = useState(false);
   const { toast } = useToast();
   const mounted = useHydrated();
@@ -383,7 +312,6 @@ export default function TabotPage() {
             <p className="text-slate-500 text-sm">جاري التحميل...</p>
           </div>
         </div>
-        <BrandedFooter />
       </div>
     );
   }
@@ -392,7 +320,6 @@ export default function TabotPage() {
   if (creatingRoom) {
     return (
       <div className="min-h-screen flex flex-col tabot-bg">
-        <BrandedHeader />
         <div className="flex-1 flex items-center justify-center">
           <div className="text-center">
             <motion.div
@@ -405,7 +332,6 @@ export default function TabotPage() {
             <p className="text-slate-400 text-sm">جاري إنشاء الغرفة...</p>
           </div>
         </div>
-        <BrandedFooter />
       </div>
     );
   }
@@ -413,26 +339,18 @@ export default function TabotPage() {
   // Landing phase
   if (phase === 'landing') {
     return (
-      <div className="min-h-screen flex flex-col tabot-bg">
-        <BrandedHeader />
-        <main className="flex-1">
-          <LandingPage onStartSetup={handleStartSetup} onStartDiwaniya={handleStartDiwaniya} />
-        </main>
-        <BrandedFooter />
-      </div>
+      <main>
+        <LandingPage onStartSetup={handleStartSetup} onStartDiwaniya={handleStartDiwaniya} />
+      </main>
     );
   }
 
   // Setup phase
   if (phase === 'setup') {
     return (
-      <div className="min-h-screen flex flex-col tabot-bg">
-        <BrandedHeader />
-        <main className="flex-1">
-          <TeamSetup />
-        </main>
-        <BrandedFooter />
-      </div>
+      <main>
+        <TeamSetup />
+      </main>
     );
   }
 

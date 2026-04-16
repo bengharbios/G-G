@@ -13,6 +13,7 @@ import { Badge } from '@/components/ui/badge';
 import { Home as HomeIcon, RotateCcw, Users, Home, Eye, Zap, Swords, Copy, Check } from 'lucide-react';
 import type { SpectatorInfo } from '@/lib/tobol-room-store';
 
+
 // ============================================================
 // Hydration guard
 // ============================================================
@@ -24,68 +25,9 @@ function useHydrated() {
   );
 }
 
-// ============================================================
-// BrandedHeader — Diwaniya version
-// ============================================================
-function DiwaniyaHeader() {
-  return (
-    <div className="w-full border-b border-slate-800/30 bg-slate-950/95 backdrop-blur-md">
-      <div className="max-w-7xl mx-auto flex items-center justify-between h-14 px-4">
-        <a href="/" className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center shadow-lg shadow-blue-500/20">
-            <img
-              src="/platform-logo.png"
-              alt="ألعاب الغريب"
-              className="w-7 h-7 rounded-lg object-contain"
-              onError={(e) => {
-                const target = e.target as HTMLImageElement;
-                target.style.display = 'none';
-                target.parentElement!.innerHTML = '<span class=\'text-white text-sm font-black\'>غ</span>';
-              }}
-            />
-          </div>
-          <h1 className="text-base sm:text-lg font-black bg-gradient-to-l from-blue-400 via-purple-300 to-blue-400 bg-clip-text text-transparent">
-            ألعاب الغريب
-          </h1>
-        </a>
-        <div className="flex items-center gap-4">
-          <span className="text-xs sm:text-sm font-bold text-slate-400">
-            🏠 الديوانية
-          </span>
-          <a href="/" className="text-xs text-slate-400 hover:text-white transition-colors">
-            الرئيسية
-          </a>
-        </div>
-      </div>
-    </div>
-  );
-}
 
-// ============================================================
-// DiwaniyaFooter
-// ============================================================
-function DiwaniyaFooter() {
-  return (
-    <div className="w-full border-t border-slate-800/30 bg-slate-950/60">
-      <div className="flex flex-col items-center gap-0.5 py-2 px-3">
-        <div className="flex items-center justify-center gap-1.5">
-          <span className="text-xs sm:text-sm">🏠</span>
-          <span className="text-[10px] sm:text-xs font-bold bg-gradient-to-l from-blue-400 via-purple-300 to-blue-400 bg-clip-text text-transparent">
-            الديوانية | Diwaniya
-          </span>
-          <span className="text-xs sm:text-sm">🏠</span>
-        </div>
-        <div className="flex items-center gap-1.5 mt-0.5">
-          <span className="text-[9px] sm:text-[10px] text-slate-500">💻 برمجة</span>
-          <span className="text-[9px] sm:text-[10px] font-bold bg-gradient-to-l from-yellow-400 to-amber-500 bg-clip-text text-transparent">الغريب</span>
-          <span className="text-[9px] sm:text-[10px] text-slate-600">|</span>
-          <span className="text-[9px] sm:text-[10px] text-slate-500">🏠 برعاية</span>
-          <span className="text-[9px] sm:text-[10px] font-bold bg-gradient-to-l from-blue-400 to-purple-400 bg-clip-text text-transparent">ANA VIP 100034</span>
-        </div>
-      </div>
-    </div>
-  );
-}
+
+
 
 // ============================================================
 // Diwaniya Landing Page
@@ -606,6 +548,57 @@ function DiwaniyaTopBar() {
         )}
       </AnimatePresence>
     </>
+  );
+}
+
+// ============================================================
+// DiwaniyaHeader
+// ============================================================
+function DiwaniyaHeader() {
+  return (
+    <div className="w-full border-b border-slate-800/30 bg-slate-950/95 backdrop-blur-md">
+      <div className="max-w-7xl mx-auto flex items-center justify-between h-14 px-4">
+        <a href="/" className="flex items-center gap-3">
+          <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center shadow-lg shadow-blue-500/20">
+            <img
+              src="/platform-logo.png"
+              alt="ألعاب الغريب"
+              className="w-7 h-7 rounded-lg object-contain"
+              onError={(e) => {
+                const target = e.target as HTMLImageElement;
+                target.style.display = 'none';
+                target.parentElement!.innerHTML = "<span class='text-white text-sm font-black'>غ</span>";
+              }}
+            />
+          </div>
+          <h1 className="text-base sm:text-lg font-black bg-gradient-to-l from-blue-400 via-purple-300 to-blue-400 bg-clip-text text-transparent">
+            ألعاب الغريب
+          </h1>
+        </a>
+        <div className="flex items-center gap-4">
+          <span className="text-xs sm:text-sm font-bold text-slate-400">
+            🏠 الديوانية
+          </span>
+          <a href="/" className="text-xs text-slate-400 hover:text-white transition-colors">
+            الرئيسية
+          </a>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ============================================================
+// DiwaniyaFooter
+// ============================================================
+function DiwaniyaFooter() {
+  return (
+    <div className="w-full border-t border-slate-800/30 bg-slate-950/60 mt-auto">
+      <div className="flex flex-col items-center gap-0.5 py-2 px-3">
+        <span className="text-[10px] text-slate-600">ألعاب الغريب — الديوانية</span>
+        <span className="text-[9px] text-slate-700">شاهد المعركة مباشرة ⚔️</span>
+      </div>
+    </div>
   );
 }
 

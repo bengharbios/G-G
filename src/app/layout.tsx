@@ -2,7 +2,6 @@ import type { Metadata } from "next";
 import { Cairo } from "next/font/google";
 import "./globals.css";
 import { Toaster } from "@/components/ui/toaster";
-import VolumeControl from "@/components/mafia/VolumeControl";
 
 const cairo = Cairo({
   variable: "--font-cairo",
@@ -29,7 +28,6 @@ export default function RootLayout({
         className={`${cairo.variable} font-sans antialiased bg-background text-foreground`}
       >
         {children}
-        <VolumeControl />
         <Toaster />
       </body>
     </html>

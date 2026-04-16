@@ -11,6 +11,8 @@ import TobolGameOver from '@/components/tobol/TobolGameOver';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Home as HomeIcon, RotateCcw, Eye, Copy, Check, Link2 } from 'lucide-react';
+import SubscriptionGuard from '@/components/SubscriptionGuard';
+import GameLayout from '@/components/shared/GameLayout';
 
 // ============================================================
 // Hydration guard
@@ -63,68 +65,9 @@ function useHostHeartbeat() {
   }, [gameMode, roomCode]);
 }
 
-// ============================================================
-// BrandedHeader
-// ============================================================
-function BrandedHeader() {
-  return (
-    <div className="w-full border-b border-slate-800/30 bg-slate-950/95 backdrop-blur-md">
-      <div className="max-w-7xl mx-auto flex items-center justify-between h-14 px-4">
-        <a href="/" className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-red-500 to-purple-600 flex items-center justify-center shadow-lg shadow-red-500/20">
-            <img
-              src="/platform-logo.png"
-              alt="ألعاب الغريب"
-              className="w-7 h-7 rounded-lg object-contain"
-              onError={(e) => {
-                const target = e.target as HTMLImageElement;
-                target.style.display = 'none';
-                target.parentElement!.innerHTML = '<span class=\'text-white text-sm font-black\'>غ</span>';
-              }}
-            />
-          </div>
-          <h1 className="text-base sm:text-lg font-black bg-gradient-to-l from-red-400 via-yellow-300 to-red-400 bg-clip-text text-transparent">
-            ألعاب الغريب
-          </h1>
-        </a>
-        <div className="flex items-center gap-4">
-          <span className="text-xs sm:text-sm font-bold text-slate-400">
-            🥁 لعبة طبول الحرب
-          </span>
-          <a href="/" className="text-xs text-slate-400 hover:text-white transition-colors">
-            الرئيسية
-          </a>
-        </div>
-      </div>
-    </div>
-  );
-}
 
-// ============================================================
-// BrandedFooter
-// ============================================================
-function BrandedFooter() {
-  return (
-    <div className="w-full border-t border-slate-800/30 bg-slate-950/60">
-      <div className="flex flex-col items-center gap-0.5 py-2 px-3">
-        <div className="flex items-center justify-center gap-1.5">
-          <span className="text-xs sm:text-sm">🥁</span>
-          <span className="text-[10px] sm:text-xs font-bold bg-gradient-to-l from-red-400 via-amber-300 to-blue-400 bg-clip-text text-transparent">
-            طبول الحرب | Tobol
-          </span>
-          <span className="text-xs sm:text-sm">🥁</span>
-        </div>
-        <div className="flex items-center gap-1.5 mt-0.5">
-          <span className="text-[9px] sm:text-[10px] text-slate-500">💻 برمجة</span>
-          <span className="text-[9px] sm:text-[10px] font-bold bg-gradient-to-l from-yellow-400 to-amber-500 bg-clip-text text-transparent">الغريب</span>
-          <span className="text-[9px] sm:text-[10px] text-slate-600">|</span>
-          <span className="text-[9px] sm:text-[10px] text-slate-500">🏠 برعاية</span>
-          <span className="text-[9px] sm:text-[10px] font-bold bg-gradient-to-l from-blue-400 to-purple-400 bg-clip-text text-transparent">ANA VIP 100034</span>
-        </div>
-      </div>
-    </div>
-  );
-}
+
+
 
 // ============================================================
 // GameTopBar
@@ -454,6 +397,19 @@ export default function TobolPage() {
   const { phase, setPhase, resetGame, setGameMode } = useTobolStore();
   const mounted = useHydrated();
 
+  return (
+    <SubscriptionGuard gameSlug="tobol">
+      <GameLayout gameSlug="tobol" gameName="طبول الحرب" gameEmoji="🥁" accentColor="orange">
+        <TobolContent />
+      </GameLayout>
+    </SubscriptionGuard>
+  );
+}
+
+function TobolContent() {
+  const { phase, setPhase, resetGame, setGameMode } = useTobolStore();
+  const mounted = useHydrated();
+
   // Start host heartbeat in Diwaniya mode
   useHostHeartbeat();
 
@@ -476,7 +432,6 @@ export default function TobolPage() {
             <p className="text-slate-400">جاري التحميل...</p>
           </div>
         </div>
-        <BrandedFooter />
       </div>
     );
   }
@@ -486,13 +441,9 @@ export default function TobolPage() {
   // ============================
   if (phase === 'landing') {
     return (
-      <div className="min-h-screen flex flex-col tobol-bg">
-        <BrandedHeader />
-        <main className="flex-1">
-          <LandingPage onStartLocal={handleStartLocal} onStartDiwaniya={handleStartDiwaniya} />
-        </main>
-        <BrandedFooter />
-      </div>
+      <main>
+        <LandingPage onStartLocal={handleStartLocal} onStartDiwaniya={handleStartDiwaniya} />
+      </main>
     );
   }
 
@@ -501,13 +452,9 @@ export default function TobolPage() {
   // ============================
   if (phase === 'setup') {
     return (
-      <div className="min-h-screen flex flex-col tobol-bg">
-        <BrandedHeader />
-        <main className="flex-1">
-          <GameSetup />
-        </main>
-        <BrandedFooter />
-      </div>
+      <main>
+        <GameSetup />
+      </main>
     );
   }
 
@@ -521,7 +468,6 @@ export default function TobolPage() {
         {phase === 'playing' && <GameBoard />}
         {phase === 'game_over' && <TobolGameOver />}
       </main>
-      <BrandedFooter />
     </div>
   );
 }

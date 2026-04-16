@@ -28,6 +28,8 @@ import {
   ArrowLeft,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import SubscriptionGuard from '@/components/SubscriptionGuard';
+import GameLayout from '@/components/shared/GameLayout';
 
 // ============================================================
 // Hydration guard
@@ -5999,6 +6001,16 @@ function GameOverScreen({
 // MAIN PAGE COMPONENT
 // ============================================================
 export default function FamilyFeudPage() {
+  return (
+    <SubscriptionGuard gameSlug="familyfeud">
+      <GameLayout gameSlug="familyfeud" gameName="فاميلي فيود" gameEmoji="🏆" accentColor="amber">
+        <FamilyFeudContent />
+      </GameLayout>
+    </SubscriptionGuard>
+  );
+}
+
+function FamilyFeudContent() {
   const mounted = useHydrated();
   const [soundEnabled, setSoundEnabled] = useState(true);
   const { playCorrect, playBuzz, playStrike, playReveal, playSteal, playWin, playCountdown, playTopAnswer } = useSoundEffects(soundEnabled);
