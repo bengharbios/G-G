@@ -555,8 +555,7 @@ export default function ProfilePage() {
         }
       } catch (frameErr) {
         console.error('Frames fetch error:', frameErr);
-      }
-    } finally {
+      } finally {
         if (!cancelled) setLoading(false);
       }
     }
