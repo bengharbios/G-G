@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createAdminSession } from '@/lib/turso';
+import { createAdminToken } from '@/lib/admin-auth';
 
 const ADMIN_USERNAME = 'admin';
 const ADMIN_PASSWORD = 'Ghaleb@2024';
@@ -23,9 +23,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const token = await createAdminSession(username);
+    const token = await createAdminToken(username);
 
-    const response = NextResponse.json({ success: true });
+    const response = NextResponse.json({ success: true, username });
     response.cookies.set('admin_token', token, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',

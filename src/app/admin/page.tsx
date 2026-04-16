@@ -278,6 +278,7 @@ export default function AdminPage() {
   const [loginError, setLoginError] = useState('');
   const [loginLoading, setLoginLoading] = useState(false);
   const [activeTab, setActiveTab] = useState<TabType>('dashboard');
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
 
   // Dashboard
   const [stats, setStats] = useState<Stats | null>(null);
@@ -329,12 +330,16 @@ export default function AdminPage() {
         ...options?.headers,
       },
     });
-    if (res.status === 401) {
+    // Only redirect to login on 401 if already authenticated (session expired)
+    // Do NOT redirect during initial load or right after login
+    if (res.status === 401 && isAuthenticated) {
+      setIsAuthenticated(false);
       setView('login');
+      toast.error('انتهت صلاحية الجلسة، يرجى تسجيل الدخول مجدداً');
       throw new Error('unauthorized');
     }
     return res;
-  }, []);
+  }, [isAuthenticated]);
 
   // ─── Auth ──────────────────────────────────────────────────────────
 
@@ -354,6 +359,8 @@ export default function AdminPage() {
         setLoginError(data.error || 'بيانات الدخول غير صحيحة');
         return;
       }
+      // Set authenticated BEFORE changing view to prevent race condition
+      setIsAuthenticated(true);
       setUsername(username);
       setView('dashboard');
       toast.success('تم تسجيل الدخول بنجاح');
@@ -366,6 +373,7 @@ export default function AdminPage() {
 
   const handleLogout = () => {
     document.cookie = 'admin_token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
+    setIsAuthenticated(false);
     setView('login');
     setUsername('');
     setPassword('');
@@ -374,20 +382,25 @@ export default function AdminPage() {
     toast.success('تم تسجيل الخروج');
   };
 
+  // Check session on mount - uses raw fetch, NOT apiCall, to avoid redirect loop
   const checkSession = useCallback(async () => {
     try {
-      const res = await apiCall('/api/admin/stats');
+      const res = await fetch('/api/admin/stats', {
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+      });
       if (res.ok) {
         const data = await res.json();
         setStats(data);
         setStatsLoading(false);
+        setIsAuthenticated(true);
         return true;
       }
       return false;
     } catch {
       return false;
     }
-  }, [apiCall]);
+  }, []);
 
   // ─── Stats ─────────────────────────────────────────────────────────
 
@@ -653,6 +666,7 @@ export default function AdminPage() {
 
   // ─── Effects ───────────────────────────────────────────────────────
 
+  // Check session on mount
   useEffect(() => {
     const init = async () => {
       const ok = await checkSession();
@@ -662,17 +676,19 @@ export default function AdminPage() {
     init();
   }, [checkSession]);
 
+  // Fetch stats when authenticated and on dashboard tab
   useEffect(() => {
-    if (view === 'login') return;
+    if (view === 'login' || !isAuthenticated) return;
     fetchStats();
-  }, [view, fetchStats]);
+  }, [view, isAuthenticated, fetchStats]);
 
   useEffect(() => {
+    if (!isAuthenticated || view === 'login') return;
     if (activeTab === 'events') fetchEvents();
     else if (activeTab === 'players') fetchPlayers();
     else if (activeTab === 'premium') fetchPremiumIds();
     else if (activeTab === 'orders') fetchOrders();
-  }, [activeTab, fetchEvents, fetchPlayers, fetchPremiumIds, fetchOrders]);
+  }, [activeTab, isAuthenticated, view, fetchEvents, fetchPlayers, fetchPremiumIds, fetchOrders]);
 
   // ─── Tab change ────────────────────────────────────────────────────
 
