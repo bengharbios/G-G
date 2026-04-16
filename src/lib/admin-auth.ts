@@ -1,3 +1,4 @@
+import { NextRequest } from 'next/server';
 import { createClient, Client } from '@libsql/client';
 import { createHash, randomUUID, scryptSync, timingSafeEqual } from 'crypto';
 
@@ -201,4 +202,26 @@ export async function changePassword(
   });
 
   return result.rowsAffected > 0;
+}
+
+// ─── Request-level auth helper ─────────────────────────────────────────
+
+export async function getAdminFromRequest(
+  request: NextRequest
+): Promise<{ authorized: boolean; username?: string }> {
+  const token = request.cookies.get('admin_token')?.value;
+
+  if (!token) {
+    return { authorized: false };
+  }
+
+  try {
+    const user = await validateToken(token);
+    if (user) {
+      return { authorized: true, username: user.username };
+    }
+    return { authorized: false };
+  } catch {
+    return { authorized: false };
+  }
 }
