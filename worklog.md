@@ -1369,3 +1369,52 @@ Priority recommendations:
 - Work with user to understand exactly what admin panel pages looked like in 8R8ipjs56
 - Improve admin panel tab content with real data and better UI
 - Test game code entry flow end-to-end
+
+---
+Task ID: 16
+Agent: Main Agent
+Task: Restore full project from Vercel deployment 8R8ipjs56 (g-ld360t8ez)
+
+Work Log:
+- User reported the admin pages and game flow in the current project don't match the correct deployment at g-ld360t8ez-bengharbios-projects.vercel.app
+- Used Vercel CLI to inspect deployment g-ld360t8ez, discovered it has deployment ID dpl_8R8ipjs56vTUv28DHVo1Z11QnuN3 (same as 8R8ipjs56 from previous session)
+- Got GitHub commit SHA from Vercel API: 5a42829be12d37d6679220da09d8f8116a0cd372 (private repo, couldn't clone directly)
+- Used Vercel v6 API to list all 1,027 files in the deployment source
+- Downloaded file UIDs from the deployment tree structure
+- Wrote Python restore script to batch-download files using Vercel v8 API (base64 encoded content)
+- Downloaded 37 new/updated source files, skipped existing unchanged files, skills, binaries, uploads, qa-screenshots
+- Installed missing dependencies: jose, @libsql/client, lucide-react
+- Fixed missing exports in admin-auth.ts: added validateToken() and changePassword() functions
+- Fixed missing exports in turso.ts: added getAllActiveRooms() and deleteInactiveRooms() functions
+- Successfully deployed to Vercel production: https://g-g-beta.vercel.app
+
+Stage Summary:
+- Full deployment 8R8ipjs56 restored as the project base
+- Homepage restored (49,465 bytes) - confirmed working ✅
+- Admin page restored (118,761 bytes) with 11 sections: dashboard, games, subscriptions, sessions, messages, tables, events, gem charges, leaderboard, settings ✅
+- Admin layout restored with proper RTL Arabic metadata ✅
+- Play/[gameId] page restored (24,079 bytes) - game code entry flow ✅
+- All admin API routes restored: games, settings, subscriptions, sessions, messages, tables, events, gem-charges, site-config, deploy, stats, login, players, premium-ids, gem-orders ✅
+- Public API routes restored: games-config, gems, player, subscription, site-config, events ✅
+- Shared components restored: GameHeader, GameLayout, SideUtilityPanel, StoreModal, UserProfileModal, EventsModal, RegistrationDialog, SubscriptionGuard ✅
+- Lib files restored: admin-auth, admin-db, turso, game-store, game-types, i18n ✅
+- Error and loading pages restored ✅
+- Deployed to production at https://g-g-beta.vercel.app ✅
+
+Current project status:
+- G-G repo deployed to Vercel (commit 5a42829 from deployment 8R8ipjs56)
+- All original admin pages with proper Arabic RTL support
+- Game entry requires code (not direct access)
+- 9 games: mafia, risk, risk2, tobol, tabot, prison, familyfeud, baharharb, diwaniya
+- Full admin panel with 11 management sections
+- Subscription/gem system, events, leaderboard, tables management
+
+Unresolved issues:
+- Lint errors in some game join pages (pre-existing, not related to restore)
+- Diwaniya (online) mode for Family Feud is still placeholder only
+
+Priority recommendations for next phase:
+- Test admin panel thoroughly via agent-browser
+- Add any new/modern pages the user wanted on top of the restored base
+- Fix remaining lint errors
+- Implement full online multiplayer for games

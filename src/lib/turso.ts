@@ -404,6 +404,54 @@ export async function deleteRoomByCode(code: string): Promise<void> {
   });
 }
 
+export async function getAllActiveRooms(): Promise<RoomRow[]> {
+  await ensureTables();
+  const c = getClient();
+  const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+  const result = await c.execute({
+    sql: 'SELECT * FROM Room WHERE updatedAt > ? ORDER BY createdAt DESC LIMIT 100',
+    args: [cutoff],
+  });
+  return result.rows.map(row => ({
+    id: row.id as string,
+    code: row.code as string,
+    phase: row.phase as string,
+    round: Number(row.round || 0),
+    gameWinner: row.gameWinner as string | null,
+    hostName: row.hostName as string,
+    playerCount: Number(row.playerCount || 0),
+    createdAt: row.createdAt as string,
+    updatedAt: row.updatedAt as string,
+    stateJson: row.stateJson as string,
+    resultsJson: row.resultsJson as string | null,
+    gameType: row.gameType as string | null,
+    hostLastSeen: row.hostLastSeen as string,
+  }));
+}
+
+export async function deleteInactiveRooms(hoursOld: number = 24): Promise<number> {
+  await ensureTables();
+  const c = getClient();
+  const cutoff = new Date(Date.now() - hoursOld * 60 * 60 * 1000).toISOString();
+  const rooms = await c.execute({
+    sql: 'SELECT id, code FROM Room WHERE updatedAt < ?',
+    args: [cutoff],
+  });
+  let deleted = 0;
+  for (const room of rooms.rows) {
+    await c.execute({
+      sql: 'DELETE FROM RoomPlayer WHERE roomId = ?',
+      args: [room.id],
+    });
+    await c.execute({
+      sql: 'DELETE FROM Room WHERE id = ?',
+      args: [room.id],
+    });
+    deleted++;
+  }
+  return deleted;
+}
+
 // ═══════════════════════════════════════════════════════════════════════
 // Admin Panel Types
 // ═══════════════════════════════════════════════════════════════════════

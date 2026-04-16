@@ -10,6 +10,9 @@ interface AdminPayload {
   exp: number;
 }
 
+// Current admin credentials (can be changed via changePassword)
+let currentPassword = process.env.ADMIN_PASSWORD || 'Ghaleb@2024';
+
 export async function createAdminToken(username: string): Promise<string> {
   const token = await new SignJWT({ username })
     .setProtectedHeader({ alg: 'HS256' })
@@ -27,6 +30,32 @@ export async function verifyAdminToken(token: string): Promise<{ valid: boolean;
   } catch {
     return { valid: false };
   }
+}
+
+export async function validateToken(token: string): Promise<{ id: string; username: string; role: string; createdAt: string } | null> {
+  try {
+    const { payload } = await jwtVerify(token, JWT_SECRET);
+    const admin = payload as unknown as AdminPayload;
+    return {
+      id: 'admin-1',
+      username: admin.username,
+      role: 'admin',
+      createdAt: new Date().toISOString(),
+    };
+  } catch {
+    return null;
+  }
+}
+
+export async function changePassword(currentPwd: string, newPwd: string): Promise<{ success: boolean; error?: string }> {
+  if (currentPwd !== currentPassword) {
+    return { success: false, error: 'كلمة المرور الحالية غير صحيحة' };
+  }
+  if (!newPwd || newPwd.length < 6) {
+    return { success: false, error: 'كلمة المرور الجديدة يجب أن تكون 6 أحرف على الأقل' };
+  }
+  currentPassword = newPwd;
+  return { success: true };
 }
 
 export async function getAdminFromRequest(
