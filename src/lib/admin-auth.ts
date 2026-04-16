@@ -206,6 +206,42 @@ export async function changePassword(
 
 // ─── Request-level auth helper ─────────────────────────────────────────
 
+export async function createAdminToken(username: string): Promise<string> {
+  const c = getClient();
+  await ensureAdminTables();
+
+  const result = await c.execute({
+    sql: 'SELECT * FROM AdminUser WHERE username = ?',
+    args: [username],
+  });
+
+  const userId = result.rows.length > 0
+    ? (result.rows[0] as Record<string, unknown>).id as string
+    : null;
+
+  // Create token
+  const token = randomUUID();
+  const tokenHash = createHash('sha256').update(token).digest('hex');
+  const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+
+  await c.execute({
+    sql: `CREATE TABLE IF NOT EXISTS AdminToken (
+      tokenHash TEXT PRIMARY KEY,
+      userId TEXT NOT NULL,
+      expiresAt TEXT NOT NULL,
+      createdAt TEXT DEFAULT (datetime('now'))
+    )`,
+    args: [],
+  });
+
+  await c.execute({
+    sql: 'INSERT INTO AdminToken (tokenHash, userId, expiresAt) VALUES (?, ?, ?)',
+    args: [tokenHash, userId || randomUUID(), expiresAt],
+  });
+
+  return token;
+}
+
 export async function getAdminFromRequest(
   request: NextRequest
 ): Promise<{ authorized: boolean; username?: string }> {
