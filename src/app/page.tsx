@@ -42,6 +42,7 @@ import {
   ArrowRight,
   LogIn,
   LogOut,
+  Settings,
 } from 'lucide-react';
 
 // ─── Admin game config hook ───────────────────────────────────────────────────
@@ -654,6 +655,7 @@ function Header({ onProfileClick, onLoginClick, avatarLetter, level, authUser, o
   authUser?: { id: string; username: string; email: string; displayName: string; phone: string; avatar: string; role: string } | null;
   onLogout?: () => void;
 }) {
+  const isAdmin = authUser?.role === 'admin';
   const { count, visible: countVisible } = useActivePlayers();
   const { toast } = useToast();
 
@@ -711,6 +713,18 @@ function Header({ onProfileClick, onLoginClick, avatarLetter, level, authUser, o
               <Gem className="w-4 h-4 text-amber-400" />
               <span className="text-xs font-bold text-amber-300">2,450</span>
             </div>
+
+            {/* Admin Panel - ONLY for admin role */}
+            {isAdmin && (
+              <a
+                href="/admin"
+                className="w-9 h-9 rounded-full bg-rose-500/10 border border-rose-500/30 flex items-center justify-center text-rose-400 hover:text-rose-300 hover:bg-rose-500/20 transition-all"
+                aria-label="لوحة التحكم"
+                title="لوحة التحكم"
+              >
+                <Settings className="w-4 h-4" />
+              </a>
+            )}
 
             {/* Notifications */}
             <button
@@ -1384,13 +1398,7 @@ function Footer() {
               © {new Date().getFullYear()} ألعاب الغريب — جميع الحقوق محفوظة
             </p>
 
-            <Link
-              href="/admin"
-              className="text-[10px] text-slate-700 hover:text-slate-500 transition-colors"
-              aria-label="لوحة التحكم"
-            >
-              ⚙️ لوحة التحكم
-            </Link>
+            {/* Admin link removed for security - only accessible via /admin URL by admins */}
           </div>
         </div>
       </div>

@@ -387,6 +387,12 @@ export default function AdminPage() {
   const [usersLoading, setUsersLoading] = useState(false);
   const [userSearch, setUserSearch] = useState('');
   const [userRoleFilter, setUserRoleFilter] = useState<string>('all');
+  const [editingUser, setEditingUser] = useState<typeof appUsers[number] | null>(null);
+  const [showEditDialog, setShowEditDialog] = useState(false);
+  const [editForm, setEditForm] = useState({ displayName: '', phone: '', role: 'user', isActive: true });
+  const [savingUser, setSavingUser] = useState(false);
+  const [deletingUserId, setDeletingUserId] = useState<string | null>(null);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   // ─── Toast helper ───────────────────────────────────────────────────
 
@@ -557,6 +563,70 @@ export default function AdminPage() {
     } catch { /* ignore */ }
     setUsersLoading(false);
   }, []);
+
+  // ─── User CRUD Operations ───────────────────────────────────────────
+
+  const handleEditUser = useCallback((user: typeof appUsers[number]) => {
+    setEditingUser(user);
+    setEditForm({
+      displayName: user.displayName || '',
+      phone: user.phone || '',
+      role: user.role || 'user',
+      isActive: user.isActive,
+    });
+    setShowEditDialog(true);
+  }, []);
+
+  const handleSaveUser = useCallback(async () => {
+    if (!editingUser) return;
+    setSavingUser(true);
+    try {
+      const res = await fetch(`/api/admin/users/${editingUser.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(editForm),
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        showToast('تم تحديث المستخدم بنجاح');
+        setShowEditDialog(false);
+        setEditingUser(null);
+        fetchUsers();
+      } else {
+        showToast(data.error || 'حدث خطأ أثناء التحديث', 'error');
+      }
+    } catch {
+      showToast('تعذر الاتصال بالخادم', 'error');
+    } finally {
+      setSavingUser(false);
+    }
+  }, [editingUser, editForm, fetchUsers, showToast]);
+
+  const handleDeleteUser = useCallback((userId: string) => {
+    setDeletingUserId(userId);
+    setShowDeleteConfirm(true);
+  }, []);
+
+  const confirmDeleteUser = useCallback(async () => {
+    if (!deletingUserId) return;
+    try {
+      const res = await fetch(`/api/admin/users/${deletingUserId}`, {
+        method: 'DELETE',
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        showToast('تم تعطيل المستخدم بنجاح');
+        fetchUsers();
+      } else {
+        showToast(data.error || 'حدث خطأ أثناء الحذف', 'error');
+      }
+    } catch {
+      showToast('تعذر الاتصال بالخادم', 'error');
+    } finally {
+      setShowDeleteConfirm(false);
+      setDeletingUserId(null);
+    }
+  }, [deletingUserId, fetchUsers, showToast]);
 
   // ─── Load data when section changes ────────────────────────────────
 
@@ -2345,6 +2415,7 @@ export default function AdminPage() {
                           <TableHead className="text-slate-400 font-semibold hidden sm:table-cell">الحالة</TableHead>
                           <TableHead className="text-slate-400 font-semibold hidden lg:table-cell">آخر دخول</TableHead>
                           <TableHead className="text-slate-400 font-semibold hidden lg:table-cell">تاريخ التسجيل</TableHead>
+                          <TableHead className="text-slate-400 font-semibold">إجراءات</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
@@ -2410,6 +2481,24 @@ export default function AdminPage() {
                                   {new Date(user.createdAt).toLocaleDateString('ar-SA', { month: 'short', day: 'numeric', year: 'numeric' })}
                                 </p>
                               </TableCell>
+                              <TableCell>
+                                <div className="flex items-center gap-1.5">
+                                  <button
+                                    onClick={() => handleEditUser(user)}
+                                    className="w-8 h-8 rounded-lg bg-slate-800/60 border border-slate-700/40 flex items-center justify-center text-slate-400 hover:text-amber-400 hover:border-amber-500/30 hover:bg-amber-500/10 transition-all"
+                                    title="تعديل"
+                                  >
+                                    <Edit className="w-3.5 h-3.5" />
+                                  </button>
+                                  <button
+                                    onClick={() => handleDeleteUser(user.id)}
+                                    className="w-8 h-8 rounded-lg bg-slate-800/60 border border-slate-700/40 flex items-center justify-center text-slate-400 hover:text-rose-400 hover:border-rose-500/30 hover:bg-rose-500/10 transition-all"
+                                    title="تعطيل"
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  </button>
+                                </div>
+                              </TableCell>
                             </TableRow>
                           ))}
                       </TableBody>
@@ -2453,6 +2542,134 @@ export default function AdminPage() {
               </div>
             </div>
           )}
+
+          {/* ─── Edit User Dialog ────────────────────────────────────── */}
+          <Dialog open={showEditDialog} onOpenChange={(open) => { setShowEditDialog(open); if (!open) setEditingUser(null); }}>
+            <DialogContent className="bg-slate-900 border-slate-800/60 sm:max-w-md" dir="rtl">
+              <DialogHeader>
+                <DialogTitle className="text-lg font-bold text-white flex items-center gap-2">
+                  <Edit className="w-5 h-5 text-amber-400" />
+                  تعديل المستخدم
+                </DialogTitle>
+                <DialogDescription className="text-slate-400 text-sm">
+                  {editingUser ? `تعديل بيانات: @${editingUser.username}` : ''}
+                </DialogDescription>
+              </DialogHeader>
+
+              {editingUser && (
+                <div className="space-y-4 mt-2">
+                  <div className="bg-slate-800/40 rounded-lg p-3 space-y-1">
+                    <p className="text-xs text-slate-500">البريد الإلكتروني</p>
+                    <p className="text-sm text-slate-300" dir="ltr">{editingUser.email}</p>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-medium text-slate-400">الاسم المعروض</label>
+                    <input
+                      value={editForm.displayName}
+                      onChange={(e) => setEditForm(prev => ({ ...prev, displayName: e.target.value }))}
+                      className="w-full h-10 bg-slate-800/60 border border-slate-700/50 rounded-lg px-3 text-sm text-white placeholder:text-slate-600 focus:border-amber-500/50 focus:outline-none"
+                      dir="rtl"
+                    />
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-medium text-slate-400">رقم الهاتف</label>
+                    <input
+                      value={editForm.phone}
+                      onChange={(e) => setEditForm(prev => ({ ...prev, phone: e.target.value }))}
+                      className="w-full h-10 bg-slate-800/60 border border-slate-700/50 rounded-lg px-3 text-sm text-white placeholder:text-slate-600 focus:border-amber-500/50 focus:outline-none"
+                      dir="ltr"
+                    />
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-medium text-slate-400">الدور / الصلاحية</label>
+                    <div className="grid grid-cols-3 gap-2">
+                      {[
+                        { value: 'admin', label: 'مدير', bg: 'bg-rose-500/10', border: 'border-rose-500/30', text: 'text-rose-300' },
+                        { value: 'moderator', label: 'مشرف', bg: 'bg-amber-500/10', border: 'border-amber-500/30', text: 'text-amber-300' },
+                        { value: 'user', label: 'مستخدم', bg: 'bg-slate-500/10', border: 'border-slate-500/30', text: 'text-slate-300' },
+                      ].map((role) => (
+                        <button
+                          key={role.value}
+                          onClick={() => setEditForm(prev => ({ ...prev, role: role.value }))}
+                          className={`rounded-xl p-3 border text-center transition-all ${
+                            editForm.role === role.value
+                              ? `${role.bg} ${role.border} ${role.text} ring-1 ring-current`
+                              : 'bg-slate-800/40 border-slate-700/40 text-slate-500 hover:border-slate-600/50'
+                          }`}
+                        >
+                          <Shield className={`w-5 h-5 mx-auto mb-1 ${editForm.role === role.value ? '' : 'opacity-40'}`} />
+                          <span className="text-xs font-bold">{role.label}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between bg-slate-800/40 rounded-xl p-3">
+                    <div>
+                      <p className="text-sm font-medium text-white">حالة الحساب</p>
+                      <p className="text-xs text-slate-500">{editForm.isActive ? 'نشط ومفعل' : 'معطل'}</p>
+                    </div>
+                    <button
+                      onClick={() => setEditForm(prev => ({ ...prev, isActive: !prev.isActive }))}
+                      className={`relative w-12 h-6 rounded-full transition-colors ${editForm.isActive ? 'bg-emerald-500' : 'bg-slate-600'}`}
+                    >
+                      <span className={`absolute top-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform ${editForm.isActive ? 'left-0.5' : 'left-6'}`} />
+                    </button>
+                  </div>
+
+                  <div className="flex items-center gap-2 pt-2">
+                    <button
+                      onClick={handleSaveUser}
+                      disabled={savingUser}
+                      className="flex-1 h-10 bg-gradient-to-l from-amber-600 to-amber-700 hover:from-amber-500 hover:to-amber-600 text-white font-bold text-sm rounded-lg disabled:opacity-50 flex items-center justify-center gap-1.5"
+                    >
+                      {savingUser ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
+                      حفظ التغييرات
+                    </button>
+                    <button
+                      onClick={() => { setShowEditDialog(false); setEditingUser(null); }}
+                      className="h-10 px-4 bg-slate-800/50 hover:bg-slate-700/50 text-slate-300 font-bold text-sm rounded-lg border border-slate-700/50"
+                    >
+                      إلغاء
+                    </button>
+                  </div>
+                </div>
+              )}
+            </DialogContent>
+          </Dialog>
+
+          {/* ─── Delete Confirm Dialog ────────────────────────────────── */}
+          <Dialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
+            <DialogContent className="bg-slate-900 border-slate-800/60 sm:max-w-sm" dir="rtl">
+              <DialogHeader>
+                <DialogTitle className="text-lg font-bold text-white flex items-center gap-2">
+                  <Trash2 className="w-5 h-5 text-rose-400" />
+                  تأكيد تعطيل المستخدم
+                </DialogTitle>
+                <DialogDescription className="text-slate-400 text-sm">
+                  هل أنت متأكد؟ سيتم تعطيل الحساب ومنعه من تسجيل الدخول.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="flex items-center gap-2 mt-4">
+                <button
+                  onClick={confirmDeleteUser}
+                  className="flex-1 h-10 bg-rose-600 hover:bg-rose-500 text-white font-bold text-sm rounded-lg flex items-center justify-center gap-1.5"
+                >
+                  <Trash2 className="w-4 h-4" />
+                  تعطيل
+                </button>
+                <button
+                  onClick={() => { setShowDeleteConfirm(false); setDeletingUserId(null); }}
+                  className="flex-1 h-10 bg-slate-800/50 hover:bg-slate-700/50 text-slate-300 font-bold text-sm rounded-lg border border-slate-700/50"
+                >
+                  إلغاء
+                </button>
+              </div>
+            </DialogContent>
+          </Dialog>
 
           {/* ─── Settings ───────────────────────────────────── */}
           {activeSection === 'settings' && (
