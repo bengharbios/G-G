@@ -1462,3 +1462,56 @@ Priority recommendations for next phase:
 - Verify all admin panel sections work correctly on production
 - Test login functionality on production
 - Consider adding new features on top of the restored base
+
+---
+Task ID: restore-8R8ipjs56
+Agent: Main Agent
+Task: Restore project to deployment 8R8ipjs56 state - bring back subscription guard and code-required game access
+
+Work Log:
+- User reported all games accessible without subscription code (no code entry page, no trial page)
+- Compared current files with deployment backup at /home/z/my-project/download/deployment/app/
+- Found ALL game pages (familyfeud, prison, risk, risk2, tabot, tobol, mafia, diwaniya) were missing SubscriptionGuard and GameLayout wrappers
+- Current pages had extra BrandedHeader components that bypassed the subscription system
+- Restored ALL files from deployment backup:
+  - src/app/page.tsx (homepage)
+  - src/app/layout.tsx
+  - src/app/familyfeud/page.tsx
+  - src/app/prison/page.tsx
+  - src/app/risk/page.tsx
+  - src/app/risk2/page.tsx
+  - src/app/tabot/page.tsx
+  - src/app/tobol/page.tsx
+  - src/app/mafia/page.tsx
+  - src/app/diwaniya/page.tsx
+  - src/app/admin/page.tsx
+  - src/app/admin/layout.tsx
+  - src/app/join/[code]/page.tsx
+  - src/app/join/prison/[code]/page.tsx
+  - src/app/join/risk/[code]/page.tsx
+  - src/app/join/risk2/[code]/page.tsx
+  - src/app/join/tobol/[code]/page.tsx
+- Verified all 17 files match deployment exactly (zero diff)
+- Ran `npx next build` - build succeeds with all routes including /join/[code] pattern
+- Committed and pushed to GitHub (commit 23202a1)
+- Vercel auto-deployed: deployment dpl_ZkoqYiTUNgPJ9GfJeePyNTUnHJaV (READY)
+- Verified deployed pages return HTTP 200 (homepage, familyfeud, admin)
+
+Stage Summary:
+- All 17 page files restored to match deployment 8R8ipjs56 exactly
+- SubscriptionGuard now wraps all game pages - requires subscription code to access games
+- /join/[code] routes restored for direct code-based game access
+- Admin panel restored to original version
+- Build succeeds, deployed to Vercel at https://g-g-beta.vercel.app
+- All games now require subscription code entry before playing
+
+Current project status:
+- Project fully restored to deployment 8R8ipjs56 state
+- Subscription system active: all games require code via SubscriptionGuard
+- Trial system available for new users
+- Admin panel at /admin with original functionality
+- Deploy URL: https://g-g-beta.vercel.app
+
+Unresolved issues:
+- Dev server unstable in sandbox (keeps getting killed by resource manager)
+- /baharharb and /play/[gameId] routes exist but were not in original deployment
