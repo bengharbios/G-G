@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -12,13 +12,20 @@ import {
   ShieldCheck,
   Users,
   ChevronLeft,
-  Menu,
-  X,
+  Search,
+  Bell,
+  Settings,
   Star,
   Zap,
   Clock,
   HelpCircle,
-  Settings,
+  Home,
+  Play,
+  Crown,
+  Gift,
+  Store,
+  Trophy,
+  User,
 } from 'lucide-react';
 
 // ─── Game Data ────────────────────────────────────────────────────────────────
@@ -327,6 +334,38 @@ const testimonials = [
   },
 ];
 
+// ─── Banner Data ──────────────────────────────────────────────────────────────
+
+const bannerItems = [
+  { emoji: '🎪', title: 'بطولة المافيا الأسبوعية', subtitle: 'جائزة 500 💎 للفائز', gradient: 'from-red-900/60 via-rose-900/40 to-orange-900/60' },
+  { emoji: '🔥', title: 'تحدي طبول الحرب', subtitle: 'تحدى أصدقائك الآن', gradient: 'from-orange-900/60 via-amber-900/40 to-red-900/60' },
+  { emoji: '🎁', title: 'مكافآت يومية مجانية', subtitle: 'سجل دخولك واكسب جوائز', gradient: 'from-amber-900/60 via-yellow-900/40 to-orange-900/60' },
+  { emoji: '🏆', title: 'تصنيف أفضل اللاعبين', subtitle: 'نافس وتصدر لوحة المتصدرين', gradient: 'from-emerald-900/60 via-teal-900/40 to-cyan-900/60' },
+  { emoji: '⚡', title: 'لعبة جديدة قريباً', subtitle: 'ترقبوا مفاجآت قادمة', gradient: 'from-purple-900/60 via-violet-900/40 to-fuchsia-900/60' },
+];
+
+// ─── Quick Actions Data ──────────────────────────────────────────────────────
+
+const quickActions = [
+  { emoji: '📅', label: 'الأحداث', gradient: 'from-rose-500 to-amber-500' },
+  { emoji: '🛒', label: 'المتجر', gradient: 'from-amber-500 to-yellow-500' },
+  { emoji: '🏆', label: 'التصنيف', gradient: 'from-emerald-500 to-teal-500' },
+  { emoji: '🎁', label: 'ادعُ أصدقاءك', gradient: 'from-purple-500 to-pink-500' },
+  { emoji: '👑', label: 'VIP', gradient: 'from-yellow-400 to-amber-500' },
+];
+
+// ─── Daily Rewards Day Data ──────────────────────────────────────────────────
+
+const dailyDays = [
+  { dayLabel: 'أحد', icon: '💎', claimed: true, today: false, special: false },
+  { dayLabel: 'اثن', icon: '❤️', claimed: true, today: false, special: false },
+  { dayLabel: 'ثلا', icon: '✨', claimed: false, today: true, special: false },
+  { dayLabel: 'أرب', icon: '💎', claimed: false, today: false, special: false },
+  { dayLabel: 'خمي', icon: '💎', claimed: false, today: false, special: false },
+  { dayLabel: 'جمع', icon: '💎', claimed: false, today: false, special: false },
+  { dayLabel: 'سبت', icon: '🎁', claimed: false, today: false, special: true },
+];
+
 // ─── Smooth Scroll Helper ───────────────────────────────────────────────────
 
 function smoothScrollTo(e: React.MouseEvent<HTMLAnchorElement>, id: string) {
@@ -391,59 +430,44 @@ const staggerContainer = {
   },
 };
 
-const heroTextVariant = {
-  hidden: { opacity: 0, y: 30, scale: 0.95 },
-  visible: {
-    opacity: 1,
-    y: 0,
-    scale: 1,
-    transition: { duration: 0.8, ease: [0.25, 0.46, 0.45, 0.94] },
-  },
-};
-
-const statsVariant = {
-  hidden: { opacity: 0, scale: 0.8 },
-  visible: (i: number) => ({
-    opacity: 1,
-    scale: 1,
-    transition: { delay: 0.8 + i * 0.15, duration: 0.5, ease: 'easeOut' },
-  }),
+const fadeIn = {
+  hidden: { opacity: 0 },
+  visible: { opacity: 1, transition: { duration: 0.5 } },
 };
 
 // ─── Header Component ─────────────────────────────────────────────────────────
 
 function Header() {
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const { count, visible: countVisible } = useActivePlayers();
 
   return (
     <header className="fixed top-0 left-0 right-0 z-50 bg-slate-950/95 backdrop-blur-md border-b border-slate-800/50">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between h-16">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6">
+        <div className="flex items-center justify-between h-14 sm:h-16 gap-3">
           {/* Logo + Title */}
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-red-500 to-purple-600 flex items-center justify-center shadow-lg shadow-red-500/20">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-gradient-to-br from-amber-500 to-rose-600 flex items-center justify-center shadow-lg shadow-amber-500/20 shrink-0">
               <img
                 src="/platform-logo.png"
                 alt="ألعاب الغريب"
-                className="w-8 h-8 rounded-lg object-contain"
+                className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg object-contain"
                 onError={(e) => {
                   const target = e.target as HTMLImageElement;
                   target.style.display = 'none';
                   target.parentElement!.innerHTML =
-                    '<span class="text-white text-xl font-black">غ</span>';
+                    '<span class="text-white text-lg font-black">غ</span>';
                 }}
               />
             </div>
-            <h1 className="text-lg sm:text-xl font-black bg-gradient-to-l from-red-400 via-yellow-300 to-red-400 bg-clip-text text-transparent">
+            <h1 className="text-base sm:text-xl font-black bg-gradient-to-l from-amber-400 via-yellow-300 to-amber-400 bg-clip-text text-transparent truncate">
               ألعاب الغريب
             </h1>
           </div>
 
-          {/* Desktop Nav */}
-          <nav className="hidden md:flex items-center gap-6">
-            {/* Active Players Counter */}
-            <div className="flex items-center gap-1.5 text-xs text-green-400 font-medium">
+          {/* Right Side Actions */}
+          <div className="flex items-center gap-2 sm:gap-3">
+            {/* Active Players - hidden on small mobile */}
+            <div className="hidden sm:flex items-center gap-1.5 text-xs text-green-400 font-medium">
               <span className="relative flex h-2 w-2">
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" />
                 <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500" />
@@ -453,244 +477,268 @@ function Header() {
               </span>
               <span className="text-slate-500">متصل</span>
             </div>
-            <a
-              href="#games"
-              onClick={(e) => smoothScrollTo(e, '#games')}
-              className="text-sm text-slate-300 hover:text-white transition-colors"
+
+            {/* Search */}
+            <button
+              className="w-9 h-9 rounded-full bg-slate-800 border border-slate-700/50 flex items-center justify-center text-slate-400 hover:text-white hover:bg-slate-700 transition-colors"
+              aria-label="بحث"
             >
-              الألعاب
-            </a>
-            <a
-              href="#features"
-              onClick={(e) => smoothScrollTo(e, '#features')}
-              className="text-sm text-slate-300 hover:text-white transition-colors"
+              <Search className="w-4 h-4" />
+            </button>
+
+            {/* Gems */}
+            <div className="flex items-center gap-1 bg-slate-800/80 border border-amber-500/30 rounded-full px-2.5 py-1">
+              <span className="text-sm">💎</span>
+              <span className="text-xs font-bold text-amber-400">2,450</span>
+            </div>
+
+            {/* Notification Bell */}
+            <button
+              className="relative w-9 h-9 rounded-full bg-slate-800 border border-slate-700/50 flex items-center justify-center text-slate-400 hover:text-white hover:bg-slate-700 transition-colors"
+              aria-label="الإشعارات"
             >
-              المميزات
-            </a>
-            <a
-              href="#how-to-start"
-              onClick={(e) => smoothScrollTo(e, '#how-to-start')}
-              className="text-sm text-slate-300 hover:text-white transition-colors"
-            >
-              كيف تبدأ؟
-            </a>
+              <Bell className="w-4 h-4" />
+              <span className="absolute -top-1 -left-1 w-4.5 h-4.5 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center">
+                3
+              </span>
+            </button>
+
+            {/* Profile Avatar */}
+            <div className="relative group hidden sm:flex">
+              <button
+                className="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-gradient-to-br from-amber-500 to-rose-600 flex items-center justify-center text-white font-bold text-sm shadow-lg shadow-amber-500/20"
+                aria-label="الملف الشخصي"
+              >
+                غ
+              </button>
+              <span className="absolute -bottom-1.5 -left-1 text-[9px] font-bold bg-slate-800 border border-slate-600 text-amber-400 px-1 rounded-full leading-tight">
+                12
+              </span>
+            </div>
+
+            {/* Admin Link */}
             <a
               href="/admin"
-              className="text-slate-500 hover:text-slate-300 transition-colors"
+              className="w-9 h-9 rounded-full bg-slate-800 border border-slate-700/50 flex items-center justify-center text-slate-500 hover:text-slate-300 transition-colors"
               title="لوحة التحكم"
             >
               <Settings className="w-4 h-4" />
             </a>
-            <Button
-              asChild
-              className="bg-gradient-to-l from-red-600 to-red-700 hover:from-red-500 hover:to-red-600 text-white font-bold shadow-lg shadow-red-500/25"
-            >
-              <a href="#games" onClick={(e) => smoothScrollTo(e, '#games')}>
-                <Gamepad2 className="w-4 h-4 ml-2" />
-                العب الآن
-              </a>
-            </Button>
-          </nav>
-
-          {/* Mobile Menu Button */}
-          <button
-            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-            className="md:hidden text-slate-300 hover:text-white p-2 rounded-lg hover:bg-slate-800/50 transition-colors"
-          >
-            {mobileMenuOpen ? (
-              <X className="w-6 h-6" />
-            ) : (
-              <Menu className="w-6 h-6" />
-            )}
-          </button>
+          </div>
         </div>
       </div>
-
-      {/* Mobile Menu */}
-      <AnimatePresence>
-        {mobileMenuOpen && (
-          <motion.div
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: 'auto' }}
-            exit={{ opacity: 0, height: 0 }}
-            className="md:hidden bg-slate-950 border-t border-slate-800/50 overflow-hidden"
-          >
-            <nav className="flex flex-col px-4 py-4 gap-3">
-              <a
-                href="#games"
-                onClick={(e) => { smoothScrollTo(e, '#games'); setMobileMenuOpen(false); }}
-                className="text-slate-300 hover:text-white transition-colors py-2 px-3 rounded-lg hover:bg-slate-800/50"
-              >
-                🎮 الألعاب
-              </a>
-              <a
-                href="#features"
-                onClick={(e) => { smoothScrollTo(e, '#features'); setMobileMenuOpen(false); }}
-                className="text-slate-300 hover:text-white transition-colors py-2 px-3 rounded-lg hover:bg-slate-800/50"
-              >
-                ✨ المميزات
-              </a>
-              <a
-                href="#how-to-start"
-                onClick={(e) => { smoothScrollTo(e, '#how-to-start'); setMobileMenuOpen(false); }}
-                className="text-slate-300 hover:text-white transition-colors py-2 px-3 rounded-lg hover:bg-slate-800/50"
-              >
-                🚀 كيف تبدأ؟
-              </a>
-              <Button
-                asChild
-                className="bg-gradient-to-l from-red-600 to-red-700 hover:from-red-500 hover:to-red-600 text-white font-bold mt-2"
-              >
-                <a href="#games" onClick={(e) => { smoothScrollTo(e, '#games'); setMobileMenuOpen(false); }}>
-                  <Gamepad2 className="w-4 h-4 ml-2" />
-                  العب الآن
-                </a>
-              </Button>
-            </nav>
-          </motion.div>
-        )}
-      </AnimatePresence>
     </header>
   );
 }
 
-// ─── Hero Section ────────────────────────────────────────────────────────────
+// ─── Banner Carousel ─────────────────────────────────────────────────────────
 
-function HeroSection() {
-  const heroStats = [
-    { icon: <Gamepad2 className="w-5 h-5" />, value: '7+', label: 'ألعاب' },
-    { icon: <Users className="w-5 h-5" />, value: '2-20', label: 'لاعب' },
-    { icon: <HelpCircle className="w-5 h-5" />, value: '153+', label: 'سؤال' },
-    { icon: <Star className="w-5 h-5" />, value: '∞', label: 'متعة' },
-  ];
+function BannerCarousel() {
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const animFrameRef = useRef<number>(0);
+
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+
+    let speed = 0.5;
+    const step = () => {
+      if (el) {
+        el.scrollLeft += speed;
+        const halfWidth = el.scrollWidth / 2;
+        if (el.scrollLeft >= halfWidth) {
+          el.scrollLeft -= halfWidth;
+        }
+      }
+      animFrameRef.current = requestAnimationFrame(step);
+    };
+    animFrameRef.current = requestAnimationFrame(step);
+    return () => cancelAnimationFrame(animFrameRef.current);
+  }, []);
+
+  const doubled = [...bannerItems, ...bannerItems];
 
   return (
-    <section className="relative min-h-[90vh] flex items-center justify-center overflow-hidden pt-16">
-      {/* Background gradient */}
-      <div className="absolute inset-0 bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950" />
-      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-red-900/20 via-transparent to-transparent" />
-      <div className="absolute top-20 left-1/4 w-96 h-96 bg-red-500/10 rounded-full blur-3xl" />
-      <div className="absolute bottom-20 right-1/4 w-96 h-96 bg-purple-500/10 rounded-full blur-3xl" />
+    <div className="relative">
+      {/* Fade edges */}
+      <div className="absolute left-0 top-0 bottom-0 w-12 bg-gradient-to-l from-transparent to-slate-950 z-10 pointer-events-none" />
+      <div className="absolute right-0 top-0 bottom-0 w-12 bg-gradient-to-r from-transparent to-slate-950 z-10 pointer-events-none" />
 
-      {/* Floating Emojis */}
-      {floatingEmojis.map((item, i) => (
-        <motion.div
-          key={i}
-          className="absolute text-3xl sm:text-4xl opacity-20 select-none pointer-events-none"
-          style={{ left: item.x, top: item.y }}
-          animate={{
-            y: [0, -20, 0, 15, 0],
-            rotate: [0, 10, -5, 8, 0],
-            scale: [1, 1.1, 0.95, 1.05, 1],
-          }}
-          transition={{
-            duration: item.duration,
-            repeat: Infinity,
-            delay: item.delay,
-            ease: 'easeInOut',
-          }}
-        >
-          {item.emoji}
-        </motion.div>
-      ))}
-
-      {/* Content */}
-      <div className="relative z-10 text-center px-4 max-w-4xl mx-auto">
-        {/* Platform badge */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6 }}
-          className="inline-flex items-center gap-2 bg-slate-800/60 border border-slate-700/50 rounded-full px-4 py-2 mb-8 backdrop-blur-sm"
-        >
-          <span className="w-2 h-2 bg-green-400 rounded-full animate-pulse" />
-          <span className="text-sm text-slate-300">
-            🎮 منصة ألعاب جماعية عربية
-          </span>
-        </motion.div>
-
-        {/* Main Title */}
-        <motion.h2
-          variants={heroTextVariant}
-          initial="hidden"
-          animate="visible"
-          className="text-4xl sm:text-6xl md:text-7xl font-black mb-6 leading-tight"
-        >
-          <span className="bg-gradient-to-l from-red-400 via-yellow-300 via-orange-300 to-red-500 bg-clip-text text-transparent">
-            العب مع أصحابك
-          </span>
-        </motion.h2>
-
-        {/* Subtitle */}
-        <motion.p
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.3, duration: 0.6 }}
-          className="text-lg sm:text-xl text-slate-400 max-w-2xl mx-auto mb-10 leading-relaxed"
-        >
-          منصة ألعاب اجتماعية عربية، العب مع أصحابك في نفس الوقت من أي مكان!
-          <br />
-          <span className="text-slate-500">بدون تسجيل، بدون تطبيق، فقط شارك الرابط والعب</span>
-        </motion.p>
-
-        {/* CTA Buttons */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.5, duration: 0.6 }}
-          className="flex flex-col sm:flex-row gap-4 justify-center mb-14"
-        >
-          <Button
-            asChild
-            size="lg"
-            className="bg-gradient-to-l from-red-600 to-red-700 hover:from-red-500 hover:to-red-600 text-white font-bold text-lg px-8 py-6 shadow-xl shadow-red-500/25 hover:shadow-red-500/40 transition-shadow"
+      <div
+        ref={scrollRef}
+        className="flex gap-4 overflow-x-auto scrollbar-none py-1 px-1"
+        style={{ scrollBehavior: 'auto' }}
+      >
+        {doubled.map((item, i) => (
+          <div
+            key={i}
+            className={`flex-shrink-0 w-72 sm:w-80 h-28 sm:h-32 rounded-2xl bg-gradient-to-br ${item.gradient} border border-slate-700/30 p-4 sm:p-5 flex flex-col justify-center backdrop-blur-sm`}
           >
-            <a href="#games" onClick={(e) => smoothScrollTo(e, '#games')}>
-              <Gamepad2 className="w-5 h-5 ml-2" />
-              ابدأ اللعب الآن
-            </a>
-          </Button>
-          <Button
-            asChild
-            variant="outline"
-            size="lg"
-            className="border-slate-700 text-slate-300 hover:bg-slate-800/50 hover:text-white font-bold text-lg px-8 py-6"
-          >
-            <a href="#how-to-start" onClick={(e) => smoothScrollTo(e, '#how-to-start')}>
-              <Clock className="w-5 h-5 ml-2" />
-              كيف تبدأ؟
-            </a>
-          </Button>
-        </motion.div>
-
-        {/* Stats */}
-        <motion.div
-          initial="hidden"
-          animate="visible"
-          className="flex justify-center gap-6 sm:gap-12"
-        >
-          {heroStats.map((stat, i) => (
-            <motion.div
-              key={i}
-              variants={statsVariant}
-              custom={i}
-              className="flex flex-col items-center gap-1"
-            >
-              <div className="flex items-center gap-2 text-slate-400 mb-1">
-                {stat.icon}
-              </div>
-              <span className="text-2xl sm:text-3xl font-black text-white">
-                {stat.value}
-              </span>
-              <span className="text-sm text-slate-500">{stat.label}</span>
-            </motion.div>
-          ))}
-        </motion.div>
+            <span className="text-2xl sm:text-3xl mb-1.5">{item.emoji}</span>
+            <h3 className="text-sm sm:text-base font-bold text-white leading-tight mb-1">{item.title}</h3>
+            <p className="text-xs sm:text-sm text-slate-300">{item.subtitle}</p>
+          </div>
+        ))}
       </div>
+    </div>
+  );
+}
 
-      {/* Bottom fade */}
-      <div className="absolute bottom-0 left-0 right-0 h-32 bg-gradient-to-t from-slate-950 to-transparent" />
-    </section>
+// ─── Quick Actions ────────────────────────────────────────────────────────────
+
+function QuickActions() {
+  return (
+    <div className="flex items-center justify-center gap-4 sm:gap-6 py-2">
+      {quickActions.map((action, i) => (
+        <motion.button
+          key={i}
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.1 + i * 0.08, duration: 0.4 }}
+          className="flex flex-col items-center gap-1.5 group"
+        >
+          <div
+            className={`w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-gradient-to-br ${action.gradient} flex items-center justify-center text-xl sm:text-2xl shadow-lg hover:scale-110 active:scale-95 transition-transform duration-200`}
+          >
+            {action.emoji}
+          </div>
+          <span className="text-[10px] sm:text-xs text-slate-400 group-hover:text-white transition-colors font-medium">
+            {action.label}
+          </span>
+        </motion.button>
+      ))}
+    </div>
+  );
+}
+
+// ─── Daily Rewards Section ───────────────────────────────────────────────────
+
+function DailyRewardsSection() {
+  const [spinning, setSpinning] = useState(false);
+  const [spinComplete, setSpinComplete] = useState(false);
+
+  const handleSpin = useCallback(() => {
+    if (spinning) return;
+    setSpinning(true);
+    setSpinComplete(false);
+    setTimeout(() => {
+      setSpinning(false);
+      setSpinComplete(true);
+      setTimeout(() => setSpinComplete(false), 3000);
+    }, 3000);
+  }, [spinning]);
+
+  return (
+    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
+      {/* Daily Rewards Card */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.2, duration: 0.5 }}
+        className="rounded-2xl border border-slate-800/60 bg-gradient-to-b from-slate-900/80 to-slate-950/90 p-4 sm:p-6"
+      >
+        {/* Header */}
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2">
+            <span className="text-xl">🔥</span>
+            <h3 className="text-base sm:text-lg font-bold text-white">المكافآت اليومية</h3>
+          </div>
+          <Badge className="bg-amber-500/20 border-amber-500/40 text-amber-300 text-[10px] sm:text-xs font-bold">
+            اليوم 3/7
+          </Badge>
+        </div>
+
+        {/* Progress Bar */}
+        <div className="w-full h-2 bg-slate-800 rounded-full overflow-hidden mb-4">
+          <motion.div
+            initial={{ width: '0%' }}
+            animate={{ width: '42.8%' }}
+            transition={{ delay: 0.5, duration: 1, ease: 'easeOut' }}
+            className="h-full bg-gradient-to-l from-amber-400 to-amber-600 rounded-full"
+          />
+        </div>
+
+        {/* Day Buttons */}
+        <div className="flex items-center justify-between gap-1.5 sm:gap-2">
+          {dailyDays.map((day, i) => (
+            <div
+              key={i}
+              className={`flex flex-col items-center gap-1 ${
+                day.claimed ? 'opacity-100' : !day.today ? 'opacity-40' : 'opacity-100'
+              }`}
+            >
+              <button
+                className={`relative w-9 h-9 sm:w-10 sm:h-10 rounded-xl flex items-center justify-center text-base sm:text-lg transition-all duration-200 ${
+                  day.claimed
+                    ? 'bg-amber-500/20 border border-amber-500/40 shadow-md shadow-amber-500/10'
+                    : day.today
+                      ? 'bg-gradient-to-br from-amber-500 to-orange-500 border border-amber-400/60 shadow-lg shadow-amber-500/30 scale-110'
+                      : 'bg-slate-800 border border-slate-700/50'
+                }`}
+              >
+                {day.today && (
+                  <motion.span
+                    className="absolute -top-1 -right-1 text-xs"
+                    animate={{ scale: [1, 1.3, 1], opacity: [0.7, 1, 0.7] }}
+                    transition={{ duration: 1.5, repeat: Infinity }}
+                  >
+                    ✨
+                  </motion.span>
+                )}
+                {day.icon}
+              </button>
+              <span className="text-[9px] sm:text-[10px] text-slate-500 font-medium">{day.dayLabel}</span>
+            </div>
+          ))}
+        </div>
+      </motion.div>
+
+      {/* Lucky Wheel Card */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.35, duration: 0.5 }}
+        className="rounded-2xl border border-slate-800/60 bg-gradient-to-b from-slate-900/80 to-slate-950/90 p-4 sm:p-6 flex flex-col items-center text-center"
+      >
+        <h3 className="text-base sm:text-lg font-bold text-white mb-1 flex items-center gap-2">
+          <span>🔄</span>
+          <span>عجلة الحظ</span>
+        </h3>
+        <p className="text-xs sm:text-sm text-slate-400 mb-4 leading-relaxed">
+          الفّ العجلة يومياً واكسب جوائز رائعة! 💎🎁
+        </p>
+
+        {/* Wheel Button */}
+        <motion.button
+          onClick={handleSpin}
+          animate={{ rotate: spinning ? 360 * 5 : 0 }}
+          transition={{ duration: 3, ease: 'easeInOut' }}
+          className="relative w-28 h-28 sm:w-32 sm:h-32 rounded-full mb-4 focus:outline-none"
+          style={{
+            background: 'conic-gradient(from 0deg, #f59e0b, #f43f5e, #a855f7, #f59e0b)',
+            padding: '3px',
+          }}
+        >
+          <div className="w-full h-full rounded-full bg-slate-900 flex flex-col items-center justify-center gap-1 overflow-hidden">
+            {/* Gradient quarters */}
+            <div className="absolute inset-0 grid grid-cols-2 grid-rows-2 rounded-full">
+              <div className="bg-amber-900/20 rounded-tr-full" />
+              <div className="bg-rose-900/20 rounded-tl-full" />
+              <div className="bg-purple-900/20 rounded-br-full" />
+              <div className="bg-amber-900/20 rounded-bl-full" />
+            </div>
+            <span className="relative text-2xl sm:text-3xl">🎰</span>
+            <span className="relative text-xs sm:text-sm font-bold text-white">
+              {spinning ? '...' : spinComplete ? '🎉' : 'لف!'}
+            </span>
+          </div>
+        </motion.button>
+
+        <Badge className="bg-slate-800/80 border-slate-700/50 text-slate-400 text-[10px]">
+          متاح مرة واحدة يومياً
+        </Badge>
+      </motion.div>
+    </div>
   );
 }
 
@@ -715,7 +763,9 @@ function GameCard({ game, index }: { game: GameData; index: number }) {
             ? ['#f59e0b', '#f97316', '#ef4444', '#f59e0b']
             : game.themeBorder.includes('violet')
               ? ['#8b5cf6', '#a855f7', '#6366f1', '#8b5cf6']
-              : ['#ef4444', '#a855f7', '#f59e0b', '#ef4444']
+              : game.themeBorder.includes('teal')
+                ? ['#14b8a6', '#06b6d4', '#10b981', '#14b8a6']
+                : ['#ef4444', '#a855f7', '#f59e0b', '#ef4444']
     : null;
 
   return (
@@ -728,11 +778,7 @@ function GameCard({ game, index }: { game: GameData; index: number }) {
     >
       {/* Animated gradient border wrapper */}
       <div
-        className={`relative rounded-2xl p-[2px] ${
-          isAvailable
-            ? 'bg-gradient-to-br from-slate-700/50 via-slate-800/30 to-slate-700/50'
-            : ''
-        }`}
+        className="relative rounded-2xl p-[2px]"
         style={
           isAvailable && gradientColors
             ? {
@@ -743,7 +789,7 @@ function GameCard({ game, index }: { game: GameData; index: number }) {
         }
       >
         <CardWrapper
-          {...(linkProps as any)}
+          {...(linkProps as Record<string, unknown>)}
           className={`group relative block rounded-[14px] border ${game.themeBorder} overflow-hidden transition-all duration-300 ${
             isAvailable
               ? 'hover:shadow-xl hover:shadow-black/30 hover:-translate-y-1 cursor-pointer'
@@ -770,24 +816,29 @@ function GameCard({ game, index }: { game: GameData; index: number }) {
             )}
           </div>
 
-          {/* Coming Soon Overlay Gradient */}
+          {/* Hover dark overlay */}
+          {isAvailable && (
+            <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-colors duration-300 z-[5]" />
+          )}
+
+          {/* Coming Soon Overlay */}
           {isComingSoon && (
-            <div className="absolute inset-0 z-5 bg-gradient-to-b from-slate-950/30 via-slate-900/10 to-slate-950/40 backdrop-blur-[1px]" />
+            <div className="absolute inset-0 z-[5] bg-gradient-to-b from-slate-950/30 via-slate-900/10 to-slate-950/40 backdrop-blur-[1px]" />
           )}
 
           {/* Content */}
-          <div className="relative z-10 p-5 sm:p-6 flex flex-col gap-4 min-h-[280px]">
+          <div className="relative z-10 p-4 sm:p-5 flex flex-col gap-3 min-h-[220px] sm:min-h-[260px]">
             {/* Top Row: Status Badge + Emoji */}
             <div className="flex items-start justify-between">
               <Badge
-                className={`${game.themeBadge} text-[10px] sm:text-xs font-bold backdrop-blur-sm ${
+                className={`${game.themeBadge} text-[9px] sm:text-[10px] font-bold backdrop-blur-sm ${
                   isComingSoon ? 'animate-pulse' : ''
                 }`}
               >
-                {isAvailable ? '🟢 متاحة الآن' : '✨ قريباً'}
+                {isAvailable ? '🟢 متاحة' : '✨ قريباً'}
               </Badge>
               <motion.div
-                className="text-4xl sm:text-5xl"
+                className="text-3xl sm:text-4xl"
                 whileHover={
                   isAvailable
                     ? {
@@ -802,74 +853,44 @@ function GameCard({ game, index }: { game: GameData; index: number }) {
               </motion.div>
             </div>
 
-            {/* Coming Soon Sparkle Badge */}
-            {isComingSoon && (
-              <motion.div
-                className="absolute top-14 left-4 pointer-events-none"
-                animate={{
-                  scale: [1, 1.3, 1],
-                  opacity: [0.6, 1, 0.6],
-                }}
-                transition={{
-                  duration: 2,
-                  repeat: Infinity,
-                  ease: 'easeInOut',
-                }}
-              >
-                <span className="text-lg">✨</span>
-              </motion.div>
-            )}
-
             {/* Title */}
             <div>
               <h3
-                className={`text-xl sm:text-2xl font-black ${game.themeColor} mb-1 ${
+                className={`text-lg sm:text-xl font-black ${game.themeColor} mb-0.5 ${
                   isComingSoon ? 'opacity-80' : ''
                 }`}
               >
                 {game.title}
               </h3>
-              <p className="text-xs text-slate-500 font-medium">
+              <p className="text-[10px] sm:text-xs text-slate-500 font-medium">
                 {game.titleEn}
               </p>
             </div>
 
             {/* Description */}
-            <p className="text-sm text-slate-400 leading-relaxed line-clamp-2 flex-1">
+            <p className="text-xs sm:text-sm text-slate-400 leading-relaxed line-clamp-2 flex-1">
               {game.description}
             </p>
 
-            {/* Meta: Players + Category */}
-            <div className="flex items-center gap-3 text-xs text-slate-500">
+            {/* Meta */}
+            <div className="flex items-center gap-2 text-[10px] sm:text-xs text-slate-500">
               <span className="flex items-center gap-1">
-                <Users className="w-3.5 h-3.5" />
+                <Users className="w-3 h-3" />
                 {game.players}
               </span>
               <span className="text-slate-700">|</span>
               <span>{game.category}</span>
             </div>
 
-            {/* Feature Tags */}
-            <div className="flex flex-wrap gap-1.5">
-              {game.features.map((feature, i) => (
-                <span
-                  key={i}
-                  className={`text-[10px] sm:text-xs px-2 py-0.5 rounded-full border border-slate-700/50 text-slate-400 bg-slate-800/50 backdrop-blur-sm`}
-                >
-                  {feature}
-                </span>
-              ))}
-            </div>
-
             {/* Action */}
-            <div className="mt-auto pt-2">
+            <div className="mt-auto pt-1">
               {isAvailable ? (
-                <div className="flex items-center justify-between text-sm font-bold text-red-400 group-hover:text-red-300 transition-colors">
-                  <span>ابدأ اللعب الآن</span>
-                  <ChevronLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
+                <div className="flex items-center justify-between text-xs sm:text-sm font-bold text-red-400 group-hover:text-red-300 transition-colors">
+                  <span>ابدأ اللعب</span>
+                  <ChevronLeft className="w-3.5 h-3.5 group-hover:-translate-x-1 transition-transform" />
                 </div>
               ) : (
-                <div className="flex items-center gap-2 text-sm text-slate-500">
+                <div className="flex items-center gap-1.5 text-xs text-slate-500">
                   <motion.span
                     className="inline-block"
                     animate={{ opacity: [0.5, 1, 0.5] }}
@@ -882,6 +903,19 @@ function GameCard({ game, index }: { game: GameData; index: number }) {
               )}
             </div>
           </div>
+
+          {/* Play button overlay (appears on hover) */}
+          {isAvailable && (
+            <div className="absolute inset-0 z-[6] flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none">
+              <motion.div
+                initial={{ scale: 0.5, opacity: 0 }}
+                whileHover={{ scale: 1 }}
+                className="w-14 h-14 sm:w-16 sm:h-16 rounded-full bg-white/95 flex items-center justify-center shadow-2xl shadow-black/40"
+              >
+                <Play className="w-6 h-6 sm:w-7 sm:h-7 text-slate-900 mr-[-2px]" fill="currentColor" />
+              </motion.div>
+            </div>
+          )}
         </CardWrapper>
       </div>
     </motion.div>
@@ -891,37 +925,31 @@ function GameCard({ game, index }: { game: GameData; index: number }) {
 // ─── Games Section ───────────────────────────────────────────────────────────
 
 function GamesSection() {
+  const availableCount = games.filter(g => g.status === 'available').length;
+
   return (
-    <section id="games" className="relative py-20 sm:py-28 bg-slate-950">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    <section id="games" className="relative py-8 sm:py-12 bg-slate-950">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6">
         {/* Section Header */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
           transition={{ duration: 0.6 }}
-          className="text-center mb-14"
+          className="flex items-center justify-between mb-6 sm:mb-8"
         >
-          <Badge
-            variant="outline"
-            className="border-red-500/30 text-red-400 mb-4 text-xs"
-          >
-            🎮 الألعاب المتاحة
-          </Badge>
-          <h2 className="text-3xl sm:text-4xl md:text-5xl font-black text-white mb-4">
-            اختر{'\u00A0'}
-            <span className="bg-gradient-to-l from-red-400 to-orange-400 bg-clip-text text-transparent">
-              لعبتك
-            </span>{'\u00A0'}
-            المفضلة
-          </h2>
-          <p className="text-slate-400 max-w-xl mx-auto text-base sm:text-lg">
-            مجموعة ألعاب اجتماعية وحربية مصممة خصيصاً للاعبين العرب
-          </p>
+          <div className="flex items-center gap-2.5">
+            <span className="text-xl sm:text-2xl">🎮</span>
+            <h2 className="text-lg sm:text-2xl font-black text-white">الألعاب</h2>
+            <Badge className="bg-emerald-500/20 border-emerald-500/40 text-emerald-300 text-[10px] sm:text-xs font-bold">
+              {availableCount} متاحة
+            </Badge>
+          </div>
+          <span className="text-xs sm:text-sm text-slate-500 font-medium">الكل ({games.length})</span>
         </motion.div>
 
         {/* Games Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-5 sm:gap-6">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 sm:gap-4 lg:gap-5">
           {games.map((game, i) => (
             <GameCard key={game.id} game={game} index={i} />
           ))}
@@ -937,13 +965,11 @@ function FeaturesSection() {
   return (
     <section
       id="features"
-      className="relative py-20 sm:py-28 bg-gradient-to-b from-slate-950 via-slate-900/50 to-slate-950"
+      className="relative py-16 sm:py-24 bg-gradient-to-b from-slate-950 via-slate-900/50 to-slate-950"
     >
-      {/* Decorative bg */}
       <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-purple-900/10 via-transparent to-transparent" />
 
       <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        {/* Section Header */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
@@ -968,7 +994,6 @@ function FeaturesSection() {
           </p>
         </motion.div>
 
-        {/* Features Grid */}
         <motion.div
           variants={staggerContainer}
           initial="hidden"
@@ -1009,13 +1034,11 @@ function TestimonialsSection() {
   return (
     <section
       id="testimonials"
-      className="relative py-20 sm:py-28 bg-gradient-to-b from-slate-950 via-slate-900/30 to-slate-950"
+      className="relative py-16 sm:py-24 bg-gradient-to-b from-slate-950 via-slate-900/30 to-slate-950"
     >
-      {/* Decorative bg */}
       <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_bottom_left,_var(--tw-gradient-stops))] from-green-900/10 via-transparent to-transparent" />
 
       <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        {/* Section Header */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
@@ -1040,7 +1063,6 @@ function TestimonialsSection() {
           </p>
         </motion.div>
 
-        {/* Testimonials Cards */}
         <motion.div
           variants={staggerContainer}
           initial="hidden"
@@ -1051,12 +1073,10 @@ function TestimonialsSection() {
           {testimonials.map((t, i) => (
             <motion.div key={i} variants={fadeInUp} custom={i}>
               <div className="relative h-full rounded-2xl border border-slate-700/40 bg-slate-800/30 backdrop-blur-md p-6 sm:p-8 transition-all duration-300 hover:-translate-y-1 hover:shadow-xl hover:shadow-black/20 hover:border-slate-600/50">
-                {/* Quote mark decoration */}
                 <div className="absolute top-4 left-4 text-4xl text-slate-700/50 select-none pointer-events-none">
                   ❝
                 </div>
 
-                {/* Rating Stars */}
                 <div className="flex items-center gap-0.5 mb-4">
                   {Array.from({ length: 5 }).map((_, si) => (
                     <span
@@ -1068,12 +1088,10 @@ function TestimonialsSection() {
                   ))}
                 </div>
 
-                {/* Quote Text */}
                 <p className="text-base text-slate-300 leading-relaxed mb-6 relative z-10">
                   {t.text}
                 </p>
 
-                {/* Author Info */}
                 <div className="flex items-center gap-3 pt-4 border-t border-slate-700/40">
                   <span className="text-3xl">{t.avatar}</span>
                   <div>
@@ -1096,10 +1114,9 @@ function HowToStartSection() {
   return (
     <section
       id="how-to-start"
-      className="relative py-20 sm:py-28 bg-slate-950"
+      className="relative py-16 sm:py-24 bg-slate-950"
     >
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-        {/* Section Header */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
@@ -1124,7 +1141,6 @@ function HowToStartSection() {
           </p>
         </motion.div>
 
-        {/* Steps */}
         <motion.div
           variants={staggerContainer}
           initial="hidden"
@@ -1136,25 +1152,20 @@ function HowToStartSection() {
             <motion.div key={i} variants={fadeInUp} custom={i}>
               <Card className="bg-slate-900/80 border-slate-800/50 hover:border-slate-700/80 transition-all duration-300 hover:-translate-y-1 hover:shadow-xl hover:shadow-black/20 h-full">
                 <CardContent className="p-6 sm:p-8 flex flex-col items-center text-center gap-4 relative">
-                  {/* Step Number */}
                   <div className="absolute -top-3 -right-3 w-10 h-10 rounded-full bg-gradient-to-br from-red-600 to-red-700 flex items-center justify-center text-white text-lg font-black shadow-lg shadow-red-500/25">
                     {step.step}
                   </div>
 
-                  {/* Icon */}
                   <div className="w-16 h-16 rounded-2xl bg-slate-800/80 border border-slate-700/50 flex items-center justify-center">
                     {step.icon}
                   </div>
 
-                  {/* Title */}
                   <h3 className="text-lg font-bold text-white">{step.title}</h3>
 
-                  {/* Description */}
                   <p className="text-sm text-slate-400 leading-relaxed">
                     {step.description}
                   </p>
 
-                  {/* Connector line (not on last item in md+) */}
                   {i < steps.length - 1 && (
                     <div className="hidden md:block absolute -left-4 top-1/2 -translate-y-1/2 w-8 border-t-2 border-dashed border-slate-700" />
                   )}
@@ -1164,7 +1175,6 @@ function HowToStartSection() {
           ))}
         </motion.div>
 
-        {/* CTA */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
@@ -1193,12 +1203,9 @@ function HowToStartSection() {
 function Footer() {
   return (
     <footer className="relative">
-      {/* Gradient top border */}
       <div className="h-[3px] bg-gradient-to-r from-transparent via-red-500 via-purple-500 via-amber-500 to-transparent" />
 
-      {/* Subtle background gradient */}
       <div className="bg-gradient-to-b from-slate-950 to-slate-900/80">
-        {/* Subtle pattern overlay */}
         <div
           className="absolute inset-0 opacity-[0.02]"
           style={{
@@ -1210,7 +1217,6 @@ function Footer() {
 
         <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
           <div className="flex flex-col items-center gap-6">
-            {/* Logo + Title */}
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-red-500 to-purple-600 flex items-center justify-center shadow-lg shadow-red-500/15">
                 <img
@@ -1230,10 +1236,8 @@ function Footer() {
               </span>
             </div>
 
-            {/* Divider */}
             <div className="w-48 h-px bg-gradient-to-r from-transparent via-slate-700 to-transparent" />
 
-            {/* Credits Section */}
             <div className="flex flex-col sm:flex-row items-center gap-4 sm:gap-8">
               <div className="flex items-center gap-2">
                 <span className="text-sm text-slate-500">💻 برمجة</span>
@@ -1250,7 +1254,6 @@ function Footer() {
               </div>
             </div>
 
-            {/* Social / Community Links */}
             <div className="flex flex-col items-center gap-3 mt-1">
               <span className="text-xs text-slate-500 font-medium">
                 تابعنا
@@ -1280,10 +1283,8 @@ function Footer() {
               </div>
             </div>
 
-            {/* Divider */}
             <div className="w-48 h-px bg-gradient-to-r from-transparent via-slate-700 to-transparent" />
 
-            {/* Copyright */}
             <p className="text-xs text-slate-600">
               © {new Date().getFullYear()} ألعاب الغريب — جميع الحقوق محفوظة
             </p>
@@ -1294,19 +1295,108 @@ function Footer() {
   );
 }
 
+// ─── Bottom Navigation Bar (Mobile) ─────────────────────────────────────────
+
+function BottomNavBar() {
+  const [activeTab, setActiveTab] = useState('home');
+
+  const tabs = [
+    { id: 'home', label: 'الرئيسية', icon: Home },
+    { id: 'games', label: 'الألعاب', icon: Gamepad2 },
+    { id: 'store', label: 'المتجر', icon: Store },
+    { id: 'rewards', label: 'المكافآت', icon: Gift },
+    { id: 'profile', label: 'الملف', icon: User },
+  ];
+
+  return (
+    <nav className="fixed bottom-0 left-0 right-0 z-50 md:hidden bg-slate-950/95 backdrop-blur-md border-t border-slate-800/50 safe-area-pb">
+      <div className="flex items-center justify-around px-2 py-1.5">
+        {tabs.map((tab) => {
+          const Icon = tab.icon;
+          const isActive = activeTab === tab.id;
+          return (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className="flex flex-col items-center gap-0.5 py-1 px-3 rounded-xl transition-colors"
+            >
+              <Icon
+                className={`w-5 h-5 transition-colors ${
+                  isActive ? 'text-amber-400' : 'text-slate-500'
+                }`}
+              />
+              <span
+                className={`text-[10px] font-medium transition-colors ${
+                  isActive ? 'text-amber-400' : 'text-slate-500'
+                }`}
+              >
+                {tab.label}
+              </span>
+              {isActive && (
+                <motion.div
+                  layoutId="bottomNavIndicator"
+                  className="absolute -top-1.5 w-6 h-0.5 rounded-full bg-amber-400"
+                  transition={{ type: 'spring', stiffness: 500, damping: 30 }}
+                />
+              )}
+            </button>
+          );
+        })}
+      </div>
+    </nav>
+  );
+}
+
 // ─── Main Page ───────────────────────────────────────────────────────────────
 
 export default function HomePage() {
   return (
     <div dir="rtl" className="min-h-screen bg-slate-950 text-white">
       <Header />
-      <HeroSection />
-      <GamesSection />
-      <FeaturesSection />
-      <TestimonialsSection />
-      <HowToStartSection />
+
+      {/* Main Content - with padding for fixed header and bottom nav */}
+      <main className="pt-14 sm:pt-16 pb-20 md:pb-0">
+        {/* Scrolling Banner Carousel */}
+        <section className="relative pt-4 sm:pt-6 pb-4 sm:pb-6 max-w-7xl mx-auto px-4 sm:px-6">
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.2, duration: 0.6 }}
+          >
+            <BannerCarousel />
+          </motion.div>
+        </section>
+
+        {/* Quick Action Buttons */}
+        <section className="py-3 sm:py-5 max-w-7xl mx-auto px-4 sm:px-6">
+          <QuickActions />
+        </section>
+
+        {/* Daily Rewards Section */}
+        <section className="py-3 sm:py-5 max-w-7xl mx-auto px-4 sm:px-6">
+          <DailyRewardsSection />
+        </section>
+
+        {/* Games Section */}
+        <GamesSection />
+
+        {/* Features Section */}
+        <FeaturesSection />
+
+        {/* Testimonials Section */}
+        <TestimonialsSection />
+
+        {/* How to Start Section */}
+        <HowToStartSection />
+      </main>
+
+      {/* Footer */}
       <Footer />
-      {/* CSS keyframe for animated gradient border on cards */}
+
+      {/* Bottom Navigation (mobile only) */}
+      <BottomNavBar />
+
+      {/* Global CSS for animations */}
       <style jsx global>{`
         @property --gradient-angle {
           syntax: '<angle>';
@@ -1317,6 +1407,16 @@ export default function HomePage() {
           to {
             --gradient-angle: 360deg;
           }
+        }
+        .scrollbar-none::-webkit-scrollbar {
+          display: none;
+        }
+        .scrollbar-none {
+          -ms-overflow-style: none;
+          scrollbar-width: none;
+        }
+        .safe-area-pb {
+          padding-bottom: env(safe-area-inset-bottom, 0px);
         }
       `}</style>
     </div>
