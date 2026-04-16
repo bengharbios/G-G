@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { validateToken } from '@/lib/admin-auth';
 
-const VERCEL_TOKEN = 'REDACTED';
+const VERCEL_TOKEN = process.env.VERCEL_TOKEN || '';
 
 export async function POST(request: NextRequest) {
   try {
