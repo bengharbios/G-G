@@ -416,6 +416,7 @@ export default function AdminPage() {
   // Grant frame state
   const [grantFrameOpen, setGrantFrameOpen] = useState(false);
   const [grantForm, setGrantForm] = useState({ userId: '', frameId: '', obtainedFrom: 'admin', obtainedNote: '' });
+  const [grantSelectedUser, setGrantSelectedUser] = useState<{ id: string; username: string; displayName: string } | null>(null);
   const [grantLoading, setGrantLoading] = useState(false);
   const [userSearchResults, setUserSearchResults] = useState<Array<{ id: string; username: string; displayName: string }>>([]);
 
@@ -1420,13 +1421,10 @@ export default function AdminPage() {
   const searchUsersForGrant = async (query: string) => {
     if (!query || query.length < 2) { setUserSearchResults([]); return; }
     try {
-      const res = await fetch('/api/admin/users');
+      const res = await fetch(`/api/admin/users?search=${encodeURIComponent(query)}`);
       if (res.ok) {
         const data = await res.json();
-        const filtered = (data.users || []).filter((u: { username: string; displayName: string }) =>
-          u.username.includes(query) || u.displayName.includes(query)
-        ).slice(0, 5);
-        setUserSearchResults(filtered);
+        setUserSearchResults((data.users || []).slice(0, 5));
       }
     } catch { /* ignore */ }
   };
@@ -1447,6 +1445,7 @@ export default function AdminPage() {
         showToast('تم منح الإطار بنجاح');
         setGrantFrameOpen(false);
         setGrantForm({ userId: '', frameId: '', obtainedFrom: 'admin', obtainedNote: '' });
+        setGrantSelectedUser(null);
         fetchFrames();
       } else {
         const data = await res.json();
@@ -2886,23 +2885,25 @@ export default function AdminPage() {
                       <Label className="text-slate-300 text-sm">البحث عن مستخدم</Label>
                       <div className="relative">
                         <Input
-                          value={grantForm.userId ? `@${grantForm.userId}` : ''}
+                          value={grantSelectedUser ? `@${grantSelectedUser.username} (${grantSelectedUser.displayName})` : ''}
                           onChange={(e) => {
-                            const val = e.target.value.replace('@', '');
-                            setGrantForm(prev => ({ ...prev, userId: val }));
+                            const val = e.target.value.replace('@', '').trim();
+                            setGrantForm(prev => ({ ...prev, userId: '' }));
+                            setGrantSelectedUser(null);
                             searchUsersForGrant(val);
                           }}
-                          placeholder="ابحث بالاسم أو اسم المستخدم..."
+                          placeholder="ابحث بالاسم أو اسم المستخدم أو المعرف..."
                           className="bg-slate-800/60 border-slate-700/50 text-white text-sm"
                         />
-                        {userSearchResults.length > 0 && !grantForm.userId && (
+                        {userSearchResults.length > 0 && !grantSelectedUser && (
                           <div className="absolute top-full left-0 right-0 mt-1 bg-slate-800 border border-slate-700 rounded-lg shadow-xl z-10 max-h-40 overflow-y-auto">
                             {userSearchResults.map((u) => (
                               <button
                                 key={u.id}
                                 className="w-full px-3 py-2 text-right hover:bg-slate-700/50 transition-colors text-sm text-white"
                                 onClick={() => {
-                                  setGrantForm(prev => ({ ...prev, userId: u.username }));
+                                  setGrantForm(prev => ({ ...prev, userId: u.id }));
+                                  setGrantSelectedUser(u);
                                   setUserSearchResults([]);
                                 }}
                               >
@@ -2965,7 +2966,7 @@ export default function AdminPage() {
                   <DialogFooter className="mt-4">
                     <Button
                       variant="outline"
-                      onClick={() => { setGrantFrameOpen(false); setUserSearchResults([]); }}
+                      onClick={() => { setGrantFrameOpen(false); setUserSearchResults([]); setGrantSelectedUser(null); }}
                       className="border-slate-700/50 text-slate-300 hover:bg-slate-800"
                     >
                       إلغاء

@@ -708,11 +708,13 @@ function Header({ onProfileClick, onLoginClick, avatarLetter, level, authUser, o
               <Search className="w-4 h-4" />
             </button>
 
-            {/* Gems */}
-            <div className="hidden sm:flex items-center gap-1.5 bg-slate-800/60 border border-slate-700/40 rounded-full px-3 py-1.5">
-              <Gem className="w-4 h-4 text-amber-400" />
-              <span className="text-xs font-bold text-amber-300">2,450</span>
-            </div>
+            {/* Gems - only when logged in */}
+            {authUser && (
+              <div className="hidden sm:flex items-center gap-1.5 bg-slate-800/60 border border-slate-700/40 rounded-full px-3 py-1.5">
+                <Gem className="w-4 h-4 text-amber-400" />
+                <span className="text-xs font-bold text-amber-300">2,450</span>
+              </div>
+            )}
 
             {/* Admin Panel - ONLY for admin role */}
             {isAdmin && (
@@ -726,17 +728,19 @@ function Header({ onProfileClick, onLoginClick, avatarLetter, level, authUser, o
               </a>
             )}
 
-            {/* Notifications */}
-            <button
-              onClick={() => toast({ title: '🔔 الإشعارات', description: 'لا توجد إشعارات جديدة' })}
-              className="relative w-9 h-9 rounded-full bg-slate-800/60 border border-slate-700/40 flex items-center justify-center text-slate-400 hover:text-white hover:bg-slate-700/60 transition-all"
-              aria-label="إشعارات"
-            >
-              <Bell className="w-4 h-4" />
-              <span className="absolute -top-0.5 -left-0.5 w-3 h-3 bg-rose-500 rounded-full border-2 border-slate-950 text-[6px] text-white flex items-center justify-center font-bold">
-                3
-              </span>
-            </button>
+            {/* Notifications - only when logged in */}
+            {authUser && (
+              <button
+                onClick={() => toast({ title: '🔔 الإشعارات', description: 'لا توجد إشعارات جديدة' })}
+                className="relative w-9 h-9 rounded-full bg-slate-800/60 border border-slate-700/40 flex items-center justify-center text-slate-400 hover:text-white hover:bg-slate-700/60 transition-all"
+                aria-label="إشعارات"
+              >
+                <Bell className="w-4 h-4" />
+                <span className="absolute -top-0.5 -left-0.5 w-3 h-3 bg-rose-500 rounded-full border-2 border-slate-950 text-[6px] text-white flex items-center justify-center font-bold">
+                  3
+                </span>
+              </button>
+            )}
 
             {/* Avatar / Login */}
             {authUser ? (
@@ -1516,11 +1520,13 @@ export default function HomePage() {
           <QuickActionsRow />
         </section>
 
-        {/* Daily Rewards + Lucky Spin - Two column on desktop */}
-        <section className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6 sm:mb-8">
-          <DailyRewardsSection />
-          <LuckySpinCard />
-        </section>
+        {/* Daily Rewards + Lucky Spin - only when logged in */}
+        {authUser && (
+          <section className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6 sm:mb-8">
+            <DailyRewardsSection />
+            <LuckySpinCard />
+          </section>
+        )}
 
         {/* Games */}
         <GamesSection />
