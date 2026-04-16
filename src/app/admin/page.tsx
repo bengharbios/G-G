@@ -41,6 +41,8 @@ import {
   CheckCircle2,
   XCircle,
   Search,
+  Frame,
+  User,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -212,7 +214,7 @@ interface LeaderboardEntry {
   isSpecialId: boolean;
 }
 
-type ActiveSection = 'dashboard' | 'games' | 'subscriptions' | 'sessions' | 'messages' | 'settings' | 'tables' | 'gem-charges' | 'leaderboard' | 'events' | 'users';
+type ActiveSection = 'dashboard' | 'games' | 'subscriptions' | 'sessions' | 'messages' | 'settings' | 'tables' | 'gem-charges' | 'leaderboard' | 'events' | 'frames' | 'users';
 
 // ─── Navigation items ─────────────────────────────────────────────────
 
@@ -226,6 +228,7 @@ const navItems: { id: ActiveSection; label: string; icon: React.ReactNode }[] = 
   { id: 'events', label: 'الأحداث', icon: <CalendarDays className="w-5 h-5" /> },
   { id: 'gem-charges', label: 'شحن الجواهر', icon: <Gem className="w-5 h-5" /> },
   { id: 'leaderboard', label: 'المتصدرين', icon: <Trophy className="w-5 h-5" /> },
+  { id: 'frames', label: 'إدارة الإطارات', icon: <Frame className="w-5 h-5" /> },
   { id: 'users', label: 'إدارة المستخدمين', icon: <UserPlus className="w-5 h-5" /> },
   { id: 'settings', label: 'الإعدادات', icon: <Settings className="w-5 h-5" /> },
 ];
@@ -393,6 +396,28 @@ export default function AdminPage() {
   const [savingUser, setSavingUser] = useState(false);
   const [deletingUserId, setDeletingUserId] = useState<string | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+
+  // Frames management
+  const [frames, setFrames] = useState<Array<{
+    id: string; name: string; nameAr: string; description: string; imageUrl: string;
+    rarity: string; gradientFrom: string; gradientTo: string; borderColor: string;
+    glowColor: string; pattern: string; price: number; isFree: boolean; isActive: boolean;
+    sortOrder: number; totalOwned: number; createdAt: string; updatedAt: string;
+  }>>([]);
+  const [frameFormOpen, setFrameFormOpen] = useState(false);
+  const [editingFrame, setEditingFrame] = useState<typeof frames[number] | null>(null);
+  const [frameForm, setFrameForm] = useState({
+    name: '', nameAr: '', description: '', rarity: 'common' as string,
+    gradientFrom: '#f59e0b', gradientTo: '#eab308', borderColor: 'rgba(245, 158, 11, 0.7)',
+    glowColor: 'rgba(245, 158, 11, 0.4)', pattern: 'gradient' as string,
+    price: 0, isFree: false, isActive: true, sortOrder: 0,
+  });
+  const [frameFormLoading, setFrameFormLoading] = useState(false);
+  // Grant frame state
+  const [grantFrameOpen, setGrantFrameOpen] = useState(false);
+  const [grantForm, setGrantForm] = useState({ userId: '', frameId: '', obtainedFrom: 'admin', obtainedNote: '' });
+  const [grantLoading, setGrantLoading] = useState(false);
+  const [userSearchResults, setUserSearchResults] = useState<Array<{ id: string; username: string; displayName: string }>>([]);
 
   // ─── Toast helper ───────────────────────────────────────────────────
 
@@ -564,6 +589,16 @@ export default function AdminPage() {
     setUsersLoading(false);
   }, []);
 
+  const fetchFrames = useCallback(async () => {
+    try {
+      const res = await fetch('/api/admin/frames');
+      if (res.ok) {
+        const data = await res.json();
+        setFrames(data.frames || []);
+      }
+    } catch { /* ignore */ }
+  }, []);
+
   // ─── User CRUD Operations ───────────────────────────────────────────
 
   const handleEditUser = useCallback((user: typeof appUsers[number]) => {
@@ -671,6 +706,9 @@ export default function AdminPage() {
       case 'leaderboard':
         fetchLeaderboard();
         break;
+      case 'frames':
+        fetchFrames();
+        break;
       case 'users':
         fetchUsers();
         break;
@@ -678,7 +716,7 @@ export default function AdminPage() {
         fetchSettings();
         break;
     }
-  }, [activeSection, isAuthenticated, fetchStats, fetchGames, fetchSubscriptions, fetchSessions, fetchMessages, fetchSettings, fetchTables, fetchEvents, fetchGemCharges, fetchLeaderboard, fetchUsers, gamesLoadedOnce, games.length]);
+  }, [activeSection, isAuthenticated, fetchStats, fetchGames, fetchSubscriptions, fetchSessions, fetchMessages, fetchSettings, fetchTables, fetchEvents, fetchGemCharges, fetchLeaderboard, fetchFrames, fetchUsers, gamesLoadedOnce, games.length]);
 
   // ─── Auto-refresh tables every 10 seconds ──────────────────────────
 
@@ -1285,6 +1323,139 @@ export default function AdminPage() {
       showToast('حدث خطأ في الاتصال', 'error');
     } finally {
       setGemChargeLoading(null);
+    }
+  };
+
+  // ─── Frames handlers ──────────────────────────────────────────────
+
+  const openAddFrameDialog = () => {
+    setEditingFrame(null);
+    setFrameForm({
+      name: '', nameAr: '', description: '', rarity: 'common',
+      gradientFrom: '#f59e0b', gradientTo: '#eab308', borderColor: 'rgba(245, 158, 11, 0.7)',
+      glowColor: 'rgba(245, 158, 11, 0.4)', pattern: 'gradient',
+      price: 0, isFree: false, isActive: true, sortOrder: frames.length,
+    });
+    setFrameFormOpen(true);
+  };
+
+  const openEditFrameDialog = (frame: typeof frames[number]) => {
+    setEditingFrame(frame);
+    setFrameForm({
+      name: frame.name, nameAr: frame.nameAr, description: frame.description,
+      rarity: frame.rarity, gradientFrom: frame.gradientFrom, gradientTo: frame.gradientTo,
+      borderColor: frame.borderColor, glowColor: frame.glowColor, pattern: frame.pattern,
+      price: frame.price, isFree: frame.isFree, isActive: frame.isActive, sortOrder: frame.sortOrder,
+    });
+    setFrameFormOpen(true);
+  };
+
+  const saveFrame = async () => {
+    if (!frameForm.name || !frameForm.nameAr) {
+      showToast('اسم الإطار مطلوب', 'error');
+      return;
+    }
+    setFrameFormLoading(true);
+    try {
+      if (editingFrame) {
+        const res = await fetch('/api/admin/frames', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id: editingFrame.id, ...frameForm }),
+        });
+        if (res.ok) {
+          const data = await res.json();
+          setFrames(prev => prev.map(f => f.id === data.frame.id ? data.frame : f));
+          showToast('تم تحديث الإطار بنجاح');
+          setFrameFormOpen(false);
+        }
+      } else {
+        const res = await fetch('/api/admin/frames', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(frameForm),
+        });
+        if (res.ok) {
+          showToast('تم إنشاء الإطار بنجاح');
+          setFrameFormOpen(false);
+          fetchFrames();
+        }
+      }
+    } catch {
+      showToast('حدث خطأ', 'error');
+    } finally {
+      setFrameFormLoading(false);
+    }
+  };
+
+  const deleteFrameHandler = async (id: string) => {
+    try {
+      const res = await fetch(`/api/admin/frames?id=${encodeURIComponent(id)}`, { method: 'DELETE' });
+      if (res.ok) {
+        setFrames(prev => prev.filter(f => f.id !== id));
+        showToast('تم حذف الإطار');
+      }
+    } catch {
+      showToast('حدث خطأ', 'error');
+    }
+  };
+
+  const toggleFrameActive = async (id: string, active: boolean) => {
+    try {
+      const res = await fetch('/api/admin/frames', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, isActive: !active }),
+      });
+      if (res.ok) {
+        setFrames(prev => prev.map(f => f.id === id ? { ...f, isActive: !active } : f));
+        showToast(active ? 'تم تعطيل الإطار' : 'تم تفعيل الإطار');
+      }
+    } catch {
+      showToast('حدث خطأ', 'error');
+    }
+  };
+
+  // Grant frame handlers
+  const searchUsersForGrant = async (query: string) => {
+    if (!query || query.length < 2) { setUserSearchResults([]); return; }
+    try {
+      const res = await fetch('/api/admin/users');
+      if (res.ok) {
+        const data = await res.json();
+        const filtered = (data.users || []).filter((u: { username: string; displayName: string }) =>
+          u.username.includes(query) || u.displayName.includes(query)
+        ).slice(0, 5);
+        setUserSearchResults(filtered);
+      }
+    } catch { /* ignore */ }
+  };
+
+  const handleGrantFrame = async () => {
+    if (!grantForm.userId || !grantForm.frameId) {
+      showToast('المستخدم والإطار مطلوبان', 'error');
+      return;
+    }
+    setGrantLoading(true);
+    try {
+      const res = await fetch('/api/admin/frames/grant', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(grantForm),
+      });
+      if (res.ok) {
+        showToast('تم منح الإطار بنجاح');
+        setGrantFrameOpen(false);
+        setGrantForm({ userId: '', frameId: '', obtainedFrom: 'admin', obtainedNote: '' });
+        fetchFrames();
+      } else {
+        const data = await res.json();
+        showToast(data.error || 'فشل في منح الإطار', 'error');
+      }
+    } catch {
+      showToast('حدث خطأ', 'error');
+    } finally {
+      setGrantLoading(false);
     }
   };
 
@@ -2345,6 +2516,471 @@ export default function AdminPage() {
                   })}
                 </div>
               )}
+            </div>
+          )}
+
+          {/* ─── Frames Management ───────────────────────────────── */}
+          {activeSection === 'frames' && (
+            <div className="space-y-4">
+              {/* Header */}
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                <div>
+                  <h2 className="text-lg font-bold text-white flex items-center gap-2">
+                    <Frame className="w-5 h-5 text-amber-400" />
+                    إدارة الإطارات
+                  </h2>
+                  <div className="flex items-center gap-2 mt-1">
+                    <p className="text-sm text-slate-400">{frames.length} إطار</p>
+                    <Badge className="bg-emerald-500/20 text-emerald-400 border-emerald-500/30 text-[10px]">
+                      {frames.filter(f => f.isActive).length} نشط
+                    </Badge>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="bg-slate-800/60 border-slate-700/50 text-slate-300 hover:bg-slate-700/60"
+                    onClick={() => fetchFrames()}
+                  >
+                    <RefreshCw className="w-3.5 h-3.5 ml-1" />
+                    تحديث
+                  </Button>
+                  <Button
+                    size="sm"
+                    className="bg-emerald-600 hover:bg-emerald-500 text-white"
+                    onClick={() => setGrantFrameOpen(true)}
+                  >
+                    <Gift className="w-3.5 h-3.5 ml-1" />
+                    منح إطار
+                  </Button>
+                  <Button
+                    size="sm"
+                    className="bg-amber-600 hover:bg-amber-500 text-white"
+                    onClick={openAddFrameDialog}
+                  >
+                    <Plus className="w-3.5 h-3.5 ml-1" />
+                    إضافة إطار
+                  </Button>
+                </div>
+              </div>
+
+              {/* Frames grid */}
+              {frames.length === 0 ? (
+                <Card className="bg-slate-900/50 border-slate-800/50">
+                  <CardContent className="py-12 text-center">
+                    <Frame className="w-12 h-12 text-slate-600 mx-auto mb-3" />
+                    <p className="text-slate-400">لا توجد إطارات بعد</p>
+                    <p className="text-sm text-slate-500 mt-1">أضف إطاراً جديداً للبدء</p>
+                  </CardContent>
+                </Card>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                  {frames.sort((a, b) => a.sortOrder - b.sortOrder).map((frame) => {
+                    const rarityConfig: Record<string, { cls: string; label: string }> = {
+                      common: { cls: 'bg-slate-500/10 border-slate-500/30 text-slate-400', label: 'عادي' },
+                      rare: { cls: 'bg-cyan-500/10 border-cyan-500/30 text-cyan-400', label: 'نادر' },
+                      epic: { cls: 'bg-violet-500/10 border-violet-500/30 text-violet-400', label: 'ملحمي' },
+                      legendary: { cls: 'bg-amber-500/10 border-amber-500/30 text-amber-400', label: 'أسطوري' },
+                    };
+                    const rarity = rarityConfig[frame.rarity] || rarityConfig.common;
+
+                    return (
+                      <Card key={frame.id} className={`bg-slate-900/60 border-slate-800/50 ${!frame.isActive ? 'opacity-50' : ''}`}>
+                        <CardContent className="p-4 space-y-3">
+                          {/* Frame preview */}
+                          <div className="flex justify-center pt-2">
+                            <div
+                              className="w-16 h-16 rounded-full mx-auto"
+                              style={{
+                                background: `linear-gradient(135deg, ${frame.gradientFrom}, ${frame.gradientTo})`,
+                                padding: '3px',
+                                boxShadow: `0 0 12px ${frame.glowColor}`,
+                              }}
+                            >
+                              <div className="w-full h-full rounded-full bg-slate-900 flex items-center justify-center">
+                                <User className="w-6 h-6 text-slate-500" />
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Name and rarity */}
+                          <div className="text-center space-y-1">
+                            <p className="font-bold text-white text-sm">{frame.nameAr || frame.name}</p>
+                            <Badge variant="outline" className={`text-[10px] ${rarity.cls}`}>
+                              {rarity.label}
+                            </Badge>
+                          </div>
+
+                          {/* Price and owned */}
+                          <div className="flex items-center justify-between text-xs text-slate-400">
+                            <span>{frame.isFree ? 'مجاني' : `${frame.price} جوهرة`}</span>
+                            <span>{frame.totalOwned} مملوك</span>
+                          </div>
+
+                          {/* Status */}
+                          <div className="flex items-center justify-between">
+                            <span className={`text-[10px] px-2 py-0.5 rounded-full ${frame.isActive ? 'bg-emerald-500/20 text-emerald-400' : 'bg-red-500/20 text-red-400'}`}>
+                              {frame.isActive ? 'نشط' : 'معطل'}
+                            </span>
+                          </div>
+
+                          {/* Actions */}
+                          <div className="flex items-center gap-1 pt-1">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="flex-1 text-slate-400 hover:text-amber-400 hover:bg-amber-500/10 text-xs"
+                              onClick={() => openEditFrameDialog(frame)}
+                            >
+                              <Edit className="w-3.5 h-3.5 ml-1" />
+                              تعديل
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className={`text-xs ${frame.isActive ? 'text-emerald-400 hover:bg-emerald-500/10' : 'text-slate-500 hover:bg-slate-800'}`}
+                              onClick={() => toggleFrameActive(frame.id, frame.isActive)}
+                            >
+                              {frame.isActive ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />}
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="text-xs text-red-400 hover:bg-red-500/10"
+                              onClick={() => deleteFrameHandler(frame.id)}
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </Button>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    );
+                  })}
+                </div>
+              )}
+
+              {/* Frame Create/Edit Dialog */}
+              <Dialog open={frameFormOpen} onOpenChange={setFrameFormOpen}>
+                <DialogContent className="bg-slate-900 border-slate-800 text-white max-w-lg max-h-[90vh] overflow-y-auto" dir="rtl">
+                  <DialogHeader>
+                    <DialogTitle>{editingFrame ? 'تعديل الإطار' : 'إضافة إطار جديد'}</DialogTitle>
+                    <DialogDescription className="text-slate-400">
+                      {editingFrame ? 'قم بتعديل بيانات الإطار' : 'أدخل بيانات الإطار الجديد'}
+                    </DialogDescription>
+                  </DialogHeader>
+                  <div className="space-y-4 mt-2">
+                    {/* Frame preview */}
+                    <div className="flex justify-center py-2">
+                      <div
+                        className="w-20 h-20 rounded-full mx-auto"
+                        style={{
+                          background: `linear-gradient(135deg, ${frameForm.gradientFrom}, ${frameForm.gradientTo})`,
+                          padding: '3px',
+                          boxShadow: `0 0 16px ${frameForm.glowColor}`,
+                        }}
+                      >
+                        <div className="w-full h-full rounded-full bg-slate-900 flex items-center justify-center">
+                          <User className="w-8 h-8 text-slate-500" />
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="space-y-1.5">
+                        <Label className="text-slate-300 text-sm">الاسم (إنجليزي) *</Label>
+                        <Input
+                          value={frameForm.name}
+                          onChange={(e) => setFrameForm(prev => ({ ...prev, name: e.target.value }))}
+                          placeholder="Golden Frame"
+                          className="bg-slate-800/60 border-slate-700/50 text-white text-sm"
+                          dir="ltr"
+                        />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label className="text-slate-300 text-sm">الاسم (عربي) *</Label>
+                        <Input
+                          value={frameForm.nameAr}
+                          onChange={(e) => setFrameForm(prev => ({ ...prev, nameAr: e.target.value }))}
+                          placeholder="الإطار الذهبي"
+                          className="bg-slate-800/60 border-slate-700/50 text-white text-sm"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <Label className="text-slate-300 text-sm">الوصف</Label>
+                      <Input
+                        value={frameForm.description}
+                        onChange={(e) => setFrameForm(prev => ({ ...prev, description: e.target.value }))}
+                        placeholder="وصف مختصر للإطار"
+                        className="bg-slate-800/60 border-slate-700/50 text-white text-sm"
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="space-y-1.5">
+                        <Label className="text-slate-300 text-sm">الندرة</Label>
+                        <Select value={frameForm.rarity} onValueChange={(val) => setFrameForm(prev => ({ ...prev, rarity: val }))}>
+                          <SelectTrigger className="bg-slate-800/60 border-slate-700/50 text-white text-sm">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent className="bg-slate-900 border-slate-800">
+                            <SelectItem value="common">عادي</SelectItem>
+                            <SelectItem value="rare">نادر</SelectItem>
+                            <SelectItem value="epic">ملحمي</SelectItem>
+                            <SelectItem value="legendary">أسطوري</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label className="text-slate-300 text-sm">النمط</Label>
+                        <Select value={frameForm.pattern} onValueChange={(val) => setFrameForm(prev => ({ ...prev, pattern: val }))}>
+                          <SelectTrigger className="bg-slate-800/60 border-slate-700/50 text-white text-sm">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent className="bg-slate-900 border-slate-800">
+                            <SelectItem value="solid">صلب</SelectItem>
+                            <SelectItem value="gradient">تدرج</SelectItem>
+                            <SelectItem value="animated">متحرك</SelectItem>
+                            <SelectItem value="dotted">منقط</SelectItem>
+                            <SelectItem value="double">مزدوج</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="space-y-1.5">
+                        <Label className="text-slate-300 text-sm">لون البداية</Label>
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="color"
+                            value={frameForm.gradientFrom}
+                            onChange={(e) => setFrameForm(prev => ({ ...prev, gradientFrom: e.target.value }))}
+                            className="w-8 h-8 rounded cursor-pointer border-0 bg-transparent"
+                          />
+                          <Input
+                            value={frameForm.gradientFrom}
+                            onChange={(e) => setFrameForm(prev => ({ ...prev, gradientFrom: e.target.value }))}
+                            className="bg-slate-800/60 border-slate-700/50 text-white text-xs flex-1"
+                            dir="ltr"
+                          />
+                        </div>
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label className="text-slate-300 text-sm">لون النهاية</Label>
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="color"
+                            value={frameForm.gradientTo}
+                            onChange={(e) => setFrameForm(prev => ({ ...prev, gradientTo: e.target.value }))}
+                            className="w-8 h-8 rounded cursor-pointer border-0 bg-transparent"
+                          />
+                          <Input
+                            value={frameForm.gradientTo}
+                            onChange={(e) => setFrameForm(prev => ({ ...prev, gradientTo: e.target.value }))}
+                            className="bg-slate-800/60 border-slate-700/50 text-white text-xs flex-1"
+                            dir="ltr"
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="space-y-1.5">
+                        <Label className="text-slate-300 text-sm">لون الحدود</Label>
+                        <Input
+                          value={frameForm.borderColor}
+                          onChange={(e) => setFrameForm(prev => ({ ...prev, borderColor: e.target.value }))}
+                          className="bg-slate-800/60 border-slate-700/50 text-white text-xs"
+                          dir="ltr"
+                          placeholder="rgba(245, 158, 11, 0.7)"
+                        />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label className="text-slate-300 text-sm">لون التوهج</Label>
+                        <Input
+                          value={frameForm.glowColor}
+                          onChange={(e) => setFrameForm(prev => ({ ...prev, glowColor: e.target.value }))}
+                          className="bg-slate-800/60 border-slate-700/50 text-white text-xs"
+                          dir="ltr"
+                          placeholder="rgba(245, 158, 11, 0.4)"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-3 gap-3">
+                      <div className="space-y-1.5">
+                        <Label className="text-slate-300 text-sm">السعر (جواهر)</Label>
+                        <Input
+                          type="number"
+                          value={frameForm.price}
+                          onChange={(e) => setFrameForm(prev => ({ ...prev, price: parseInt(e.target.value) || 0 }))}
+                          className="bg-slate-800/60 border-slate-700/50 text-white text-sm"
+                          min={0}
+                        />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label className="text-slate-300 text-sm">الترتيب</Label>
+                        <Input
+                          type="number"
+                          value={frameForm.sortOrder}
+                          onChange={(e) => setFrameForm(prev => ({ ...prev, sortOrder: parseInt(e.target.value) || 0 }))}
+                          className="bg-slate-800/60 border-slate-700/50 text-white text-sm"
+                          min={0}
+                        />
+                      </div>
+                      <div className="space-y-1.5 flex flex-col">
+                        <Label className="text-slate-300 text-sm">مجاني</Label>
+                        <div className="flex items-center h-9 mt-auto">
+                          <Switch
+                            checked={frameForm.isFree}
+                            onCheckedChange={(checked) => setFrameForm(prev => ({ ...prev, isFree: checked }))}
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <Switch
+                        checked={frameForm.isActive}
+                        onCheckedChange={(checked) => setFrameForm(prev => ({ ...prev, isActive: checked }))}
+                      />
+                      <Label className="text-slate-300 text-sm">نشط</Label>
+                    </div>
+                  </div>
+
+                  <DialogFooter className="mt-4">
+                    <Button
+                      variant="outline"
+                      onClick={() => setFrameFormOpen(false)}
+                      className="border-slate-700/50 text-slate-300 hover:bg-slate-800"
+                    >
+                      إلغاء
+                    </Button>
+                    <Button
+                      onClick={saveFrame}
+                      disabled={frameFormLoading}
+                      className="bg-amber-600 hover:bg-amber-500 text-white"
+                    >
+                      {frameFormLoading ? <Loader2 className="w-4 h-4 ml-1 animate-spin" /> : <Check className="w-4 h-4 ml-1" />}
+                      {editingFrame ? 'تحديث' : 'إنشاء'}
+                    </Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
+
+              {/* Grant Frame Dialog */}
+              <Dialog open={grantFrameOpen} onOpenChange={setGrantFrameOpen}>
+                <DialogContent className="bg-slate-900 border-slate-800 text-white max-w-md" dir="rtl">
+                  <DialogHeader>
+                    <DialogTitle>منح إطار لمستخدم</DialogTitle>
+                    <DialogDescription className="text-slate-400">
+                      اختر المستخدم والإطار لمنحه
+                    </DialogDescription>
+                  </DialogHeader>
+                  <div className="space-y-4 mt-2">
+                    {/* User search */}
+                    <div className="space-y-1.5">
+                      <Label className="text-slate-300 text-sm">البحث عن مستخدم</Label>
+                      <div className="relative">
+                        <Input
+                          value={grantForm.userId ? `@${grantForm.userId}` : ''}
+                          onChange={(e) => {
+                            const val = e.target.value.replace('@', '');
+                            setGrantForm(prev => ({ ...prev, userId: val }));
+                            searchUsersForGrant(val);
+                          }}
+                          placeholder="ابحث بالاسم أو اسم المستخدم..."
+                          className="bg-slate-800/60 border-slate-700/50 text-white text-sm"
+                        />
+                        {userSearchResults.length > 0 && !grantForm.userId && (
+                          <div className="absolute top-full left-0 right-0 mt-1 bg-slate-800 border border-slate-700 rounded-lg shadow-xl z-10 max-h-40 overflow-y-auto">
+                            {userSearchResults.map((u) => (
+                              <button
+                                key={u.id}
+                                className="w-full px-3 py-2 text-right hover:bg-slate-700/50 transition-colors text-sm text-white"
+                                onClick={() => {
+                                  setGrantForm(prev => ({ ...prev, userId: u.username }));
+                                  setUserSearchResults([]);
+                                }}
+                              >
+                                <span className="text-slate-400">@{u.username}</span>
+                                <span className="mr-2">{u.displayName}</span>
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Frame select */}
+                    <div className="space-y-1.5">
+                      <Label className="text-slate-300 text-sm">الإطار</Label>
+                      <Select value={grantForm.frameId} onValueChange={(val) => setGrantForm(prev => ({ ...prev, frameId: val }))}>
+                        <SelectTrigger className="bg-slate-800/60 border-slate-700/50 text-white text-sm">
+                          <SelectValue placeholder="اختر إطاراً" />
+                        </SelectTrigger>
+                        <SelectContent className="bg-slate-900 border-slate-800 max-h-60">
+                          {frames.filter(f => f.isActive).map((f) => (
+                            <SelectItem key={f.id} value={f.id}>
+                              {f.nameAr || f.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    {/* Obtained from */}
+                    <div className="space-y-1.5">
+                      <Label className="text-slate-300 text-sm">سبب المنح</Label>
+                      <Select value={grantForm.obtainedFrom} onValueChange={(val) => setGrantForm(prev => ({ ...prev, obtainedFrom: val }))}>
+                        <SelectTrigger className="bg-slate-800/60 border-slate-700/50 text-white text-sm">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent className="bg-slate-900 border-slate-800">
+                          <SelectItem value="admin">إداري</SelectItem>
+                          <SelectItem value="gift">هدية</SelectItem>
+                          <SelectItem value="purchase">شراء</SelectItem>
+                          <SelectItem value="level">مستوى</SelectItem>
+                          <SelectItem value="event">حدث</SelectItem>
+                          <SelectItem value="achievement">إنجاز</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    {/* Note */}
+                    <div className="space-y-1.5">
+                      <Label className="text-slate-300 text-sm">ملاحظة (اختياري)</Label>
+                      <Input
+                        value={grantForm.obtainedNote}
+                        onChange={(e) => setGrantForm(prev => ({ ...prev, obtainedNote: e.target.value }))}
+                        placeholder="ملاحظة إضافية"
+                        className="bg-slate-800/60 border-slate-700/50 text-white text-sm"
+                      />
+                    </div>
+                  </div>
+
+                  <DialogFooter className="mt-4">
+                    <Button
+                      variant="outline"
+                      onClick={() => { setGrantFrameOpen(false); setUserSearchResults([]); }}
+                      className="border-slate-700/50 text-slate-300 hover:bg-slate-800"
+                    >
+                      إلغاء
+                    </Button>
+                    <Button
+                      onClick={handleGrantFrame}
+                      disabled={grantLoading || !grantForm.userId || !grantForm.frameId}
+                      className="bg-emerald-600 hover:bg-emerald-500 text-white"
+                    >
+                      {grantLoading ? <Loader2 className="w-4 h-4 ml-1 animate-spin" /> : <Gift className="w-4 h-4 ml-1" />}
+                      منح الإطار
+                    </Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
             </div>
           )}
 

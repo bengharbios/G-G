@@ -121,6 +121,40 @@ export interface GemChargeRequest {
   createdAt: string;
 }
 
+// ─── PlayerFrame types ──────────────────────────────────────────────
+
+export interface PlayerFrame {
+  id: string;
+  name: string;
+  nameAr: string;
+  description: string;
+  imageUrl: string;
+  rarity: 'common' | 'rare' | 'epic' | 'legendary';
+  gradientFrom: string;
+  gradientTo: string;
+  borderColor: string;
+  glowColor: string;
+  pattern: 'solid' | 'gradient' | 'animated' | 'dotted' | 'double';
+  price: number;
+  isFree: boolean;
+  isActive: boolean;
+  sortOrder: number;
+  totalOwned: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface UserFrame {
+  id: string;
+  userId: string;
+  subscriptionId: string | null;
+  frameId: string;
+  isEquipped: boolean;
+  obtainedFrom: 'gift' | 'purchase' | 'level' | 'event' | 'admin' | 'achievement';
+  obtainedNote: string;
+  obtainedAt: string;
+}
+
 // ─── AppUser types ────────────────────────────────────────────────────
 
 export interface AppUser {
@@ -418,6 +452,45 @@ async function ensureAdminTables(): Promise<void> {
     )
   `);
 
+  // PlayerFrame table - frame catalog
+  await c.execute(`
+    CREATE TABLE IF NOT EXISTS PlayerFrame (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      nameAr TEXT NOT NULL,
+      description TEXT DEFAULT '',
+      imageUrl TEXT DEFAULT '',
+      rarity TEXT DEFAULT 'common',
+      gradientFrom TEXT DEFAULT '#f59e0b',
+      gradientTo TEXT DEFAULT '#eab308',
+      borderColor TEXT DEFAULT 'rgba(245, 158, 11, 0.6)',
+      glowColor TEXT DEFAULT 'rgba(245, 158, 11, 0.3)',
+      pattern TEXT DEFAULT 'gradient',
+      price INTEGER DEFAULT 0,
+      isFree INTEGER DEFAULT 0,
+      isActive INTEGER DEFAULT 1,
+      sortOrder INTEGER DEFAULT 0,
+      totalOwned INTEGER DEFAULT 0,
+      createdAt TEXT DEFAULT (datetime('now')),
+      updatedAt TEXT DEFAULT (datetime('now'))
+    )
+  `);
+
+  // UserFrame table - user ownership of frames
+  await c.execute(`
+    CREATE TABLE IF NOT EXISTS UserFrame (
+      id TEXT PRIMARY KEY,
+      userId TEXT NOT NULL,
+      subscriptionId TEXT,
+      frameId TEXT NOT NULL,
+      isEquipped INTEGER DEFAULT 0,
+      obtainedFrom TEXT DEFAULT 'gift',
+      obtainedNote TEXT DEFAULT '',
+      obtainedAt TEXT DEFAULT (datetime('now')),
+      UNIQUE(userId, frameId)
+    )
+  `);
+
   _tablesReady = true;
 }
 
@@ -671,6 +744,44 @@ function toAppUser(row: Record<string, unknown>): AppUser {
     lastLoginAt: (row.lastLoginAt as string) ?? null,
     createdAt: (row.createdAt as string) ?? new Date().toISOString(),
     updatedAt: (row.updatedAt as string) ?? new Date().toISOString(),
+  };
+}
+
+// ─── Frame row mappers ────────────────────────────────────────────────
+
+function toPlayerFrame(row: Record<string, unknown>): PlayerFrame {
+  return {
+    id: row.id as string,
+    name: (row.name as string) ?? '',
+    nameAr: (row.nameAr as string) ?? '',
+    description: (row.description as string) ?? '',
+    imageUrl: (row.imageUrl as string) ?? '',
+    rarity: (row.rarity as PlayerFrame['rarity']) ?? 'common',
+    gradientFrom: (row.gradientFrom as string) ?? '#f59e0b',
+    gradientTo: (row.gradientTo as string) ?? '#eab308',
+    borderColor: (row.borderColor as string) ?? 'rgba(245, 158, 11, 0.6)',
+    glowColor: (row.glowColor as string) ?? 'rgba(245, 158, 11, 0.3)',
+    pattern: (row.pattern as PlayerFrame['pattern']) ?? 'gradient',
+    price: Number(row.price ?? 0),
+    isFree: !!(row.isFree && row.isFree !== 0),
+    isActive: !!(row.isActive && row.isActive !== 0),
+    sortOrder: Number(row.sortOrder ?? 0),
+    totalOwned: Number(row.totalOwned ?? 0),
+    createdAt: (row.createdAt as string) ?? new Date().toISOString(),
+    updatedAt: (row.updatedAt as string) ?? new Date().toISOString(),
+  };
+}
+
+function toUserFrame(row: Record<string, unknown>): UserFrame {
+  return {
+    id: row.id as string,
+    userId: (row.userId as string) ?? '',
+    subscriptionId: (row.subscriptionId as string) ?? null,
+    frameId: (row.frameId as string) ?? '',
+    isEquipped: !!(row.isEquipped && row.isEquipped !== 0),
+    obtainedFrom: (row.obtainedFrom as UserFrame['obtainedFrom']) ?? 'gift',
+    obtainedNote: (row.obtainedNote as string) ?? '',
+    obtainedAt: (row.obtainedAt as string) ?? new Date().toISOString(),
   };
 }
 
@@ -2105,6 +2216,261 @@ export async function getAllUsers(): Promise<Omit<AppUser, 'passwordHash'>[]> {
     const { passwordHash: _, ...safeUser } = user;
     return safeUser;
   });
+}
+
+// ─── PlayerFrame operations ──────────────────────────────────────────
+
+export async function getAllFrames(): Promise<PlayerFrame[]> {
+  await ensureAdminTables();
+  await seedDefaultFrames();
+  const c = getClient();
+  const result = await c.execute({
+    sql: 'SELECT * FROM PlayerFrame ORDER BY sortOrder ASC, createdAt ASC',
+    args: [],
+  });
+  return result.rows.map((r) => toPlayerFrame(r as Record<string, unknown>));
+}
+
+export async function getActiveFrames(): Promise<PlayerFrame[]> {
+  await ensureAdminTables();
+  await seedDefaultFrames();
+  const c = getClient();
+  const result = await c.execute({
+    sql: 'SELECT * FROM PlayerFrame WHERE isActive = 1 ORDER BY sortOrder ASC',
+    args: [],
+  });
+  return result.rows.map((r) => toPlayerFrame(r as Record<string, unknown>));
+}
+
+export async function getFrameById(id: string): Promise<PlayerFrame | null> {
+  await ensureAdminTables();
+  const c = getClient();
+  const result = await c.execute({
+    sql: 'SELECT * FROM PlayerFrame WHERE id = ?',
+    args: [id],
+  });
+  if (result.rows.length === 0) return null;
+  return toPlayerFrame(result.rows[0] as Record<string, unknown>);
+}
+
+export async function createFrame(data: {
+  name: string;
+  nameAr: string;
+  description?: string;
+  imageUrl?: string;
+  rarity?: PlayerFrame['rarity'];
+  gradientFrom?: string;
+  gradientTo?: string;
+  borderColor?: string;
+  glowColor?: string;
+  pattern?: PlayerFrame['pattern'];
+  price?: number;
+  isFree?: boolean;
+  isActive?: boolean;
+  sortOrder?: number;
+}): Promise<PlayerFrame> {
+  await ensureAdminTables();
+  const c = getClient();
+  const id = crypto.randomUUID();
+  await c.execute({
+    sql: `INSERT INTO PlayerFrame (id, name, nameAr, description, imageUrl, rarity, gradientFrom, gradientTo, borderColor, glowColor, pattern, price, isFree, isActive, sortOrder)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    args: [
+      id, data.name, data.nameAr, data.description ?? '', data.imageUrl ?? '',
+      data.rarity ?? 'common', data.gradientFrom ?? '#f59e0b', data.gradientTo ?? '#eab308',
+      data.borderColor ?? 'rgba(245, 158, 11, 0.6)', data.glowColor ?? 'rgba(245, 158, 11, 0.3)',
+      data.pattern ?? 'gradient', data.price ?? 0, data.isFree ? 1 : 0,
+      data.isActive !== false ? 1 : 0, data.sortOrder ?? 0,
+    ],
+  });
+  const result = await c.execute({ sql: 'SELECT * FROM PlayerFrame WHERE id = ?', args: [id] });
+  return toPlayerFrame(result.rows[0] as Record<string, unknown>);
+}
+
+export async function updateFrame(id: string, data: Partial<PlayerFrame>): Promise<PlayerFrame | null> {
+  await ensureAdminTables();
+  const c = getClient();
+  const entries = Object.entries(data).filter(([, v]) => v !== undefined);
+  if (entries.length === 0) return getFrameById(id);
+
+  const setClauses: string[] = ["updatedAt = datetime('now')"];
+  const values: unknown[] = [];
+
+  for (const [key, val] of entries) {
+    if (key === 'id' || key === 'createdAt' || key === 'totalOwned') continue;
+    if (key === 'isActive' || key === 'isFree' || key === 'isEquipped') {
+      setClauses.push(`${key} = ?`);
+      values.push(val ? 1 : 0);
+    } else {
+      setClauses.push(`${key} = ?`);
+      values.push(sqlVal(val));
+    }
+  }
+
+  values.push(id);
+  await c.execute({
+    sql: `UPDATE PlayerFrame SET ${setClauses.join(', ')} WHERE id = ?`,
+    args: values,
+  });
+  return getFrameById(id);
+}
+
+export async function deleteFrame(id: string): Promise<void> {
+  await ensureAdminTables();
+  const c = getClient();
+  await c.execute({ sql: 'DELETE FROM UserFrame WHERE frameId = ?', args: [id] });
+  await c.execute({ sql: 'DELETE FROM PlayerFrame WHERE id = ?', args: [id] });
+}
+
+// ─── UserFrame operations ────────────────────────────────────────────
+
+export async function getUserFrames(userId: string): Promise<(UserFrame & { frame: PlayerFrame })[]> {
+  await ensureAdminTables();
+  const c = getClient();
+  const result = await c.execute({
+    sql: `SELECT uf.*, pf.name, pf.nameAr, pf.description as frameDesc, pf.imageUrl, pf.rarity,
+          pf.gradientFrom, pf.gradientTo, pf.borderColor, pf.glowColor, pf.pattern, pf.price,
+          pf.isFree, pf.isActive as frameActive, pf.sortOrder as frameSortOrder
+          FROM UserFrame uf
+          JOIN PlayerFrame pf ON uf.frameId = pf.id
+          WHERE uf.userId = ?
+          ORDER BY uf.isEquipped DESC, pf.sortOrder ASC`,
+    args: [userId],
+  });
+  return result.rows.map((r) => {
+    const row = r as Record<string, unknown>;
+    return {
+      ...toUserFrame(row),
+      frame: {
+        id: row.frameId as string,
+        name: row.name as string,
+        nameAr: row.nameAr as string,
+        description: row.frameDesc as string,
+        imageUrl: row.imageUrl as string,
+        rarity: row.rarity as PlayerFrame['rarity'],
+        gradientFrom: row.gradientFrom as string,
+        gradientTo: row.gradientTo as string,
+        borderColor: row.borderColor as string,
+        glowColor: row.glowColor as string,
+        pattern: row.pattern as PlayerFrame['pattern'],
+        price: Number(row.price ?? 0),
+        isFree: !!(row.isFree && row.isFree !== 0),
+        isActive: !!(row.frameActive && row.frameActive !== 0),
+        sortOrder: Number(row.frameSortOrder ?? 0),
+        totalOwned: 0,
+        createdAt: '',
+        updatedAt: '',
+      },
+    };
+  });
+}
+
+export async function grantFrameToUser(data: {
+  userId: string;
+  subscriptionId?: string;
+  frameId: string;
+  obtainedFrom?: UserFrame['obtainedFrom'];
+  obtainedNote?: string;
+}): Promise<UserFrame | null> {
+  await ensureAdminTables();
+  const c = getClient();
+
+  const existing = await c.execute({
+    sql: 'SELECT id FROM UserFrame WHERE userId = ? AND frameId = ?',
+    args: [data.userId, data.frameId],
+  });
+  if (existing.rows.length > 0) return null;
+
+  const id = crypto.randomUUID();
+  await c.execute({
+    sql: `INSERT INTO UserFrame (id, userId, subscriptionId, frameId, isEquipped, obtainedFrom, obtainedNote)
+          VALUES (?, ?, ?, ?, 0, ?, ?)`,
+    args: [id, data.userId, data.subscriptionId ?? null, data.frameId, data.obtainedFrom ?? 'gift', data.obtainedNote ?? ''],
+  });
+
+  await c.execute({
+    sql: 'UPDATE PlayerFrame SET totalOwned = totalOwned + 1 WHERE id = ?',
+    args: [data.frameId],
+  });
+
+  const result = await c.execute({ sql: 'SELECT * FROM UserFrame WHERE id = ?', args: [id] });
+  if (result.rows.length === 0) return null;
+  return toUserFrame(result.rows[0] as Record<string, unknown>);
+}
+
+export async function equipFrame(userId: string, frameId: string | null): Promise<void> {
+  await ensureAdminTables();
+  const c = getClient();
+  await c.execute({ sql: 'UPDATE UserFrame SET isEquipped = 0 WHERE userId = ?', args: [userId] });
+  if (frameId) {
+    await c.execute({ sql: 'UPDATE UserFrame SET isEquipped = 1 WHERE userId = ? AND frameId = ?', args: [userId, frameId] });
+  }
+}
+
+export async function removeFrameFromUser(userId: string, frameId: string): Promise<void> {
+  await ensureAdminTables();
+  const c = getClient();
+  await c.execute({ sql: 'DELETE FROM UserFrame WHERE userId = ? AND frameId = ?', args: [userId, frameId] });
+  await c.execute({ sql: 'UPDATE PlayerFrame SET totalOwned = MAX(0, totalOwned - 1) WHERE id = ?', args: [frameId] });
+}
+
+export async function getEquippedFrame(userId: string): Promise<(UserFrame & { frame: PlayerFrame }) | null> {
+  await ensureAdminTables();
+  const c = getClient();
+  const result = await c.execute({
+    sql: `SELECT uf.*, pf.name, pf.nameAr, pf.description as frameDesc, pf.imageUrl, pf.rarity,
+          pf.gradientFrom, pf.gradientTo, pf.borderColor, pf.glowColor, pf.pattern, pf.price,
+          pf.isFree, pf.isActive as frameActive, pf.sortOrder as frameSortOrder
+          FROM UserFrame uf
+          JOIN PlayerFrame pf ON uf.frameId = pf.id
+          WHERE uf.userId = ? AND uf.isEquipped = 1
+          LIMIT 1`,
+    args: [userId],
+  });
+  if (result.rows.length === 0) return null;
+  const row = result.rows[0] as Record<string, unknown>;
+  return {
+    ...toUserFrame(row),
+    frame: {
+      id: row.frameId as string, name: row.name as string, nameAr: row.nameAr as string,
+      description: row.frameDesc as string, imageUrl: row.imageUrl as string,
+      rarity: row.rarity as PlayerFrame['rarity'], gradientFrom: row.gradientFrom as string,
+      gradientTo: row.gradientTo as string, borderColor: row.borderColor as string,
+      glowColor: row.glowColor as string, pattern: row.pattern as PlayerFrame['pattern'],
+      price: Number(row.price ?? 0), isFree: !!(row.isFree && row.isFree !== 0),
+      isActive: !!(row.frameActive && row.frameActive !== 0),
+      sortOrder: Number(row.frameSortOrder ?? 0), totalOwned: 0, createdAt: '', updatedAt: '',
+    },
+  };
+}
+
+// ─── Seed default frames ─────────────────────────────────────────────
+
+export async function seedDefaultFrames(): Promise<void> {
+  await ensureAdminTables();
+  const c = getClient();
+  const result = await c.execute('SELECT COUNT(*) as count FROM PlayerFrame');
+  const count = Number(result.rows[0]?.count ?? 0);
+  if (count > 0) return;
+
+  const defaults = [
+    { name: 'golden_classic', nameAr: 'ذهبي كلاسيكي', description: 'إطار ذهبي أنيق للملف الشخصي', rarity: 'common', gradientFrom: '#f59e0b', gradientTo: '#eab308', borderColor: 'rgba(245, 158, 11, 0.7)', glowColor: 'rgba(245, 158, 11, 0.4)', pattern: 'gradient', price: 0, isFree: true, sortOrder: 0 },
+    { name: 'silver_moon', nameAr: 'فضة القمر', description: 'إطار فضي هادئ كضوء القمر', rarity: 'common', gradientFrom: '#94a3b8', gradientTo: '#cbd5e1', borderColor: 'rgba(148, 163, 184, 0.7)', glowColor: 'rgba(148, 163, 184, 0.3)', pattern: 'gradient', price: 0, isFree: true, sortOrder: 1 },
+    { name: 'emerald_royal', nameAr: 'زمرد ملكي', description: 'إطار أخضر لامع بلمسة ملكية', rarity: 'rare', gradientFrom: '#10b981', gradientTo: '#059669', borderColor: 'rgba(16, 185, 129, 0.7)', glowColor: 'rgba(16, 185, 129, 0.4)', pattern: 'gradient', price: 200, isFree: false, sortOrder: 2 },
+    { name: 'ruby_fire', nameAr: 'ياقوت ناري', description: 'إطار أحمر متوهج كالنار', rarity: 'rare', gradientFrom: '#ef4444', gradientTo: '#dc2626', borderColor: 'rgba(239, 68, 68, 0.7)', glowColor: 'rgba(239, 68, 68, 0.4)', pattern: 'gradient', price: 200, isFree: false, sortOrder: 3 },
+    { name: 'sapphire_ocean', nameAr: 'ياقوت الأزرق المحيط', description: 'إطار أزرق كأعماق المحيط', rarity: 'rare', gradientFrom: '#06b6d4', gradientTo: '#0891b2', borderColor: 'rgba(6, 182, 212, 0.7)', glowColor: 'rgba(6, 182, 212, 0.4)', pattern: 'gradient', price: 250, isFree: false, sortOrder: 4 },
+    { name: 'purple_mystic', nameAr: 'بنفسجي غامض', description: 'إطار بنفسجي بسحر الأساطير', rarity: 'epic', gradientFrom: '#8b5cf6', gradientTo: '#7c3aed', borderColor: 'rgba(139, 92, 246, 0.7)', glowColor: 'rgba(139, 92, 246, 0.4)', pattern: 'gradient', price: 500, isFree: false, sortOrder: 5 },
+    { name: 'rose_elegant', nameAr: 'وردي أنيق', description: 'إطار وردي بلمسة فاخرة', rarity: 'epic', gradientFrom: '#f43f5e', gradientTo: '#e11d48', borderColor: 'rgba(244, 63, 94, 0.7)', glowColor: 'rgba(244, 63, 94, 0.4)', pattern: 'gradient', price: 500, isFree: false, sortOrder: 6 },
+    { name: 'diamond_legend', nameAr: 'أسطورة الماس', description: 'إطار الماس الأسطوري - للأسياد فقط', rarity: 'legendary', gradientFrom: '#e2e8f0', gradientTo: '#f8fafc', borderColor: 'rgba(226, 232, 240, 0.9)', glowColor: 'rgba(255, 255, 255, 0.5)', pattern: 'animated', price: 1000, isFree: false, sortOrder: 7 },
+    { name: 'phoenix_flame', nameAr: 'لهيب العنقاء', description: 'إطار ناري أسطوري من ريش العنقاء', rarity: 'legendary', gradientFrom: '#f97316', gradientTo: '#fbbf24', borderColor: 'rgba(249, 115, 22, 0.8)', glowColor: 'rgba(251, 191, 36, 0.5)', pattern: 'animated', price: 1000, isFree: false, sortOrder: 8 },
+    { name: 'neon_cyber', nameAr: 'نيون سايبر', description: 'إطار نيون عصري بتقنية المستقبل', rarity: 'epic', gradientFrom: '#22d3ee', gradientTo: '#a78bfa', borderColor: 'rgba(34, 211, 238, 0.7)', glowColor: 'rgba(167, 139, 250, 0.4)', pattern: 'animated', price: 600, isFree: false, sortOrder: 9 },
+    { name: 'chocolate_warm', nameAr: 'شوكولاتة دافئة', description: 'إطار بني دافئ ومريح', rarity: 'common', gradientFrom: '#a16207', gradientTo: '#854d0e', borderColor: 'rgba(161, 98, 7, 0.6)', glowColor: 'rgba(161, 98, 7, 0.3)', pattern: 'solid', price: 100, isFree: false, sortOrder: 10 },
+    { name: 'double_gold', nameAr: 'ذهبي مزدوج', description: 'إطار ذهبي مزدوج بحدود فاخرة', rarity: 'rare', gradientFrom: '#fbbf24', gradientTo: '#f59e0b', borderColor: 'rgba(251, 191, 36, 0.8)', glowColor: 'rgba(245, 158, 11, 0.4)', pattern: 'double', price: 300, isFree: false, sortOrder: 11 },
+  ];
+
+  for (const frame of defaults) {
+    await createFrame(frame);
+  }
 }
 
 export async function authenticateUser(

@@ -1551,3 +1551,41 @@ Current project status:
 - 7 games total: 6 available + 3 coming soon
 - Homepage profile modal fully functional with real subscriber data and logout
 
+
+---
+Task ID: 16
+Agent: Main Agent
+Task: Build Player Frames System (إطارات اللاعبين)
+
+Work Log:
+- Designed complete player frames system with database, API, and UI layers
+- Added PlayerFrame and UserFrame interfaces to admin-db.ts
+- Created PlayerFrame table (id, name, nameAr, description, rarity, gradientFrom, gradientTo, borderColor, glowColor, pattern, price, isFree, isActive, sortOrder, totalOwned)
+- Created UserFrame table (id, userId, subscriptionId, frameId, isEquipped, obtainedFrom, obtainedNote, obtainedAt) with UNIQUE(userId, frameId)
+- Added row mappers (toPlayerFrame, toUserFrame) and full CRUD functions
+- Implemented 12 seed frames: golden_classic, silver_moon, emerald_royal, ruby_fire, sapphire_ocean, purple_mystic, rose_elegant, diamond_legend, phoenix_flame, neon_cyber, chocolate_warm, double_gold
+- 4 rarity tiers: common (عادي), rare (نادر), epic (ملحمي), legendary (أسطوري)
+- 5 pattern types: solid, gradient, animated, dotted, double
+- Created API routes: /api/admin/frames (CRUD), /api/admin/frames/grant, /api/frames (user get/equip/remove)
+- Added "إدارة الإطارات" section to admin panel with:
+  - Grid display of all frames with CSS gradient preview
+  - Create/edit frame dialog with live preview, color pickers, rarity/pattern selectors
+  - Grant frame to user dialog with user search, frame select, reason select
+  - Toggle active/inactive, delete frame
+- Integrated frames into user profile page:
+  - Equipped frame renders as CSS gradient border around avatar
+  - Animated frames pulse/glow when equipped
+  - "إطاراتي" (My Frames) section showing all owned frames in grid
+  - Click to equip/unequip frames with toast notifications
+  - Empty state when no frames owned
+- Zero new lint errors introduced
+
+Stage Summary:
+- Complete player frames system functional
+- 12 default frames seeded across 4 rarity tiers
+- Admin can create/edit/delete frames with custom gradients
+- Admin can grant frames to users (gift, purchase, level, event, admin, achievement)
+- Users see equipped frame as glowing border around profile avatar
+- Users can manage their frames collection from profile page
+- Files modified: admin-db.ts, admin/page.tsx, profile/page.tsx
+- Files created: api/admin/frames/route.ts, api/admin/frames/grant/route.ts, api/frames/route.ts

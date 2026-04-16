@@ -461,6 +461,13 @@ export default function ProfilePage() {
   const [showNewPw, setShowNewPw] = useState(false);
   const [showConfirmPw, setShowConfirmPw] = useState(false);
 
+  // Frames state
+  const [userFrames, setUserFrames] = useState<Array<{
+    id: string; frameId: string; isEquipped: boolean; obtainedFrom: string; obtainedNote: string; obtainedAt: string;
+    frame: { id: string; name: string; nameAr: string; description: string; rarity: string; gradientFrom: string; gradientTo: string; borderColor: string; glowColor: string; pattern: string; price: number; isFree: boolean; isActive: boolean; sortOrder: number; };
+  }>>([]);
+  const [framesLoading, setFramesLoading] = useState(false);
+
   // Delete confirmation
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
 
@@ -541,6 +548,19 @@ export default function ProfilePage() {
     }
 
     fetchAllData();
+    // Fetch user frames
+    try {
+      const framesRes = await fetch('/api/frames');
+      if (framesRes.ok) {
+        const framesData = await framesRes.json();
+        if (framesData.success) {
+          setUserFrames(framesData.userFrames || []);
+        }
+      }
+    } catch (err) {
+      console.error('Frames fetch error:', err);
+    }
+
     return () => { cancelled = true; };
   }, []);
 
@@ -774,6 +794,29 @@ export default function ProfilePage() {
                   transition={{ delay: 0.2, type: 'spring', stiffness: 300 }}
                   className="relative"
                 >
+                  {/* Equipped frame glow */}
+                  {userFrames.find(f => f.isEquipped) && (() => {
+                    const ef = userFrames.find(f => f.isEquipped)!;
+                    return (
+                      <div
+                        className="absolute -inset-2 rounded-full"
+                        style={{
+                          background: `linear-gradient(135deg, ${ef.frame.gradientFrom}, ${ef.frame.gradientTo})`,
+                          padding: '4px',
+                          boxShadow: ef.frame.pattern === 'animated'
+                            ? `0 0 20px ${ef.frame.glowColor}, 0 0 40px ${ef.frame.glowColor}`
+                            : `0 0 12px ${ef.frame.glowColor}`,
+                        }}
+                      >
+                        {ef.frame.pattern === 'double' && (
+                          <div className="absolute inset-0 rounded-full" style={{
+                            background: 'transparent',
+                            border: '2px solid ' + ef.frame.borderColor,
+                          }} />
+                        )}
+                      </div>
+                    );
+                  })()}
                   <div className={`absolute -inset-1 rounded-full bg-gradient-to-br ${planBadge.gradient} opacity-40 blur-sm`} />
                   <div className={`relative w-20 h-20 sm:w-[88px] sm:h-[88px] rounded-full bg-gradient-to-br ${planBadge.gradient} flex items-center justify-center border-4 border-slate-950 shadow-2xl overflow-hidden`}>
                     {authUser?.avatar ? (
@@ -1255,8 +1298,144 @@ export default function ProfilePage() {
             </Card>
           </motion.div>
 
+          {/* ─── My Frames ─── */}
+          <motion.div custom={6} variants={fadeInUp}>
+            <Card className="bg-slate-900/60 border-slate-800/50 overflow-hidden">
+              <CardContent className="p-4 sm:p-5 space-y-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-amber-500/20 to-purple-500/20 border border-amber-500/20 flex items-center justify-center">
+                      <span className="text-sm">🖼️</span>
+                    </div>
+                    <h3 className="text-sm font-bold text-white">إطاراتي</h3>
+                  </div>
+                  <Badge variant="outline" className="text-[10px] px-2 py-0.5 bg-slate-800/50 border-slate-700/50 text-slate-400">
+                    {userFrames.length} إطار
+                  </Badge>
+                </div>
+
+                {userFrames.length === 0 ? (
+                  <div className="text-center py-6 space-y-2">
+                    <div className="w-14 h-14 mx-auto rounded-full bg-slate-800/60 border border-slate-700/30 flex items-center justify-center">
+                      <span className="text-2xl opacity-50">🖼️</span>
+                    </div>
+                    <p className="text-xs text-slate-500">لا تملك أي إطارات بعد</p>
+                    <p className="text-[10px] text-slate-600">احصل على إطارات من الأحداث أو الوصول لمستويات جديدة</p>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-3 sm:grid-cols-4 gap-3">
+                    {userFrames.map((uf) => {
+                      const rarityConfig: Record<string, { label: string; color: string; border: string }> = {
+                        common: { label: 'عادي', color: 'bg-slate-500/10 text-slate-400', border: 'border-slate-500/30' },
+                        rare: { label: 'نادر', color: 'bg-cyan-500/10 text-cyan-400', border: 'border-cyan-500/30' },
+                        epic: { label: 'ملحمي', color: 'bg-violet-500/10 text-violet-400', border: 'border-violet-500/30' },
+                        legendary: { label: 'أسطوري', color: 'bg-amber-500/10 text-amber-400', border: 'border-amber-500/30' },
+                      };
+                      const rarity = rarityConfig[uf.frame.rarity] || rarityConfig.common;
+                      const isAnimated = uf.frame.pattern === 'animated';
+
+                      return (
+                        <motion.button
+                          key={uf.id}
+                          whileHover={{ scale: 1.05 }}
+                          whileTap={{ scale: 0.95 }}
+                          onClick={async () => {
+                            if (uf.isEquipped) {
+                              // Unequip
+                              await fetch('/api/frames', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ action: 'equip', frameId: null }),
+                              });
+                              setUserFrames(prev => prev.map(f => ({ ...f, isEquipped: false })));
+                              toast({ title: 'تم إزالة الإطار', description: 'لم تعد تستخدم أي إطار' });
+                            } else {
+                              // Equip
+                              await fetch('/api/frames', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ action: 'equip', frameId: uf.frameId }),
+                              });
+                              setUserFrames(prev => prev.map(f => ({ ...f, isEquipped: f.frameId === uf.frameId })));
+                              toast({ title: 'تم تفعيل الإطار', description: uf.frame.nameAr });
+                            }
+                          }}
+                          className={`relative p-3 rounded-xl transition-all duration-200 ${
+                            uf.isEquipped
+                              ? 'bg-slate-800/80 border-2'
+                              : 'bg-slate-800/40 border border-slate-700/30 hover:border-slate-600/50'
+                          }`}
+                          style={uf.isEquipped ? { borderColor: uf.frame.gradientFrom } : undefined}
+                        >
+                          {/* Frame preview */}
+                          <div className="relative w-14 h-14 mx-auto mb-2">
+                            <motion.div
+                              animate={isAnimated && uf.isEquipped ? {
+                                boxShadow: [
+                                  `0 0 8px ${uf.frame.glowColor}`,
+                                  `0 0 20px ${uf.frame.glowColor}`,
+                                  `0 0 8px ${uf.frame.glowColor}`,
+                                ],
+                              } : {}}
+                              transition={isAnimated ? { repeat: Infinity, duration: 2 } : undefined}
+                              className="absolute -inset-1 rounded-full"
+                              style={{
+                                background: `linear-gradient(135deg, ${uf.frame.gradientFrom}, ${uf.frame.gradientTo})`,
+                                padding: '3px',
+                                boxShadow: !isAnimated ? `0 0 8px ${uf.frame.glowColor}` : undefined,
+                              }}
+                            >
+                              {uf.frame.pattern === 'double' && (
+                                <div className="absolute inset-0 rounded-full" style={{
+                                  border: '1.5px solid ' + uf.frame.borderColor,
+                                  background: 'transparent',
+                                  margin: '3px',
+                                }} />
+                              )}
+                              <div className="w-full h-full rounded-full bg-slate-900 flex items-center justify-center">
+                                <span className="text-lg">
+                                  {authUser?.avatar ? (
+                                    <img src={authUser.avatar} alt="" className="w-full h-full rounded-full object-cover" />
+                                  ) : (
+                                    displayName.charAt(0).toUpperCase()
+                                  )}
+                                </span>
+                              </div>
+                            </motion.div>
+                            {/* Equipped indicator */}
+                            {uf.isEquipped && (
+                              <motion.div
+                                initial={{ scale: 0 }}
+                                animate={{ scale: 1 }}
+                                className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-emerald-500 border-2 border-slate-900 flex items-center justify-center"
+                              >
+                                <CheckCircle2 className="w-3 h-3 text-white" />
+                              </motion.div>
+                            )}
+                          </div>
+                          {/* Frame name */}
+                          <p className="text-[10px] font-bold text-slate-300 text-center truncate">{uf.frame.nameAr}</p>
+                          {/* Rarity badge */}
+                          <Badge variant="outline" className={`text-[8px] px-1.5 py-0 mt-1 mx-auto block w-fit ${rarity.color} ${rarity.border} border`}>
+                            {rarity.label}
+                          </Badge>
+                        </motion.button>
+                      );
+                    })}
+                  </div>
+                )}
+
+                {userFrames.length > 0 && (
+                  <p className="text-[10px] text-slate-600 text-center mt-2">
+                    اضغط على إطار لتفعيله أو إزالته
+                  </p>
+                )}
+              </CardContent>
+            </Card>
+          </motion.div>
+
           {/* ─── Danger Zone ─── */}
-          <motion.div custom={6} variants={fadeInUp} className="pb-6">
+          <motion.div custom={7} variants={fadeInUp} className="pb-6">
             <Card className="bg-slate-900/40 border-rose-500/10 overflow-hidden">
               <CardContent className="p-4 sm:p-5">
                 <div className="flex items-center gap-2 mb-3">
