@@ -121,6 +121,24 @@ export interface GemChargeRequest {
   createdAt: string;
 }
 
+// ─── AppUser types ────────────────────────────────────────────────────
+
+export interface AppUser {
+  id: string;
+  username: string;
+  email: string;
+  passwordHash: string;
+  displayName: string;
+  phone: string;
+  avatar: string;
+  role: 'user' | 'moderator' | 'admin';
+  isActive: boolean;
+  subscriptionId: string | null;
+  lastLoginAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
 // ─── Client singleton ─────────────────────────────────────────────────
 
 let _client: Client | null = null;
@@ -381,6 +399,25 @@ async function ensureAdminTables(): Promise<void> {
     )
   `);
 
+  // AppUser table for user accounts
+  await c.execute(`
+    CREATE TABLE IF NOT EXISTS AppUser (
+      id TEXT PRIMARY KEY,
+      username TEXT UNIQUE NOT NULL,
+      email TEXT UNIQUE NOT NULL,
+      passwordHash TEXT NOT NULL,
+      displayName TEXT DEFAULT '',
+      phone TEXT DEFAULT '',
+      avatar TEXT DEFAULT '',
+      role TEXT DEFAULT 'user',
+      isActive INTEGER DEFAULT 1,
+      subscriptionId TEXT,
+      lastLoginAt TEXT,
+      createdAt TEXT DEFAULT (datetime('now')),
+      updatedAt TEXT DEFAULT (datetime('now'))
+    )
+  `);
+
   _tablesReady = true;
 }
 
@@ -614,6 +651,24 @@ function toEvent(row: Record<string, unknown>): Event {
     rewardType: (row.rewardType as string) ?? 'none',
     rewardAmount: row.rewardAmount != null ? Number(row.rewardAmount) : undefined,
     rewardDescription: (row.rewardDescription as string) ?? undefined,
+    createdAt: (row.createdAt as string) ?? new Date().toISOString(),
+    updatedAt: (row.updatedAt as string) ?? new Date().toISOString(),
+  };
+}
+
+function toAppUser(row: Record<string, unknown>): AppUser {
+  return {
+    id: row.id as string,
+    username: (row.username as string) ?? '',
+    email: (row.email as string) ?? '',
+    passwordHash: (row.passwordHash as string) ?? '',
+    displayName: (row.displayName as string) ?? '',
+    phone: (row.phone as string) ?? '',
+    avatar: (row.avatar as string) ?? '',
+    role: ((row.role as string) ?? 'user') as AppUser['role'],
+    isActive: !!(row.isActive && row.isActive !== 0),
+    subscriptionId: (row.subscriptionId as string) ?? null,
+    lastLoginAt: (row.lastLoginAt as string) ?? null,
     createdAt: (row.createdAt as string) ?? new Date().toISOString(),
     updatedAt: (row.updatedAt as string) ?? new Date().toISOString(),
   };
@@ -1880,4 +1935,236 @@ export async function getLeaderboard(limit = 50): Promise<{
     xp: Number(r.xp ?? 0),
     isSpecialId: isSpecialId(r.playerId as string),
   }));
+}
+
+// ─── AppUser operations ───────────────────────────────────────────────
+
+export { hashPassword, verifyPassword } from '@/lib/admin-auth';
+
+export async function createUser(data: {
+  username: string;
+  email: string;
+  password: string;
+  displayName?: string;
+  phone?: string;
+}): Promise<Omit<AppUser, 'passwordHash'>> {
+  const { hashPassword } = await import('@/lib/admin-auth');
+  await ensureAdminTables();
+  const c = getClient();
+
+  // Check uniqueness
+  const existingEmail = await c.execute({
+    sql: 'SELECT id FROM AppUser WHERE email = ?',
+    args: [data.email],
+  });
+  if (existingEmail.rows.length > 0) {
+    throw new Error('البريد الإلكتروني مستخدم بالفعل');
+  }
+
+  const existingUsername = await c.execute({
+    sql: 'SELECT id FROM AppUser WHERE username = ?',
+    args: [data.username],
+  });
+  if (existingUsername.rows.length > 0) {
+    throw new Error('اسم المستخدم مستخدم بالفعل');
+  }
+
+  const id = crypto.randomUUID();
+  const passwordHash = hashPassword(data.password);
+
+  await c.execute({
+    sql: `INSERT INTO AppUser (id, username, email, passwordHash, displayName, phone)
+          VALUES (?, ?, ?, ?, ?, ?)`,
+    args: [
+      id,
+      data.username,
+      data.email,
+      passwordHash,
+      data.displayName || '',
+      data.phone || '',
+    ],
+  });
+
+  const result = await c.execute({
+    sql: 'SELECT * FROM AppUser WHERE id = ?',
+    args: [id],
+  });
+
+  const user = toAppUser(result.rows[0] as Record<string, unknown>);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const { passwordHash: _, ...safeUser } = user;
+  return safeUser;
+}
+
+export async function getUserById(id: string): Promise<Omit<AppUser, 'passwordHash'> | null> {
+  await ensureAdminTables();
+  const c = getClient();
+
+  const result = await c.execute({
+    sql: 'SELECT * FROM AppUser WHERE id = ? AND isActive = 1',
+    args: [id],
+  });
+
+  if (result.rows.length === 0) return null;
+  const user = toAppUser(result.rows[0] as Record<string, unknown>);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const { passwordHash: _, ...safeUser } = user;
+  return safeUser;
+}
+
+export async function getUserByEmail(email: string): Promise<Omit<AppUser, 'passwordHash'> | null> {
+  await ensureAdminTables();
+  const c = getClient();
+
+  const result = await c.execute({
+    sql: 'SELECT * FROM AppUser WHERE email = ? AND isActive = 1',
+    args: [email],
+  });
+
+  if (result.rows.length === 0) return null;
+  const user = toAppUser(result.rows[0] as Record<string, unknown>);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const { passwordHash: _, ...safeUser } = user;
+  return safeUser;
+}
+
+export async function getUserByUsername(username: string): Promise<Omit<AppUser, 'passwordHash'> | null> {
+  await ensureAdminTables();
+  const c = getClient();
+
+  const result = await c.execute({
+    sql: 'SELECT * FROM AppUser WHERE username = ? AND isActive = 1',
+    args: [username],
+  });
+
+  if (result.rows.length === 0) return null;
+  const user = toAppUser(result.rows[0] as Record<string, unknown>);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const { passwordHash: _, ...safeUser } = user;
+  return safeUser;
+}
+
+export async function updateUser(
+  id: string,
+  data: Partial<Omit<AppUser, 'id' | 'passwordHash' | 'createdAt'>>
+): Promise<Omit<AppUser, 'passwordHash'> | null> {
+  await ensureAdminTables();
+  const c = getClient();
+
+  const entries = Object.entries(data).filter(([, v]) => v !== undefined);
+  if (entries.length === 0) return getUserById(id);
+
+  const setClauses: string[] = ["updatedAt = datetime('now')"];
+  const values: unknown[] = [];
+
+  for (const [key, val] of entries) {
+    if (key === 'isActive') {
+      setClauses.push(`isActive = ?`);
+      values.push(val ? 1 : 0);
+    } else if (key === 'role') {
+      setClauses.push(`role = ?`);
+      values.push(val);
+    } else {
+      setClauses.push(`${key} = ?`);
+      values.push(sqlVal(val));
+    }
+  }
+
+  values.push(id);
+
+  await c.execute({
+    sql: `UPDATE AppUser SET ${setClauses.join(', ')} WHERE id = ?`,
+    args: values,
+  });
+
+  return getUserById(id);
+}
+
+export async function deleteUser(id: string): Promise<void> {
+  await ensureAdminTables();
+  const c = getClient();
+
+  await c.execute({
+    sql: 'UPDATE AppUser SET isActive = 0, updatedAt = datetime(\'now\') WHERE id = ?',
+    args: [id],
+  });
+}
+
+export async function getAllUsers(): Promise<Omit<AppUser, 'passwordHash'>[]> {
+  await ensureAdminTables();
+  const c = getClient();
+
+  const result = await c.execute({
+    sql: 'SELECT * FROM AppUser ORDER BY createdAt DESC',
+    args: [],
+  });
+
+  return result.rows.map((r) => {
+    const user = toAppUser(r as Record<string, unknown>);
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { passwordHash: _, ...safeUser } = user;
+    return safeUser;
+  });
+}
+
+export async function authenticateUser(
+  email: string,
+  password: string
+): Promise<Omit<AppUser, 'passwordHash'> | null> {
+  const { verifyPassword } = await import('@/lib/admin-auth');
+  await ensureAdminTables();
+  const c = getClient();
+
+  const result = await c.execute({
+    sql: 'SELECT * FROM AppUser WHERE email = ? AND isActive = 1',
+    args: [email],
+  });
+
+  if (result.rows.length === 0) return null;
+
+  const row = result.rows[0] as Record<string, unknown>;
+  const passwordHash = row.passwordHash as string;
+
+  if (!verifyPassword(password, passwordHash)) return null;
+
+  // Update last login
+  await c.execute({
+    sql: "UPDATE AppUser SET lastLoginAt = datetime('now') WHERE id = ?",
+    args: [row.id as string],
+  });
+
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const { passwordHash: _, ...safeUser } = toAppUser(row);
+  return safeUser;
+}
+
+export async function linkUserToSubscription(
+  userId: string,
+  subscriptionId: string
+): Promise<void> {
+  await ensureAdminTables();
+  const c = getClient();
+
+  await c.execute({
+    sql: 'UPDATE AppUser SET subscriptionId = ?, updatedAt = datetime(\'now\') WHERE id = ?',
+    args: [subscriptionId, userId],
+  });
+}
+
+export async function getUserBySubscriptionId(
+  subscriptionId: string
+): Promise<Omit<AppUser, 'passwordHash'> | null> {
+  await ensureAdminTables();
+  const c = getClient();
+
+  const result = await c.execute({
+    sql: 'SELECT * FROM AppUser WHERE subscriptionId = ? AND isActive = 1',
+    args: [subscriptionId],
+  });
+
+  if (result.rows.length === 0) return null;
+  const user = toAppUser(result.rows[0] as Record<string, unknown>);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const { passwordHash: _, ...safeUser } = user;
+  return safeUser;
 }

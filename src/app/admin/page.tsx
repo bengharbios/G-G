@@ -40,6 +40,7 @@ import {
   CalendarDays,
   CheckCircle2,
   XCircle,
+  Search,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -211,7 +212,7 @@ interface LeaderboardEntry {
   isSpecialId: boolean;
 }
 
-type ActiveSection = 'dashboard' | 'games' | 'subscriptions' | 'sessions' | 'messages' | 'settings' | 'tables' | 'gem-charges' | 'leaderboard' | 'events';
+type ActiveSection = 'dashboard' | 'games' | 'subscriptions' | 'sessions' | 'messages' | 'settings' | 'tables' | 'gem-charges' | 'leaderboard' | 'events' | 'users';
 
 // ─── Navigation items ─────────────────────────────────────────────────
 
@@ -225,6 +226,7 @@ const navItems: { id: ActiveSection; label: string; icon: React.ReactNode }[] = 
   { id: 'events', label: 'الأحداث', icon: <CalendarDays className="w-5 h-5" /> },
   { id: 'gem-charges', label: 'شحن الجواهر', icon: <Gem className="w-5 h-5" /> },
   { id: 'leaderboard', label: 'المتصدرين', icon: <Trophy className="w-5 h-5" /> },
+  { id: 'users', label: 'إدارة المستخدمين', icon: <UserPlus className="w-5 h-5" /> },
   { id: 'settings', label: 'الإعدادات', icon: <Settings className="w-5 h-5" /> },
 ];
 
@@ -375,6 +377,16 @@ export default function AdminPage() {
 
   // Leaderboard
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
+
+  // Users management
+  const [appUsers, setAppUsers] = useState<Array<{
+    id: string; username: string; email: string; displayName: string;
+    phone: string; avatar: string; role: string; isActive: boolean;
+    subscriptionId: string | null; lastLoginAt: string | null; createdAt: string;
+  }>>([]);
+  const [usersLoading, setUsersLoading] = useState(false);
+  const [userSearch, setUserSearch] = useState('');
+  const [userRoleFilter, setUserRoleFilter] = useState<string>('all');
 
   // ─── Toast helper ───────────────────────────────────────────────────
 
@@ -534,6 +546,18 @@ export default function AdminPage() {
     } catch { /* ignore */ }
   }, []);
 
+  const fetchUsers = useCallback(async () => {
+    setUsersLoading(true);
+    try {
+      const res = await fetch('/api/admin/users');
+      if (res.ok) {
+        const data = await res.json();
+        setAppUsers(data.users || []);
+      }
+    } catch { /* ignore */ }
+    setUsersLoading(false);
+  }, []);
+
   // ─── Load data when section changes ────────────────────────────────
 
   // Always fetch games on auth (needed for subscriber dialog)
@@ -577,11 +601,14 @@ export default function AdminPage() {
       case 'leaderboard':
         fetchLeaderboard();
         break;
+      case 'users':
+        fetchUsers();
+        break;
       case 'settings':
         fetchSettings();
         break;
     }
-  }, [activeSection, isAuthenticated, fetchStats, fetchGames, fetchSubscriptions, fetchSessions, fetchMessages, fetchSettings, fetchTables, fetchEvents, fetchGemCharges, fetchLeaderboard, gamesLoadedOnce, games.length]);
+  }, [activeSection, isAuthenticated, fetchStats, fetchGames, fetchSubscriptions, fetchSessions, fetchMessages, fetchSettings, fetchTables, fetchEvents, fetchGemCharges, fetchLeaderboard, fetchUsers, gamesLoadedOnce, games.length]);
 
   // ─── Auto-refresh tables every 10 seconds ──────────────────────────
 
@@ -2248,6 +2275,182 @@ export default function AdminPage() {
                   })}
                 </div>
               )}
+            </div>
+          )}
+
+          {/* ─── Users Management ───────────────────────────────── */}
+          {activeSection === 'users' && (
+            <div className="space-y-4">
+              {/* Header */}
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                <div>
+                  <h2 className="text-lg font-bold text-white flex items-center gap-2">
+                    <UserPlus className="w-5 h-5 text-amber-400" />
+                    إدارة المستخدمين
+                  </h2>
+                  <p className="text-sm text-slate-400 mt-1">
+                    {appUsers.length} مستخدم مسجل
+                  </p>
+                </div>
+                <Button
+                  onClick={fetchUsers}
+                  disabled={usersLoading}
+                  variant="outline"
+                  className="bg-slate-800/60 border-slate-700/50 text-slate-300 hover:bg-slate-700/60"
+                >
+                  <RefreshCw className={`w-4 h-4 ml-1 ${usersLoading ? 'animate-spin' : ''}`} />
+                  تحديث
+                </Button>
+              </div>
+
+              {/* Filters */}
+              <div className="flex flex-col sm:flex-row gap-3">
+                <div className="relative flex-1">
+                  <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+                  <Input
+                    placeholder="بحث بالاسم، البريد، أو اسم المستخدم..."
+                    value={userSearch}
+                    onChange={(e) => setUserSearch(e.target.value)}
+                    className="pr-10 bg-slate-900/70 border-slate-700/50 text-white placeholder:text-slate-600"
+                  />
+                </div>
+                <Select value={userRoleFilter} onValueChange={setUserRoleFilter}>
+                  <SelectTrigger className="w-full sm:w-40 bg-slate-900/70 border-slate-700/50 text-white">
+                    <SelectValue placeholder="الكل" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-slate-900 border-slate-700/50">
+                    <SelectItem value="all">الكل</SelectItem>
+                    <SelectItem value="user">مستخدم</SelectItem>
+                    <SelectItem value="moderator">مشرف</SelectItem>
+                    <SelectItem value="admin">مدير</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Users Table */}
+              {usersLoading ? (
+                <div className="flex items-center justify-center py-12">
+                  <Loader2 className="w-6 h-6 animate-spin text-amber-400" />
+                </div>
+              ) : (
+                <div className="bg-slate-900/50 border border-slate-800/60 rounded-xl overflow-hidden">
+                  <div className="overflow-x-auto">
+                    <Table>
+                      <TableHeader>
+                        <TableRow className="border-slate-800/60 hover:bg-transparent">
+                          <TableHead className="text-slate-400 font-semibold">المستخدم</TableHead>
+                          <TableHead className="text-slate-400 font-semibold">البريد</TableHead>
+                          <TableHead className="text-slate-400 font-semibold hidden md:table-cell">الهاتف</TableHead>
+                          <TableHead className="text-slate-400 font-semibold">الدور</TableHead>
+                          <TableHead className="text-slate-400 font-semibold hidden sm:table-cell">الحالة</TableHead>
+                          <TableHead className="text-slate-400 font-semibold hidden lg:table-cell">آخر دخول</TableHead>
+                          <TableHead className="text-slate-400 font-semibold hidden lg:table-cell">تاريخ التسجيل</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {appUsers
+                          .filter((u) => {
+                            const search = userSearch.toLowerCase();
+                            const matchesSearch = !search ||
+                              u.username.toLowerCase().includes(search) ||
+                              u.email.toLowerCase().includes(search) ||
+                              u.displayName.toLowerCase().includes(search);
+                            const matchesRole = userRoleFilter === 'all' || u.role === userRoleFilter;
+                            return matchesSearch && matchesRole;
+                          })
+                          .map((user) => (
+                            <TableRow key={user.id} className="border-slate-800/40 hover:bg-slate-800/30">
+                              <TableCell>
+                                <div className="flex items-center gap-2.5">
+                                  <div className={`w-8 h-8 rounded-full bg-gradient-to-br ${user.role === 'admin' ? 'from-rose-500 to-orange-500' : user.role === 'moderator' ? 'from-amber-500 to-yellow-500' : 'from-slate-500 to-slate-600'} flex items-center justify-center text-white text-xs font-bold shrink-0`}>
+                                    {(user.displayName || user.username).charAt(0).toUpperCase()}
+                                  </div>
+                                  <div className="min-w-0">
+                                    <p className="text-sm font-medium text-white truncate">
+                                      {user.displayName || user.username}
+                                    </p>
+                                    <p className="text-[11px] text-slate-500 truncate" dir="ltr">
+                                      @{user.username}
+                                    </p>
+                                  </div>
+                                </div>
+                              </TableCell>
+                              <TableCell>
+                                <p className="text-sm text-slate-300 truncate" dir="ltr">{user.email}</p>
+                              </TableCell>
+                              <TableCell className="hidden md:table-cell">
+                                <p className="text-sm text-slate-400" dir="ltr">{user.phone || '—'}</p>
+                              </TableCell>
+                              <TableCell>
+                                <Badge className={`text-[10px] font-bold ${
+                                  user.role === 'admin'
+                                    ? 'bg-rose-500/15 text-rose-300 border-rose-500/30'
+                                    : user.role === 'moderator'
+                                      ? 'bg-amber-500/15 text-amber-300 border-amber-500/30'
+                                      : 'bg-slate-500/15 text-slate-300 border-slate-500/30'
+                                } border`}>
+                                  {user.role === 'admin' ? 'مدير' : user.role === 'moderator' ? 'مشرف' : 'مستخدم'}
+                                </Badge>
+                              </TableCell>
+                              <TableCell className="hidden sm:table-cell">
+                                <span className={`inline-flex items-center gap-1 text-xs ${user.isActive ? 'text-emerald-400' : 'text-rose-400'}`}>
+                                  <span className={`w-1.5 h-1.5 rounded-full ${user.isActive ? 'bg-emerald-400' : 'bg-rose-400'}`} />
+                                  {user.isActive ? 'نشط' : 'معطل'}
+                                </span>
+                              </TableCell>
+                              <TableCell className="hidden lg:table-cell">
+                                <p className="text-xs text-slate-500">
+                                  {user.lastLoginAt
+                                    ? new Date(user.lastLoginAt).toLocaleDateString('ar-SA', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
+                                    : 'لم يسجل بعد'}
+                                </p>
+                              </TableCell>
+                              <TableCell className="hidden lg:table-cell">
+                                <p className="text-xs text-slate-500">
+                                  {new Date(user.createdAt).toLocaleDateString('ar-SA', { month: 'short', day: 'numeric', year: 'numeric' })}
+                                </p>
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                  {appUsers.length === 0 && (
+                    <div className="text-center py-12">
+                      <Users className="w-10 h-10 text-slate-700 mx-auto mb-3" />
+                      <p className="text-sm text-slate-500">لا يوجد مستخدمين مسجلين بعد</p>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Stats Cards */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                <Card className="bg-slate-900/50 border-slate-800/60">
+                  <CardContent className="p-4 text-center">
+                    <p className="text-2xl font-black text-white">{appUsers.length}</p>
+                    <p className="text-xs text-slate-400 mt-1">إجمالي المستخدمين</p>
+                  </CardContent>
+                </Card>
+                <Card className="bg-slate-900/50 border-slate-800/60">
+                  <CardContent className="p-4 text-center">
+                    <p className="text-2xl font-black text-emerald-400">{appUsers.filter(u => u.isActive).length}</p>
+                    <p className="text-xs text-slate-400 mt-1">نشط</p>
+                  </CardContent>
+                </Card>
+                <Card className="bg-slate-900/50 border-slate-800/60">
+                  <CardContent className="p-4 text-center">
+                    <p className="text-2xl font-black text-amber-400">{appUsers.filter(u => u.role === 'admin' || u.role === 'moderator').length}</p>
+                    <p className="text-xs text-slate-400 mt-1">طاقم الإدارة</p>
+                  </CardContent>
+                </Card>
+                <Card className="bg-slate-900/50 border-slate-800/60">
+                  <CardContent className="p-4 text-center">
+                    <p className="text-2xl font-black text-sky-400">{appUsers.filter(u => u.subscriptionId).length}</p>
+                    <p className="text-xs text-slate-400 mt-1">مرتبط باشتراك</p>
+                  </CardContent>
+                </Card>
+              </div>
             </div>
           )}
 

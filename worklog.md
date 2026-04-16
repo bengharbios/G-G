@@ -1515,3 +1515,39 @@ Current project status:
 Unresolved issues:
 - Dev server unstable in sandbox (keeps getting killed by resource manager)
 - /baharharb and /play/[gameId] routes exist but were not in original deployment
+---
+Task ID: 1
+Agent: Main Agent
+Task: Fix homepage profile button to open UserProfileModal with logout functionality
+
+Work Log:
+- Imported UserProfileModal from @/components/shared/UserProfileModal in page.tsx
+- Added SubscriberProfileData interface to type the profile API response
+- Modified Header component to accept onProfileClick, avatarLetter, and level props
+- Changed header avatar button onClick from toast("coming soon") to calling onProfileClick callback
+- Updated avatar letter display to show subscriber's first letter (fallback to "غ") instead of hardcoded value
+- Made level badge conditional on level prop being defined
+- Modified BottomNavigation to accept onProfileClick prop
+- Changed profile tab click in BottomNavigation from showing "coming soon" dialog to calling onProfileClick
+- Kept store tab "coming soon" dialog intact (only profile tab changed)
+- Removed profile from modalContent record (only store remains)
+- Added profileOpen state and profileData state in HomePage component
+- Added useEffect to fetch profile data from /api/subscription/profile on mount using gg_sub_code from localStorage
+- Passed onProfileClick, avatarLetter, and level props from HomePage to Header and BottomNavigation
+- Added UserProfileModal component in HomePage render with all required props (name, email, phone, code, plan, allowedGames, dates, trial info, logout handler)
+- Logout handler removes gg_sub_code from localStorage and reloads the page
+- Zero new lint errors introduced (all 36 pre-existing errors are from other files)
+
+Stage Summary:
+- Homepage profile button (header avatar + bottom nav profile tab) now opens the full UserProfileModal
+- Profile data is fetched on mount from the subscription API using the subscriber code in localStorage
+- User avatar in header shows the subscriber's first letter
+- UserProfileModal shows complete subscriber info, XP levels, subscription details, trial info, and logout button
+- Store tab still shows "coming soon" dialog as before
+- Dev server compiles successfully with no new errors
+
+Current project status:
+- G-G repo on GitHub, Vercel auto-deploys from main
+- 7 games total: 6 available + 3 coming soon
+- Homepage profile modal fully functional with real subscriber data and logout
+

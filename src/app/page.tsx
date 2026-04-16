@@ -8,6 +8,8 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import EventsModal from '@/components/shared/EventsModal';
+import UserProfileModal from '@/components/shared/UserProfileModal';
+import { LoginModal, RegisterModal } from '@/components/AuthModals';
 import {
   Dialog,
   DialogContent,
@@ -38,6 +40,8 @@ import {
   Gem,
   RotateCcw,
   ArrowRight,
+  LogIn,
+  LogOut,
 } from 'lucide-react';
 
 // ─── Admin game config hook ───────────────────────────────────────────────────
@@ -642,7 +646,14 @@ function EventsBannerSection() {
 
 // ─── Header Component ─────────────────────────────────────────────────────────
 
-function Header() {
+function Header({ onProfileClick, onLoginClick, avatarLetter, level, authUser, onLogout }: {
+  onProfileClick?: () => void;
+  onLoginClick?: () => void;
+  avatarLetter?: string;
+  level?: number;
+  authUser?: { id: string; username: string; email: string; displayName: string; phone: string; avatar: string; role: string } | null;
+  onLogout?: () => void;
+}) {
   const { count, visible: countVisible } = useActivePlayers();
   const { toast } = useToast();
 
@@ -713,17 +724,40 @@ function Header() {
               </span>
             </button>
 
-            {/* Avatar */}
-            <button
-              onClick={() => toast({ title: '👤 الملف الشخصي', description: 'قريباً...' })}
-              className="relative w-9 h-9 rounded-full bg-gradient-to-br from-amber-500 to-rose-500 flex items-center justify-center text-white text-sm font-bold shadow-lg shadow-amber-500/20"
-              aria-label="الملف الشخصي"
-            >
-              غ
-              <span className="absolute -bottom-0.5 -right-0.5 w-4 h-4 bg-amber-500 rounded-full border-2 border-slate-950 text-[6px] text-slate-950 flex items-center justify-center font-black">
-                12
-              </span>
-            </button>
+            {/* Avatar / Login */}
+            {authUser ? (
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={onLogout}
+                  className="w-9 h-9 rounded-full bg-slate-800/60 border border-slate-700/40 flex items-center justify-center text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 hover:border-rose-500/30 transition-all"
+                  aria-label="تسجيل الخروج"
+                  title="تسجيل الخروج"
+                >
+                  <LogOut className="w-4 h-4" />
+                </button>
+                <button
+                  onClick={onProfileClick}
+                  className="relative w-9 h-9 rounded-full bg-gradient-to-br from-amber-500 to-rose-500 flex items-center justify-center text-white text-sm font-bold shadow-lg shadow-amber-500/20"
+                  aria-label="الملف الشخصي"
+                >
+                  {avatarLetter || 'غ'}
+                  {level !== undefined && (
+                    <span className="absolute -bottom-0.5 -right-0.5 w-4 h-4 bg-amber-500 rounded-full border-2 border-slate-950 text-[6px] text-slate-950 flex items-center justify-center font-black">
+                      {level > 99 ? '99' : level}
+                    </span>
+                  )}
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={onLoginClick}
+                className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-gradient-to-l from-amber-600 to-rose-600 hover:from-amber-500 hover:to-rose-500 text-white text-xs font-bold shadow-lg shadow-amber-500/20 transition-all"
+                aria-label="تسجيل الدخول"
+              >
+                <LogIn className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">دخول</span>
+              </button>
+            )}
           </div>
         </div>
       </div>
@@ -1165,7 +1199,7 @@ function GamesSection() {
 
 type BottomTab = 'home' | 'games' | 'events' | 'store' | 'profile';
 
-function BottomNavigation({ eventsModalOpen, setEventsModalOpen }: { eventsModalOpen: boolean; setEventsModalOpen: (open: boolean) => void }) {
+function BottomNavigation({ eventsModalOpen, setEventsModalOpen, onProfileClick }: { eventsModalOpen: boolean; setEventsModalOpen: (open: boolean) => void; onProfileClick?: () => void }) {
   const [activeTab, setActiveTab] = useState<BottomTab>('home');
   const [modalOpen, setModalOpen] = useState<string | null>(null);
   const { toast } = useToast();
@@ -1197,14 +1231,18 @@ function BottomNavigation({ eventsModalOpen, setEventsModalOpen }: { eventsModal
       return;
     }
 
-    if (tabId === 'store' || tabId === 'profile') {
+    if (tabId === 'store') {
       setModalOpen(tabId);
+    }
+
+    if (tabId === 'profile') {
+      onProfileClick?.();
+      return;
     }
   };
 
   const modalContent: Record<string, { title: string; description: string; icon: string }> = {
     store: { title: '🛍️ المتجر', description: 'قريباً! ستتمكن من شراء العناصر المميزة والعملات والمكافآت من المتجر.', icon: '🛍️' },
-    profile: { title: '👤 الملف الشخصي', description: 'قريباً! ستتمكن من إدارة حسابك ومشاهدة إحصائياتك وتحديث ملفك الشخصي.', icon: '👤' },
   };
 
   return (
@@ -1362,12 +1400,100 @@ function Footer() {
 
 // ─── Main Page ───────────────────────────────────────────────────────────────
 
+// ─── Subscriber Profile Data Type ─────────────────────────────────────────
+
+interface SubscriberProfileData {
+  subscriber?: {
+    name: string;
+    email: string;
+    phone: string;
+    subscriptionCode: string;
+    plan: string;
+    allowedGames: string[];
+    startDate: string;
+    endDate: string;
+    isTrial: boolean;
+  };
+  trialInfo?: {
+    sessionsUsed: number;
+    maxSessions: number;
+    expiresAt: string;
+  };
+}
+
+interface AuthUserData {
+  id: string;
+  username: string;
+  email: string;
+  displayName: string;
+  phone: string;
+  avatar: string;
+  role: string;
+}
+
 export default function HomePage() {
   const [eventsModalOpen, setEventsModalOpen] = useState(false);
+  const [profileOpen, setProfileOpen] = useState(false);
+  const [profileData, setProfileData] = useState<SubscriberProfileData | null>(null);
+  const [loginOpen, setLoginOpen] = useState(false);
+  const [registerOpen, setRegisterOpen] = useState(false);
+  const [authUser, setAuthUser] = useState<AuthUserData | null>(null);
+
+  // Check auth session on mount
+  useEffect(() => {
+    fetch('/api/auth/me')
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.success && data.user) {
+          setAuthUser(data.user);
+        }
+      })
+      .catch(() => { /* silent */ });
+  }, []);
+
+  // Fetch subscriber profile data on mount
+  useEffect(() => {
+    const subCode = localStorage.getItem('gg_sub_code');
+    if (!subCode) return;
+
+    fetch('/api/subscription/profile', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ code: subCode }),
+    })
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.success && data.subscriber) {
+          setProfileData(data);
+        }
+      })
+      .catch(() => { /* silent fail */ });
+  }, []);
+
+  const handleAuthSuccess = useCallback((user: AuthUserData) => {
+    setAuthUser(user);
+  }, []);
+
+  const handleLogout = useCallback(async () => {
+    try {
+      await fetch('/api/auth/logout', { method: 'POST' });
+    } catch { /* silent */ }
+    localStorage.removeItem('gg_sub_code');
+    setAuthUser(null);
+    setProfileData(null);
+    window.location.reload();
+  }, []);
 
   return (
     <div dir="rtl" className="min-h-screen bg-slate-950 text-white">
-      <Header />
+      <Header
+        onProfileClick={() => setProfileOpen(true)}
+        onLoginClick={() => setLoginOpen(true)}
+        avatarLetter={authUser?.displayName?.charAt(0) || profileData?.subscriber?.name?.charAt(0)}
+        level={undefined}
+        authUser={authUser}
+        onLogout={handleLogout}
+      />
 
       {/* Spacer for fixed header */}
       <div className="h-14 sm:h-16" />
@@ -1393,7 +1519,40 @@ export default function HomePage() {
       </main>
 
       <Footer />
-      <BottomNavigation eventsModalOpen={eventsModalOpen} setEventsModalOpen={setEventsModalOpen} />
+      <BottomNavigation eventsModalOpen={eventsModalOpen} setEventsModalOpen={setEventsModalOpen} onProfileClick={() => setProfileOpen(true)} />
+
+      {/* Auth Modals */}
+      <LoginModal
+        open={loginOpen}
+        onOpenChange={setLoginOpen}
+        onSwitchToRegister={() => setRegisterOpen(true)}
+        onLoginSuccess={handleAuthSuccess}
+      />
+      <RegisterModal
+        open={registerOpen}
+        onOpenChange={setRegisterOpen}
+        onSwitchToLogin={() => setLoginOpen(true)}
+        onRegisterSuccess={handleAuthSuccess}
+      />
+
+      {/* Profile Modal */}
+      <UserProfileModal
+        open={profileOpen}
+        onOpenChange={setProfileOpen}
+        subscriberName={authUser?.displayName || profileData?.subscriber?.name}
+        subscriberEmail={authUser?.email || profileData?.subscriber?.email}
+        subscriberPhone={authUser?.phone || profileData?.subscriber?.phone}
+        subscriberCode={profileData?.subscriber?.subscriptionCode}
+        subscriberPlan={profileData?.subscriber?.plan}
+        allowedGames={profileData?.subscriber?.allowedGames}
+        startDate={profileData?.subscriber?.startDate}
+        endDate={profileData?.subscriber?.endDate}
+        trialSessionsUsed={profileData?.trialInfo?.sessionsUsed}
+        trialMaxSessions={profileData?.trialInfo?.maxSessions}
+        trialExpiresAt={profileData?.trialInfo?.expiresAt}
+        isTrial={profileData?.subscriber?.isTrial}
+        onLogout={handleLogout}
+      />
 
       {/* CSS keyframe for animated gradient border on cards */}
       <style jsx global>{`
