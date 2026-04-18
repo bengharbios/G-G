@@ -570,6 +570,7 @@ async function ensureAdminTables(): Promise<void> {
     if (!vrpColNames.includes('micFrozen')) await c.execute('ALTER TABLE VoiceRoomParticipant ADD COLUMN micFrozen INTEGER DEFAULT 0');
     if (!vrpColNames.includes('vipLevel')) await c.execute('ALTER TABLE VoiceRoomParticipant ADD COLUMN vipLevel INTEGER DEFAULT 0');
     if (!vrpColNames.includes('pendingRole')) await c.execute("ALTER TABLE VoiceRoomParticipant ADD COLUMN pendingRole TEXT DEFAULT ''");
+    if (!vrpColNames.includes('pendingMicInvite')) await c.execute('ALTER TABLE VoiceRoomParticipant ADD COLUMN pendingMicInvite INTEGER DEFAULT -1');
   } catch { /* ignore */ }
 
   // Migration: add vipLevel to AppUser
@@ -3299,47 +3300,61 @@ export async function requestSeat(roomId: string, userId: string, username: stri
   const c = getClient();
   await ensureAdminTables();
 
-  // Check if user is on a seat already
-  const existing = await c.execute({ sql: 'SELECT seatIndex FROM VoiceRoomParticipant WHERE roomId = ? AND userId = ?', args: [roomId, userId] });
-  if (existing.rows.length > 0 && Number(existing.rows[0].seatIndex) >= 0) {
+  // Get user role to determine if they can sit directly
+  const participantRow = await c.execute({ sql: 'SELECT role, pendingRole, seatIndex FROM VoiceRoomParticipant WHERE roomId = ? AND userId = ?', args: [roomId, userId] });
+  const userRole = participantRow.rows.length > 0 ? (participantRow.rows[0].role as string) : 'visitor';
+  const pendingRole = participantRow.rows.length > 0 ? (participantRow.rows[0].pendingRole as string) : '';
+  const currentSeat = participantRow.rows.length > 0 ? Number(participantRow.rows[0].seatIndex) : -1;
+
+  // Members and above always sit directly (also check pendingRole for invited members)
+  const effectiveRole = ['member', 'admin', 'coowner', 'owner'].includes(pendingRole) ? pendingRole : userRole;
+  const canSitDirectly = ['member', 'admin', 'coowner', 'owner'].includes(effectiveRole);
+
+  // Check if user is already on this exact seat
+  if (currentSeat === requestedSeat) {
     return { success: false };
   }
 
   // Check if auto mode is on
-  const roomResult = await c.execute({ sql: 'SELECT micSeatCount, isAutoMode FROM VoiceRoom WHERE id = ?', args: [roomId] });
+  const roomResult = await c.execute({ sql: 'SELECT micSeatCount, isAutoMode, lockedSeats FROM VoiceRoom WHERE id = ?', args: [roomId] });
   if (roomResult.rows.length === 0) return { success: false };
   const room = roomResult.rows[0];
   const micCount = Number(room.micSeatCount) || 10;
   const isAutoMode = Boolean(room.isAutoMode);
-
-  // Get user role to determine if they can sit directly
-  const participantRow = await c.execute({ sql: 'SELECT role FROM VoiceRoomParticipant WHERE roomId = ? AND userId = ?', args: [roomId, userId] });
-  const userRole = participantRow.rows.length > 0 ? (participantRow.rows[0].role as string) : 'visitor';
-
-  // Members and above always sit directly (bypass autoMode check)
-  const canSitDirectly = ['member', 'admin', 'coowner', 'owner'].includes(userRole);
+  const lockedSeats: number[] = [];
+  try { const ls = JSON.parse(room.lockedSeats as string || '[]'); if (Array.isArray(ls)) ls.forEach((s: any) => lockedSeats.push(Number(s))); } catch {}
 
   if (isAutoMode || canSitDirectly) {
     // Find an open seat
-    const occupiedSeats = await c.execute({ sql: 'SELECT seatIndex FROM VoiceRoomParticipant WHERE roomId = ? AND seatIndex >= 0', args: [roomId] });
+    const occupiedSeats = await c.execute({ sql: 'SELECT seatIndex FROM VoiceRoomParticipant WHERE roomId = ? AND seatIndex >= 0 AND userId != ?', args: [roomId, userId] });
     const occupied = new Set(occupiedSeats.rows.map(r => Number(r.seatIndex)));
 
     let targetSeat = requestedSeat >= 0 ? requestedSeat : -1;
-    if (targetSeat < 0 || occupied.has(targetSeat)) {
-      targetSeat = -1;
+    // Check if target seat is valid
+    if (targetSeat >= 0) {
+      if (occupied.has(targetSeat) || lockedSeats.includes(targetSeat) || targetSeat >= micCount) {
+        targetSeat = -1; // Invalid target, find another
+      }
+    }
+    if (targetSeat < 0) {
       for (let i = 0; i < micCount; i++) {
-        if (!occupied.has(i)) { targetSeat = i; break; }
+        if (!occupied.has(i) && !lockedSeats.includes(i)) { targetSeat = i; break; }
       }
     }
 
     if (targetSeat >= 0) {
-      await c.execute({
-        sql: "UPDATE VoiceRoomParticipant SET seatIndex = ?, seatStatus = 'locked' WHERE roomId = ? AND userId = ?",
-        args: [targetSeat, roomId, userId],
-      });
+      // If user is already on a different seat, free it up
+      if (currentSeat >= 0) {
+        await c.execute({ sql: 'UPDATE VoiceRoomParticipant SET seatIndex = ?, seatStatus = ? WHERE roomId = ? AND userId = ?', args: [targetSeat, 'locked', roomId, userId] });
+      } else {
+        await c.execute({ sql: "UPDATE VoiceRoomParticipant SET seatIndex = ?, seatStatus = 'locked' WHERE roomId = ? AND userId = ?", args: [targetSeat, roomId, userId] });
+      }
       return { success: true, autoAssigned: true, seatIndex: targetSeat };
     }
   }
+
+  // Visitors in non-auto mode: add to waitlist (only if not already on a seat)
+  if (currentSeat >= 0) return { success: false };
 
   // Add to waitlist
   const existingWaitlist = await c.execute({ sql: 'SELECT id FROM RoomWaitlist WHERE roomId = ? AND userId = ?', args: [roomId, userId] });
@@ -3483,7 +3498,12 @@ export async function inviteRoleToRoom(roomId: string, targetUserId: string, new
   if (ROLE_HIERARCHY[actorRole as RoomRole] < ROLE_HIERARCHY['owner' as RoomRole]) return false;
   if (ROLE_HIERARCHY[targetRole as RoomRole] >= ROLE_HIERARCHY[actorRole as RoomRole]) return false;
   
-  await c.execute({ sql: 'UPDATE VoiceRoomParticipant SET pendingRole = ? WHERE roomId = ? AND userId = ?', args: [newRole, roomId, targetUserId] });
+  // For member role: directly set the role AND pendingRole (popup is informational)
+  if (newRole === 'member') {
+    await c.execute({ sql: 'UPDATE VoiceRoomParticipant SET role = ?, pendingRole = ? WHERE roomId = ? AND userId = ?', args: [newRole, newRole, roomId, targetUserId] });
+  } else {
+    await c.execute({ sql: 'UPDATE VoiceRoomParticipant SET pendingRole = ? WHERE roomId = ? AND userId = ?', args: [newRole, roomId, targetUserId] });
+  }
   
   // Log action
   await c.execute({ sql: 'INSERT INTO RoomActionLog (id, roomId, actorId, actorName, action, targetId, targetName, details) VALUES (?, ?, ?, ?, ?, ?, ?, ?)', args: [
@@ -3511,7 +3531,81 @@ export async function rejectRoleInvite(roomId: string, userId: string): Promise<
   const c = getClient();
   await ensureAdminTables();
   
-  await c.execute({ sql: 'UPDATE VoiceRoomParticipant SET pendingRole = "" WHERE roomId = ? AND userId = ?', args: [roomId, userId] });
+  const result = await c.execute({ sql: 'SELECT pendingRole FROM VoiceRoomParticipant WHERE roomId = ? AND userId = ?', args: [roomId, userId] });
+  if (result.rows.length === 0) return false;
+  const pendingRole = result.rows[0].pendingRole as string;
+  
+  // If member invitation was rejected, revert role to visitor
+  if (pendingRole === 'member') {
+    await c.execute({ sql: "UPDATE VoiceRoomParticipant SET role = 'visitor', pendingRole = '' WHERE roomId = ? AND userId = ?", args: [roomId, userId] });
+  } else {
+    await c.execute({ sql: 'UPDATE VoiceRoomParticipant SET pendingRole = "" WHERE roomId = ? AND userId = ?', args: [roomId, userId] });
+  }
+  return true;
+}
+
+// 22c. Invite a user to a specific mic seat (admin sends, user accepts/rejects)
+export async function inviteToMic(roomId: string, targetUserId: string, seatIndex: number, actorId: string): Promise<boolean> {
+  const c = getClient();
+  await ensureAdminTables();
+
+  // Verify actor is admin+
+  const actorResult = await c.execute({ sql: 'SELECT role FROM VoiceRoomParticipant WHERE roomId = ? AND userId = ?', args: [roomId, actorId] });
+  if (actorResult.rows.length === 0) return false;
+  const actorRole = actorResult.rows[0].role as string;
+  if (ROLE_HIERARCHY[actorRole as RoomRole] < ROLE_HIERARCHY['admin' as RoomRole]) return false;
+
+  // Verify target is in the room
+  const targetResult = await c.execute({ sql: 'SELECT seatIndex FROM VoiceRoomParticipant WHERE roomId = ? AND userId = ?', args: [roomId, targetUserId] });
+  if (targetResult.rows.length === 0) return false;
+  if (Number(targetResult.rows[0].seatIndex) >= 0) return false; // Already on a seat
+
+  // Verify seat is empty
+  const seatResult = await c.execute({ sql: 'SELECT seatIndex FROM VoiceRoomParticipant WHERE roomId = ? AND seatIndex = ?', args: [roomId, seatIndex] });
+  if (seatResult.rows.length > 0) return false; // Seat is occupied
+
+  // Set pending mic invite
+  await c.execute({ sql: 'UPDATE VoiceRoomParticipant SET pendingMicInvite = ? WHERE roomId = ? AND userId = ?', args: [seatIndex, roomId, targetUserId] });
+
+  // Log action
+  const actorNameResult = await c.execute({ sql: 'SELECT displayName FROM VoiceRoomParticipant WHERE roomId = ? AND userId = ?', args: [roomId, actorId] });
+  const actorName = (actorNameResult.rows[0]?.displayName || '') as string;
+  const targetNameResult = await c.execute({ sql: 'SELECT displayName FROM VoiceRoomParticipant WHERE roomId = ? AND userId = ?', args: [roomId, targetUserId] });
+  const targetName = (targetNameResult.rows[0]?.displayName || '') as string;
+  await logAction(roomId, actorId, actorName, 'invite-to-mic', targetUserId, targetName, `Seat ${seatIndex + 1}`);
+
+  return true;
+}
+
+// 22d. Accept mic invitation
+export async function acceptMicInvite(roomId: string, userId: string): Promise<{ success: boolean; seatIndex?: number }> {
+  const c = getClient();
+  await ensureAdminTables();
+
+  const result = await c.execute({ sql: 'SELECT pendingMicInvite FROM VoiceRoomParticipant WHERE roomId = ? AND userId = ? AND pendingMicInvite >= 0', args: [roomId, userId] });
+  if (result.rows.length === 0) return { success: false };
+
+  const seatIndex = Number(result.rows[0].pendingMicInvite);
+
+  // Verify seat is still empty
+  const seatResult = await c.execute({ sql: 'SELECT seatIndex FROM VoiceRoomParticipant WHERE roomId = ? AND seatIndex = ?', args: [roomId, seatIndex] });
+  if (seatResult.rows.length > 0) {
+    // Seat taken, clear invite
+    await c.execute({ sql: 'UPDATE VoiceRoomParticipant SET pendingMicInvite = -1 WHERE roomId = ? AND userId = ?', args: [roomId, userId] });
+    return { success: false };
+  }
+
+  // Assign seat
+  await c.execute({ sql: "UPDATE VoiceRoomParticipant SET seatIndex = ?, seatStatus = 'locked', pendingMicInvite = -1 WHERE roomId = ? AND userId = ?", args: [seatIndex, roomId, userId] });
+
+  return { success: true, seatIndex };
+}
+
+// 22e. Reject mic invitation
+export async function rejectMicInvite(roomId: string, userId: string): Promise<boolean> {
+  const c = getClient();
+  await ensureAdminTables();
+  await c.execute({ sql: 'UPDATE VoiceRoomParticipant SET pendingMicInvite = -1 WHERE roomId = ? AND userId = ?', args: [roomId, userId] });
   return true;
 }
 
@@ -3562,12 +3656,18 @@ export async function updateRoomSettings(roomId: string, settings: Partial<Voice
   const ownerOnlyKeys = ['roomMode', 'roomPassword', 'micTheme', 'giftSplit', 'micSeatCount'];
   // Owner/coowner settings
   const adminKeys = ['chatMuted', 'bgmEnabled', 'announcement', 'isAutoMode', 'roomLevel'];
+  // Known VoiceRoom columns (ignore unknown keys)
+  const knownColumns = ['roomMode', 'roomPassword', 'micTheme', 'giftSplit', 'micSeatCount',
+    'chatMuted', 'bgmEnabled', 'announcement', 'isAutoMode', 'roomLevel', 'name', 'description',
+    'maxParticipants', 'lockedSeats'];
 
   const setClauses: string[] = [];
   const values: unknown[] = [];
 
   for (const [key, val] of Object.entries(settings)) {
     if (val === undefined) continue;
+    // Skip unknown columns to avoid DB errors
+    if (!knownColumns.includes(key)) continue;
 
     // Check permissions
     if (ownerOnlyKeys.includes(key) && ROLE_HIERARCHY[actorRole] < ROLE_HIERARCHY.owner) continue;

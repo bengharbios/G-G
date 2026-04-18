@@ -11,6 +11,7 @@ import {
   kickFromRoomTimed, isUserKicked, cleanExpiredKicks,
   getRoomTemplate, saveRoomTemplate, getUserGiftStats,
   inviteRoleToRoom, acceptRoleInvite, rejectRoleInvite,
+  inviteToMic, acceptMicInvite, rejectMicInvite,
 } from '@/lib/admin-db';
 
 const JWT_SECRET = new TextEncoder().encode(process.env.JWT_SECRET || 'gg-platform-secret-key-2024');
@@ -167,6 +168,16 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
       return NextResponse.json({ success: ok });
     }
 
+    if (action === 'accept-mic-invite') {
+      const result = await acceptMicInvite(id, userId);
+      return NextResponse.json({ success: result.success, seatIndex: result.seatIndex });
+    }
+
+    if (action === 'reject-mic-invite') {
+      const ok = await rejectMicInvite(id, userId);
+      return NextResponse.json({ success: ok });
+    }
+
     return NextResponse.json({ error: 'طلب غير صالح' }, { status: 400 });
   } catch (e) {
     console.error('[VR ID PUT]', e);
@@ -295,6 +306,14 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       if (!waitlistId) return NextResponse.json({ error: 'بيانات ناقصة' }, { status: 400 });
       const ok = await rejectWaitlist(waitlistId, userId);
       return NextResponse.json({ success: ok });
+    }
+
+    if (action === 'invite-to-mic') {
+      const { targetUserId, seatIndex } = await request.json();
+      if (!targetUserId || seatIndex === undefined) return NextResponse.json({ error: 'بيانات ناقصة' }, { status: 400 });
+      const ok = await inviteToMic(id, targetUserId, Number(seatIndex), userId);
+      if (!ok) return NextResponse.json({ error: 'فشل إرسال الدعوة' }, { status: 403 });
+      return NextResponse.json({ success: true });
     }
 
     return NextResponse.json({ error: 'طلب غير صالح' }, { status: 400 });

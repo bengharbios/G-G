@@ -354,7 +354,7 @@ function BottomSheetOverlay({ isOpen, onClose, children }: {
    ═══════════════════════════════════════════════════════════════════════ */
 
 function MicMenuBottomSheet({
-  isOpen, onClose, seatIndex, participant, isSeatLocked, onAction,
+  isOpen, onClose, seatIndex, participant, isSeatLocked, onAction, currentUserId, myRole,
 }: {
   isOpen: boolean;
   onClose: () => void;
@@ -362,7 +362,11 @@ function MicMenuBottomSheet({
   participant: VoiceRoomParticipant | null;
   isSeatLocked: boolean;
   onAction: (action: string) => void;
+  currentUserId: string;
+  myRole: RoomRole;
 }) {
+  const isAdmin = canDo(myRole, 'admin');
+  const isOnMic = participant?.userId === currentUserId;
   return (
     <BottomSheetOverlay isOpen={isOpen} onClose={onClose}>
       {/* Title */}
@@ -470,7 +474,7 @@ function MicMenuBottomSheet({
         {/* When seat is EMPTY */}
         {!participant && (
           <>
-            {/* Sit on this mic */}
+            {/* Sit on this mic / Change mic (if already on a different seat) */}
             <button
               onClick={() => { onAction('take-seat'); onClose(); }}
               className="w-full flex items-center gap-3 px-3.5 py-3 rounded-xl text-[#22c55e] hover:bg-[#232843] active:bg-[#232843] transition-colors"
@@ -485,7 +489,7 @@ function MicMenuBottomSheet({
             </button>
 
             {/* Lock seat (close empty mic) */}
-            {!isSeatLocked && (
+            {!isSeatLocked && isAdmin && (
               <button
                 onClick={() => { onAction('lock-seat'); onClose(); }}
                 className="w-full flex items-center gap-3 px-3.5 py-3 rounded-xl text-[#f59e0b] hover:bg-[#232843] active:bg-[#232843] transition-colors"
@@ -501,7 +505,7 @@ function MicMenuBottomSheet({
             )}
 
             {/* Unlock seat (open empty mic) */}
-            {isSeatLocked && (
+            {isSeatLocked && isAdmin && (
               <button
                 onClick={() => { onAction('unlock-seat'); onClose(); }}
                 className="w-full flex items-center gap-3 px-3.5 py-3 rounded-xl text-[#22c55e] hover:bg-[#232843] active:bg-[#232843] transition-colors"
@@ -527,7 +531,7 @@ function MicMenuBottomSheet({
    ═══════════════════════════════════════════════════════════════════════ */
 
 function ProfileBottomSheet({
-  isOpen, onClose, participant, stats, onGiftClick, myRole, authUserId, hostId, onKickTemp, onBanUser, onChangeRole,
+  isOpen, onClose, participant, stats, onGiftClick, myRole, authUserId, hostId, onKickTemp, onBanUser, onChangeRole, onInviteToMic,
 }: {
   isOpen: boolean;
   onClose: () => void;
@@ -540,12 +544,14 @@ function ProfileBottomSheet({
   onKickTemp: (userId: string) => void;
   onBanUser: (userId: string) => void;
   onChangeRole: (userId: string, newRole: RoomRole) => void;
+  onInviteToMic: (userId: string) => void;
 }) {
   const [roleMenuOpen, setRoleMenuOpen] = useState(false);
   if (!participant && !isOpen) return null;
   const avatarColor = participant ? getAvatarColor(participant.userId) : '#1c2035';
 
   const canManageRoles = canDo(myRole, 'owner') && participant?.userId !== authUserId && participant?.userId !== hostId;
+  const canInviteMic = canDo(myRole, 'admin') && participant?.userId !== authUserId && participant?.seatIndex < 0;
   // Check if target is an unregistered guest (no real username, or userId starts with 'guest-')
   const isGuest = !participant?.username || participant?.userId?.startsWith('guest-');
   const availableRoles: RoomRole[] = ['member', 'admin', 'coowner'];
@@ -674,6 +680,16 @@ function ProfileBottomSheet({
 
           {/* Action buttons row */}
           <div className="flex gap-2 px-4 mt-3 pb-6">
+            {/* Invite to mic - admin only, for users not on a seat */}
+            {canInviteMic && (
+            <button
+              onClick={() => { onInviteToMic(participant!.userId); onClose(); }}
+              className="flex-1 flex flex-col items-center gap-1.5 py-3 rounded-[14px] bg-[rgba(34,197,94,0.08)] border border-[rgba(34,197,94,0.3)] hover:bg-[rgba(34,197,94,0.15)] active:scale-[0.97] transition-all"
+            >
+              <Mic className="w-[22px] h-[22px] text-[#22c55e]" />
+              <span className="text-[11px] text-[#22c55e] font-semibold">دعوة للمايك</span>
+            </button>
+            )}
             {/* Send gift - only for registered users */}
             {authUserId && (
             <button
@@ -1370,7 +1386,69 @@ function MembershipInviteDialog({
 }
 
 /* ═══════════════════════════════════════════════════════════════════════
-   ROOM INTERIOR VIEW (HTML reference design)
+   MIC INVITATION DIALOG
+   ═══════════════════════════════════════════════════════════════════════ */
+
+function MicInviteDialog({
+  isOpen, onClose, onAccept, onReject, seatIndex,
+}: {
+  isOpen: boolean;
+  onClose: () => void;
+  onAccept: () => void;
+  onReject: () => void;
+  seatIndex: number;
+}) {
+  return (
+    <AnimatePresence>
+      {isOpen && (
+        <>
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/60 z-[100]"
+            onClick={onClose}
+          />
+          <motion.div
+            initial={{ opacity: 0, scale: 0.9, y: 20 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.9, y: 20 }}
+            transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+            className="fixed z-[110] left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[300px] bg-[#181c2e] border border-[rgba(34,197,94,0.3)] rounded-2xl p-5 shadow-2xl"
+            dir="rtl"
+          >
+            <div className="flex justify-center mb-3">
+              <div className="w-14 h-14 rounded-full bg-gradient-to-br from-[#22c55e] to-[#16a34a] flex items-center justify-center">
+                <span className="text-2xl">🎙</span>
+              </div>
+            </div>
+            <div className="text-center mb-4">
+              <div className="text-[16px] font-bold text-[#f0f0f8] mb-1">دعوة للمايك!</div>
+              <div className="text-[12px] text-[#9ca3c4]">تمت دعوتك للصعود على <span className="text-[#22c55e] font-bold">المايك {seatIndex + 1}</span></div>
+            </div>
+            <div className="flex gap-2">
+              <button
+                onClick={onAccept}
+                className="flex-1 py-2.5 rounded-xl bg-gradient-to-l from-[#22c55e] to-[#16a34a] text-white text-[13px] font-bold active:scale-[0.97] transition-transform"
+              >
+                قبول
+              </button>
+              <button
+                onClick={onReject}
+                className="flex-1 py-2.5 rounded-xl bg-[#1c2035] border border-[rgba(255,255,255,0.07)] text-[#9ca3c4] text-[13px] font-semibold hover:bg-[#232843] active:scale-[0.97] transition-transform"
+              >
+                رفض
+              </button>
+            </div>
+          </motion.div>
+        </>
+      )}
+    </AnimatePresence>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   ROOM INTERIOR VIEW
    ═══════════════════════════════════════════════════════════════════════ */
 
 function RoomInteriorView({
@@ -1404,6 +1482,7 @@ function RoomInteriorView({
   const [kickDialogOpen, setKickDialogOpen] = useState(false);
   const [passwordDialogOpen, setPasswordDialogOpen] = useState(false);
   const [pendingInvite, setPendingInvite] = useState<string>(''); // stores pending role invitation
+  const [pendingMicInvite, setPendingMicInvite] = useState<number>(-1); // stores pending mic seat invitation
 
   const [micMenuSheet, setMicMenuSheet] = useState<{
     isOpen: boolean;
@@ -1466,6 +1545,10 @@ function RoomInteriorView({
         // Check for pending role invitation
         if (data.participant.pendingRole && data.participant.pendingRole !== '') {
           setPendingInvite(data.participant.pendingRole);
+        }
+        // Check for pending mic invitation
+        if (data.participant.pendingMicInvite !== undefined && Number(data.participant.pendingMicInvite) >= 0) {
+          setPendingMicInvite(Number(data.participant.pendingMicInvite));
         }
       }
     } catch { /* ignore */ }
@@ -1578,12 +1661,14 @@ function RoomInteriorView({
     partPoll = setInterval(() => { if (!cancelled) fetchParticipantsRef.current(); }, 4000);
     chatPoll = setInterval(() => { if (!cancelled) fetchChatMessagesRef.current(); }, 3000);
     roomPoll = setInterval(() => { if (!cancelled) fetchRoomDetailsRef.current(); }, 6000);
+    const myPoll = setInterval(() => { if (!cancelled) fetchMyParticipantRef.current(); }, 4000);
 
     return () => {
       cancelled = true;
       if (partPoll) clearInterval(partPoll);
       if (chatPoll) clearInterval(chatPoll);
       if (roomPoll) clearInterval(roomPoll);
+      if (myPoll) clearInterval(myPoll);
     };
   }, [roomId]);
 
@@ -1783,34 +1868,36 @@ function RoomInteriorView({
     if (!seatData) return;
 
     const isAdmin = canDo(myRole, 'admin');
-    const isMember = canDo(myRole, 'member');
 
     if (seatData.participant) {
+      // Someone is on this seat
       if (isAdmin) {
+        setMicMenuSheet({ isOpen: true, seatIndex, participant: seatData.participant });
+      } else if (seatData.participant.userId === currentUserId) {
+        // Clicking own seat - show menu with leave option
         setMicMenuSheet({ isOpen: true, seatIndex, participant: seatData.participant });
       } else {
         setProfileSheet(seatData.participant);
       }
     } else {
-      // Empty seat - everyone can try to sit (unless locked)
+      // Empty seat
       if (seatData.status === 'locked') {
-        // Locked: admins can still manage, others get toast
         if (isAdmin) {
           setMicMenuSheet({ isOpen: true, seatIndex, participant: null });
         } else {
           toast({ title: 'المقعد مقفل', description: 'لا يمكنك الجلوس هنا' });
         }
       } else {
-        // Open seat: admins see menu with "sit on mic" or "close mic", regular users sit directly
+        // Open seat
         if (isAdmin) {
           setMicMenuSheet({ isOpen: true, seatIndex, participant: null });
         } else {
-          // Regular users (visitor, member) sit directly
+          // Members and visitors sit directly (members go directly, visitors may get waitlisted)
           handleRequestSeat(seatIndex);
         }
       }
     }
-  }, [myRole, buildSeats, handleRequestSeat, toast]);
+  }, [myRole, buildSeats, handleRequestSeat, toast, currentUserId]);
 
   /* ── Mic menu action dispatcher ── */
   const handleMicMenuAction = useCallback(async (action: string) => {
@@ -1895,6 +1982,54 @@ function RoomInteriorView({
       });
       setPendingInvite('');
       toast({ title: 'تم رفض الدعوة' });
+    } catch { /* ignore */ }
+  }, [roomId, toast]);
+
+  /* ── Invite user to mic (admin action) ── */
+  const handleInviteToMic = useCallback(async (targetUserId: string) => {
+    try {
+      const res = await fetch(`/api/voice-rooms/${roomId}?action=invite-to-mic`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ targetUserId, seatIndex: -1 }), // auto-pick empty seat
+      });
+      const data = await res.json();
+      if (data.success) {
+        toast({ title: 'تم إرسال دعوة للمايك' });
+      } else {
+        toast({ title: 'فشل الإرسال', description: data.error || 'لا توجد مقاعد فارغة' });
+      }
+    } catch { /* ignore */ }
+  }, [roomId, toast]);
+
+  /* ── Accept mic invitation ── */
+  const handleAcceptMicInvite = useCallback(async () => {
+    try {
+      const res = await fetch(`/api/voice-rooms/${roomId}?action=accept-mic-invite`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+      });
+      const data = await res.json();
+      if (data.success) {
+        toast({ title: 'تم الصعود للمايك', description: `مقعد ${data.seatIndex + 1}` });
+        setPendingMicInvite(-1);
+        await Promise.all([fetchParticipants(), fetchMyParticipant()]);
+      } else {
+        toast({ title: 'المقعد لم يعد متاحاً' });
+        setPendingMicInvite(-1);
+      }
+    } catch { /* ignore */ }
+  }, [roomId, toast, fetchParticipants, fetchMyParticipant]);
+
+  /* ── Reject mic invitation ── */
+  const handleRejectMicInvite = useCallback(async () => {
+    try {
+      await fetch(`/api/voice-rooms/${roomId}?action=reject-mic-invite`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+      });
+      setPendingMicInvite(-1);
+      toast({ title: 'تم رفض دعوة المايك' });
     } catch { /* ignore */ }
   }, [roomId, toast]);
 
@@ -2222,6 +2357,8 @@ function RoomInteriorView({
         participant={micMenuSheet.participant}
         isSeatLocked={(room.lockedSeats || []).includes(micMenuSheet.seatIndex)}
         onAction={handleMicMenuAction}
+        currentUserId={currentUserId}
+        myRole={myRole}
       />
 
       <ProfileBottomSheet
@@ -2233,6 +2370,7 @@ function RoomInteriorView({
         myRole={myRole}
         authUserId={authUser?.id || ''}
         hostId={room.hostId}
+        onInviteToMic={handleInviteToMic}
         onKickTemp={(userId: string) => {
           fetch(`/api/voice-rooms/${roomId}?action=kick-from-room`, {
             method: 'POST',
@@ -2321,6 +2459,15 @@ function RoomInteriorView({
         onAccept={handleAcceptInvite}
         onReject={handleRejectInvite}
         pendingRole={pendingInvite}
+      />
+
+      {/* Mic invitation dialog */}
+      <MicInviteDialog
+        isOpen={pendingMicInvite >= 0}
+        onClose={() => setPendingMicInvite(-1)}
+        onAccept={handleAcceptMicInvite}
+        onReject={handleRejectMicInvite}
+        seatIndex={pendingMicInvite}
       />
     </>
   );
