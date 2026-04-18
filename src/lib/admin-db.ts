@@ -558,6 +558,7 @@ async function ensureAdminTables(): Promise<void> {
     if (!vrColNames.includes('giftSplit')) await c.execute('ALTER TABLE VoiceRoom ADD COLUMN giftSplit INTEGER DEFAULT 70');
     if (!vrColNames.includes('isAutoMode')) await c.execute('ALTER TABLE VoiceRoom ADD COLUMN isAutoMode INTEGER DEFAULT 1');
     if (!vrColNames.includes('lockedSeats')) await c.execute("ALTER TABLE VoiceRoom ADD COLUMN lockedSeats TEXT DEFAULT '[]'");
+    if (!vrColNames.includes('roomImage')) await c.execute("ALTER TABLE VoiceRoom ADD COLUMN roomImage TEXT DEFAULT ''");
   } catch { /* ignore */ }
 
   // Migration: add new VoiceRoomParticipant columns
@@ -2919,9 +2920,9 @@ export async function createVoiceRoom(
   await ensureAdminTables();
   const id = crypto.randomUUID();
   await c.execute({
-    sql: `INSERT INTO VoiceRoom (id, name, description, hostId, hostName, maxParticipants, isPrivate, micSeatCount, roomMode, roomPassword, micTheme, isAutoMode)
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    args: [id, name, description, hostId, hostName, maxParticipants, isPrivate ? 1 : 0, micSeatCount, roomMode, roomPassword, micTheme, isAutoMode ? 1 : 0],
+    sql: `INSERT INTO VoiceRoom (id, name, description, hostId, hostName, maxParticipants, isPrivate, micSeatCount, roomMode, roomPassword, micTheme, isAutoMode, roomImage)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    args: [id, name, description, hostId, hostName, maxParticipants, isPrivate ? 1 : 0, micSeatCount, roomMode, roomPassword, micTheme, isAutoMode ? 1 : 0, ''],
   });
   // Insert host as owner on seat 0
   const hostVip = await getUserVipLevel(hostId);
@@ -2965,7 +2966,53 @@ export async function getAllVoiceRooms(): Promise<VoiceRoom[]> {
     isAutoMode: Boolean(row.isAutoMode),
     participantCount: Number(row.participantCount) || 0,
     createdAt: row.createdAt as string,
+    roomImage: (row.roomImage as string) || '',
   }));
+}
+
+// 3b. getRoomByHostId - Get room created by specific user
+export async function getRoomByHostId(hostId: string): Promise<VoiceRoom | null> {
+  const c = getClient();
+  await ensureAdminTables();
+  const result = await c.execute({ sql: 'SELECT vr.*, COUNT(vrp.id) as participantCount FROM VoiceRoom vr LEFT JOIN VoiceRoomParticipant vrp ON vr.id = vrp.roomId WHERE vr.hostId = ? GROUP BY vr.id', args: [hostId] });
+  if (result.rows.length === 0) return null;
+  const row = result.rows[0];
+  return {
+    id: row.id as string, name: row.name as string, description: (row.description as string) || '',
+    hostId: row.hostId as string, hostName: (row.hostName as string) || '',
+    maxParticipants: Number(row.maxParticipants) || 10, isPrivate: Boolean(row.isPrivate),
+    micSeatCount: Number(row.micSeatCount) || 10,
+    roomMode: (row.roomMode as VoiceRoom['roomMode']) || 'public',
+    roomPassword: '', roomLevel: Number(row.roomLevel) || 1,
+    micTheme: (row.micTheme as string) || 'default',
+    bgmEnabled: Boolean(row.bgmEnabled), chatMuted: Boolean(row.chatMuted),
+    announcement: (row.announcement as string) || '',
+    giftSplit: Number(row.giftSplit) || 70, isAutoMode: Boolean(row.isAutoMode),
+    participantCount: Number(row.participantCount) || 0,
+    createdAt: row.createdAt as string, roomImage: (row.roomImage as string) || '',
+  };
+}
+
+// 3c. updateRoomImage
+export async function updateRoomImage(roomId: string, roomImage: string, userId: string): Promise<boolean> {
+  const c = getClient();
+  await ensureAdminTables();
+  const roomResult = await c.execute({ sql: 'SELECT hostId FROM VoiceRoom WHERE id = ?', args: [roomId] });
+  if (roomResult.rows.length === 0) return false;
+  if (roomResult.rows[0].hostId !== userId) return false;
+  await c.execute({ sql: 'UPDATE VoiceRoom SET roomImage = ? WHERE id = ?', args: [roomImage, roomId] });
+  return true;
+}
+
+// 3d. cleanupGhostParticipants - remove users not seen in last 30 min
+export async function cleanupGhostParticipants(roomId: string): Promise<void> {
+  const c = getClient();
+ await ensureAdminTables();
+  const thirtyMinAgo = new Date(Date.now() - 30 * 60 * 1000).toISOString();
+  await c.execute({
+    sql: 'DELETE FROM VoiceRoomParticipant WHERE roomId = ? AND userId != (SELECT hostId FROM VoiceRoom WHERE id = ?) AND role = \'visitor\' AND joinedAt < ?',
+    args: [roomId, roomId, thirtyMinAgo],
+  });
 }
 
 // 4. getVoiceRoomParticipants - Include all new fields, exclude banned users, mic first
@@ -3004,6 +3051,9 @@ export async function joinVoiceRoom(roomId: string, userId: string, username: st
   const existing = await c.execute({ sql: 'SELECT id FROM VoiceRoomParticipant WHERE roomId = ? AND userId = ?', args: [roomId, userId] });
   if (existing.rows.length > 0) return { success: true };
 
+  // Cleanup ghost participants (visitors inactive for 30+ minutes)
+  await cleanupGhostParticipants(roomId);
+
   // Check room mode
   const roomResult = await c.execute({ sql: 'SELECT roomMode, roomPassword FROM VoiceRoom WHERE id = ?', args: [roomId] });
   if (roomResult.rows.length === 0) return { success: false, error: 'الغرفة غير موجودة' };
@@ -3015,13 +3065,18 @@ export async function joinVoiceRoom(roomId: string, userId: string, username: st
     if (!password || password !== room.roomPassword) return { success: false, error: 'كلمة المرور غير صحيحة' };
   }
 
-  // Get VIP level
+  // Get VIP level and host info to determine role
   const vipLevel = await getUserVipLevel(userId);
+  const hostResult = await c.execute({ sql: 'SELECT hostId FROM VoiceRoom WHERE id = ?', args: [roomId] });
+  const isHost = hostResult.rows.length > 0 && hostResult.rows[0].hostId === userId;
+  const joinRole = isHost ? 'owner' : 'visitor';
+  const joinSeat = isHost ? 0 : -1;
+  const joinStatus = isHost ? 'locked' : 'open';
 
   await c.execute({
     sql: `INSERT INTO VoiceRoomParticipant (id, roomId, userId, username, displayName, avatar, isMuted, role, seatIndex, seatStatus, micFrozen, vipLevel)
           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    args: [crypto.randomUUID(), roomId, userId, username, displayName, avatar, 0, 'visitor', -1, 'open', 0, vipLevel],
+    args: [crypto.randomUUID(), roomId, userId, username, displayName, avatar, 0, joinRole, joinSeat, joinStatus, 0, vipLevel],
   });
   await logAction(roomId, userId, username, 'join_room', '', '', '');
   return { success: true };
