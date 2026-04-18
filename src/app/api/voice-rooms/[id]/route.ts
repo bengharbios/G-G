@@ -3,6 +3,11 @@ import { jwtVerify } from 'jose';
 import {
   getVoiceRoomParticipants, joinVoiceRoom, leaveVoiceRoom, toggleMicInRoom,
   deleteVoiceRoom, sendGiftInRoom, getGifts, isUserBanned, getParticipant,
+  banUserFromRoom, unbanUserFromRoom, getBannedUsers,
+  kickFromMic, kickFromRoom, freezeSeat, unfreezeSeat,
+  assignSeat, requestSeat, approveWaitlist, rejectWaitlist, getWaitlist,
+  changeUserRole, transferOwnership, updateRoomSettings,
+  getActionLog, setSeatStatus, getRoomById,
 } from '@/lib/admin-db';
 
 const JWT_SECRET = new TextEncoder().encode(process.env.JWT_SECRET || 'gg-platform-secret-key-2024');
@@ -34,6 +39,36 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       const banned = await isUserBanned(id, p.userId as string);
       return NextResponse.json({ success: true, banned });
     }
+    if (action === 'banned-list') {
+      const p = await getPayload(request);
+      if (!p) return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
+      const list = await getBannedUsers(id);
+      return NextResponse.json({ success: true, list });
+    }
+    if (action === 'waitlist') {
+      const wl = await getWaitlist(id);
+      return NextResponse.json({ success: true, waitlist: wl });
+    }
+    if (action === 'action-log') {
+      const limit = Number(searchParams.get('limit')) || 50;
+      const log = await getActionLog(id, limit);
+      return NextResponse.json({ success: true, log });
+    }
+    if (action === 'room-details') {
+      const p = await getPayload(request);
+      if (!p) return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
+      const room = await getRoomById(id);
+      if (!room) return NextResponse.json({ error: 'الغرفة غير موجودة' }, { status: 404 });
+      // Only return password to owner
+      if (room.hostId !== p.userId) room.roomPassword = '';
+      return NextResponse.json({ success: true, room });
+    }
+    if (action === 'my-participant') {
+      const p = await getPayload(request);
+      if (!p) return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
+      const me = await getParticipant(id, p.userId as string);
+      return NextResponse.json({ success: true, participant: me });
+    }
 
     return NextResponse.json({ error: 'طلب غير صالح' }, { status: 400 });
   } catch (e) {
@@ -48,14 +83,46 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
     if (!p) return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
     const { id } = await params;
     const { searchParams } = new URL(request.url);
+    const action = searchParams.get('action');
+    const userId = p.userId as string;
 
-    if (searchParams.get('action') === 'toggle-mic') {
-      // Check if frozen first
-      const participant = await getParticipant(id, p.userId as string);
+    if (action === 'toggle-mic') {
+      const participant = await getParticipant(id, userId);
       if (!participant) return NextResponse.json({ error: 'لست في الغرفة' }, { status: 400 });
-      if (participant.micFrozen) return NextResponse.json({ success: false, frozen: true });
-      const isMuted = await toggleMicInRoom(id, p.userId as string);
+      if (participant.micFrozen) return NextResponse.json({ success: false, frozen: true, error: 'المايك مجمد' });
+      const isMuted = await toggleMicInRoom(id, userId);
       return NextResponse.json({ success: true, isMuted });
+    }
+
+    if (action === 'update-settings') {
+      const body = await request.json();
+      const room = await updateRoomSettings(id, body, userId);
+      if (!room) return NextResponse.json({ error: 'فشل تحديث الإعدادات' }, { status: 403 });
+      return NextResponse.json({ success: true, room });
+    }
+
+    if (action === 'change-role') {
+      const { targetUserId, newRole } = await request.json();
+      if (!targetUserId || !newRole) return NextResponse.json({ error: 'بيانات ناقصة' }, { status: 400 });
+      const ok = await changeUserRole(id, targetUserId, newRole, userId);
+      if (!ok) return NextResponse.json({ error: 'لا تملك صلاحية تغيير هذا الدور' }, { status: 403 });
+      return NextResponse.json({ success: true });
+    }
+
+    if (action === 'transfer-ownership') {
+      const { newOwnerId } = await request.json();
+      if (!newOwnerId) return NextResponse.json({ error: 'بيانات ناقصة' }, { status: 400 });
+      const ok = await transferOwnership(id, newOwnerId, userId);
+      if (!ok) return NextResponse.json({ error: 'فشل نقل الملكية' }, { status: 403 });
+      return NextResponse.json({ success: true });
+    }
+
+    if (action === 'set-seat-status') {
+      const { seatIndex, status } = await request.json();
+      if (seatIndex === undefined || !status) return NextResponse.json({ error: 'بيانات ناقصة' }, { status: 400 });
+      const ok = await setSeatStatus(id, seatIndex, status, userId);
+      if (!ok) return NextResponse.json({ error: 'فشل تغيير حالة المقعد' }, { status: 403 });
+      return NextResponse.json({ success: true });
     }
 
     return NextResponse.json({ error: 'طلب غير صالح' }, { status: 400 });
@@ -71,25 +138,111 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     if (!p) return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
     const { id } = await params;
     const { searchParams } = new URL(request.url);
+    const action = searchParams.get('action');
+    const userId = p.userId as string;
 
-    if (searchParams.get('action') === 'join') {
+    if (action === 'join') {
       const body = await request.json().catch(() => ({}));
       const result = await joinVoiceRoom(
-        id, p.userId as string, body.username || '', body.displayName || '',
+        id, userId, body.username || '', body.displayName || '',
         body.avatar || '', body.password,
       );
       if (!result.success) return NextResponse.json({ error: result.error }, { status: 403 });
       return NextResponse.json({ success: true });
     }
 
-    if (searchParams.get('action') === 'leave') {
-      const ok = await leaveVoiceRoom(id, p.userId as string);
+    if (action === 'leave') {
+      const ok = await leaveVoiceRoom(id, userId);
       return NextResponse.json({ success: ok });
     }
 
-    if (searchParams.get('action') === 'gift') {
+    if (action === 'gift') {
       const { giftId, toUserId } = await request.json();
-      const ok = await sendGiftInRoom(id, giftId, p.userId as string, toUserId);
+      const ok = await sendGiftInRoom(id, giftId, userId, toUserId);
+      return NextResponse.json({ success: ok });
+    }
+
+    if (action === 'request-seat') {
+      const body = await request.json().catch(() => ({}));
+      const vipLevel = Number(p.vipLevel) || 0;
+      const result = await requestSeat(
+        id, userId, body.username || '', body.displayName || '',
+        body.avatar || '', vipLevel, body.seatIndex !== undefined ? Number(body.seatIndex) : -1,
+      );
+      return NextResponse.json({ success: result.success, autoAssigned: result.autoAssigned, seatIndex: result.seatIndex });
+    }
+
+    if (action === 'leave-seat') {
+      const ok = await kickFromMic(id, userId, userId); // self leave seat
+      return NextResponse.json({ success: ok });
+    }
+
+    if (action === 'ban') {
+      const { targetUserId, reason } = await request.json();
+      if (!targetUserId) return NextResponse.json({ error: 'بيانات ناقصة' }, { status: 400 });
+      const ok = await banUserFromRoom(id, targetUserId, userId, reason || '');
+      if (!ok) return NextResponse.json({ error: 'فشل حظر المستخدم' }, { status: 403 });
+      return NextResponse.json({ success: true });
+    }
+
+    if (action === 'unban') {
+      const { targetUserId } = await request.json();
+      if (!targetUserId) return NextResponse.json({ error: 'بيانات ناقصة' }, { status: 400 });
+      const ok = await unbanUserFromRoom(id, targetUserId);
+      return NextResponse.json({ success: ok });
+    }
+
+    if (action === 'kick-from-mic') {
+      const { targetUserId } = await request.json();
+      if (!targetUserId) return NextResponse.json({ error: 'بيانات ناقصة' }, { status: 400 });
+      const ok = await kickFromMic(id, targetUserId, userId);
+      if (!ok) return NextResponse.json({ error: 'فشل طرده من المايك' }, { status: 403 });
+      return NextResponse.json({ success: true });
+    }
+
+    if (action === 'kick-from-room') {
+      const { targetUserId } = await request.json();
+      if (!targetUserId) return NextResponse.json({ error: 'بيانات ناقصة' }, { status: 400 });
+      const ok = await kickFromRoom(id, targetUserId, userId);
+      if (!ok) return NextResponse.json({ error: 'فشل طرده من الغرفة' }, { status: 403 });
+      return NextResponse.json({ success: true });
+    }
+
+    if (action === 'freeze-seat') {
+      const { targetUserId } = await request.json();
+      if (!targetUserId) return NextResponse.json({ error: 'بيانات ناقصة' }, { status: 400 });
+      const ok = await freezeSeat(id, targetUserId, userId);
+      if (!ok) return NextResponse.json({ error: 'فشل تجميد المايك - تحتاج صلاحية مالك/نائب' }, { status: 403 });
+      return NextResponse.json({ success: true });
+    }
+
+    if (action === 'unfreeze-seat') {
+      const { targetUserId } = await request.json();
+      if (!targetUserId) return NextResponse.json({ error: 'بيانات ناقصة' }, { status: 400 });
+      const ok = await unfreezeSeat(id, targetUserId);
+      return NextResponse.json({ success: ok });
+    }
+
+    if (action === 'assign-seat') {
+      const { targetUserId, seatIndex } = await request.json();
+      if (targetUserId === undefined || seatIndex === undefined) return NextResponse.json({ error: 'بيانات ناقصة' }, { status: 400 });
+      const ok = await assignSeat(id, targetUserId, seatIndex, userId);
+      if (!ok) return NextResponse.json({ error: 'فشل تعيين المقعد' }, { status: 403 });
+      return NextResponse.json({ success: true });
+    }
+
+    if (action === 'approve-waitlist') {
+      const { waitlistId } = await request.json();
+      if (!waitlistId) return NextResponse.json({ error: 'بيانات ناقصة' }, { status: 400 });
+      const ok = await approveWaitlist(waitlistId, userId);
+      if (!ok) return NextResponse.json({ error: 'فشل الموافقة - لا توجد مقاعد متاحة' }, { status: 403 });
+      return NextResponse.json({ success: true });
+    }
+
+    if (action === 'reject-waitlist') {
+      const { waitlistId } = await request.json();
+      if (!waitlistId) return NextResponse.json({ error: 'بيانات ناقصة' }, { status: 400 });
+      const ok = await rejectWaitlist(waitlistId, userId);
       return NextResponse.json({ success: ok });
     }
 
