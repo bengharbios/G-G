@@ -154,18 +154,6 @@ function genId() {
 }
 
 /* ═══════════════════════════════════════════════════════════════════════
-   MOCK USER (simulates auth for demo)
-   ═══════════════════════════════════════════════════════════════════════ */
-
-const MOCK_USER: AuthUser = {
-  id: 'user_demo_1',
-  username: 'demo_user',
-  displayName: 'مستخدم تجريبي',
-  avatar: '',
-  vipLevel: 3,
-};
-
-/* ═══════════════════════════════════════════════════════════════════════
    INJECTED STYLES (Cairo font + keyframe animations)
    ═══════════════════════════════════════════════════════════════════════ */
 
@@ -450,12 +438,18 @@ function MicMenuBottomSheet({
    ═══════════════════════════════════════════════════════════════════════ */
 
 function ProfileBottomSheet({
-  isOpen, onClose, participant, onGiftClick,
+  isOpen, onClose, participant, stats, onGiftClick, myRole, authUserId, hostId, onKickTemp, onBanUser,
 }: {
   isOpen: boolean;
   onClose: () => void;
   participant: VoiceRoomParticipant | null;
+  stats: { giftsSent: number; giftsReceived: number; totalReceivedValue: number } | null;
   onGiftClick: () => void;
+  myRole: RoomRole;
+  authUserId: string;
+  hostId: string;
+  onKickTemp: (userId: string) => void;
+  onBanUser: (userId: string) => void;
 }) {
   if (!participant && !isOpen) return null;
   const avatarColor = participant ? getAvatarColor(participant.userId) : '#1c2035';
@@ -491,21 +485,33 @@ function ProfileBottomSheet({
             </div>
           </div>
 
-          {/* Stats row: gifts / days / jewels */}
+          {/* Stats row: gifts sent / gifts received / jewels */}
           <div className="flex mx-4 mt-3 rounded-xl overflow-hidden border border-[rgba(255,255,255,0.07)]">
             <div className="flex-1 bg-[#1c2035] py-2.5 px-2 text-center border-l border-[rgba(255,255,255,0.07)]">
-              <div className="text-[15px] font-bold text-[#f0f0f8]">0</div>
+              <div className="text-[15px] font-bold text-[#f0f0f8]">{stats?.giftsSent ?? 0}</div>
               <div className="text-[10px] text-[#5a6080] mt-0.5">هدايا أُرسلت</div>
             </div>
             <div className="flex-1 bg-[#1c2035] py-2.5 px-2 text-center border-l border-[rgba(255,255,255,0.07)]">
-              <div className="text-[15px] font-bold text-[#f0f0f8]">0</div>
-              <div className="text-[10px] text-[#5a6080] mt-0.5">يوم في الغرفة</div>
+              <div className="text-[15px] font-bold text-[#f0f0f8]">{stats?.giftsReceived ?? 0}</div>
+              <div className="text-[10px] text-[#5a6080] mt-0.5">هدايا مستلمة</div>
             </div>
             <div className="flex-1 bg-[#1c2035] py-2.5 px-2 text-center">
-              <div className="text-[15px] font-bold text-[#f0f0f8]">0</div>
+              <div className="text-[15px] font-bold text-[#f0f0f8]">{stats?.totalReceivedValue ?? 0}</div>
               <div className="text-[10px] text-[#5a6080] mt-0.5">مجوهرات</div>
             </div>
           </div>
+
+          {/* Admin action buttons: kick temp + ban */}
+          {canDo(myRole, 'admin') && participant?.userId !== authUserId && participant?.userId !== hostId && (
+            <div className="flex gap-2 px-4 mt-2 pb-2 border-t border-[rgba(255,255,255,0.07)]">
+              <button onClick={() => { onKickTemp(participant!.userId); onClose(); }} className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl bg-[rgba(249,115,22,0.1)] border border-[rgba(249,115,22,0.3)] text-[#f97316] text-[12px] font-semibold">
+                <Timer className="w-4 h-4" /> طرد مؤقت
+              </button>
+              <button onClick={() => { onBanUser(participant!.userId); onClose(); }} className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl bg-[rgba(239,68,68,0.1)] border border-[rgba(239,68,68,0.3)] text-[#ef4444] text-[12px] font-semibold">
+                <Ban className="w-4 h-4" /> حظر نهائي
+              </button>
+            </div>
+          )}
 
           {/* Action buttons row */}
           <div className="flex gap-2 px-4 mt-3 pb-6">
@@ -1134,10 +1140,11 @@ function RoomListView({
    ═══════════════════════════════════════════════════════════════════════ */
 
 function RoomInteriorView({
-  room, onExit,
+  room, onExit, authUser,
 }: {
   room: VoiceRoom;
   onExit: () => void;
+  authUser: AuthUser | null;
 }) {
   const { toast } = useToast();
 
@@ -1149,6 +1156,8 @@ function RoomInteriorView({
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [chatInput, setChatInput] = useState('');
   const [isRoomMuted, setIsRoomMuted] = useState(false);
+  const [lastChatTimestamp, setLastChatTimestamp] = useState(0);
+  const [profileStats, setProfileStats] = useState<{ giftsSent: number; giftsReceived: number; totalReceivedValue: number } | null>(null);
   const [isMicMuted, setIsMicMuted] = useState(false);
   const [loading, setLoading] = useState(true);
 
@@ -1167,10 +1176,9 @@ function RoomInteriorView({
 
   /* ── Refs ── */
   const chatEndRef = useRef<HTMLDivElement>(null);
-  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const roomId = room.id;
-  const currentUserId = myParticipant?.userId || MOCK_USER.id;
+  const currentUserId = myParticipant?.userId || authUser?.id || '';
   const isOnSeat = myParticipant && myParticipant.seatIndex >= 0;
 
   /* ── Build seat data array ── */
@@ -1198,7 +1206,7 @@ function RoomInteriorView({
       const data = await res.json();
       if (data.success && data.participants) {
         setParticipants(data.participants);
-        const me = data.participants.find((p: VoiceRoomParticipant) => p.userId === MOCK_USER.id);
+        const me = data.participants.find((p: VoiceRoomParticipant) => p.userId === authUser?.id);
         if (me) {
           setMyParticipant(me);
           setMyRole(me.role);
@@ -1206,7 +1214,7 @@ function RoomInteriorView({
         }
       }
     } catch { /* ignore */ }
-  }, [roomId]);
+  }, [roomId, authUser?.id]);
 
   const fetchMyParticipant = useCallback(async () => {
     try {
@@ -1225,6 +1233,43 @@ function RoomInteriorView({
       const res = await fetch(`/api/voice-rooms/${roomId}?action=gifts`);
       const data = await res.json();
       if (data.success && data.gifts) setGifts(data.gifts);
+    } catch { /* ignore */ }
+  }, [roomId]);
+
+  const fetchChatMessages = useCallback(async () => {
+    try {
+      const res = await fetch(`/api/voice-rooms/${roomId}/chat?after=${lastChatTimestamp}`);
+      const data = await res.json();
+      if (data.success && data.messages?.length > 0) {
+        setChatMessages(prev => {
+          const existingIds = new Set(prev.map(m => m.id));
+          const newMsgs = data.messages
+            .filter((m: any) => !existingIds.has(m.id))
+            .map((m: any) => ({
+              id: m.id,
+              userId: m.userId,
+              displayName: m.displayName,
+              avatar: m.avatar,
+              text: m.text,
+              time: new Date(m.timestamp).toLocaleTimeString('ar-SA', { hour: '2-digit', minute: '2-digit' }),
+              isSystem: m.isSystem,
+              isGift: m.isGift,
+            }));
+          const maxTs = Math.max(...data.messages.map((m: any) => m.timestamp));
+          if (maxTs > lastChatTimestamp) setLastChatTimestamp(maxTs);
+          return [...prev, ...newMsgs];
+        });
+      }
+    } catch { /* ignore */ }
+  }, [roomId, lastChatTimestamp]);
+
+  const fetchRoomDetails = useCallback(async () => {
+    try {
+      const res = await fetch(`/api/voice-rooms/${roomId}?action=room-details`);
+      const data = await res.json();
+      if (data.success && data.room) {
+        setIsRoomMuted(!!data.room.chatMuted);
+      }
     } catch { /* ignore */ }
   }, [roomId]);
 
@@ -1247,36 +1292,55 @@ function RoomInteriorView({
         setLoading(false);
         return;
       }
-      await fetchParticipants();
-      await fetchMyParticipant();
-      await fetchGifts();
+      await Promise.all([fetchParticipants(), fetchMyParticipant(), fetchGifts(), fetchChatMessages(), fetchRoomDetails()]);
       setLoading(false);
     };
     init();
-    pollRef.current = setInterval(fetchParticipants, 5000);
-    return () => { if (pollRef.current) clearInterval(pollRef.current); };
-  }, [roomId, checkKicked, fetchParticipants, fetchMyParticipant, fetchGifts, onExit, toast]);
+    const partPoll = setInterval(fetchParticipants, 5000);
+    const chatPoll = setInterval(fetchChatMessages, 2000);
+    const roomPoll = setInterval(fetchRoomDetails, 10000);
+    return () => {
+      if (partPoll) clearInterval(partPoll);
+      if (chatPoll) clearInterval(chatPoll);
+      if (roomPoll) clearInterval(roomPoll);
+    };
+  }, [roomId, checkKicked, fetchParticipants, fetchMyParticipant, fetchGifts, fetchChatMessages, fetchRoomDetails, onExit, toast]);
 
   /* ── Auto-scroll chat ── */
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [chatMessages]);
 
+  /* ── Fetch profile stats when profileSheet changes ── */
+  useEffect(() => {
+    if (!profileSheet) return;
+    let cancelled = false;
+    fetch(`/api/voice-rooms/${roomId}?action=user-stats&userId=${profileSheet.userId}`)
+      .then(r => r.json())
+      .then(d => { if (!cancelled && d.success) setProfileStats(d.stats); })
+      .catch(() => { if (!cancelled) setProfileStats(null); });
+    return () => { cancelled = true; };
+  }, [profileSheet, roomId]);
+
   /* ── Actions ── */
 
-  const handleSendChat = useCallback(() => {
-    if (!chatInput.trim() || room.chatMuted) return;
-    const msg: ChatMessage = {
-      id: genId(),
-      userId: MOCK_USER.id,
-      displayName: MOCK_USER.displayName,
-      avatar: MOCK_USER.avatar,
-      text: chatInput.trim(),
-      time: new Date().toLocaleTimeString('ar-SA', { hour: '2-digit', minute: '2-digit' }),
-    };
-    setChatMessages(prev => [...prev, msg]);
+  const handleSendChat = useCallback(async () => {
+    if (!chatInput.trim() || isRoomMuted || !authUser) return;
+    const text = chatInput.trim();
     setChatInput('');
-  }, [chatInput, room.chatMuted]);
+    try {
+      await fetch(`/api/voice-rooms/${roomId}/chat`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          text,
+          displayName: authUser.displayName,
+          avatar: authUser.avatar,
+        }),
+      });
+      // Optimistic add is handled by the polling
+    } catch { /* ignore */ }
+  }, [chatInput, isRoomMuted, authUser, roomId]);
 
   const handleToggleMic = useCallback(async () => {
     if (myParticipant?.micFrozen) {
@@ -1295,20 +1359,32 @@ function RoomInteriorView({
     } catch { /* ignore */ }
   }, [roomId, myParticipant, toast]);
 
-  const handleToggleRoomMute = useCallback(() => {
-    setIsRoomMuted(prev => !prev);
-    toast({ title: !isRoomMuted ? 'تم كتم الغرفة' : 'تم فتح الغرفة' });
-  }, [isRoomMuted, toast]);
+  const handleToggleRoomMute = useCallback(async () => {
+    const newMuted = !isRoomMuted;
+    try {
+      const res = await fetch(`/api/voice-rooms/${roomId}?action=update-settings`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ chatMuted: newMuted ? 1 : 0 }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setIsRoomMuted(newMuted);
+        toast({ title: newMuted ? 'تم كتم الغرفة' : 'تم فتح الغرفة' });
+      }
+    } catch { /* ignore */ }
+  }, [roomId, isRoomMuted, toast]);
 
   const handleRequestSeat = useCallback(async (seatIndex: number) => {
+    if (!authUser) return;
     try {
       const res = await fetch(`/api/voice-rooms/${roomId}?action=request-seat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          username: MOCK_USER.username,
-          displayName: MOCK_USER.displayName,
-          avatar: MOCK_USER.avatar,
+          username: authUser.username,
+          displayName: authUser.displayName,
+          avatar: authUser.avatar,
           seatIndex,
         }),
       });
@@ -1323,7 +1399,7 @@ function RoomInteriorView({
         toast({ title: 'لم يتم الصعود', description: data.error || 'حاول مرة أخرى' });
       }
     } catch { /* ignore */ }
-  }, [roomId, fetchParticipants, fetchMyParticipant, toast]);
+  }, [roomId, authUser, fetchParticipants, fetchMyParticipant, toast]);
 
   const handleKickFromMic = useCallback(async (targetUserId: string) => {
     try {
@@ -1390,6 +1466,7 @@ function RoomInteriorView({
   }, [roomId, fetchParticipants, toast]);
 
   const handleSendGift = useCallback(async (giftId: string, target: string) => {
+    if (!authUser) return;
     try {
       const toUserId = target === 'specific' ? profileSheet?.userId : undefined;
       if (target === 'specific' && !toUserId) return;
@@ -1405,10 +1482,10 @@ function RoomInteriorView({
         const giftData = (gifts.length > 0 ? gifts : DEFAULT_GIFTS).find(g => g.id === giftId);
         const giftMsg: ChatMessage = {
           id: genId(),
-          userId: MOCK_USER.id,
-          displayName: MOCK_USER.displayName,
-          avatar: MOCK_USER.avatar,
-          text: `⭐ ${MOCK_USER.displayName} أرسل ${giftData?.nameAr || 'هدية'} ${target === 'everyone' ? 'للجميع' : `لـ ${profileSheet?.displayName || 'شخص'}`}`,
+          userId: authUser.id,
+          displayName: authUser.displayName,
+          avatar: authUser.avatar,
+          text: `⭐ ${authUser.displayName} أرسل ${giftData?.nameAr || 'هدية'} ${target === 'everyone' ? 'للجميع' : `لـ ${profileSheet?.displayName || 'شخص'}`}`,
           time: new Date().toLocaleTimeString('ar-SA', { hour: '2-digit', minute: '2-digit' }),
           isGift: true,
         };
@@ -1416,7 +1493,7 @@ function RoomInteriorView({
         toast({ title: 'تم إرسال الهدية! 🎉' });
       }
     } catch { /* ignore */ }
-  }, [roomId, gifts, profileSheet, toast]);
+  }, [roomId, authUser, gifts, profileSheet, toast]);
 
   /* ── Seat click handler ── */
   const handleSeatClick = useCallback((seatIndex: number) => {
@@ -1681,14 +1758,14 @@ function RoomInteriorView({
                 value={chatInput}
                 onChange={(e) => setChatInput(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && handleSendChat()}
-                placeholder={room.chatMuted ? 'المحادثة مكتومة' : 'اكتب رسالة...'}
-                disabled={room.chatMuted}
+                placeholder={isRoomMuted ? 'المحادثة مكتومة' : 'اكتب رسالة...'}
+                disabled={isRoomMuted}
                 className="flex-1 bg-transparent border-none outline-none text-[13px] text-[#f0f0f8] placeholder:text-[#5a6080] disabled:opacity-50"
                 dir="rtl"
               />
               <button
                 onClick={handleSendChat}
-                disabled={!chatInput.trim() || room.chatMuted}
+                disabled={!chatInput.trim() || isRoomMuted}
                 className="w-[26px] h-[26px] rounded-full bg-[#6c63ff] flex items-center justify-center flex-shrink-0 disabled:opacity-30 transition-opacity"
               >
                 <Send className="w-3 h-3 text-white" />
@@ -1722,7 +1799,29 @@ function RoomInteriorView({
         isOpen={!!profileSheet}
         onClose={() => setProfileSheet(null)}
         participant={profileSheet}
+        stats={profileStats}
         onGiftClick={() => setGiftSheetOpen(true)}
+        myRole={myRole}
+        authUserId={authUser?.id || ''}
+        hostId={room.hostId}
+        onKickTemp={(userId: string) => {
+          fetch(`/api/voice-rooms/${roomId}?action=kick-from-room`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ targetUserId: userId, durationMinutes: 10 }),
+          }).then(r => r.json()).then(d => {
+            if (d.success) { toast({ title: 'تم طرده مؤقتاً' }); fetchParticipants(); }
+          }).catch(() => {});
+        }}
+        onBanUser={(userId: string) => {
+          fetch(`/api/voice-rooms/${roomId}?action=ban`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ targetUserId: userId }),
+          }).then(r => r.json()).then(d => {
+            if (d.success) { toast({ title: 'تم طرده نهائياً' }); fetchParticipants(); }
+          }).catch(() => {});
+        }}
       />
 
       <GiftBottomSheet
@@ -1760,6 +1859,24 @@ function RoomInteriorView({
 
 export default function VoiceRoomsPage() {
   const [activeRoom, setActiveRoom] = useState<VoiceRoom | null>(null);
+  const [authUser, setAuthUser] = useState<AuthUser | null>(null);
+
+  useEffect(() => {
+    fetch('/api/auth/me')
+      .then(r => r.json())
+      .then(d => {
+        if (d.user) {
+          setAuthUser({
+            id: d.user.id,
+            username: d.user.username,
+            displayName: d.user.displayName || d.user.username,
+            avatar: d.user.avatar || '',
+            vipLevel: d.user.vipLevel || 0,
+          });
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   const handleJoinRoom = useCallback(async (room: VoiceRoom) => {
     if (room.roomMode === 'key' && !room.roomPassword) {
@@ -1771,9 +1888,9 @@ export default function VoiceRoomsPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          username: MOCK_USER.username,
-          displayName: MOCK_USER.displayName,
-          avatar: MOCK_USER.avatar,
+          username: authUser?.username || '',
+          displayName: authUser?.displayName || '',
+          avatar: authUser?.avatar || '',
         }),
       });
       const data = await res.json();
@@ -1785,7 +1902,7 @@ export default function VoiceRoomsPage() {
     } catch {
       setActiveRoom(room);
     }
-  }, []);
+  }, [authUser]);
 
   const handleCreateRoom = useCallback(async (data: {
     name: string; description: string; micSeatCount: number;
@@ -1798,7 +1915,7 @@ export default function VoiceRoomsPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           ...data,
-          hostName: MOCK_USER.displayName,
+          hostName: authUser?.displayName || '',
         }),
       });
       const result = await res.json();
@@ -1824,14 +1941,14 @@ export default function VoiceRoomsPage() {
         await handleJoinRoom(result.room);
       }
     } catch { /* ignore */ }
-  }, [handleJoinRoom]);
+  }, [authUser, handleJoinRoom]);
 
   const handleExitRoom = useCallback(() => {
     setActiveRoom(null);
   }, []);
 
   if (activeRoom) {
-    return <RoomInteriorView room={activeRoom} onExit={handleExitRoom} />;
+    return <RoomInteriorView room={activeRoom} onExit={handleExitRoom} authUser={authUser} />;
   }
 
   return <RoomListView onJoinRoom={handleJoinRoom} onCreateRoom={handleCreateRoom} />;

@@ -3735,3 +3735,24 @@ export async function cleanExpiredKicks(roomId: string): Promise<void> {
     }
   }
 }
+
+export async function getUserGiftStats(userId: string, roomId?: string): Promise<{ giftsSent: number; giftsReceived: number; totalSentValue: number; totalReceivedValue: number }> {
+  const c = getClient();
+  await ensureAdminTables();
+  const sentResult = await c.execute({
+    sql: 'SELECT COUNT(*) as cnt, COALESCE(SUM(g.price),0) as total FROM GiftHistory gh JOIN Gift g ON g.id = gh.giftId WHERE gh.fromUserId = ?',
+    args: [userId],
+  });
+  const receivedResult = await c.execute({
+    sql: 'SELECT COUNT(*) as cnt, COALESCE(SUM(g.price),0) as total FROM GiftHistory gh JOIN Gift g ON g.id = gh.giftId WHERE gh.toUserId = ?',
+    args: [userId],
+  });
+  const sentRow = sentResult.rows[0] as Record<string, unknown>;
+  const receivedRow = receivedResult.rows[0] as Record<string, unknown>;
+  return {
+    giftsSent: Number(sentRow.cnt ?? 0),
+    giftsReceived: Number(receivedRow.cnt ?? 0),
+    totalSentValue: Number(sentRow.total ?? 0),
+    totalReceivedValue: Number(receivedRow.total ?? 0),
+  };
+}

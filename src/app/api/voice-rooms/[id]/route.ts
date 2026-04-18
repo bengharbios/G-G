@@ -9,7 +9,7 @@ import {
   changeUserRole, transferOwnership, updateRoomSettings,
   getActionLog, setSeatStatus, getRoomById,
   kickFromRoomTimed, isUserKicked, cleanExpiredKicks,
-  getRoomTemplate, saveRoomTemplate,
+  getRoomTemplate, saveRoomTemplate, getUserGiftStats,
 } from '@/lib/admin-db';
 
 const JWT_SECRET = new TextEncoder().encode(process.env.JWT_SECRET || 'gg-platform-secret-key-2024');
@@ -83,6 +83,13 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       if (!p) return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
       const tpl = await getRoomTemplate(p.userId as string);
       return NextResponse.json({ success: true, template: tpl });
+    }
+    if (action === 'user-stats') {
+      const p = await getPayload(request);
+      if (!p) return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
+      const targetUserId = searchParams.get('userId') || (p.userId as string);
+      const stats = await getUserGiftStats(targetUserId);
+      return NextResponse.json({ success: true, stats });
     }
 
     return NextResponse.json({ error: 'طلب غير صالح' }, { status: 400 });
