@@ -10,6 +10,7 @@ import {
   getActionLog, setSeatStatus, getRoomById,
   kickFromRoomTimed, isUserKicked, cleanExpiredKicks,
   getRoomTemplate, saveRoomTemplate, getUserGiftStats,
+  inviteRoleToRoom, acceptRoleInvite, rejectRoleInvite,
 } from '@/lib/admin-db';
 
 const JWT_SECRET = new TextEncoder().encode(process.env.JWT_SECRET || 'gg-platform-secret-key-2024');
@@ -145,6 +146,25 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
       const ok = await setSeatStatus(id, seatIndex, status, userId);
       if (!ok) return NextResponse.json({ error: 'فشل تغيير حالة المقعد' }, { status: 403 });
       return NextResponse.json({ success: true });
+    }
+
+    if (action === 'invite-role') {
+      const { targetUserId, newRole } = await request.json();
+      if (!targetUserId || !newRole) return NextResponse.json({ error: 'بيانات ناقصة' }, { status: 400 });
+      const ok = await inviteRoleToRoom(id, targetUserId, newRole as string, userId);
+      if (!ok) return NextResponse.json({ error: 'فشل إرسال الدعوة' }, { status: 403 });
+      return NextResponse.json({ success: true });
+    }
+
+    if (action === 'accept-invite') {
+      const { acceptRole } = await request.json();
+      const ok = await acceptRoleInvite(id, userId, acceptRole as string);
+      return NextResponse.json({ success: ok });
+    }
+
+    if (action === 'reject-invite') {
+      const ok = await rejectRoleInvite(id, userId);
+      return NextResponse.json({ success: ok });
     }
 
     return NextResponse.json({ error: 'طلب غير صالح' }, { status: 400 });

@@ -569,6 +569,7 @@ async function ensureAdminTables(): Promise<void> {
     if (!vrpColNames.includes('seatStatus')) await c.execute("ALTER TABLE VoiceRoomParticipant ADD COLUMN seatStatus TEXT DEFAULT 'open'");
     if (!vrpColNames.includes('micFrozen')) await c.execute('ALTER TABLE VoiceRoomParticipant ADD COLUMN micFrozen INTEGER DEFAULT 0');
     if (!vrpColNames.includes('vipLevel')) await c.execute('ALTER TABLE VoiceRoomParticipant ADD COLUMN vipLevel INTEGER DEFAULT 0');
+    if (!vrpColNames.includes('pendingRole')) await c.execute("ALTER TABLE VoiceRoomParticipant ADD COLUMN pendingRole TEXT DEFAULT ''");
   } catch { /* ignore */ }
 
   // Migration: add vipLevel to AppUser
@@ -3311,7 +3312,14 @@ export async function requestSeat(roomId: string, userId: string, username: stri
   const micCount = Number(room.micSeatCount) || 10;
   const isAutoMode = Boolean(room.isAutoMode);
 
-  if (isAutoMode) {
+  // Get user role to determine if they can sit directly
+  const participantRow = await c.execute({ sql: 'SELECT role FROM VoiceRoomParticipant WHERE roomId = ? AND userId = ?', args: [roomId, userId] });
+  const userRole = participantRow.rows.length > 0 ? (participantRow.rows[0].role as string) : 'visitor';
+
+  // Members and above always sit directly (bypass autoMode check)
+  const canSitDirectly = ['member', 'admin', 'coowner', 'owner'].includes(userRole);
+
+  if (isAutoMode || canSitDirectly) {
     // Find an open seat
     const occupiedSeats = await c.execute({ sql: 'SELECT seatIndex FROM VoiceRoomParticipant WHERE roomId = ? AND seatIndex >= 0', args: [roomId] });
     const occupied = new Set(occupiedSeats.rows.map(r => Number(r.seatIndex)));
@@ -3455,6 +3463,55 @@ export async function changeUserRole(roomId: string, targetUserId: string, newRo
 
   await c.execute({ sql: 'UPDATE VoiceRoomParticipant SET role = ? WHERE roomId = ? AND userId = ?', args: [newRole, roomId, targetUserId] });
   await logAction(roomId, actorId, actorName, 'change_role', targetUserId, targetName, `${targetRole} -> ${newRole}`);
+  return true;
+}
+
+// 22b. Invite a user to a role (sets pendingRole instead of directly changing)
+export async function inviteRoleToRoom(roomId: string, targetUserId: string, newRole: string, actorId: string): Promise<boolean> {
+  const c = getClient();
+  await ensureAdminTables();
+  
+  const actorResult = await c.execute({ sql: 'SELECT role FROM VoiceRoomParticipant WHERE roomId = ? AND userId = ?', args: [roomId, actorId] });
+  if (actorResult.rows.length === 0) return false;
+  const actorRole = actorResult.rows[0].role as string;
+  
+  const targetResult = await c.execute({ sql: 'SELECT role FROM VoiceRoomParticipant WHERE roomId = ? AND userId = ?', args: [roomId, targetUserId] });
+  if (targetResult.rows.length === 0) return false;
+  const targetRole = targetResult.rows[0].role as string;
+  
+  // Only owner can send invitations
+  if (ROLE_HIERARCHY[actorRole as RoomRole] < ROLE_HIERARCHY['owner' as RoomRole]) return false;
+  if (ROLE_HIERARCHY[targetRole as RoomRole] >= ROLE_HIERARCHY[actorRole as RoomRole]) return false;
+  
+  await c.execute({ sql: 'UPDATE VoiceRoomParticipant SET pendingRole = ? WHERE roomId = ? AND userId = ?', args: [newRole, roomId, targetUserId] });
+  
+  // Log action
+  await c.execute({ sql: 'INSERT INTO RoomActionLog (id, roomId, actorId, actorName, action, targetId, targetName, details) VALUES (?, ?, ?, ?, ?, ?, ?, ?)', args: [
+    crypto.randomUUID(), roomId, actorId, '', 'invite-role', targetUserId, '', `دعوة لتغيير الدور إلى ${newRole}`,
+  ]});
+  
+  return true;
+}
+
+export async function acceptRoleInvite(roomId: string, userId: string, newRole: string): Promise<boolean> {
+  const c = getClient();
+  await ensureAdminTables();
+  
+  const result = await c.execute({ sql: 'SELECT pendingRole FROM VoiceRoomParticipant WHERE roomId = ? AND userId = ? AND pendingRole != ""', args: [roomId, userId] });
+  if (result.rows.length === 0) return false;
+  
+  const pendingRole = result.rows[0].pendingRole as string;
+  
+  await c.execute({ sql: 'UPDATE VoiceRoomParticipant SET role = ?, pendingRole = "" WHERE roomId = ? AND userId = ?', args: [pendingRole || newRole, roomId, userId] });
+  
+  return true;
+}
+
+export async function rejectRoleInvite(roomId: string, userId: string): Promise<boolean> {
+  const c = getClient();
+  await ensureAdminTables();
+  
+  await c.execute({ sql: 'UPDATE VoiceRoomParticipant SET pendingRole = "" WHERE roomId = ? AND userId = ?', args: [roomId, userId] });
   return true;
 }
 

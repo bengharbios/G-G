@@ -179,7 +179,23 @@ function InjectStyles() {
           from { opacity: 0; transform: translateY(6px); }
           to { opacity: 1; transform: translateY(0); }
         }
+        @keyframes speakGlow {
+          0% { box-shadow: 0 0 4px 2px rgba(34,197,94,0.4), 0 0 12px 4px rgba(34,197,94,0.15); }
+          15% { box-shadow: 0 0 8px 3px rgba(34,197,94,0.6), 0 0 20px 6px rgba(34,197,94,0.25); }
+          30% { box-shadow: 0 0 5px 2px rgba(34,197,94,0.35), 0 0 14px 5px rgba(34,197,94,0.12); }
+          45% { box-shadow: 0 0 10px 4px rgba(34,197,94,0.65), 0 0 24px 8px rgba(34,197,94,0.3); }
+          60% { box-shadow: 0 0 6px 3px rgba(34,197,94,0.45), 0 0 16px 5px rgba(34,197,94,0.18); }
+          75% { box-shadow: 0 0 9px 3px rgba(34,197,94,0.55), 0 0 22px 7px rgba(34,197,94,0.22); }
+          90% { box-shadow: 0 0 4px 2px rgba(34,197,94,0.3), 0 0 12px 4px rgba(34,197,94,0.1); }
+          100% { box-shadow: 0 0 4px 2px rgba(34,197,94,0.4), 0 0 12px 4px rgba(34,197,94,0.15); }
+        }
+        @keyframes speakPulse {
+          0%, 100% { transform: scale(1); }
+          50% { transform: scale(1.06); }
+        }
         .animate-speak-ring { animation: speakRing 1s infinite; }
+        .animate-speak-glow { animation: speakGlow 1.2s ease-in-out infinite; }
+        .animate-speak-pulse { animation: speakPulse 1.2s ease-in-out infinite; }
         .animate-live-pulse { animation: livePulse 1.8s infinite; }
         .animate-fade-up { animation: fadeUp 0.3s ease; }
         .scrollbar-hide::-webkit-scrollbar { display: none; }
@@ -228,11 +244,12 @@ function MicSeat({
 
     let ringClass = 'border-[#22c55e] bg-[#1c2035]';
     if (isOwner) ringClass = 'border-[#f59e0b] bg-[#1c2035] shadow-[0_0_0_2px_rgba(245,158,11,0.2)]';
-    else if (isSpeaking) ringClass = 'border-[#22c55e] bg-[#1c2035] animate-speak-ring';
+    else if (isSpeaking) ringClass = 'border-[#22c55e] bg-[#1c2035] animate-speak-glow';
+    const avatarPulse = isSpeaking && !isOwner ? 'animate-speak-pulse' : '';
 
     return (
       <button onClick={onClick} className="flex flex-col items-center gap-1 cursor-pointer active:scale-95 transition-transform">
-        <div className="relative">
+        <div className={`relative ${avatarPulse}`}>
           <div
             className={`w-[52px] h-[52px] rounded-full flex items-center justify-center overflow-hidden border-2 ${ringClass}`}
             style={{ background: avatarColor }}
@@ -815,6 +832,9 @@ function SettingsBottomSheet({
     await onUpdate({
       micSeatCount: micCount,
       roomMode: roomType,
+      isAutoMode: guestMic ? 1 : 0, // guest mic permission controls autoMode
+      guestMicEnabled: guestMic,
+      memberMicEnabled: memberMic,
     });
     setSaving(false);
     onClose();
@@ -1281,6 +1301,75 @@ function RoomListView({
 }
 
 /* ═══════════════════════════════════════════════════════════════════════
+   MEMBERSHIP INVITATION DIALOG
+   ═══════════════════════════════════════════════════════════════════════ */
+
+function MembershipInviteDialog({
+  isOpen, onClose, onAccept, onReject, pendingRole,
+}: {
+  isOpen: boolean;
+  onClose: () => void;
+  onAccept: () => void;
+  onReject: () => void;
+  pendingRole: string;
+}) {
+  const roleLabel = pendingRole === 'member' ? 'عضو' : pendingRole === 'admin' ? 'مشرف' : pendingRole === 'coowner' ? 'نائب' : pendingRole;
+
+  return (
+    <AnimatePresence>
+      {isOpen && (
+        <>
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/60 z-[100]"
+            onClick={onClose}
+          />
+          <motion.div
+            initial={{ opacity: 0, scale: 0.9, y: 20 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.9, y: 20 }}
+            transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+            className="fixed z-[110] left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[300px] bg-[#181c2e] border border-[rgba(108,99,255,0.3)] rounded-2xl p-5 shadow-2xl"
+            dir="rtl"
+          >
+            {/* Icon */}
+            <div className="flex justify-center mb-3">
+              <div className="w-14 h-14 rounded-full bg-gradient-to-br from-[#6c63ff] to-[#a78bfa] flex items-center justify-center">
+                <span className="text-2xl">⭐</span>
+              </div>
+            </div>
+
+            {/* Title */}
+            <div className="text-center mb-4">
+              <div className="text-[16px] font-bold text-[#f0f0f8] mb-1">دعوة للانضمام!</div>
+              <div className="text-[12px] text-[#9ca3c4]">تمت دعوتك لتصبح <span className="text-[#a78bfa] font-bold">{roleLabel}</span> في هذه الغرفة</div>
+            </div>
+
+            {/* Buttons */}
+            <div className="flex gap-2">
+              <button
+                onClick={onAccept}
+                className="flex-1 py-2.5 rounded-xl bg-gradient-to-l from-[#22c55e] to-[#16a34a] text-white text-[13px] font-bold active:scale-[0.97] transition-transform"
+              >
+                قبول
+              </button>
+              <button
+                onClick={onReject}
+                className="flex-1 py-2.5 rounded-xl bg-[#1c2035] border border-[rgba(255,255,255,0.07)] text-[#9ca3c4] text-[13px] font-semibold hover:bg-[#232843] active:scale-[0.97] transition-transform"
+              >
+                رفض
+              </button>
+            </div>
+          </motion.div>
+        </>
+      )}
+    </AnimatePresence>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
    ROOM INTERIOR VIEW (HTML reference design)
    ═══════════════════════════════════════════════════════════════════════ */
 
@@ -1314,6 +1403,7 @@ function RoomInteriorView({
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [kickDialogOpen, setKickDialogOpen] = useState(false);
   const [passwordDialogOpen, setPasswordDialogOpen] = useState(false);
+  const [pendingInvite, setPendingInvite] = useState<string>(''); // stores pending role invitation
 
   const [micMenuSheet, setMicMenuSheet] = useState<{
     isOpen: boolean;
@@ -1373,6 +1463,10 @@ function RoomInteriorView({
         setMyParticipant(data.participant);
         setMyRole(data.participant.role);
         setIsMicMuted(data.participant.isMuted);
+        // Check for pending role invitation
+        if (data.participant.pendingRole && data.participant.pendingRole !== '') {
+          setPendingInvite(data.participant.pendingRole);
+        }
       }
     } catch { /* ignore */ }
   }, [roomId]);
@@ -1775,6 +1869,35 @@ function RoomInteriorView({
     }
   }, [roomId, toast, fetchRoomDetails, fetchParticipants]);
 
+  /* ── Accept/Reject role invitation ── */
+  const handleAcceptInvite = useCallback(async () => {
+    try {
+      const res = await fetch(`/api/voice-rooms/${roomId}?action=accept-invite`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ acceptRole: pendingInvite }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        toast({ title: 'تم قبول الدعوة! ⭐', description: `أصبحت ${ROLE_LABELS[pendingInvite as RoomRole] || pendingInvite}` });
+        setPendingInvite('');
+        await Promise.all([fetchParticipants(), fetchMyParticipant()]);
+      }
+    } catch { /* ignore */ }
+  }, [roomId, pendingInvite, toast, fetchParticipants, fetchMyParticipant]);
+
+  const handleRejectInvite = useCallback(async () => {
+    try {
+      await fetch(`/api/voice-rooms/${roomId}?action=reject-invite`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({}),
+      });
+      setPendingInvite('');
+      toast({ title: 'تم رفض الدعوة' });
+    } catch { /* ignore */ }
+  }, [roomId, toast]);
+
   /* ── Leave room ── */
   const handleLeaveRoom = useCallback(async () => {
     try {
@@ -1811,29 +1934,27 @@ function RoomInteriorView({
       <div className="h-screen bg-[#0d0f1a] flex flex-col voice-room-root" dir="rtl">
 
         {/* ══════════════════════════════════════════════
-            TOP BAR: exit (right), title+live (center), settings+share (left)
+            TOP BAR: room info (right), settings+exit+share (left)
             ══════════════════════════════════════════════ */}
         <header className="h-14 bg-[#141726] flex items-center justify-between px-4 border-b border-[rgba(108,99,255,0.18)] flex-shrink-0">
-          {/* Exit button — right side in RTL */}
-          <button
-            onClick={handleLeaveRoom}
-            className="flex items-center gap-1.5 bg-[rgba(239,68,68,0.12)] border border-[rgba(239,68,68,0.3)] rounded-[10px] px-3 py-1.5 text-[12px] font-semibold text-[#ef4444] active:bg-[rgba(239,68,68,0.25)] transition-colors"
-          >
-            <X className="w-3 h-3" />
-            خروج
-          </button>
-
-          {/* Room title — center */}
-          <div className="flex flex-col items-center gap-0.5">
+          {/* Room info — right side in RTL */}
+          <div className="flex flex-col items-start gap-0 min-w-0">
             <div className="flex items-center gap-1.5">
-              <div className="w-[7px] h-[7px] rounded-full bg-[#22c55e] animate-live-pulse" />
-              <span className="text-[15px] font-bold text-[#f0f0f8]">{room.name}</span>
+              <div className="w-[7px] h-[7px] rounded-full bg-[#22c55e] animate-live-pulse flex-shrink-0" />
+              <span className="text-[15px] font-bold text-[#f0f0f8] truncate max-w-[160px]">{room.name}</span>
             </div>
-            <span className="text-[10px] text-[#5a6080]">{listenerCount} مستمع</span>
+            <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1 bg-[rgba(108,99,255,0.12)] rounded-full px-1.5 py-0.5">
+                <span className="text-[9px] font-bold text-[#a78bfa]">LV</span>
+                <span className="text-[9px] font-bold text-[#f0f0f8]">{room.roomLevel || 1}</span>
+              </div>
+              <span className="text-[9px] text-[#5a6080] font-mono">#{room.hostId?.substring(0, 8) || '----'}</span>
+              <span className="text-[9px] text-[#5a6080]">{listenerCount} مستمع</span>
+            </div>
           </div>
 
-          {/* Settings + Share — left side in RTL (settings only for admin+) */}
-          <div className="flex gap-2">
+          {/* Settings + Exit + Share — left side in RTL */}
+          <div className="flex items-center gap-2">
             {canDo(myRole, 'admin') && (
               <button
                 onClick={() => setSettingsOpen(true)}
@@ -1842,6 +1963,13 @@ function RoomInteriorView({
                 <Settings className="w-4 h-4 text-[#9ca3c4]" />
               </button>
             )}
+            <button
+              onClick={handleLeaveRoom}
+              className="flex items-center gap-1.5 bg-[rgba(239,68,68,0.12)] border border-[rgba(239,68,68,0.3)] rounded-[10px] px-3 py-1.5 text-[12px] font-semibold text-[#ef4444] active:bg-[rgba(239,68,68,0.25)] transition-colors"
+            >
+              <X className="w-3 h-3" />
+              خروج
+            </button>
             <button
               onClick={handleCopyLink}
               className="w-[34px] h-[34px] rounded-[10px] bg-[#1c2035] border border-[rgba(255,255,255,0.07)] flex items-center justify-center active:bg-[#232843] transition-colors"
@@ -2125,6 +2253,22 @@ function RoomInteriorView({
         }}
         onChangeRole={async (userId: string, newRole: RoomRole) => {
           try {
+            // For granting membership to visitors, use invitation system
+            if (newRole === 'member') {
+              const res = await fetch(`/api/voice-rooms/${roomId}?action=invite-role`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ targetUserId: userId, newRole }),
+              });
+              const data = await res.json();
+              if (data.success) {
+                toast({ title: 'تم إرسال دعوة العضوية ⭐', description: 'بانتظار قبول المستخدم' });
+              } else {
+                toast({ title: 'فشل إرسال الدعوة', description: data.error || 'حاول مرة أخرى' });
+              }
+              return;
+            }
+            // For other role changes (admin, coowner), change directly
             const res = await fetch(`/api/voice-rooms/${roomId}?action=change-role`, {
               method: 'PUT',
               headers: { 'Content-Type': 'application/json' },
@@ -2168,6 +2312,15 @@ function RoomInteriorView({
         isOpen={passwordDialogOpen}
         onClose={() => setPasswordDialogOpen(false)}
         onSubmit={() => { setPasswordDialogOpen(false); }}
+      />
+
+      {/* Membership invitation dialog */}
+      <MembershipInviteDialog
+        isOpen={!!pendingInvite}
+        onClose={() => setPendingInvite('')}
+        onAccept={handleAcceptInvite}
+        onReject={handleRejectInvite}
+        pendingRole={pendingInvite}
       />
     </>
   );
