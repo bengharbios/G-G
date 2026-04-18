@@ -36,6 +36,7 @@ interface VoiceRoom {
   roomMode: RoomMode; roomPassword: string;
   roomLevel: number; micTheme: string; bgmEnabled: boolean; chatMuted: boolean;
   announcement: string; giftSplit: number; isAutoMode: boolean;
+  lockedSeats: number[];
   participantCount?: number; createdAt: string;
 }
 
@@ -332,16 +333,17 @@ function BottomSheetOverlay({ isOpen, onClose, children }: {
 }
 
 /* ═══════════════════════════════════════════════════════════════════════
-   MIC MENU BOTTOM SHEET (admin: pull, kick, lock/unlock)
+   MIC MENU BOTTOM SHEET (admin: conditional options based on seat state)
    ═══════════════════════════════════════════════════════════════════════ */
 
 function MicMenuBottomSheet({
-  isOpen, onClose, seatIndex, participant, onAction,
+  isOpen, onClose, seatIndex, participant, isSeatLocked, onAction,
 }: {
   isOpen: boolean;
   onClose: () => void;
   seatIndex: number;
   participant: VoiceRoomParticipant | null;
+  isSeatLocked: boolean;
   onAction: (action: string) => void;
 }) {
   return (
@@ -355,9 +357,26 @@ function MicMenuBottomSheet({
 
       {/* Menu items */}
       <div className="p-3 space-y-1 pb-6">
+        {/* When someone is ON the mic */}
         {participant && (
           <>
-            {/* Pull from mic */}
+            {/* Close mic (lock + pull) */}
+            {!isSeatLocked && (
+              <button
+                onClick={() => { onAction('close-seat'); onClose(); }}
+                className="w-full flex items-center gap-3 px-3.5 py-3 rounded-xl text-[#f59e0b] hover:bg-[#232843] active:bg-[#232843] transition-colors"
+              >
+                <div className="w-9 h-9 rounded-full bg-[rgba(245,158,11,0.15)] flex items-center justify-center flex-shrink-0">
+                  <Lock className="w-[18px] h-[18px] text-[#f59e0b]" />
+                </div>
+                <div className="text-right">
+                  <div className="text-[14px] font-semibold">إغلاق المايك</div>
+                  <div className="text-[11px] text-[#5a6080] font-normal">إغلاق المايك وإخراج العضو منه</div>
+                </div>
+              </button>
+            )}
+
+            {/* Pull from mic (without locking) */}
             <button
               onClick={() => { onAction('pull-from-mic'); onClose(); }}
               className="w-full flex items-center gap-3 px-3.5 py-3 rounded-xl text-[#ef4444] hover:bg-[#232843] active:bg-[#232843] transition-colors"
@@ -366,12 +385,28 @@ function MicMenuBottomSheet({
                 <UserMinus className="w-[18px] h-[18px] text-[#ef4444]" />
               </div>
               <div className="text-right">
-                <div className="text-[14px] font-semibold">سحب من المايك</div>
+                <div className="text-[14px] font-semibold">إنزال من المايك</div>
                 <div className="text-[11px] text-[#5a6080] font-normal">إخراج العضو من المنبر فوراً</div>
               </div>
             </button>
 
-            {/* Temp kick */}
+            {/* Open the mic (unlock) - only if locked */}
+            {isSeatLocked && (
+              <button
+                onClick={() => { onAction('unlock-seat'); onClose(); }}
+                className="w-full flex items-center gap-3 px-3.5 py-3 rounded-xl text-[#22c55e] hover:bg-[#232843] active:bg-[#232843] transition-colors"
+              >
+                <div className="w-9 h-9 rounded-full bg-[rgba(34,197,94,0.15)] flex items-center justify-center flex-shrink-0">
+                  <Unlock className="w-[18px] h-[18px] text-[#22c55e]" />
+                </div>
+                <div className="text-right">
+                  <div className="text-[14px] font-semibold">فتح المايك</div>
+                  <div className="text-[11px] text-[#5a6080] font-normal">فتح المايك والسماح بالجلوس</div>
+                </div>
+              </button>
+            )}
+
+            {/* Temp kick from room */}
             <button
               onClick={() => { onAction('kick-temp'); onClose(); }}
               className="w-full flex items-center gap-3 px-3.5 py-3 rounded-xl text-[#f97316] hover:bg-[#232843] active:bg-[#232843] transition-colors"
@@ -385,7 +420,7 @@ function MicMenuBottomSheet({
               </div>
             </button>
 
-            {/* Perm kick */}
+            {/* Perm ban from room */}
             <button
               onClick={() => { onAction('kick-perm'); onClose(); }}
               className="w-full flex items-center gap-3 px-3.5 py-3 rounded-xl text-[#ef4444] hover:bg-[#232843] active:bg-[#232843] transition-colors"
@@ -401,33 +436,42 @@ function MicMenuBottomSheet({
           </>
         )}
 
-        {/* Lock seat */}
-        <button
-          onClick={() => { onAction('lock-seat'); onClose(); }}
-          className="w-full flex items-center gap-3 px-3.5 py-3 rounded-xl text-[#f59e0b] hover:bg-[#232843] active:bg-[#232843] transition-colors"
-        >
-          <div className="w-9 h-9 rounded-full bg-[rgba(245,158,11,0.15)] flex items-center justify-center flex-shrink-0">
-            <Lock className="w-[18px] h-[18px] text-[#f59e0b]" />
-          </div>
-          <div className="text-right">
-            <div className="text-[14px] font-semibold">قفل المايك</div>
-            <div className="text-[11px] text-[#5a6080] font-normal">منع أي شخص من الجلوس هنا</div>
-          </div>
-        </button>
+        {/* When seat is EMPTY */}
+        {!participant && (
+          <>
+            {/* Lock seat (close empty mic) */}
+            {!isSeatLocked && (
+              <button
+                onClick={() => { onAction('lock-seat'); onClose(); }}
+                className="w-full flex items-center gap-3 px-3.5 py-3 rounded-xl text-[#f59e0b] hover:bg-[#232843] active:bg-[#232843] transition-colors"
+              >
+                <div className="w-9 h-9 rounded-full bg-[rgba(245,158,11,0.15)] flex items-center justify-center flex-shrink-0">
+                  <Lock className="w-[18px] h-[18px] text-[#f59e0b]" />
+                </div>
+                <div className="text-right">
+                  <div className="text-[14px] font-semibold">إغلاق المايك</div>
+                  <div className="text-[11px] text-[#5a6080] font-normal">منع أي شخص من الجلوس هنا</div>
+                </div>
+              </button>
+            )}
 
-        {/* Unlock seat */}
-        <button
-          onClick={() => { onAction('unlock-seat'); onClose(); }}
-          className="w-full flex items-center gap-3 px-3.5 py-3 rounded-xl text-[#22c55e] hover:bg-[#232843] active:bg-[#232843] transition-colors"
-        >
-          <div className="w-9 h-9 rounded-full bg-[rgba(34,197,94,0.15)] flex items-center justify-center flex-shrink-0">
-            <Unlock className="w-[18px] h-[18px] text-[#22c55e]" />
-          </div>
-          <div className="text-right">
-            <div className="text-[14px] font-semibold">فتح المايك</div>
-            <div className="text-[11px] text-[#5a6080] font-normal">السماح للأعضاء بالجلوس</div>
-          </div>
-        </button>
+            {/* Unlock seat (open empty mic) */}
+            {isSeatLocked && (
+              <button
+                onClick={() => { onAction('unlock-seat'); onClose(); }}
+                className="w-full flex items-center gap-3 px-3.5 py-3 rounded-xl text-[#22c55e] hover:bg-[#232843] active:bg-[#232843] transition-colors"
+              >
+                <div className="w-9 h-9 rounded-full bg-[rgba(34,197,94,0.15)] flex items-center justify-center flex-shrink-0">
+                  <Unlock className="w-[18px] h-[18px] text-[#22c55e]" />
+                </div>
+                <div className="text-right">
+                  <div className="text-[14px] font-semibold">فتح المايك</div>
+                  <div className="text-[11px] text-[#5a6080] font-normal">السماح للأعضاء بالجلوس</div>
+                </div>
+              </button>
+            )}
+          </>
+        )}
       </div>
     </BottomSheetOverlay>
   );
@@ -438,7 +482,7 @@ function MicMenuBottomSheet({
    ═══════════════════════════════════════════════════════════════════════ */
 
 function ProfileBottomSheet({
-  isOpen, onClose, participant, stats, onGiftClick, myRole, authUserId, hostId, onKickTemp, onBanUser,
+  isOpen, onClose, participant, stats, onGiftClick, myRole, authUserId, hostId, onKickTemp, onBanUser, onChangeRole,
 }: {
   isOpen: boolean;
   onClose: () => void;
@@ -450,9 +494,14 @@ function ProfileBottomSheet({
   hostId: string;
   onKickTemp: (userId: string) => void;
   onBanUser: (userId: string) => void;
+  onChangeRole: (userId: string, newRole: RoomRole) => void;
 }) {
+  const [roleMenuOpen, setRoleMenuOpen] = useState(false);
   if (!participant && !isOpen) return null;
   const avatarColor = participant ? getAvatarColor(participant.userId) : '#1c2035';
+
+  const canManageRoles = canDo(myRole, 'owner') && participant?.userId !== authUserId && participant?.userId !== hostId;
+  const availableRoles: RoomRole[] = ['member', 'admin', 'coowner'];
 
   return (
     <BottomSheetOverlay isOpen={isOpen} onClose={onClose}>
@@ -501,9 +550,39 @@ function ProfileBottomSheet({
             </div>
           </div>
 
+          {/* Role management - owner only */}
+          {canManageRoles && (
+            <div className="px-4 mt-2.5 border-t border-[rgba(255,255,255,0.07)] pt-2.5">
+              <button
+                onClick={() => setRoleMenuOpen(!roleMenuOpen)}
+                className="w-full flex items-center justify-between bg-[#1c2035] rounded-xl px-3.5 py-3 hover:bg-[#232843] active:bg-[#232843] transition-colors"
+              >
+                <span className="text-[13px] font-semibold text-[#f0f0f8]">تغيير الدور</span>
+                <span className="text-[11px] text-[#5a6080]">{ROLE_LABELS[participant.role]}</span>
+              </button>
+              {roleMenuOpen && (
+                <div className="flex gap-1.5 mt-2">
+                  {availableRoles.map(role => (
+                    <button
+                      key={role}
+                      onClick={() => { onChangeRole(participant.userId, role); setRoleMenuOpen(false); onClose(); }}
+                      className={`flex-1 py-2 rounded-lg border text-[11px] font-bold transition-all ${
+                        participant.role === role
+                          ? 'bg-[#6c63ff] border-[#6c63ff] text-white'
+                          : 'bg-[#1c2035] border-[rgba(255,255,255,0.07)] text-[#9ca3c4] hover:border-[#6c63ff]'
+                      }`}
+                    >
+                      {ROLE_LABELS[role]}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Admin action buttons: kick temp + ban */}
           {canDo(myRole, 'admin') && participant?.userId !== authUserId && participant?.userId !== hostId && (
-            <div className="flex gap-2 px-4 mt-2 pb-2 border-t border-[rgba(255,255,255,0.07)]">
+            <div className="flex gap-2 px-4 mt-2.5 border-t border-[rgba(255,255,255,0.07)] pt-2.5">
               <button onClick={() => { onKickTemp(participant!.userId); onClose(); }} className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl bg-[rgba(249,115,22,0.1)] border border-[rgba(249,115,22,0.3)] text-[#f97316] text-[12px] font-semibold">
                 <Timer className="w-4 h-4" /> طرد مؤقت
               </button>
@@ -1140,15 +1219,17 @@ function RoomListView({
    ═══════════════════════════════════════════════════════════════════════ */
 
 function RoomInteriorView({
-  room, onExit, authUser,
+  room: initialRoom, onExit, authUser, onRoomUpdate,
 }: {
   room: VoiceRoom;
   onExit: () => void;
   authUser: AuthUser | null;
+  onRoomUpdate: (updatedRoom: VoiceRoom) => void;
 }) {
   const { toast } = useToast();
 
   /* ── State ── */
+  const [room, setRoom] = useState<VoiceRoom>(initialRoom);
   const [participants, setParticipants] = useState<VoiceRoomParticipant[]>([]);
   const [myParticipant, setMyParticipant] = useState<VoiceRoomParticipant | null>(null);
   const [myRole, setMyRole] = useState<RoomRole>('visitor');
@@ -1181,23 +1262,25 @@ function RoomInteriorView({
   const currentUserId = myParticipant?.userId || authUser?.id || '';
   const isOnSeat = myParticipant && myParticipant.seatIndex >= 0;
 
-  /* ── Build seat data array ── */
+  /* ── Build seat data array using lockedSeats from room ── */
   const buildSeats = useCallback((): SeatData[] => {
     const seatMap = new Map<number, VoiceRoomParticipant>();
     participants.forEach(p => {
       if (p.seatIndex >= 0) seatMap.set(p.seatIndex, p);
     });
+    const lockedSet = new Set(room.lockedSeats || []);
     const seats: SeatData[] = [];
     for (let i = 0; i < room.micSeatCount; i++) {
       const p = seatMap.get(i) || null;
+      const isLocked = lockedSet.has(i);
       seats.push({
         seatIndex: i,
         participant: p,
-        status: p ? (p.seatStatus || 'open') : 'open',
+        status: p ? (p.seatStatus || 'open') : (isLocked ? 'locked' : 'open'),
       });
     }
     return seats;
-  }, [participants, room.micSeatCount]);
+  }, [participants, room.micSeatCount, room.lockedSeats]);
 
   /* ── API fetchers ── */
   const fetchParticipants = useCallback(async () => {
@@ -1268,10 +1351,13 @@ function RoomInteriorView({
       const res = await fetch(`/api/voice-rooms/${roomId}?action=room-details`);
       const data = await res.json();
       if (data.success && data.room) {
-        setIsRoomMuted(!!data.room.chatMuted);
+        const updatedRoom = { ...data.room, lockedSeats: data.room.lockedSeats || [] };
+        setRoom(updatedRoom);
+        setIsRoomMuted(!!updatedRoom.chatMuted);
+        onRoomUpdate(updatedRoom);
       }
     } catch { /* ignore */ }
-  }, [roomId]);
+  }, [roomId, onRoomUpdate]);
 
   const checkKicked = useCallback(async (): Promise<boolean> => {
     try {
@@ -1296,9 +1382,9 @@ function RoomInteriorView({
       setLoading(false);
     };
     init();
-    const partPoll = setInterval(fetchParticipants, 5000);
+    const partPoll = setInterval(fetchParticipants, 4000);
     const chatPoll = setInterval(fetchChatMessages, 2000);
-    const roomPoll = setInterval(fetchRoomDetails, 10000);
+    const roomPoll = setInterval(fetchRoomDetails, 5000);
     return () => {
       if (partPoll) clearInterval(partPoll);
       if (chatPoll) clearInterval(chatPoll);
@@ -1534,9 +1620,17 @@ function RoomInteriorView({
         break;
       case 'lock-seat':
         await handleSetSeatStatus(seatIndex, 'locked');
+        await fetchRoomDetails();
         break;
       case 'unlock-seat':
         await handleSetSeatStatus(seatIndex, 'open');
+        await fetchRoomDetails();
+        break;
+      case 'close-seat':
+        // Lock the seat AND pull the person from mic
+        if (participant) await handleKickFromMic(participant.userId);
+        await handleSetSeatStatus(seatIndex, 'locked');
+        await fetchRoomDetails();
         break;
       case 'pull-from-mic':
         if (participant) await handleKickFromMic(participant.userId);
@@ -1548,7 +1642,7 @@ function RoomInteriorView({
         await handleBan();
         break;
     }
-  }, [micMenuSheet, handleRequestSeat, handleSetSeatStatus, handleKickFromMic, handleBan]);
+  }, [micMenuSheet, handleRequestSeat, handleSetSeatStatus, handleKickFromMic, handleBan, fetchRoomDetails]);
 
   /* ── Update settings ── */
   const handleUpdateSettings = useCallback(async (data: Record<string, unknown>) => {
@@ -1561,9 +1655,15 @@ function RoomInteriorView({
       const result = await res.json();
       if (result.success) {
         toast({ title: 'تم تحديث الإعدادات' });
+        // Re-fetch room data and participants to reflect changes immediately
+        await Promise.all([fetchRoomDetails(), fetchParticipants()]);
+      } else {
+        toast({ title: 'فشل التحديث', description: result.error || 'حاول مرة أخرى' });
       }
-    } catch { /* ignore */ }
-  }, [roomId, toast]);
+    } catch {
+      toast({ title: 'خطأ في الاتصال' });
+    }
+  }, [roomId, toast, fetchRoomDetails, fetchParticipants]);
 
   /* ── Leave room ── */
   const handleLeaveRoom = useCallback(async () => {
@@ -1792,6 +1892,7 @@ function RoomInteriorView({
         onClose={() => setMicMenuSheet(prev => ({ ...prev, isOpen: false }))}
         seatIndex={micMenuSheet.seatIndex}
         participant={micMenuSheet.participant}
+        isSeatLocked={(room.lockedSeats || []).includes(micMenuSheet.seatIndex)}
         onAction={handleMicMenuAction}
       />
 
@@ -1821,6 +1922,25 @@ function RoomInteriorView({
           }).then(r => r.json()).then(d => {
             if (d.success) { toast({ title: 'تم طرده نهائياً' }); fetchParticipants(); }
           }).catch(() => {});
+        }}
+        onChangeRole={async (userId: string, newRole: RoomRole) => {
+          try {
+            const res = await fetch(`/api/voice-rooms/${roomId}?action=change-role`, {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ targetUserId: userId, newRole }),
+            });
+            const data = await res.json();
+            if (data.success) {
+              toast({ title: `تم تغيير الدور إلى ${ROLE_LABELS[newRole]}` });
+              await fetchParticipants();
+              await fetchMyParticipant();
+            } else {
+              toast({ title: 'فشل تغيير الدور', description: data.error || 'حاول مرة أخرى' });
+            }
+          } catch {
+            toast({ title: 'خطأ في الاتصال' });
+          }
         }}
       />
 
@@ -1860,6 +1980,7 @@ function RoomInteriorView({
 export default function VoiceRoomsPage() {
   const [activeRoom, setActiveRoom] = useState<VoiceRoom | null>(null);
   const [authUser, setAuthUser] = useState<AuthUser | null>(null);
+  const [restoring, setRestoring] = useState(true);
 
   useEffect(() => {
     fetch('/api/auth/me')
@@ -1876,6 +1997,39 @@ export default function VoiceRoomsPage() {
         }
       })
       .catch(() => {});
+  }, []);
+
+  // Restore active room from sessionStorage on mount
+  useEffect(() => {
+    try {
+      const savedRoomId = sessionStorage.getItem('vr_active_room');
+      if (savedRoomId) {
+        fetch(`/api/voice-rooms/${savedRoomId}?action=room-details`)
+          .then(r => r.json())
+          .then(d => {
+            if (d.success && d.room) {
+              const room = { ...d.room, lockedSeats: d.room.lockedSeats || [] };
+              setActiveRoom(room);
+            } else {
+              sessionStorage.removeItem('vr_active_room');
+            }
+            setRestoring(false);
+          })
+          .catch(() => {
+            sessionStorage.removeItem('vr_active_room');
+            setRestoring(false);
+          });
+      } else {
+        setRestoring(false);
+      }
+    } catch {
+      setRestoring(false);
+    }
+  }, []);
+
+  const handleRoomUpdate = useCallback((updatedRoom: VoiceRoom) => {
+    setActiveRoom(updatedRoom);
+    try { sessionStorage.setItem('vr_active_room', updatedRoom.id); } catch {}
   }, []);
 
   const handleJoinRoom = useCallback(async (room: VoiceRoom) => {
@@ -1896,11 +2050,14 @@ export default function VoiceRoomsPage() {
       const data = await res.json();
       if (data.success) {
         setActiveRoom(room);
+        try { sessionStorage.setItem('vr_active_room', room.id); } catch {}
       } else {
         setActiveRoom(room);
+        try { sessionStorage.setItem('vr_active_room', room.id); } catch {}
       }
     } catch {
       setActiveRoom(room);
+      try { sessionStorage.setItem('vr_active_room', room.id); } catch {}
     }
   }, [authUser]);
 
@@ -1945,10 +2102,20 @@ export default function VoiceRoomsPage() {
 
   const handleExitRoom = useCallback(() => {
     setActiveRoom(null);
+    try { sessionStorage.removeItem('vr_active_room'); } catch {}
   }, []);
 
+  // Show loading while restoring room
+  if (restoring) {
+    return (
+      <div className="min-h-screen bg-[#0d0f1a] flex items-center justify-center" dir="rtl">
+        <Loader2 className="w-10 h-10 text-[#6c63ff] animate-spin" />
+      </div>
+    );
+  }
+
   if (activeRoom) {
-    return <RoomInteriorView room={activeRoom} onExit={handleExitRoom} authUser={authUser} />;
+    return <RoomInteriorView room={activeRoom} onExit={handleExitRoom} authUser={authUser} onRoomUpdate={handleRoomUpdate} />;
   }
 
   return <RoomListView onJoinRoom={handleJoinRoom} onCreateRoom={handleCreateRoom} />;

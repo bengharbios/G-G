@@ -557,6 +557,7 @@ async function ensureAdminTables(): Promise<void> {
     if (!vrColNames.includes('announcement')) await c.execute("ALTER TABLE VoiceRoom ADD COLUMN announcement TEXT DEFAULT ''");
     if (!vrColNames.includes('giftSplit')) await c.execute('ALTER TABLE VoiceRoom ADD COLUMN giftSplit INTEGER DEFAULT 70');
     if (!vrColNames.includes('isAutoMode')) await c.execute('ALTER TABLE VoiceRoom ADD COLUMN isAutoMode INTEGER DEFAULT 1');
+    if (!vrColNames.includes('lockedSeats')) await c.execute("ALTER TABLE VoiceRoom ADD COLUMN lockedSeats TEXT DEFAULT '[]'");
   } catch { /* ignore */ }
 
   // Migration: add new VoiceRoomParticipant columns
@@ -2707,6 +2708,7 @@ export interface VoiceRoom {
   announcement: string;
   giftSplit: number;
   isAutoMode: boolean;
+  lockedSeats: number[];
   participantCount?: number;
   createdAt: string;
 }
@@ -2880,6 +2882,11 @@ export async function getRoomById(roomId: string): Promise<VoiceRoom | null> {
   const result = await c.execute({ sql: 'SELECT * FROM VoiceRoom WHERE id = ?', args: [roomId] });
   if (result.rows.length === 0) return null;
   const row = result.rows[0];
+  let lockedSeats: number[] = [];
+  try {
+    lockedSeats = JSON.parse((row.lockedSeats as string) || '[]');
+  } catch { lockedSeats = []; }
+
   return {
     id: row.id as string, name: row.name as string, description: (row.description as string) || '',
     hostId: row.hostId as string, hostName: (row.hostName as string) || '',
@@ -2894,6 +2901,7 @@ export async function getRoomById(roomId: string): Promise<VoiceRoom | null> {
     announcement: (row.announcement as string) || '',
     giftSplit: Number(row.giftSplit) || 70,
     isAutoMode: Boolean(row.isAutoMode),
+    lockedSeats,
     createdAt: row.createdAt as string,
   };
 }
@@ -3494,7 +3502,7 @@ export async function updateRoomSettings(roomId: string, settings: Partial<Voice
   const actorName = (actor.username || actor.displayName || '') as string;
 
   // Owner-only settings
-  const ownerOnlyKeys = ['roomMode', 'roomPassword', 'micTheme', 'giftSplit'];
+  const ownerOnlyKeys = ['roomMode', 'roomPassword', 'micTheme', 'giftSplit', 'micSeatCount'];
   // Owner/coowner settings
   const adminKeys = ['chatMuted', 'bgmEnabled', 'announcement', 'isAutoMode', 'roomLevel'];
 
@@ -3575,6 +3583,13 @@ export async function setSeatStatus(roomId: string, seatIndex: number, status: S
   const actorResult = await c.execute({ sql: 'SELECT username, displayName FROM VoiceRoomParticipant WHERE roomId = ? AND userId = ?', args: [roomId, actorId] });
   const actorName = (actorResult.rows[0]?.username || actorResult.rows[0]?.displayName || '') as string;
 
+  // Get current locked seats from room
+  const roomResult = await c.execute({ sql: 'SELECT lockedSeats FROM VoiceRoom WHERE id = ?', args: [roomId] });
+  let lockedSeats: number[] = [];
+  if (roomResult.rows.length > 0) {
+    try { lockedSeats = JSON.parse((roomResult.rows[0].lockedSeats as string) || '[]'); } catch { lockedSeats = []; }
+  }
+
   // Find participant on that seat
   const seatResult = await c.execute({ sql: 'SELECT * FROM VoiceRoomParticipant WHERE roomId = ? AND seatIndex = ?', args: [roomId, seatIndex] });
   if (seatResult.rows.length > 0) {
@@ -3584,11 +3599,21 @@ export async function setSeatStatus(roomId: string, seatIndex: number, status: S
         sql: "UPDATE VoiceRoomParticipant SET seatIndex = -1, seatStatus = 'open', isMuted = 0 WHERE roomId = ? AND seatIndex = ?",
         args: [roomId, seatIndex],
       });
+      // Remove from locked seats
+      lockedSeats = lockedSeats.filter(s => s !== seatIndex);
     } else {
       // Just update the seat status
       await c.execute({ sql: 'UPDATE VoiceRoomParticipant SET seatStatus = ? WHERE roomId = ? AND seatIndex = ?', args: [status, roomId, seatIndex] });
     }
   }
+
+  // Update locked seats in room
+  if (status === 'locked') {
+    if (!lockedSeats.includes(seatIndex)) lockedSeats.push(seatIndex);
+  } else {
+    lockedSeats = lockedSeats.filter(s => s !== seatIndex);
+  }
+  await c.execute({ sql: 'UPDATE VoiceRoom SET lockedSeats = ? WHERE id = ?', args: [JSON.stringify(lockedSeats), roomId] });
 
   await logAction(roomId, actorId, actorName, 'set_seat_status', '', '', `Seat ${seatIndex} -> ${status}`);
   return true;
