@@ -24,3 +24,30 @@ Stage Summary:
 - Room persistence improved with localStorage + participant verification
 - Build passes with no errors
 - Key files modified: src/app/voice-rooms/page.tsx
+---
+Task ID: 1
+Agent: Main Agent
+Task: Fix voice room UX bugs reported by user (empty mic click, mute button, polling, profiles, roles, unregistered users)
+
+Work Log:
+- Read and analyzed full voice-rooms/page.tsx (2182 lines) and admin-db.ts
+- Fixed empty mic click behavior: regular users sit directly on open mic, admins see menu with sit/close options
+- Verified room mute button already has correct permission check (canDo admin)
+- Stabilized polling by using useRef pattern to prevent re-render loops caused by fetchChatMessages depending on lastChatTimestamp
+- Made chat avatars and names clickable to open profile sheet (finds participant or creates temp profile)
+- Added "View Profile" button to admin mic menu for occupied seats
+- Enhanced ProfileBottomSheet: "Grant Membership" one-click for visitors, role change UI for members
+- Added guest detection (isGuest) based on empty username or guest- prefix
+- Added "Guest" indicator badge in profile header, guest notice for admins
+- Disabled chat input for unregistered users with "login to participate" placeholder
+- Hidden gift button from bottom bar for unregistered users
+- Hidden gift button from profile sheet for unregistered current users
+- Added distinctive "?" badge on audience avatars for unregistered users
+- Built successfully, committed and pushed to main
+
+Stage Summary:
+- Commit: 73d6702
+- File changed: src/app/voice-rooms/page.tsx (+208, -61 lines)
+- All builds passing
+- Key fixes: mic click behavior, polling stability, clickable profiles, role management, unregistered user handling
+
