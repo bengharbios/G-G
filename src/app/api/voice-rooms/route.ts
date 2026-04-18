@@ -12,17 +12,32 @@ async function getUserId(request: NextRequest): Promise<string | null> {
 }
 
 export async function GET() {
-  try { const rooms = await getAllVoiceRooms(); return NextResponse.json({ success: true, rooms }); }
-  catch (e) { console.error('[VR GET]', e); return NextResponse.json({ error: 'حدث خطأ' }, { status: 500 }); }
+  try {
+    const rooms = await getAllVoiceRooms();
+    return NextResponse.json({ success: true, rooms });
+  } catch (e) {
+    console.error('[VR GET]', e);
+    return NextResponse.json({ error: 'حدث خطأ' }, { status: 500 });
+  }
 }
 
 export async function POST(request: NextRequest) {
   try {
     const userId = await getUserId(request);
     if (!userId) return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
-    const { name, description, hostName, maxParticipants, isPrivate, micSeatCount } = await request.json();
+    const {
+      name, description, hostName, maxParticipants, isPrivate, micSeatCount,
+      roomMode, roomPassword, micTheme, isAutoMode,
+    } = await request.json();
     if (!name) return NextResponse.json({ error: 'اسم الغرفة مطلوب' }, { status: 400 });
-    const room = await createVoiceRoom(userId, hostName || 'مستخدم', name, description || '', maxParticipants || 10, isPrivate || false, micSeatCount || 10);
+    const room = await createVoiceRoom(
+      userId, hostName || 'مستخدم', name, description || '',
+      maxParticipants || 10, isPrivate || false, micSeatCount || 10,
+      roomMode || 'public', roomPassword || '', micTheme || 'default', isAutoMode !== false,
+    );
     return NextResponse.json({ success: true, room });
-  } catch (e) { console.error('[VR POST]', e); return NextResponse.json({ error: 'حدث خطأ' }, { status: 500 }); }
+  } catch (e) {
+    console.error('[VR POST]', e);
+    return NextResponse.json({ error: 'حدث خطأ' }, { status: 500 });
+  }
 }
