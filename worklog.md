@@ -1684,3 +1684,39 @@ Stage Summary:
 - Voice room system is now feature-complete with all 9-axis capabilities
 - Auto-deployment via Vercel GitHub integration should trigger
 - Key deliverables: updated API, comprehensive 2543-line page component
+
+---
+Task ID: 3
+Agent: Main Agent
+Task: Rewrite voice-rooms page.tsx to match HTML design reference
+
+Work Log:
+- Read HTML reference at /home/z/my-project/upload/voice_room.html (Arabic voice room design)
+- Read existing page.tsx (1916 lines) with types, constants, API calls, components
+- Identified all components to keep vs rewrite:
+  - KEPT: All types, constants, helpers, MOCK_USER, KickDurationDialog, PasswordDialog, CreateRoomDialog, RoomListView, main VoiceRoomsPage
+  - REWRITTEN: InjectStyles, MicSeat, MicMenuBottomSheet, ProfileBottomSheet, GiftBottomSheet, SettingsBottomSheet, RoomInteriorView
+- Created new shared BottomSheetOverlay component (reusable slide-up wrapper with drag handle, overlay, AnimatePresence)
+- Added Cairo font via Google Fonts link tag in InjectStyles
+- Added getSenderColor() helper for per-user chat message colors
+- Removed unused variables: isCurrentUser in MicSeat, selectedGiftData in GiftBottomSheet
+- Fixed ProfileBottomSheet AnimatePresence issue (null check moved before animation wrapper)
+- Added active:scale-95 transition to mic seats for press feedback
+- Added CHAT_SENDER_COLORS constant for varied sender name colors
+- Applied HTML color scheme: bg-deep=#0d0f1a, bg-mid=#141726, bg-card=#1c2035, accent=#6c63ff, accent2=#a78bfa
+- RoomInteriorView uses semantic HTML: header, section, footer
+- Bottom bar layout: mute-room + mic-toggle + chat-input + gift-btn
+- Top bar layout: exit-btn (right RTL) + room-title-center + settings+share (left RTL)
+- Mic grid: grid-cols-5 with 52px avatars, 5 states (empty/occupied/owner/speaking/locked)
+- Chat area: session-only (no persistence), auto-scroll, fadeUp animation on messages
+- Gift sheet: 4-column grid, target selector pills, gradient send button
+- Settings sheet: mic count selector, permission toggles, privacy section
+- Build succeeded with zero errors
+
+Stage Summary:
+- Complete rewrite of RoomInteriorView and all bottom sheet components to match HTML design reference
+- Shared BottomSheetOverlay component eliminates code duplication across sheets
+- Cairo font imported for consistent Arabic typography
+- All unused variables removed, zero lint errors
+- Color scheme matches HTML: dark purple theme with accent gradients
+- All existing functionality preserved: API calls, types, constants, room list, create dialog

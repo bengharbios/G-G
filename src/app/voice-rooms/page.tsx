@@ -1,25 +1,17 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Badge } from '@/components/ui/badge';
-import { Switch } from '@/components/ui/switch';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
 import {
-  Mic, MicOff, LogOut, Gift, Plus, Users, Lock, Volume2,
-  X, Loader2, Crown, Send, Radio, Eye, MessageCircle,
-  Sparkles, ArrowLeft, Settings, Headphones, Shield,
-  Star, UserMinus, Snowflake, Ban, Unlock, Key, UserPlus,
-  Globe, EyeOff, ChevronDown, AlertTriangle, Clock,
-  List, ScrollText, HandMetal, ShieldCheck, Swords, Ghost,
-  Check, CircleDot, ChevronUp, ShieldAlert, UserX,
-  VolumeX, Megaphone, Hand, Heart, Zap, Gem, Trophy,
-  RotateCcw, Copy, Trash2, Edit3
+  Mic, MicOff, Gift, Lock, Volume2,
+  X, Loader2, Send, Settings,
+  Users, Key, Globe, EyeOff, Ban,
+  UserMinus, Unlock, ImageIcon,
+  VolumeX, Link2, Timer
 } from 'lucide-react';
 
 /* ═══════════════════════════════════════════════════════════════════════
@@ -53,22 +45,15 @@ interface VoiceRoomParticipant {
   seatIndex: number; seatStatus: SeatStatus; vipLevel: number; joinedAt: string;
 }
 
-interface RoomWaitlist {
-  id: string; roomId: string; userId: string; username: string; displayName: string;
-  avatar: string; vipLevel: number; requestedSeat: number; createdAt: string;
-}
-
-interface RoomActionLog {
-  id: string; roomId: string; actorId: string; actorName: string; action: string;
-  targetId: string; targetName: string; details: string; createdAt: string;
-}
-
 interface Gift {
   id: string; name: string; nameAr: string; emoji: string; price: number;
 }
 
-interface RoomBan {
-  id: string; roomId: string; userId: string; bannedBy: string; reason: string; createdAt: string;
+interface RoomTemplate {
+  id: string; userId: string; name: string; description: string;
+  micSeatCount: number; roomMode: string; roomPassword: string;
+  maxParticipants: number; isAutoMode: boolean; micTheme: string;
+  allowedRoles: string[]; updatedAt: string;
 }
 
 interface ChatMessage {
@@ -79,13 +64,20 @@ interface ChatMessage {
   text: string;
   time: string;
   isSystem?: boolean;
+  isGift?: boolean;
+}
+
+interface SeatData {
+  seatIndex: number;
+  participant: VoiceRoomParticipant | null;
+  status: SeatStatus;
 }
 
 /* ═══════════════════════════════════════════════════════════════════════
    CONSTANTS
    ═══════════════════════════════════════════════════════════════════════ */
 
-const ROLE_POWER: Record<RoomRole, number> = {
+const ROLE_LEVELS: Record<RoomRole, number> = {
   owner: 5, coowner: 4, admin: 3, member: 2, visitor: 1,
 };
 
@@ -94,42 +86,33 @@ const ROLE_LABELS: Record<RoomRole, string> = {
 };
 
 const ROLE_COLORS: Record<RoomRole, string> = {
-  owner: 'text-amber-400', coowner: 'text-purple-400', admin: 'text-blue-400',
-  member: 'text-green-400', visitor: 'text-slate-400',
+  owner: '#f59e0b',
+  coowner: '#a78bfa',
+  admin: '#60a5fa',
+  member: '#22c55e',
+  visitor: '#94a3b8',
 };
 
-const ROLE_BG: Record<RoomRole, string> = {
-  owner: 'bg-amber-500/20 border-amber-500/40', coowner: 'bg-purple-500/20 border-purple-500/40',
-  admin: 'bg-blue-500/20 border-blue-500/40', member: 'bg-green-500/20 border-green-500/40',
-  visitor: 'bg-slate-500/20 border-slate-500/40',
+const ROLE_PILL_BG: Record<RoomRole, string> = {
+  owner: 'bg-[rgba(245,158,11,0.15)] text-[#f59e0b]',
+  coowner: 'bg-[rgba(108,99,255,0.15)] text-[#a78bfa]',
+  admin: 'bg-[rgba(245,158,11,0.15)] text-[#f59e0b]',
+  member: 'bg-[rgba(108,99,255,0.15)] text-[#a78bfa]',
+  visitor: 'bg-[rgba(108,99,255,0.15)] text-[#a78bfa]',
 };
 
-const ROLE_ICONS: Record<RoomRole, typeof Crown> = {
-  owner: Crown, coowner: Shield, admin: Star, member: CircleDot, visitor: Users,
-};
+const DEFAULT_GIFTS: Gift[] = [
+  { id: 'g1', name: 'Rose', nameAr: 'ورد', emoji: '🌹', price: 3 },
+  { id: 'g2', name: 'Star', nameAr: 'نجمة', emoji: '⭐', price: 9 },
+  { id: 'g3', name: 'GiftBox', nameAr: 'هدية', emoji: '🎁', price: 99 },
+  { id: 'g4', name: 'Crown', nameAr: 'تاج', emoji: '👑', price: 199 },
+  { id: 'g5', name: 'Rocket', nameAr: 'صاروخ', emoji: '🚀', price: 1999 },
+  { id: 'g6', name: 'Diamond', nameAr: 'ماسة', emoji: '💎', price: 2999 },
+  { id: 'g7', name: 'Trophy', nameAr: 'كأس', emoji: '🏆', price: 3999 },
+  { id: 'g8', name: 'GoldStar', nameAr: 'نجم ذهبي', emoji: '🌟', price: 4999 },
+];
 
-const SEAT_STATUS_CONFIG: Record<SeatStatus, { label: string; color: string; icon: typeof Lock; border: string }> = {
-  open: { label: 'متاح', color: 'text-slate-400', icon: Plus, border: 'border-dashed border-slate-600/60' },
-  locked: { label: 'مقفل', color: 'text-red-400', icon: Lock, border: 'border-red-500/50' },
-  request: { label: 'طلب', color: 'text-yellow-400', icon: Clock, border: 'border-yellow-500/50' },
-  reserved: { label: 'محجوز', color: 'text-purple-400', icon: UserPlus, border: 'border-purple-500/50' },
-};
-
-const MIC_LAYOUTS = [
-  { value: 5, label: '٥ مايكات', desc: 'صف واحد × ٥ مقاعد' },
-  { value: 10, label: '١٠ مايكات', desc: 'صفين × ٥ مقاعد' },
-  { value: 11, label: '١١ مايك', desc: 'مقدم + صفين × ٥' },
-  { value: 15, label: '١٥ مايك', desc: '٣ صفوف × ٥ مقاعد' },
-] as const;
-
-const MIC_THEMES = [
-  { value: 'default', label: 'افتراضي', gradient: 'from-purple-500/30 to-pink-500/30' },
-  { value: 'ocean', label: 'محيط', gradient: 'from-cyan-500/30 to-blue-500/30' },
-  { value: 'forest', label: 'غابة', gradient: 'from-green-500/30 to-emerald-500/30' },
-  { value: 'sunset', label: 'غروب', gradient: 'from-orange-500/30 to-red-500/30' },
-  { value: 'galaxy', label: 'مجرة', gradient: 'from-violet-500/30 to-fuchsia-500/30' },
-  { value: 'gold', label: 'ذهبي', gradient: 'from-amber-500/30 to-yellow-500/30' },
-] as const;
+const MIC_OPTIONS = [5, 10, 15, 20];
 
 const ROOM_MODE_OPTIONS: { value: RoomMode; label: string; icon: typeof Globe; desc: string }[] = [
   { value: 'public', label: 'عام', icon: Globe, desc: 'يمكن لأي شخص الدخول' },
@@ -137,67 +120,28 @@ const ROOM_MODE_OPTIONS: { value: RoomMode; label: string; icon: typeof Globe; d
   { value: 'private', label: 'خاص', icon: EyeOff, desc: 'دعوات فقط' },
 ];
 
-const AVATAR_GRADIENTS = [
-  'from-purple-500 to-pink-600', 'from-cyan-500 to-blue-600', 'from-green-500 to-emerald-600',
-  'from-amber-500 to-orange-600', 'from-rose-500 to-red-600', 'from-violet-500 to-fuchsia-600',
-  'from-teal-500 to-green-600', 'from-pink-500 to-rose-600',
-];
+const AVATAR_COLORS = ['#1e3a7a', '#3a1e6a', '#1a4040', '#3a2010', '#4a1e3a', '#1e4a3a', '#3a3a1e', '#2a1e4a'];
 
-function getAvatarGradient(userId: string) {
-  let hash = 0;
-  for (let i = 0; i < userId.length; i++) hash = userId.charCodeAt(i) + ((hash << 5) - hash);
-  return AVATAR_GRADIENTS[Math.abs(hash) % AVATAR_GRADIENTS.length];
-}
-
-const FALLBACK_GIFTS: Gift[] = [
-  { id: 'g1', name: 'Rose', nameAr: 'وردة', emoji: '🌹', price: 1 },
-  { id: 'g2', name: 'Heart', nameAr: 'قلب', emoji: '❤️', price: 5 },
-  { id: 'g3', name: 'Star', nameAr: 'نجمة', emoji: '⭐', price: 10 },
-  { id: 'g4', name: 'Crown', nameAr: 'تاج', emoji: '👑', price: 50 },
-  { id: 'g5', name: 'Diamond', nameAr: 'ألماس', emoji: '💎', price: 100 },
-  { id: 'g6', name: 'Fire', nameAr: 'نار', emoji: '🔥', price: 20 },
-  { id: 'g7', name: 'Gift Box', nameAr: 'هدية', emoji: '🎁', price: 15 },
-  { id: 'g8', name: 'Rocket', nameAr: 'صاروخ', emoji: '🚀', price: 200 },
-];
+const CHAT_SENDER_COLORS = ['#6c63ff', '#f59e0b', '#22c55e', '#f97316'];
 
 /* ═══════════════════════════════════════════════════════════════════════
    HELPERS
    ═══════════════════════════════════════════════════════════════════════ */
 
-function hasPower(myRole: RoomRole, required: RoomRole): boolean {
-  return ROLE_POWER[myRole] >= ROLE_POWER[required];
+function canDo(myRole: RoomRole, requiredRole: RoomRole): boolean {
+  return (ROLE_LEVELS[myRole] || 0) >= (ROLE_LEVELS[requiredRole] || 0);
 }
 
-function canDo(action: string, myRole: RoomRole): boolean {
-  switch (action) {
-    case 'close-room':
-    case 'transfer-ownership':
-    case 'set-coowner':
-      return myRole === 'owner';
-    case 'change-room-mode':
-    case 'change-password':
-      return myRole === 'owner';
-    case 'change-admin':
-    case 'change-member':
-    case 'freeze-mic':
-    case 'update-settings':
-    case 'set-seat-status':
-      return hasPower(myRole, 'coowner');
-    case 'kick-from-mic':
-    case 'kick-from-room':
-    case 'ban':
-    case 'manage-waitlist':
-    case 'assign-seat':
-      return hasPower(myRole, 'admin');
-    case 'mute-self':
-    case 'leave-seat':
-    case 'send-gift':
-      return hasPower(myRole, 'visitor');
-    case 'request-seat':
-      return myRole === 'visitor';
-    default:
-      return false;
-  }
+function getAvatarColor(userId: string): string {
+  let hash = 0;
+  for (let i = 0; i < userId.length; i++) hash = userId.charCodeAt(i) + ((hash << 5) - hash);
+  return AVATAR_COLORS[Math.abs(hash) % AVATAR_COLORS.length];
+}
+
+function getSenderColor(userId: string): string {
+  let hash = 0;
+  for (let i = 0; i < userId.length; i++) hash = userId.charCodeAt(i) + ((hash << 5) - hash);
+  return CHAT_SENDER_COLORS[Math.abs(hash) % CHAT_SENDER_COLORS.length];
 }
 
 function formatTime(dateStr: string): string {
@@ -205,339 +149,169 @@ function formatTime(dateStr: string): string {
   return d.toLocaleTimeString('ar-SA', { hour: '2-digit', minute: '2-digit' });
 }
 
-function getActionColor(action: string): string {
-  if (action.includes('join')) return 'text-green-400';
-  if (action.includes('leave') || action.includes('kick')) return 'text-red-400';
-  if (action.includes('ban')) return 'text-red-500';
-  if (action.includes('role') || action.includes('admin')) return 'text-purple-400';
-  if (action.includes('gift')) return 'text-amber-400';
-  if (action.includes('freeze') || action.includes('unfreeze')) return 'text-blue-400';
-  if (action.includes('seat') || action.includes('mic')) return 'text-cyan-400';
-  if (action.includes('transfer') || action.includes('owner')) return 'text-amber-500';
-  return 'text-slate-400';
+function genId() {
+  return Math.random().toString(36).substring(2, 10);
 }
 
 /* ═══════════════════════════════════════════════════════════════════════
-   AVATAR COMPONENT
+   MOCK USER (simulates auth for demo)
    ═══════════════════════════════════════════════════════════════════════ */
 
-function UserAvatar({
-  userId, avatar, displayName, size = 'md',
-  border, showStatus, isMuted, micFrozen,
-}: {
-  userId: string; avatar?: string; displayName: string; size?: 'sm' | 'md' | 'lg';
-  border?: string; showStatus?: boolean; isMuted?: boolean; micFrozen?: boolean;
-}) {
-  const sizeClasses = { sm: 'w-8 h-8 text-xs', md: 'w-14 h-14 sm:w-16 sm:h-16 text-lg', lg: 'w-20 h-20 text-2xl' };
-  const gradient = getAvatarGradient(userId);
+const MOCK_USER: AuthUser = {
+  id: 'user_demo_1',
+  username: 'demo_user',
+  displayName: 'مستخدم تجريبي',
+  avatar: '',
+  vipLevel: 3,
+};
+
+/* ═══════════════════════════════════════════════════════════════════════
+   INJECTED STYLES (Cairo font + keyframe animations)
+   ═══════════════════════════════════════════════════════════════════════ */
+
+function InjectStyles() {
   return (
-    <div className="relative">
-      <div className={`${sizeClasses[size]} rounded-full bg-gradient-to-br ${gradient} flex items-center justify-center border-2 ${border || 'border-transparent'} overflow-hidden`}>
-        {avatar ? (
-          <img src={avatar} alt="" className="w-full h-full rounded-full object-cover" />
-        ) : (
-          <span className="font-bold text-white">{displayName.charAt(0)}</span>
-        )}
-      </div>
-      {showStatus && isMuted && (
-        <div className="absolute -bottom-0.5 -left-0.5 w-5 h-5 bg-slate-900 border-2 border-slate-700 rounded-full flex items-center justify-center">
-          <MicOff className="w-2.5 h-2.5 text-red-400" />
-        </div>
-      )}
-      {showStatus && !isMuted && micFrozen && (
-        <div className="absolute -bottom-0.5 -left-0.5 w-5 h-5 bg-slate-900 border-2 border-blue-500/50 rounded-full flex items-center justify-center">
-          <Snowflake className="w-2.5 h-2.5 text-blue-400" />
-        </div>
-      )}
-      {showStatus && !isMuted && !micFrozen && (
-        <div className="absolute -bottom-0.5 -left-0.5 w-5 h-5 bg-emerald-500/20 border-2 border-emerald-500/50 rounded-full flex items-center justify-center">
-          <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-        </div>
-      )}
-    </div>
+    <>
+      <link
+        href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700&display=swap"
+        rel="stylesheet"
+      />
+      <style>{`
+        .voice-room-root { font-family: 'Cairo', sans-serif; }
+        @keyframes speakRing {
+          0%, 100% { box-shadow: 0 0 0 3px rgba(34,197,94,0.2); }
+          50% { box-shadow: 0 0 0 6px rgba(34,197,94,0.08); }
+        }
+        @keyframes livePulse {
+          0%, 100% { opacity: 1; }
+          50% { opacity: 0.4; }
+        }
+        @keyframes fadeUp {
+          from { opacity: 0; transform: translateY(6px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+        .animate-speak-ring { animation: speakRing 1s infinite; }
+        .animate-live-pulse { animation: livePulse 1.8s infinite; }
+        .animate-fade-up { animation: fadeUp 0.3s ease; }
+        .scrollbar-hide::-webkit-scrollbar { display: none; }
+        .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
+      `}</style>
+    </>
   );
 }
 
 /* ═══════════════════════════════════════════════════════════════════════
-   MIC SEAT COMPONENT
+   MIC SEAT COMPONENT (HTML reference: 5-per-row, 52px avatars, states)
    ═══════════════════════════════════════════════════════════════════════ */
 
 function MicSeat({
-  seatIndex,
-  participant,
-  seatStatus,
-  currentUserId,
-  myRole,
-  micTheme,
-  onClick,
+  seatIndex, seatData, currentUserId, myRole, hostId, onClick,
 }: {
   seatIndex: number;
-  participant: VoiceRoomParticipant | null;
-  seatStatus: SeatStatus;
+  seatData: SeatData;
   currentUserId: string;
   myRole: RoomRole;
-  micTheme: string;
+  hostId: string;
   onClick: () => void;
 }) {
-  const isCurrentUser = participant?.userId === currentUserId;
-  const statusCfg = SEAT_STATUS_CONFIG[seatStatus];
-  const StatusIcon = statusCfg.icon;
-  const theme = MIC_THEMES.find(t => t.value === micTheme) || MIC_THEMES[0];
-  const RoleIcon = participant ? ROLE_ICONS[participant.role] : null;
+  const { participant, status } = seatData;
+  const isOwner = participant?.userId === hostId;
+  const isSpeaking = participant && !participant.isMuted && !participant.micFrozen;
 
-  return (
-    <motion.div
-      layout
-      whileTap={{ scale: 0.95 }}
-      onClick={onClick}
-      className="flex flex-col items-center gap-1 cursor-pointer group w-full max-w-[80px] sm:max-w-[90px]"
-    >
-      {/* Avatar area */}
-      <div className={`relative w-14 h-14 sm:w-16 sm:h-16 rounded-full flex items-center justify-center border-2 transition-all duration-300 ${
-        participant
-          ? `${isCurrentUser ? 'ring-2 ring-purple-400/50 ' : ''}bg-gradient-to-br ${getAvatarGradient(participant.userId)} border-white/20 shadow-lg`
-          : `border-2 ${statusCfg.border} bg-gradient-to-br ${theme.gradient} bg-opacity-30`
-      }`}>
-        {participant ? (
-          <>
-            {participant.avatar ? (
-              <img src={participant.avatar} alt="" className="w-full h-full rounded-full object-cover" />
-            ) : (
-              <span className="text-lg sm:text-xl font-bold text-white">{participant.displayName.charAt(0)}</span>
-            )}
-
-            {/* Role badge top-right */}
-            {RoleIcon && (
-              <div className={`absolute -top-1 -right-1 w-5 h-5 rounded-full flex items-center justify-center ${ROLE_BG[participant.role]}`}>
-                <RoleIcon className="w-3 h-3" />
-              </div>
-            )}
-
-            {/* Status indicator bottom-left */}
-            <div className="absolute -bottom-1 -left-1">
-              {participant.micFrozen ? (
-                <div className="w-6 h-6 bg-slate-900 border-2 border-blue-500/50 rounded-full flex items-center justify-center">
-                  <Snowflake className="w-3 h-3 text-blue-400" />
-                </div>
-              ) : participant.isMuted ? (
-                <div className="w-6 h-6 bg-slate-900 border-2 border-red-500/50 rounded-full flex items-center justify-center">
-                  <MicOff className="w-3 h-3 text-red-400" />
-                </div>
-              ) : (
-                <div className="w-6 h-6 bg-emerald-500/20 border-2 border-emerald-500/50 rounded-full flex items-center justify-center">
-                  <div className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse" />
-                </div>
-              )}
-            </div>
-
-            {/* VIP badge bottom-right */}
-            {participant.vipLevel > 0 && (
-              <div className="absolute -bottom-1 -right-1 min-w-[18px] h-[18px] bg-gradient-to-r from-amber-500 to-yellow-500 rounded-full flex items-center justify-center px-0.5 shadow-lg shadow-amber-500/30">
-                <span className="text-[8px] font-bold text-slate-900">{participant.vipLevel}</span>
-              </div>
-            )}
-          </>
-        ) : (
-          <StatusIcon className={`w-5 h-5 ${statusCfg.color} opacity-50`} />
-        )}
-      </div>
-
-      {/* Info below */}
-      <div className="text-center w-full">
-        {participant ? (
-          <>
-            <p className={`text-[10px] sm:text-xs font-medium truncate ${ROLE_COLORS[participant.role]}`}>
-              {participant.displayName}
-            </p>
-            <p className="text-[8px] text-slate-500">{ROLE_LABELS[participant.role]}</p>
-          </>
-        ) : (
-          <p className={`text-[9px] ${statusCfg.color}`}>{statusCfg.label}</p>
-        )}
-      </div>
-    </motion.div>
-  );
-}
-
-/* ═══════════════════════════════════════════════════════════════════════
-   MIC GRID LAYOUT
-   ═══════════════════════════════════════════════════════════════════════ */
-
-function MicGridLayout({
-  participants,
-  seatCount,
-  hostId,
-  currentUserId,
-  myRole,
-  micTheme,
-  onSeatClick,
-}: {
-  participants: VoiceRoomParticipant[];
-  seatCount: number;
-  hostId: string;
-  currentUserId: string;
-  myRole: RoomRole;
-  micTheme: string;
-  onSeatClick: (seatIndex: number, participant: VoiceRoomParticipant | null) => void;
-}) {
-  const isHostLayout = seatCount === 11;
-
-  // Build seat map: seatIndex -> participant
-  const seatMap = new Map<number, VoiceRoomParticipant>();
-  participants.forEach(p => {
-    if (p.seatIndex >= 0) seatMap.set(p.seatIndex, p);
-  });
-
-  if (isHostLayout) {
-    const hostParticipant = seatMap.get(0) || participants.find(p => p.userId === hostId) || null;
-    const row2: (VoiceRoomParticipant | null)[] = [];
-    const row3: (VoiceRoomParticipant | null)[] = [];
-
-    for (let i = 1; i <= 5; i++) row2.push(seatMap.get(i) || null);
-    for (let i = 6; i <= 10; i++) row3.push(seatMap.get(i) || null);
-
+  /* ── Locked seat ── */
+  if (status === 'locked' && !participant) {
     return (
-      <div className="flex flex-col items-center gap-5">
-        {/* Host row */}
-        <div className="flex justify-center">
-          <MicSeat
-            seatIndex={0}
-            participant={hostParticipant}
-            seatStatus={hostParticipant ? 'open' : 'open'}
-            currentUserId={currentUserId}
-            myRole={myRole}
-            micTheme={micTheme}
-            onClick={() => onSeatClick(0, hostParticipant)}
-          />
-        </div>
-
-        <div className="flex items-center gap-3 w-full max-w-sm px-4">
-          <div className="flex-1 h-px bg-gradient-to-l from-purple-500/40 to-transparent" />
-          <Sparkles className="w-4 h-4 text-purple-400/60" />
-          <div className="flex-1 h-px bg-gradient-to-r from-purple-500/40 to-transparent" />
-        </div>
-
-        {[row2, row3].map((row, rowIdx) => (
-          <div key={rowIdx} className="flex justify-center gap-2 sm:gap-3 flex-wrap">
-            {row.map((p, i) => {
-              const idx = rowIdx === 0 ? i + 1 : i + 6;
-              const status = p ? 'open' : (idx === 1 ? 'open' : 'open');
-              return (
-                <MicSeat
-                  key={idx}
-                  seatIndex={idx}
-                  participant={p}
-                  seatStatus={status}
-                  currentUserId={currentUserId}
-                  myRole={myRole}
-                  micTheme={micTheme}
-                  onClick={() => onSeatClick(idx, p)}
-                />
-              );
-            })}
+      <button onClick={onClick} className="flex flex-col items-center gap-1 cursor-pointer active:scale-95 transition-transform">
+        <div className="relative">
+          <div className="w-[52px] h-[52px] rounded-full bg-[#111318] border-2 border-[rgba(255,255,255,0.06)] flex items-center justify-center opacity-70">
+            <Lock className="w-4 h-4 text-[#555]" />
           </div>
-        ))}
-      </div>
+        </div>
+        <span className="text-[9px] text-[#5a6080]">{seatIndex + 1}</span>
+        <span className="text-[9.5px] text-[#5a6080]">مقفل</span>
+      </button>
     );
   }
 
-  // Standard grid: always 5 per row
-  const totalRows = Math.ceil(seatCount / 5);
-  const rows: { idx: number; p: VoiceRoomParticipant | null }[][] = [];
+  /* ── Occupied seat ── */
+  if (participant) {
+    const avatarColor = getAvatarColor(participant.userId);
 
-  for (let r = 0; r < totalRows; r++) {
-    const row: { idx: number; p: VoiceRoomParticipant | null }[] = [];
-    for (let c = 0; c < 5; c++) {
-      const idx = r * 5 + c;
-      if (idx < seatCount) {
-        row.push({ idx, p: seatMap.get(idx) || null });
-      }
-    }
-    if (row.length > 0) rows.push(row);
-  }
+    let ringClass = 'border-[#22c55e] bg-[#1c2035]';
+    if (isOwner) ringClass = 'border-[#f59e0b] bg-[#1c2035] shadow-[0_0_0_2px_rgba(245,158,11,0.2)]';
+    else if (isSpeaking) ringClass = 'border-[#22c55e] bg-[#1c2035] animate-speak-ring';
 
-  return (
-    <div className="flex flex-col items-center gap-5">
-      {rows.map((row, rowIdx) => (
-        <div key={rowIdx} className="flex justify-center gap-2 sm:gap-3 flex-wrap">
-          {row.map(({ idx, p }) => (
-            <MicSeat
-              key={idx}
-              seatIndex={idx}
-              participant={p}
-              seatStatus={p ? 'open' : 'open'}
-              currentUserId={currentUserId}
-              myRole={myRole}
-              micTheme={micTheme}
-              onClick={() => onSeatClick(idx, p)}
-            />
-          ))}
-        </div>
-      ))}
-    </div>
-  );
-}
-
-/* ═══════════════════════════════════════════════════════════════════════
-   AUDIENCE ROW
-   ═══════════════════════════════════════════════════════════════════════ */
-
-function AudienceRow({
-  participants,
-  onUserClick,
-}: {
-  participants: VoiceRoomParticipant[];
-  onUserClick: (participant: VoiceRoomParticipant) => void;
-}) {
-  if (participants.length === 0) return null;
-
-  return (
-    <div className="mt-5 pt-3 border-t border-slate-800/40">
-      <div className="flex items-center gap-2 mb-2">
-        <Eye className="w-3.5 h-3.5 text-slate-500" />
-        <span className="text-[11px] text-slate-500 font-medium">المشاهدون ({participants.length})</span>
-      </div>
-      <div className="flex flex-wrap gap-1.5">
-        {participants.slice(0, 24).map((p) => (
+    return (
+      <button onClick={onClick} className="flex flex-col items-center gap-1 cursor-pointer active:scale-95 transition-transform">
+        <div className="relative">
           <div
-            key={p.id}
-            onClick={() => onUserClick(p)}
-            className="relative cursor-pointer hover:scale-110 transition-transform"
-            title={p.displayName}
+            className={`w-[52px] h-[52px] rounded-full flex items-center justify-center overflow-hidden border-2 ${ringClass}`}
+            style={{ background: avatarColor }}
           >
-            <div className="w-9 h-9 rounded-full bg-gradient-to-br overflow-hidden border border-slate-700/50 flex items-center justify-center">
-              {p.avatar ? (
-                <img src={p.avatar} alt="" className="w-full h-full rounded-full object-cover" />
-              ) : (
-                <span className="text-xs font-bold text-white">{p.displayName.charAt(0)}</span>
-              )}
-            </div>
-            {p.vipLevel > 0 && (
-              <div className="absolute -bottom-0.5 -right-0.5 min-w-[14px] h-[14px] bg-gradient-to-r from-amber-500 to-yellow-500 rounded-full flex items-center justify-center px-0.5">
-                <span className="text-[6px] font-bold text-slate-900">{p.vipLevel}</span>
-              </div>
+            {participant.avatar ? (
+              <img src={participant.avatar} alt="" className="w-full h-full rounded-full object-cover" />
+            ) : (
+              <span className="text-[11px] font-bold text-white">{participant.displayName.charAt(0)}</span>
             )}
           </div>
-        ))}
-        {participants.length > 24 && (
-          <div className="w-9 h-9 rounded-full bg-slate-800 flex items-center justify-center border border-slate-700/50">
-            <span className="text-[10px] text-slate-400">+{participants.length - 24}</span>
-          </div>
-        )}
+          {/* Owner badge */}
+          {isOwner && (
+            <div className="absolute -bottom-0.5 -left-0.5 w-4 h-4 rounded-full bg-[#f59e0b] border-2 border-[#141726] flex items-center justify-center">
+              <span className="text-[7px] leading-none">★</span>
+            </div>
+          )}
+          {/* Speaking badge */}
+          {isSpeaking && !isOwner && (
+            <div className="absolute -bottom-0.5 -left-0.5 w-4 h-4 rounded-full bg-[#22c55e] border-2 border-[#141726] flex items-center justify-center">
+              <span className="text-[7px] leading-none">♪</span>
+            </div>
+          )}
+          {/* Muted indicator */}
+          {participant.isMuted && !isOwner && (
+            <div className="absolute -bottom-0.5 -left-0.5 w-4 h-4 rounded-full bg-[#ef4444]/80 border-2 border-[#141726] flex items-center justify-center">
+              <MicOff className="w-2 h-2 text-white" />
+            </div>
+          )}
+          {/* Frozen indicator */}
+          {participant.micFrozen && (
+            <div className="absolute -bottom-0.5 -left-0.5 w-4 h-4 rounded-full bg-blue-500/80 border-2 border-[#141726] flex items-center justify-center">
+              <span className="text-[7px] leading-none">❄</span>
+            </div>
+          )}
+        </div>
+        <span className="text-[9px] text-[#5a6080]">{seatIndex + 1}</span>
+        <span
+          className="text-[9.5px] text-center max-w-[54px] overflow-hidden text-ellipsis whitespace-nowrap leading-tight"
+          style={{ color: ROLE_COLORS[participant.role] }}
+        >
+          {participant.displayName}
+        </span>
+      </button>
+    );
+  }
+
+  /* ── Empty seat ── */
+  return (
+    <button onClick={onClick} className="flex flex-col items-center gap-1 cursor-pointer active:scale-95 transition-transform">
+      <div className="relative">
+        <div className="w-[52px] h-[52px] rounded-full bg-[#1a2540] border-2 border-[rgba(108,99,255,0.25)] flex items-center justify-center">
+          <Mic className="w-4 h-4 text-[#6c63ff]/60" />
+        </div>
       </div>
-    </div>
+      <span className="text-[9px] text-[#5a6080]">{seatIndex + 1}</span>
+      <span className="text-[9.5px] text-[#5a6080]">{'\u00A0'}</span>
+    </button>
   );
 }
 
 /* ═══════════════════════════════════════════════════════════════════════
-   SLIDE-UP PANEL WRAPPER
+   SHARED BOTTOM SHEET WRAPPER (slide-up from bottom)
    ═══════════════════════════════════════════════════════════════════════ */
 
-function SlideUpPanel({
-  isOpen, onClose, title, icon, children, className = '',
-}: {
-  isOpen: boolean; onClose: () => void; title: string; icon?: React.ReactNode;
-  children: React.ReactNode; className?: string;
+function BottomSheetOverlay({ isOpen, onClose, children }: {
+  isOpen: boolean;
+  onClose: () => void;
+  children: React.ReactNode;
 }) {
   return (
     <AnimatePresence>
@@ -547,7 +321,8 @@ function SlideUpPanel({
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/60 z-50"
+            transition={{ duration: 0.25 }}
+            className="fixed inset-0 bg-black/55 z-[80]"
             onClick={onClose}
           />
           <motion.div
@@ -555,28 +330,12 @@ function SlideUpPanel({
             animate={{ y: 0 }}
             exit={{ y: '100%' }}
             transition={{ type: 'spring', damping: 30, stiffness: 300 }}
-            className={`fixed bottom-0 left-0 right-0 z-50 bg-slate-900 border-t border-slate-700/50 rounded-t-3xl max-h-[75vh] flex flex-col ${className}`}
+            className="fixed bottom-0 left-0 right-0 z-[90] bg-[#181c2e] rounded-t-[22px] border-t border-[rgba(108,99,255,0.18)]"
+            onClick={(e) => e.stopPropagation()}
           >
-            {/* Handle */}
-            <div className="flex justify-center pt-2 pb-1">
-              <div className="w-10 h-1 bg-slate-700 rounded-full" />
-            </div>
-
-            {/* Header */}
-            <div className="flex items-center justify-between px-4 pb-3 pt-1 border-b border-slate-800/50">
-              <div className="flex items-center gap-2">
-                {icon}
-                <h3 className="text-sm font-bold text-white">{title}</h3>
-              </div>
-              <Button size="sm" variant="ghost" className="h-7 w-7 p-0 text-slate-400 hover:text-white" onClick={onClose}>
-                <X className="w-4 h-4" />
-              </Button>
-            </div>
-
-            {/* Content */}
-            <div className="flex-1 overflow-y-auto p-4">
-              {children}
-            </div>
+            {/* Drag handle */}
+            <div className="w-9 h-1 bg-[rgba(255,255,255,0.15)] rounded-full mx-auto mt-3 mb-3.5" />
+            {children}
           </motion.div>
         </>
       )}
@@ -585,927 +344,489 @@ function SlideUpPanel({
 }
 
 /* ═══════════════════════════════════════════════════════════════════════
-   CHAT PANEL
+   MIC MENU BOTTOM SHEET (admin: pull, kick, lock/unlock)
    ═══════════════════════════════════════════════════════════════════════ */
 
-function ChatPanel({
-  isOpen, onClose, messages, chatMuted, chatInput, setChatInput, onSend,
+function MicMenuBottomSheet({
+  isOpen, onClose, seatIndex, participant, onAction,
 }: {
-  isOpen: boolean; onClose: () => void; messages: ChatMessage[];
-  chatMuted: boolean; chatInput: string; setChatInput: (v: string) => void; onSend: () => void;
+  isOpen: boolean;
+  onClose: () => void;
+  seatIndex: number;
+  participant: VoiceRoomParticipant | null;
+  onAction: (action: string) => void;
 }) {
-  const endRef = useRef<HTMLDivElement>(null);
+  return (
+    <BottomSheetOverlay isOpen={isOpen} onClose={onClose}>
+      {/* Title */}
+      <div className="text-[13px] font-bold text-[#9ca3c4] text-center px-4 pb-3 border-b border-[rgba(255,255,255,0.07)] mx-4">
+        {participant
+          ? `المايك ${seatIndex + 1} — ${participant.displayName}`
+          : `المايك ${seatIndex + 1}`}
+      </div>
+
+      {/* Menu items */}
+      <div className="p-3 space-y-1 pb-6">
+        {participant && (
+          <>
+            {/* Pull from mic */}
+            <button
+              onClick={() => { onAction('pull-from-mic'); onClose(); }}
+              className="w-full flex items-center gap-3 px-3.5 py-3 rounded-xl text-[#ef4444] hover:bg-[#232843] active:bg-[#232843] transition-colors"
+            >
+              <div className="w-9 h-9 rounded-full bg-[rgba(239,68,68,0.15)] flex items-center justify-center flex-shrink-0">
+                <UserMinus className="w-[18px] h-[18px] text-[#ef4444]" />
+              </div>
+              <div className="text-right">
+                <div className="text-[14px] font-semibold">سحب من المايك</div>
+                <div className="text-[11px] text-[#5a6080] font-normal">إخراج العضو من المنبر فوراً</div>
+              </div>
+            </button>
+
+            {/* Temp kick */}
+            <button
+              onClick={() => { onAction('kick-temp'); onClose(); }}
+              className="w-full flex items-center gap-3 px-3.5 py-3 rounded-xl text-[#f97316] hover:bg-[#232843] active:bg-[#232843] transition-colors"
+            >
+              <div className="w-9 h-9 rounded-full bg-[rgba(249,115,22,0.15)] flex items-center justify-center flex-shrink-0">
+                <Timer className="w-[18px] h-[18px] text-[#f97316]" />
+              </div>
+              <div className="text-right">
+                <div className="text-[14px] font-semibold">طرد مؤقت من الروم</div>
+                <div className="text-[11px] text-[#5a6080] font-normal">مدة الطرد: 10 دقائق</div>
+              </div>
+            </button>
+
+            {/* Perm kick */}
+            <button
+              onClick={() => { onAction('kick-perm'); onClose(); }}
+              className="w-full flex items-center gap-3 px-3.5 py-3 rounded-xl text-[#ef4444] hover:bg-[#232843] active:bg-[#232843] transition-colors"
+            >
+              <div className="w-9 h-9 rounded-full bg-[rgba(239,68,68,0.15)] flex items-center justify-center flex-shrink-0">
+                <Ban className="w-[18px] h-[18px] text-[#ef4444]" />
+              </div>
+              <div className="text-right">
+                <div className="text-[14px] font-semibold">طرد نهائي من الروم</div>
+                <div className="text-[11px] text-[#5a6080] font-normal">حظر دائم من الغرفة</div>
+              </div>
+            </button>
+          </>
+        )}
+
+        {/* Lock seat */}
+        <button
+          onClick={() => { onAction('lock-seat'); onClose(); }}
+          className="w-full flex items-center gap-3 px-3.5 py-3 rounded-xl text-[#f59e0b] hover:bg-[#232843] active:bg-[#232843] transition-colors"
+        >
+          <div className="w-9 h-9 rounded-full bg-[rgba(245,158,11,0.15)] flex items-center justify-center flex-shrink-0">
+            <Lock className="w-[18px] h-[18px] text-[#f59e0b]" />
+          </div>
+          <div className="text-right">
+            <div className="text-[14px] font-semibold">قفل المايك</div>
+            <div className="text-[11px] text-[#5a6080] font-normal">منع أي شخص من الجلوس هنا</div>
+          </div>
+        </button>
+
+        {/* Unlock seat */}
+        <button
+          onClick={() => { onAction('unlock-seat'); onClose(); }}
+          className="w-full flex items-center gap-3 px-3.5 py-3 rounded-xl text-[#22c55e] hover:bg-[#232843] active:bg-[#232843] transition-colors"
+        >
+          <div className="w-9 h-9 rounded-full bg-[rgba(34,197,94,0.15)] flex items-center justify-center flex-shrink-0">
+            <Unlock className="w-[18px] h-[18px] text-[#22c55e]" />
+          </div>
+          <div className="text-right">
+            <div className="text-[14px] font-semibold">فتح المايك</div>
+            <div className="text-[11px] text-[#5a6080] font-normal">السماح للأعضاء بالجلوس</div>
+          </div>
+        </button>
+      </div>
+    </BottomSheetOverlay>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   PROFILE BOTTOM SHEET (stats row + action buttons)
+   ═══════════════════════════════════════════════════════════════════════ */
+
+function ProfileBottomSheet({
+  isOpen, onClose, participant, onGiftClick,
+}: {
+  isOpen: boolean;
+  onClose: () => void;
+  participant: VoiceRoomParticipant | null;
+  onGiftClick: () => void;
+}) {
+  if (!participant && !isOpen) return null;
+  const avatarColor = participant ? getAvatarColor(participant.userId) : '#1c2035';
+
+  return (
+    <BottomSheetOverlay isOpen={isOpen} onClose={onClose}>
+      {participant && (
+        <>
+          {/* Header with avatar + name + role */}
+          <div className="flex items-center gap-3.5 px-5 pb-4 border-b border-[rgba(255,255,255,0.07)]">
+            <div
+              className="w-14 h-14 rounded-full flex items-center justify-center flex-shrink-0 border-2 border-[#6c63ff] overflow-hidden"
+              style={{ background: avatarColor }}
+            >
+              {participant.avatar ? (
+                <img src={participant.avatar} alt="" className="w-full h-full rounded-full object-cover" />
+              ) : (
+                <span className="text-lg font-bold text-white">{participant.displayName.charAt(0)}</span>
+              )}
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="text-[16px] font-bold text-[#f0f0f8] truncate">{participant.displayName}</div>
+              <div className="flex items-center gap-2 mt-1.5">
+                <span className={`text-[10px] px-2 py-0.5 rounded-full font-semibold ${ROLE_PILL_BG[participant.role]}`}>
+                  {ROLE_LABELS[participant.role]}
+                </span>
+                {participant.vipLevel > 0 && (
+                  <span className="text-[11px] text-[#5a6080]">
+                    مستوى <span className="text-[#f0f0f8] font-bold">{participant.vipLevel}</span>
+                  </span>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Stats row: gifts / days / jewels */}
+          <div className="flex mx-4 mt-3 rounded-xl overflow-hidden border border-[rgba(255,255,255,0.07)]">
+            <div className="flex-1 bg-[#1c2035] py-2.5 px-2 text-center border-l border-[rgba(255,255,255,0.07)]">
+              <div className="text-[15px] font-bold text-[#f0f0f8]">0</div>
+              <div className="text-[10px] text-[#5a6080] mt-0.5">هدايا أُرسلت</div>
+            </div>
+            <div className="flex-1 bg-[#1c2035] py-2.5 px-2 text-center border-l border-[rgba(255,255,255,0.07)]">
+              <div className="text-[15px] font-bold text-[#f0f0f8]">0</div>
+              <div className="text-[10px] text-[#5a6080] mt-0.5">يوم في الغرفة</div>
+            </div>
+            <div className="flex-1 bg-[#1c2035] py-2.5 px-2 text-center">
+              <div className="text-[15px] font-bold text-[#f0f0f8]">0</div>
+              <div className="text-[10px] text-[#5a6080] mt-0.5">مجوهرات</div>
+            </div>
+          </div>
+
+          {/* Action buttons row */}
+          <div className="flex gap-2 px-4 mt-3 pb-6">
+            <button
+              onClick={() => { onClose(); setTimeout(onGiftClick, 300); }}
+              className="flex-1 flex flex-col items-center gap-1.5 py-3 rounded-[14px] bg-[#1c2035] border border-[rgba(255,255,255,0.07)] hover:bg-[#232843] active:scale-[0.97] transition-all"
+            >
+              <Gift className="w-[22px] h-[22px] text-[#f59e0b]" />
+              <span className="text-[11px] text-[#9ca3c4] font-semibold">إرسال هدية</span>
+            </button>
+            <button
+              onClick={onClose}
+              className="flex-1 flex flex-col items-center gap-1.5 py-3 rounded-[14px] bg-[#1c2035] border border-[rgba(255,255,255,0.07)] hover:bg-[#232843] active:scale-[0.97] transition-all"
+            >
+              <ImageIcon className="w-[22px] h-[22px] text-[#a78bfa]" />
+              <span className="text-[11px] text-[#9ca3c4] font-semibold">إطار 5 دقائق</span>
+            </button>
+            <button
+              onClick={onClose}
+              className="flex-1 flex flex-col items-center gap-1.5 py-3 rounded-[14px] bg-[#1c2035] border border-[rgba(255,255,255,0.07)] hover:bg-[#232843] active:scale-[0.97] transition-all"
+            >
+              <X className="w-[22px] h-[22px] text-[#5a6080]" />
+              <span className="text-[11px] text-[#9ca3c4] font-semibold">إغلاق</span>
+            </button>
+          </div>
+        </>
+      )}
+    </BottomSheetOverlay>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   GIFT BOTTOM SHEET (4-column grid + target selector)
+   ═══════════════════════════════════════════════════════════════════════ */
+
+function GiftBottomSheet({
+  isOpen, onClose, gifts, onSendGift,
+}: {
+  isOpen: boolean;
+  onClose: () => void;
+  gifts: Gift[];
+  onSendGift: (giftId: string, target: string) => void;
+}) {
+  const [selectedGift, setSelectedGift] = useState<string | null>(null);
+  const [target, setTarget] = useState<'specific' | 'on-mic' | 'everyone'>('everyone');
+
+  const giftList = gifts.length > 0 ? gifts : DEFAULT_GIFTS;
 
   useEffect(() => {
-    if (endRef.current) endRef.current.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
+    if (isOpen) setSelectedGift(null);
+  }, [isOpen]);
 
   return (
-    <SlideUpPanel isOpen={isOpen} onClose={onClose} title="المحادثة" icon={<MessageCircle className="w-4 h-4 text-purple-400" />}>
-      <div className="space-y-2">
-        {messages.length === 0 && (
-          <p className="text-center text-xs text-slate-600 py-8">ابدأ المحادثة...</p>
-        )}
-        {messages.map((msg) => (
-          <div key={msg.id}>
-            {msg.isSystem ? (
-              <p className="text-center text-[10px] text-slate-500 py-1 italic">{msg.text}</p>
-            ) : (
-              <div className="flex items-start gap-2">
-                <div className={`w-7 h-7 rounded-full bg-gradient-to-br ${getAvatarGradient(msg.userId)} flex items-center justify-center flex-shrink-0 overflow-hidden`}>
-                  {msg.avatar ? (
-                    <img src={msg.avatar} alt="" className="w-full h-full rounded-full object-cover" />
-                  ) : (
-                    <span className="text-[9px] font-bold text-white">{msg.displayName.charAt(0)}</span>
-                  )}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-[10px] font-medium text-purple-300">{msg.displayName}</span>
-                    <span className="text-[8px] text-slate-600">{msg.time}</span>
-                  </div>
-                  <p className="text-[11px] text-slate-300 leading-relaxed">{msg.text}</p>
-                </div>
-              </div>
-            )}
+    <BottomSheetOverlay isOpen={isOpen} onClose={onClose}>
+      <div className="max-h-[85vh] flex flex-col pb-6">
+        {/* Title */}
+        <div className="text-[14px] font-bold text-center text-[#f0f0f8] px-4 pb-2.5">
+          اختر هدية
+        </div>
+
+        {/* Target selector pills */}
+        <div className="flex gap-1.5 px-4 pb-3 overflow-x-auto scrollbar-hide">
+          {([
+            { value: 'specific' as const, label: 'شخص محدد' },
+            { value: 'on-mic' as const, label: 'من في المايك' },
+            { value: 'everyone' as const, label: 'جميع الغرفة' },
+          ]).map((opt) => (
+            <button
+              key={opt.value}
+              onClick={() => setTarget(opt.value)}
+              className={`flex-shrink-0 text-[11px] font-semibold px-3.5 py-1.5 rounded-full border transition-all ${
+                target === opt.value
+                  ? 'bg-[rgba(108,99,255,0.15)] border-[#6c63ff] text-[#a78bfa]'
+                  : 'bg-[#1c2035] border-[rgba(255,255,255,0.07)] text-[#5a6080]'
+              }`}
+            >
+              {opt.label}
+            </button>
+          ))}
+        </div>
+
+        {/* Scrollable gift grid */}
+        <div className="flex-1 overflow-y-auto scrollbar-hide">
+          <div className="grid grid-cols-4 gap-2 px-3 pb-3">
+            {giftList.map((gift) => {
+              const receive = Math.floor(gift.price / 3);
+              return (
+                <button
+                  key={gift.id}
+                  onClick={() => setSelectedGift(gift.id)}
+                  className={`flex flex-col items-center gap-1 py-2.5 px-1 rounded-[14px] border transition-all ${
+                    selectedGift === gift.id
+                      ? 'border-[#f59e0b] bg-[rgba(245,158,11,0.08)]'
+                      : 'bg-[#1c2035] border-[rgba(255,255,255,0.07)]'
+                  }`}
+                >
+                  <span className="text-[26px] leading-none">{gift.emoji}</span>
+                  <span className="text-[10px] text-[#9ca3c4] font-semibold">{gift.nameAr}</span>
+                  <span className="text-[11px] font-bold text-[#f59e0b]">{gift.price.toLocaleString()} 💎</span>
+                  <span className="text-[9px] text-[#5a6080]">يصل: {receive} 💎</span>
+                </button>
+              );
+            })}
           </div>
-        ))}
-        <div ref={endRef} />
-      </div>
 
-      {!chatMuted ? (
-        <div className="flex items-center gap-2 mt-3 pt-3 border-t border-slate-800/50">
-          <Input
-            value={chatInput}
-            onChange={(e) => setChatInput(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && onSend()}
-            placeholder="اكتب رسالة..."
-            className="h-9 text-xs bg-slate-800/60 border-slate-700/50 text-white placeholder:text-slate-600 rounded-xl"
-          />
-          <Button size="sm" onClick={onSend} className="h-9 w-9 p-0 bg-purple-600 hover:bg-purple-500 rounded-xl flex-shrink-0">
-            <Send className="w-4 h-4" />
-          </Button>
+          {/* Send button */}
+          <div className="px-4 pb-2">
+            <button
+              onClick={() => {
+                if (selectedGift) {
+                  onSendGift(selectedGift, target);
+                  setSelectedGift(null);
+                  onClose();
+                }
+              }}
+              disabled={!selectedGift}
+              className="w-full h-11 rounded-[14px] font-bold text-[15px] text-white bg-gradient-to-l from-[#6c63ff] to-[#a78bfa] transition-all disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+            >
+              <Gift className="w-4 h-4" />
+              إرسال الهدية
+            </button>
+          </div>
         </div>
-      ) : (
-        <div className="mt-3 pt-3 border-t border-slate-800/50 text-center">
-          <p className="text-xs text-slate-500 flex items-center justify-center gap-1.5">
-            <VolumeX className="w-3.5 h-3.5" /> المحادثة مكتومة
-          </p>
-        </div>
-      )}
-    </SlideUpPanel>
+      </div>
+    </BottomSheetOverlay>
   );
 }
 
 /* ═══════════════════════════════════════════════════════════════════════
-   GIFT PANEL
+   SETTINGS BOTTOM SHEET (slide up from bottom, NOT a Dialog)
    ═══════════════════════════════════════════════════════════════════════ */
 
-function GiftPanel({
-  isOpen, onClose, gifts, targetName, onSendGift,
+function SettingsBottomSheet({
+  isOpen, onClose, room, onUpdate,
 }: {
-  isOpen: boolean; onClose: () => void; gifts: Gift[];
-  targetName: string; onSendGift: (giftId: string) => void;
+  isOpen: boolean;
+  onClose: () => void;
+  room: VoiceRoom;
+  onUpdate: (data: Record<string, unknown>) => void;
 }) {
-  return (
-    <SlideUpPanel isOpen={isOpen} onClose={onClose} title={`إرسال هدية إلى ${targetName}`} icon={<Gift className="w-4 h-4 text-amber-400" />}>
-      <div className="grid grid-cols-4 gap-2">
-        {(gifts.length > 0 ? gifts : FALLBACK_GIFTS).map((gift) => (
-          <motion.button
-            key={gift.id}
-            whileTap={{ scale: 0.9 }}
-            onClick={() => onSendGift(gift.id)}
-            className="flex flex-col items-center gap-1 p-3 rounded-xl bg-slate-800/60 hover:bg-slate-700/60 transition-all hover:scale-105 border border-slate-700/30"
-          >
-            <span className="text-2xl">{gift.emoji}</span>
-            <span className="text-[9px] text-slate-400 truncate w-full text-center">{gift.nameAr || gift.name}</span>
-            <span className="text-[8px] text-amber-400 font-medium">
-              {gift.price > 0 ? `${gift.price} جوهرة` : 'مجاني'}
-            </span>
-          </motion.button>
-        ))}
-      </div>
-    </SlideUpPanel>
-  );
-}
-
-/* ═══════════════════════════════════════════════════════════════════════
-   SETTINGS PANEL
-   ═══════════════════════════════════════════════════════════════════════ */
-
-function SettingsPanel({
-  isOpen, onClose, room, isOwner, myRole, onUpdate,
-}: {
-  isOpen: boolean; onClose: () => void; room: VoiceRoom;
-  isOwner: boolean; myRole: RoomRole;
-  onUpdate: (data: Partial<VoiceRoom>) => void;
-}) {
-  const [form, setForm] = useState<Partial<VoiceRoom>>(() => ({
-    name: room.name,
-    description: room.description,
-    roomMode: room.roomMode,
-    roomPassword: room.roomPassword,
-    chatMuted: room.chatMuted,
-    isAutoMode: room.isAutoMode,
-    giftSplit: room.giftSplit,
-    announcement: room.announcement,
-    micTheme: room.micTheme,
-    bgmEnabled: room.bgmEnabled,
-  }));
+  const [micCount, setMicCount] = useState(room.micSeatCount);
+  const [guestMic, setGuestMic] = useState(false);
+  const [memberMic, setMemberMic] = useState(true);
+  const [roomType, setRoomType] = useState<RoomMode>(room.roomMode);
+  const [kickDuration] = useState(10);
   const [saving, setSaving] = useState(false);
+
+  const roomTypes: { value: RoomMode; label: string; icon: string }[] = [
+    { value: 'public', label: 'عامة', icon: '🔓' },
+    { value: 'private', label: 'خاصة', icon: '🔒' },
+    { value: 'key', label: 'مقيّدة', icon: '🔑' },
+  ];
 
   const handleSave = async () => {
     setSaving(true);
-    await onUpdate(form);
+    await onUpdate({
+      micSeatCount: micCount,
+      roomMode: roomType,
+    });
     setSaving(false);
     onClose();
   };
 
-  return (
-    <SlideUpPanel isOpen={isOpen} onClose={onClose} title="إعدادات الغرفة" icon={<Settings className="w-4 h-4 text-purple-400" />}>
-      <div className="space-y-4">
-        {/* Room Name */}
-        <div>
-          <label className="text-xs text-slate-400 mb-1 block">اسم الغرفة</label>
-          <Input
-            value={form.name || ''}
-            onChange={(e) => setForm({ ...form, name: e.target.value })}
-            className="h-9 text-sm bg-slate-800 border-slate-700 text-white"
-            disabled={!isOwner}
-          />
-        </div>
-
-        {/* Description */}
-        <div>
-          <label className="text-xs text-slate-400 mb-1 block">الوصف</label>
-          <Input
-            value={form.description || ''}
-            onChange={(e) => setForm({ ...form, description: e.target.value })}
-            className="h-9 text-sm bg-slate-800 border-slate-700 text-white"
-          />
-        </div>
-
-        {/* Mic Theme */}
-        <div>
-          <label className="text-xs text-slate-400 mb-1.5 block">سمة المايك</label>
-          <div className="grid grid-cols-3 gap-2">
-            {MIC_THEMES.map((theme) => (
-              <button
-                key={theme.value}
-                onClick={() => setForm({ ...form, micTheme: theme.value })}
-                className={`p-2 rounded-xl border text-center transition-all text-[10px] ${
-                  form.micTheme === theme.value
-                    ? 'border-purple-500/50 bg-purple-500/10 text-purple-300'
-                    : 'border-slate-700/50 bg-slate-800/40 text-slate-400 hover:border-slate-600'
-                }`}
-              >
-                <div className={`w-full h-6 rounded-lg bg-gradient-to-r ${theme.gradient} mb-1`} />
-                {theme.label}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Room Mode */}
-        <div>
-          <label className="text-xs text-slate-400 mb-1.5 block">نوع الغرفة</label>
-          <div className="grid grid-cols-3 gap-2">
-            {ROOM_MODE_OPTIONS.map((opt) => {
-              const Icon = opt.icon;
-              return (
-                <button
-                  key={opt.value}
-                  onClick={() => isOwner && setForm({ ...form, roomMode: opt.value })}
-                  disabled={!isOwner}
-                  className={`p-2 rounded-xl border text-center transition-all text-[10px] ${
-                    form.roomMode === opt.value
-                      ? 'border-purple-500/50 bg-purple-500/10 text-purple-300'
-                      : 'border-slate-700/50 bg-slate-800/40 text-slate-400 hover:border-slate-600'
-                  } ${!isOwner ? 'opacity-50 cursor-not-allowed' : ''}`}
-                >
-                  <Icon className="w-4 h-4 mx-auto mb-1" />
-                  {opt.label}
-                </button>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* Password (key mode) */}
-        {form.roomMode === 'key' && (
-          <div>
-            <label className="text-xs text-slate-400 mb-1 block">كلمة المرور</label>
-            <Input
-              value={form.roomPassword || ''}
-              onChange={(e) => setForm({ ...form, roomPassword: e.target.value })}
-              placeholder="كلمة المرور"
-              className="h-9 text-sm bg-slate-800 border-slate-700 text-white"
-              disabled={!isOwner}
-            />
-          </div>
-        )}
-
-        {/* Toggles */}
-        <div className="space-y-2">
-          <div className="flex items-center justify-between bg-slate-800/40 rounded-xl p-3">
-            <div className="flex items-center gap-2">
-              <VolumeX className="w-4 h-4 text-slate-400" />
-              <div>
-                <span className="text-xs text-slate-300">كتم المحادثة</span>
-                <p className="text-[9px] text-slate-500">منع الجميع من الكتابة</p>
-              </div>
-            </div>
-            <Switch checked={form.chatMuted} onCheckedChange={(v) => setForm({ ...form, chatMuted: v })} />
-          </div>
-
-          <div className="flex items-center justify-between bg-slate-800/40 rounded-xl p-3">
-            <div className="flex items-center gap-2">
-              <Zap className="w-4 h-4 text-slate-400" />
-              <div>
-                <span className="text-xs text-slate-300">وضع تلقائي</span>
-                <p className="text-[9px] text-slate-500">تعيين المقاعد تلقائياً</p>
-              </div>
-            </div>
-            <Switch checked={form.isAutoMode} onCheckedChange={(v) => setForm({ ...form, isAutoMode: v })} />
-          </div>
-
-          <div className="flex items-center justify-between bg-slate-800/40 rounded-xl p-3">
-            <div className="flex items-center gap-2">
-              <Volume2 className="w-4 h-4 text-slate-400" />
-              <div>
-                <span className="text-xs text-slate-300">موسيقى خلفية</span>
-              </div>
-            </div>
-            <Switch checked={form.bgmEnabled} onCheckedChange={(v) => setForm({ ...form, bgmEnabled: v })} />
-          </div>
-        </div>
-
-        {/* Gift Split */}
-        <div>
-          <label className="text-xs text-slate-400 mb-1 block">نسبة توزيع الهدايا: {form.giftSplit || 0}%</label>
-          <input
-            type="range"
-            min={0}
-            max={100}
-            value={form.giftSplit || 0}
-            onChange={(e) => setForm({ ...form, giftSplit: Number(e.target.value) })}
-            className="w-full accent-purple-500"
-          />
-        </div>
-
-        {/* Announcement */}
-        <div>
-          <label className="text-xs text-slate-400 mb-1 block">إعلان الغرفة</label>
-          <Input
-            value={form.announcement || ''}
-            onChange={(e) => setForm({ ...form, announcement: e.target.value })}
-            placeholder="أضف إعلاناً للمشاركين..."
-            className="h-9 text-sm bg-slate-800 border-slate-700 text-white"
-          />
-        </div>
-
-        <Button onClick={handleSave} disabled={saving} className="w-full bg-purple-600 hover:bg-purple-500 rounded-xl">
-          {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : 'حفظ الإعدادات'}
-        </Button>
-      </div>
-    </SlideUpPanel>
-  );
-}
-
-/* ═══════════════════════════════════════════════════════════════════════
-   WAITLIST PANEL
-   ═══════════════════════════════════════════════════════════════════════ */
-
-function WaitlistPanel({
-  isOpen, onClose, waitlist, onApprove, onReject,
-}: {
-  isOpen: boolean; onClose: () => void; waitlist: RoomWaitlist[];
-  onApprove: (waitlistId: string) => void; onReject: (waitlistId: string) => void;
-}) {
-  return (
-    <SlideUpPanel
-      isOpen={isOpen}
-      onClose={onClose}
-      title={`قائمة الانتظار (${waitlist.length})`}
-      icon={<Clock className="w-4 h-4 text-yellow-400" />}
-    >
-      {waitlist.length === 0 ? (
-        <p className="text-center text-xs text-slate-600 py-8">لا يوجد أحد في قائمة الانتظار</p>
-      ) : (
-        <div className="space-y-2">
-          {waitlist.map((w) => (
-            <div key={w.id} className="flex items-center gap-3 bg-slate-800/40 rounded-xl p-3 border border-slate-700/30">
-              <div className={`w-10 h-10 rounded-full bg-gradient-to-br ${getAvatarGradient(w.userId)} flex items-center justify-center overflow-hidden flex-shrink-0`}>
-                {w.avatar ? (
-                  <img src={w.avatar} alt="" className="w-full h-full rounded-full object-cover" />
-                ) : (
-                  <span className="text-sm font-bold text-white">{w.displayName.charAt(0)}</span>
-                )}
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-white truncate">{w.displayName}</p>
-                <p className="text-[10px] text-slate-500">مقعد {w.requestedSeat >= 0 ? w.requestedSeat + 1 : 'أي مقعد'} · {formatTime(w.createdAt)}</p>
-              </div>
-              {w.vipLevel > 0 && (
-                <Badge className="bg-amber-500/20 text-amber-400 border-amber-500/40 text-[9px] px-1.5">
-                  VIP{w.vipLevel}
-                </Badge>
-              )}
-              <div className="flex gap-1.5 flex-shrink-0">
-                <Button size="sm" onClick={() => onApprove(w.id)} className="h-7 px-2 bg-emerald-600 hover:bg-emerald-500 text-[10px]">
-                  <Check className="w-3 h-3 ml-0.5" /> قبول
-                </Button>
-                <Button size="sm" onClick={() => onReject(w.id)} variant="ghost" className="h-7 px-2 text-red-400 hover:bg-red-500/10 text-[10px]">
-                  <X className="w-3 h-3" />
-                </Button>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-    </SlideUpPanel>
-  );
-}
-
-/* ═══════════════════════════════════════════════════════════════════════
-   ACTION LOG PANEL
-   ═══════════════════════════════════════════════════════════════════════ */
-
-function ActionLogPanel({
-  isOpen, onClose, logs,
-}: {
-  isOpen: boolean; onClose: () => void; logs: RoomActionLog[];
-}) {
-  return (
-    <SlideUpPanel
-      isOpen={isOpen}
-      onClose={onClose}
-      title="سجل الأحداث"
-      icon={<ScrollText className="w-4 h-4 text-slate-400" />}
-    >
-      {logs.length === 0 ? (
-        <p className="text-center text-xs text-slate-600 py-8">لا توجد أحداث بعد</p>
-      ) : (
-        <div className="space-y-2 max-h-[50vh] overflow-y-auto">
-          {logs.map((log) => (
-            <div key={log.id} className="flex items-start gap-2 bg-slate-800/30 rounded-lg p-2.5">
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-1.5 flex-wrap">
-                  <span className="text-[10px] font-medium text-purple-300">{log.actorName}</span>
-                  <span className={`text-[10px] ${getActionColor(log.action)}`}>{log.action}</span>
-                  {log.targetName && (
-                    <span className="text-[10px] font-medium text-slate-300">{log.targetName}</span>
-                  )}
-                </div>
-                {log.details && (
-                  <p className="text-[9px] text-slate-500 mt-0.5">{log.details}</p>
-                )}
-                <span className="text-[8px] text-slate-600">{formatTime(log.createdAt)}</span>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-    </SlideUpPanel>
-  );
-}
-
-/* ═══════════════════════════════════════════════════════════════════════
-   USER PROFILE MENU
-   ═══════════════════════════════════════════════════════════════════════ */
-
-function UserProfileMenu({
-  isOpen, onClose, participant, myRole, currentUserId,
-  onAction,
-}: {
-  isOpen: boolean; onClose: () => void; participant: VoiceRoomParticipant;
-  myRole: RoomRole; currentUserId: string;
-  onAction: (action: string, data?: Record<string, unknown>) => void;
-}) {
-  const isSelf = participant.userId === currentUserId;
-  const RoleIcon = ROLE_ICONS[participant.role];
+  useEffect(() => {
+    if (isOpen) {
+      setMicCount(room.micSeatCount);
+      setRoomType(room.roomMode);
+    }
+  }, [isOpen, room]);
 
   return (
-    <AnimatePresence>
-      {isOpen && (
-        <>
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/60 z-50"
-            onClick={onClose}
-          />
-          <motion.div
-            initial={{ y: '100%' }}
-            animate={{ y: 0 }}
-            exit={{ y: '100%' }}
-            transition={{ type: 'spring', damping: 30, stiffness: 300 }}
-            className="fixed bottom-0 left-0 right-0 z-50 bg-slate-900 border-t border-slate-700/50 rounded-t-3xl"
-          >
-            <div className="flex justify-center pt-2 pb-1">
-              <div className="w-10 h-1 bg-slate-700 rounded-full" />
-            </div>
+    <BottomSheetOverlay isOpen={isOpen} onClose={onClose}>
+      <div className="max-h-[85vh] flex flex-col pb-6">
+        {/* Title */}
+        <div className="text-[15px] font-bold text-center text-[#f0f0f8] px-4 pb-3.5 border-b border-[rgba(255,255,255,0.07)] mb-2">
+          إعدادات الغرفة
+        </div>
 
-            <div className="px-4 pb-3 pt-1 border-b border-slate-800/50 flex items-center justify-between">
-              <h3 className="text-sm font-bold text-white">الملف الشخصي</h3>
-              <Button size="sm" variant="ghost" className="h-7 w-7 p-0 text-slate-400" onClick={onClose}>
-                <X className="w-4 h-4" />
-              </Button>
-            </div>
-
-            <div className="p-4 space-y-4">
-              {/* User info */}
-              <div className="flex items-center gap-3">
-                <UserAvatar
-                  userId={participant.userId}
-                  avatar={participant.avatar}
-                  displayName={participant.displayName}
-                  border={`border-2 ${ROLE_BG[participant.role].split(' ')[1]}`}
-                  showStatus
-                  isMuted={participant.isMuted}
-                  micFrozen={participant.micFrozen}
-                />
-                <div className="flex-1">
-                  <div className="flex items-center gap-1.5">
-                    <span className="font-bold text-white text-sm">{participant.displayName}</span>
-                    <div className={`flex items-center gap-0.5 px-1.5 py-0.5 rounded-full border ${ROLE_BG[participant.role]}`}>
-                      <RoleIcon className="w-3 h-3" />
-                      <span className={`text-[9px] font-medium ${ROLE_COLORS[participant.role]}`}>
-                        {ROLE_LABELS[participant.role]}
-                      </span>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2 mt-0.5">
-                    <span className="text-[10px] text-slate-500">@{participant.username}</span>
-                    {participant.vipLevel > 0 && (
-                      <Badge className="bg-amber-500/20 text-amber-400 border-amber-500/40 text-[9px] px-1.5 h-4">
-                        VIP{participant.vipLevel}
-                      </Badge>
-                    )}
-                    {participant.seatIndex >= 0 && (
-                      <span className="text-[9px] text-slate-500">مقعد {participant.seatIndex + 1}</span>
-                    )}
-                  </div>
-                </div>
+        <div className="flex-1 overflow-y-auto scrollbar-hide px-4">
+          {/* Section: Mic count */}
+          <div className="mb-3.5">
+            <div className="text-[11px] text-[#5a6080] font-semibold mb-2">عدد المايكات</div>
+            <div className="flex items-center justify-between bg-[#1c2035] rounded-xl px-3.5 py-3">
+              <div className="flex items-center gap-2.5">
+                <span className="text-base">🎙</span>
+                <span className="text-[13px] font-semibold text-[#f0f0f8]">المقاعد الصوتية</span>
               </div>
-
-              {/* Actions */}
-              {!isSelf && (
-                <div className="space-y-1">
-                  <p className="text-[10px] text-slate-500 font-medium uppercase tracking-wider mb-2">إجراءات</p>
-
+              <div className="flex gap-1.5">
+                {MIC_OPTIONS.map(n => (
                   <button
-                    onClick={() => { onAction('gift'); onClose(); }}
-                    className="w-full flex items-center gap-2.5 p-2.5 rounded-xl hover:bg-slate-800/60 transition-colors text-right"
+                    key={n}
+                    onClick={() => setMicCount(n)}
+                    className={`px-3 py-1 rounded-lg border text-[12px] font-bold transition-all ${
+                      micCount === n
+                        ? 'bg-[#6c63ff] border-[#6c63ff] text-white'
+                        : 'bg-[#1c2035] border-[rgba(255,255,255,0.07)] text-[#9ca3c4]'
+                    }`}
                   >
-                    <div className="w-8 h-8 rounded-lg bg-amber-500/20 flex items-center justify-center">
-                      <Gift className="w-4 h-4 text-amber-400" />
-                    </div>
-                    <span className="text-xs text-slate-300">إرسال هدية</span>
+                    {n}
                   </button>
-
-                  {canDo('kick-from-mic', myRole) && participant.seatIndex >= 0 && (
-                    <button
-                      onClick={() => { onAction('kick-from-mic'); onClose(); }}
-                      className="w-full flex items-center gap-2.5 p-2.5 rounded-xl hover:bg-red-500/10 transition-colors text-right"
-                    >
-                      <div className="w-8 h-8 rounded-lg bg-red-500/20 flex items-center justify-center">
-                        <MicOff className="w-4 h-4 text-red-400" />
-                      </div>
-                      <span className="text-xs text-red-300">طرده من المايك</span>
-                    </button>
-                  )}
-
-                  {canDo('kick-from-room', myRole) && (
-                    <button
-                      onClick={() => { onAction('kick-from-room'); onClose(); }}
-                      className="w-full flex items-center gap-2.5 p-2.5 rounded-xl hover:bg-red-500/10 transition-colors text-right"
-                    >
-                      <div className="w-8 h-8 rounded-lg bg-red-500/20 flex items-center justify-center">
-                        <UserMinus className="w-4 h-4 text-red-400" />
-                      </div>
-                      <span className="text-xs text-red-300">طرده من الغرفة</span>
-                    </button>
-                  )}
-
-                  {canDo('ban', myRole) && (
-                    <button
-                      onClick={() => { onAction('ban'); onClose(); }}
-                      className="w-full flex items-center gap-2.5 p-2.5 rounded-xl hover:bg-red-500/10 transition-colors text-right"
-                    >
-                      <div className="w-8 h-8 rounded-lg bg-red-600/20 flex items-center justify-center">
-                        <Ban className="w-4 h-4 text-red-500" />
-                      </div>
-                      <span className="text-xs text-red-400">حظره من الغرفة</span>
-                    </button>
-                  )}
-
-                  {canDo('freeze-mic', myRole) && participant.seatIndex >= 0 && (
-                    <button
-                      onClick={() => { onAction('freeze-seat'); onClose(); }}
-                      className="w-full flex items-center gap-2.5 p-2.5 rounded-xl hover:bg-blue-500/10 transition-colors text-right"
-                    >
-                      <div className="w-8 h-8 rounded-lg bg-blue-500/20 flex items-center justify-center">
-                        <Snowflake className="w-4 h-4 text-blue-400" />
-                      </div>
-                      <span className="text-xs text-blue-300">
-                        {participant.micFrozen ? 'إلغاء تجميد المايك' : 'تجميد المايك'}
-                      </span>
-                    </button>
-                  )}
-
-                  {/* Change Role */}
-                  {myRole === 'owner' && participant.role !== 'owner' && (
-                    <div className="pt-2 border-t border-slate-800/50">
-                      <p className="text-[10px] text-slate-500 font-medium uppercase tracking-wider mb-2">تغيير الدور</p>
-                      <div className="grid grid-cols-2 gap-1.5">
-                        {(['coowner', 'admin', 'member', 'visitor'] as RoomRole[]).map((role) => (
-                          <button
-                            key={role}
-                            onClick={() => { onAction('change-role', { newRole: role }); onClose(); }}
-                            disabled={participant.role === role}
-                            className={`flex items-center gap-1.5 p-2 rounded-lg text-[10px] transition-colors ${
-                              participant.role === role
-                                ? 'bg-slate-800/60 text-slate-500'
-                                : 'bg-slate-800/30 hover:bg-slate-700/40 text-slate-300'
-                            }`}
-                          >
-                            {(() => { const I = ROLE_ICONS[role]; return <I className="w-3 h-3" />; })()}
-                            {ROLE_LABELS[role]}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {(myRole === 'owner' || myRole === 'coowner') && participant.role !== 'owner' && participant.role !== 'coowner' && (
-                    <div className="pt-2 border-t border-slate-800/50">
-                      <div className="grid grid-cols-2 gap-1.5">
-                        {(['admin', 'member', 'visitor'] as RoomRole[]).map((role) => (
-                          <button
-                            key={role}
-                            onClick={() => { onAction('change-role', { newRole: role }); onClose(); }}
-                            disabled={participant.role === role}
-                            className={`flex items-center gap-1.5 p-2 rounded-lg text-[10px] transition-colors ${
-                              participant.role === role
-                                ? 'bg-slate-800/60 text-slate-500'
-                                : 'bg-slate-800/30 hover:bg-slate-700/40 text-slate-300'
-                            }`}
-                          >
-                            {(() => { const I = ROLE_ICONS[role]; return <I className="w-3 h-3" />; })()}
-                            {ROLE_LABELS[role]}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Transfer ownership (owner only) */}
-                  {myRole === 'owner' && (
-                    <div className="pt-2 border-t border-slate-800/50">
-                      <button
-                        onClick={() => { onAction('transfer-ownership'); onClose(); }}
-                        className="w-full flex items-center gap-2.5 p-2.5 rounded-xl hover:bg-amber-500/10 transition-colors text-right"
-                      >
-                        <div className="w-8 h-8 rounded-lg bg-amber-500/20 flex items-center justify-center">
-                          <Crown className="w-4 h-4 text-amber-400" />
-                        </div>
-                        <span className="text-xs text-amber-300">نقل الملكية</span>
-                      </button>
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* Self actions */}
-              {isSelf && participant.seatIndex >= 0 && (
-                <div className="space-y-1">
-                  <p className="text-[10px] text-slate-500 font-medium uppercase tracking-wider mb-2">إجراءاتي</p>
-                  <button
-                    onClick={() => { onAction('leave-seat'); onClose(); }}
-                    className="w-full flex items-center gap-2.5 p-2.5 rounded-xl hover:bg-slate-800/60 transition-colors text-right"
-                  >
-                    <div className="w-8 h-8 rounded-lg bg-slate-700/30 flex items-center justify-center">
-                      <LogOut className="w-4 h-4 text-slate-400" />
-                    </div>
-                    <span className="text-xs text-slate-300">مغادرة المقعد</span>
-                  </button>
-                </div>
-              )}
+                ))}
+              </div>
             </div>
-          </motion.div>
-        </>
-      )}
-    </AnimatePresence>
-  );
-}
+          </div>
 
-/* ═══════════════════════════════════════════════════════════════════════
-   SEAT CONTEXT MENU (for admins on empty seats)
-   ═══════════════════════════════════════════════════════════════════════ */
-
-function SeatContextMenu({
-  isOpen, onClose, seatIndex, currentStatus, onSetStatus,
-}: {
-  isOpen: boolean; onClose: () => void; seatIndex: number;
-  currentStatus: SeatStatus; onSetStatus: (seatIndex: number, status: SeatStatus) => void;
-}) {
-  const statuses: SeatStatus[] = ['open', 'locked', 'request', 'reserved'];
-  const labels: Record<SeatStatus, string> = {
-    open: 'متاح', locked: 'مقفل', request: 'طلب', reserved: 'محجوز',
-  };
-
-  return (
-    <AnimatePresence>
-      {isOpen && (
-        <>
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50"
-            onClick={onClose}
-          />
-          <motion.div
-            initial={{ opacity: 0, scale: 0.9 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.9 }}
-            className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-50 bg-slate-800 border border-slate-700 rounded-2xl p-3 shadow-2xl min-w-[160px]"
-          >
-            <p className="text-xs text-slate-400 mb-2 text-center">مقعد {seatIndex + 1}</p>
+          {/* Section: Mic permissions */}
+          <div className="mb-3.5">
+            <div className="text-[11px] text-[#5a6080] font-semibold mb-2">صلاحيات الصعود للمايك</div>
             <div className="space-y-1">
-              {statuses.map((s) => {
-                const cfg = SEAT_STATUS_CONFIG[s];
-                const Icon = cfg.icon;
-                return (
-                  <button
-                    key={s}
-                    onClick={() => { onSetStatus(seatIndex, s); onClose(); }}
-                    className={`w-full flex items-center gap-2 p-2 rounded-lg text-xs transition-colors ${
-                      currentStatus === s ? 'bg-purple-500/20 text-purple-300' : 'hover:bg-slate-700/50 text-slate-300'
-                    }`}
-                  >
-                    <Icon className="w-3.5 h-3.5" />
-                    {labels[s]}
-                  </button>
-                );
-              })}
-            </div>
-          </motion.div>
-        </>
-      )}
-    </AnimatePresence>
-  );
-}
-
-/* ═══════════════════════════════════════════════════════════════════════
-   ROOM CARD (List View)
-   ═══════════════════════════════════════════════════════════════════════ */
-
-function RoomCard({
-  room, index, onClick,
-}: {
-  room: VoiceRoom; index: number; onClick: () => void;
-}) {
-  const gradients = [
-    'from-purple-600/20 to-pink-600/20',
-    'from-cyan-600/20 to-blue-600/20',
-    'from-emerald-600/20 to-teal-600/20',
-    'from-amber-600/20 to-orange-600/20',
-    'from-rose-600/20 to-red-600/20',
-    'from-violet-600/20 to-fuchsia-600/20',
-  ];
-  const modeIcon = room.roomMode === 'public' ? Globe : room.roomMode === 'key' ? Key : EyeOff;
-  const ModeIcon = modeIcon;
-  const modeLabel = room.roomMode === 'public' ? 'عام' : room.roomMode === 'key' ? 'بكلمة سر' : 'خاص';
-  const modeColor = room.roomMode === 'public' ? 'text-green-400 bg-green-500/20' : room.roomMode === 'key' ? 'text-yellow-400 bg-yellow-500/20' : 'text-red-400 bg-red-500/20';
-
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 15 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ delay: index * 0.04 }}
-    >
-      <Card
-        className="bg-gradient-to-br border-slate-800/50 hover:border-purple-500/30 transition-all cursor-pointer overflow-hidden group"
-        style={{ backgroundImage: `linear-gradient(to bottom left, var(--tw-gradient-stops))` }}
-        onClick={onClick}
-      >
-        <div className={`bg-gradient-to-br ${gradients[index % gradients.length]}`}>
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between mb-3">
-              <div className="flex items-center gap-2.5 flex-1 min-w-0">
-                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-purple-500 to-pink-600 flex items-center justify-center shadow-lg shadow-purple-500/20 flex-shrink-0">
-                  <Radio className="w-5 h-5 text-white" />
+              <button
+                onClick={() => setGuestMic(!guestMic)}
+                className="w-full flex items-center justify-between bg-[#1c2035] rounded-xl px-3.5 py-3 hover:bg-[#232843] active:bg-[#232843] transition-colors"
+              >
+                <div className="flex items-center gap-2.5">
+                  <span className="text-base">👤</span>
+                  <span className="text-[13px] font-semibold text-[#f0f0f8]">الزوار يصعدون للمايك</span>
                 </div>
-                <div className="min-w-0 flex-1">
-                  <h3 className="font-bold text-white text-sm truncate">{room.name}</h3>
-                  <p className="text-[10px] text-slate-400 truncate">بقلم {room.hostName}</p>
+                <div className={`w-9 h-5 rounded-full transition-all relative flex-shrink-0 ${guestMic ? 'bg-[#22c55e]' : 'bg-[#5a6080]'}`}>
+                  <div className={`w-4 h-4 rounded-full bg-white absolute top-0.5 transition-all ${guestMic ? 'left-[18px]' : 'left-0.5'}`} />
                 </div>
+              </button>
+              <button
+                onClick={() => setMemberMic(!memberMic)}
+                className="w-full flex items-center justify-between bg-[#1c2035] rounded-xl px-3.5 py-3 hover:bg-[#232843] active:bg-[#232843] transition-colors"
+              >
+                <div className="flex items-center gap-2.5">
+                  <span className="text-base">⭐</span>
+                  <span className="text-[13px] font-semibold text-[#f0f0f8]">الأعضاء يصعدون مباشرة</span>
+                </div>
+                <div className={`w-9 h-5 rounded-full transition-all relative flex-shrink-0 ${memberMic ? 'bg-[#22c55e]' : 'bg-[#5a6080]'}`}>
+                  <div className={`w-4 h-4 rounded-full bg-white absolute top-0.5 transition-all ${memberMic ? 'left-[18px]' : 'left-0.5'}`} />
+                </div>
+              </button>
+            </div>
+          </div>
+
+          {/* Section: Privacy */}
+          <div className="mb-3.5">
+            <div className="text-[11px] text-[#5a6080] font-semibold mb-2">خصوصية الغرفة</div>
+            <div className="space-y-1">
+              <button
+                onClick={() => {
+                  const idx = roomTypes.findIndex(r => r.value === roomType);
+                  setRoomType(roomTypes[(idx + 1) % roomTypes.length].value);
+                }}
+                className="w-full flex items-center justify-between bg-[#1c2035] rounded-xl px-3.5 py-3 hover:bg-[#232843] active:bg-[#232843] transition-colors"
+              >
+                <div className="flex items-center gap-2.5">
+                  <span className="text-base">{roomTypes.find(r => r.value === roomType)?.icon || '🔓'}</span>
+                  <span className="text-[13px] font-semibold text-[#f0f0f8]">نوع الغرفة</span>
+                </div>
+                <span className="text-[12px] text-[#5a6080]">
+                  {roomTypes.find(r => r.value === roomType)?.label}
+                </span>
+              </button>
+              <div className="flex items-center justify-between bg-[#1c2035] rounded-xl px-3.5 py-3">
+                <div className="flex items-center gap-2.5">
+                  <span className="text-base">⏱</span>
+                  <span className="text-[13px] font-semibold text-[#f0f0f8]">مدة الطرد المؤقت</span>
+                </div>
+                <span className="text-[12px] text-[#5a6080]">{kickDuration} دقائق</span>
               </div>
             </div>
-
-            {room.description && (
-              <p className="text-[10px] text-slate-500 line-clamp-2 mb-2">{room.description}</p>
-            )}
-
-            <div className="flex items-center gap-1.5 flex-wrap">
-              <Badge className={`${modeColor} border-0 text-[9px] px-1.5 h-4 flex items-center gap-0.5`}>
-                <ModeIcon className="w-2.5 h-2.5" /> {modeLabel}
-              </Badge>
-              {room.roomLevel > 0 && (
-                <Badge className="bg-amber-500/20 text-amber-400 border-0 text-[9px] px-1.5 h-4">
-                  Lv.{room.roomLevel}
-                </Badge>
-              )}
-            </div>
-
-            <div className="flex items-center justify-between mt-3 pt-2 border-t border-slate-800/40">
-              <div className="flex items-center gap-1">
-                <Users className="w-3 h-3 text-slate-500" />
-                <span className="text-[10px] text-slate-400">{room.participantCount || 0} / {room.maxParticipants}</span>
-              </div>
-              <div className="flex items-center gap-1">
-                <Mic className="w-3 h-3 text-slate-500" />
-                <span className="text-[10px] text-slate-400">{room.micSeatCount} مقعد</span>
-              </div>
-              {(room.participantCount || 0) > 0 && (
-                <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-              )}
-            </div>
-          </CardContent>
-        </div>
-      </Card>
-    </motion.div>
-  );
-}
-
-/* ═══════════════════════════════════════════════════════════════════════
-   CREATE ROOM DIALOG
-   ═══════════════════════════════════════════════════════════════════════ */
-
-function CreateRoomDialog({
-  open, onOpenChange, onCreate, loading,
-}: {
-  open: boolean; onOpenChange: (v: boolean) => void;
-  onCreate: (data: Record<string, unknown>) => void; loading: boolean;
-}) {
-  const [form, setForm] = useState({
-    name: '',
-    description: '',
-    maxParticipants: 50,
-    roomMode: 'public' as RoomMode,
-    roomPassword: '',
-    micSeatCount: 10,
-    isAutoMode: true,
-    micTheme: 'default',
-  });
-
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogTrigger asChild>
-        <Button className="bg-gradient-to-l from-purple-600 to-purple-700 hover:from-purple-500 hover:to-purple-600 text-white shadow-lg shadow-purple-500/20 rounded-xl">
-          <Plus className="w-4 h-4 ml-1.5" />
-          إنشاء غرفة
-        </Button>
-      </DialogTrigger>
-      <DialogContent className="bg-slate-900 border-slate-800 text-white sm:max-w-md max-h-[90vh] overflow-y-auto" dir="rtl">
-        <DialogHeader>
-          <DialogTitle className="text-white flex items-center gap-2">
-            <Radio className="w-5 h-5 text-purple-400" />
-            إنشاء غرفة صوتية
-          </DialogTitle>
-        </DialogHeader>
-
-        <div className="space-y-4 mt-2">
-          <Input
-            placeholder="اسم الغرفة"
-            value={form.name}
-            onChange={(e) => setForm({ ...form, name: e.target.value })}
-            className="bg-slate-800 border-slate-700 text-white placeholder:text-slate-500"
-          />
-          <Input
-            placeholder="الوصف (اختياري)"
-            value={form.description}
-            onChange={(e) => setForm({ ...form, description: e.target.value })}
-            className="bg-slate-800 border-slate-700 text-white placeholder:text-slate-500"
-          />
-
-          {/* Room Mode */}
-          <div>
-            <label className="text-xs text-slate-300 mb-1.5 block font-medium">نوع الغرفة</label>
-            <div className="grid grid-cols-3 gap-2">
-              {ROOM_MODE_OPTIONS.map((opt) => {
-                const Icon = opt.icon;
-                return (
-                  <button
-                    key={opt.value}
-                    onClick={() => setForm({ ...form, roomMode: opt.value })}
-                    className={`p-3 rounded-xl border transition-all text-center ${
-                      form.roomMode === opt.value
-                        ? 'bg-purple-500/20 border-purple-500/50 text-purple-300'
-                        : 'bg-slate-800/60 border-slate-700/50 text-slate-400 hover:border-slate-600'
-                    }`}
-                  >
-                    <Icon className="w-5 h-5 mx-auto mb-1" />
-                    <p className="text-xs font-bold">{opt.label}</p>
-                    <p className="text-[9px] mt-0.5 opacity-70">{opt.desc}</p>
-                  </button>
-                );
-              })}
-            </div>
           </div>
 
-          {/* Password (key mode) */}
-          {form.roomMode === 'key' && (
-            <Input
-              placeholder="كلمة المرور"
-              value={form.roomPassword}
-              onChange={(e) => setForm({ ...form, roomPassword: e.target.value })}
-              className="bg-slate-800 border-slate-700 text-white placeholder:text-slate-500"
-            />
-          )}
-
-          {/* Mic Layout */}
-          <div>
-            <label className="text-xs text-slate-300 mb-1.5 block font-medium">
-              <Mic className="w-4 h-4 inline ml-1 text-purple-400" />
-              توزيع المقاعد
-            </label>
-            <div className="grid grid-cols-2 gap-2">
-              {MIC_LAYOUTS.map((layout) => (
-                <button
-                  key={layout.value}
-                  onClick={() => setForm({ ...form, micSeatCount: layout.value })}
-                  className={`p-3 rounded-xl border transition-all text-right ${
-                    form.micSeatCount === layout.value
-                      ? 'bg-purple-500/20 border-purple-500/50 text-purple-300'
-                      : 'bg-slate-800/60 border-slate-700/50 text-slate-400 hover:border-slate-600'
-                  }`}
-                >
-                  <p className="text-sm font-bold">{layout.label}</p>
-                  <p className="text-[10px] mt-0.5 opacity-70">{layout.desc}</p>
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Max participants */}
-          <div>
-            <label className="text-xs text-slate-300 mb-1 block font-medium">
-              <Users className="w-4 h-4 inline ml-1 text-purple-400" />
-              الحد الأقصى للمشاركين
-            </label>
-            <Input
-              type="number"
-              min={2}
-              max={500}
-              value={form.maxParticipants}
-              onChange={(e) => setForm({ ...form, maxParticipants: parseInt(e.target.value) || 50 })}
-              className="bg-slate-800 border-slate-700 text-white"
-            />
-          </div>
-
-          {/* Auto mode */}
-          <div className="flex items-center justify-between bg-slate-800/40 rounded-xl p-3">
-            <div className="flex items-center gap-2">
-              <Zap className="w-4 h-4 text-purple-400" />
-              <div>
-                <span className="text-xs text-slate-300">وضع تلقائي</span>
-                <p className="text-[9px] text-slate-500">تعيين المقاعد تلقائياً</p>
-              </div>
-            </div>
-            <Switch checked={form.isAutoMode} onCheckedChange={(v) => setForm({ ...form, isAutoMode: v })} />
-          </div>
-
-          {/* Mic Theme */}
-          <div>
-            <label className="text-xs text-slate-300 mb-1.5 block">سمة المايك</label>
-            <div className="grid grid-cols-3 gap-2">
-              {MIC_THEMES.map((theme) => (
-                <button
-                  key={theme.value}
-                  onClick={() => setForm({ ...form, micTheme: theme.value })}
-                  className={`p-2 rounded-xl border text-center transition-all text-[10px] ${
-                    form.micTheme === theme.value
-                      ? 'border-purple-500/50 bg-purple-500/10 text-purple-300'
-                      : 'border-slate-700/50 bg-slate-800/40 text-slate-400 hover:border-slate-600'
-                  }`}
-                >
-                  <div className={`w-full h-6 rounded-lg bg-gradient-to-r ${theme.gradient} mb-1`} />
-                  {theme.label}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <Button
-            onClick={() => onCreate(form)}
-            disabled={!form.name.trim() || loading}
-            className="w-full bg-gradient-to-l from-purple-600 to-purple-700 hover:from-purple-500 hover:to-purple-600 text-white font-bold rounded-xl shadow-lg shadow-purple-500/20 disabled:opacity-50"
+          {/* Save button */}
+          <button
+            onClick={handleSave}
+            disabled={saving}
+            className="w-full h-11 rounded-xl font-bold text-[14px] text-white bg-gradient-to-l from-[#6c63ff] to-[#a78bfa] transition-all disabled:opacity-50 flex items-center justify-center gap-2"
           >
-            {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : 'إنشاء الغرفة'}
+            {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : 'حفظ الإعدادات'}
+          </button>
+        </div>
+      </div>
+    </BottomSheetOverlay>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   KICK DURATION DIALOG
+   ═══════════════════════════════════════════════════════════════════════ */
+
+function KickDurationDialog({
+  isOpen, onClose, onConfirm,
+}: {
+  isOpen: boolean;
+  onClose: () => void;
+  onConfirm: (minutes: number) => void;
+}) {
+  const [duration, setDuration] = useState(5);
+  const presets = [
+    { label: '٥ دقائق', value: 5 },
+    { label: '١٥ دقيقة', value: 15 },
+    { label: '٣٠ دقيقة', value: 30 },
+    { label: 'ساعة', value: 60 },
+    { label: '٢٤ ساعة', value: 1440 },
+  ];
+
+  return (
+    <Dialog open={isOpen} onOpenChange={(v) => !v && onClose()}>
+      <DialogContent className="bg-[#181c2e] border-[rgba(108,99,255,0.18)] text-[#f0f0f8] max-w-sm mx-auto" dir="rtl">
+        <DialogHeader>
+          <DialogTitle className="text-right text-base">مدة الطرد المؤقت</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-3 mt-2">
+          {presets.map((p) => (
+            <button
+              key={p.value}
+              onClick={() => setDuration(p.value)}
+              className={`w-full px-4 py-3 rounded-xl border text-sm transition-all ${
+                duration === p.value
+                  ? 'border-[#f59e0b]/50 bg-[rgba(245,158,11,0.1)] text-[#f59e0b]'
+                  : 'border-[rgba(255,255,255,0.07)] bg-[#1c2035] text-[#9ca3c4] hover:border-[rgba(255,255,255,0.15)]'
+              }`}
+            >
+              {p.label}
+            </button>
+          ))}
+          <Button onClick={() => onConfirm(duration)} className="w-full bg-[#ef4444] hover:bg-[#ef4444]/80 rounded-xl mt-2">
+            <Ban className="w-4 h-4 ml-2" /> طرد
           </Button>
         </div>
       </DialogContent>
@@ -1514,1030 +835,1004 @@ function CreateRoomDialog({
 }
 
 /* ═══════════════════════════════════════════════════════════════════════
-   MAIN PAGE COMPONENT
+   PASSWORD DIALOG
    ═══════════════════════════════════════════════════════════════════════ */
 
-export default function VoiceRoomsPage() {
-  const router = useRouter();
-  const { toast } = useToast();
+function PasswordDialog({
+  isOpen, onClose, onSubmit,
+}: {
+  isOpen: boolean;
+  onClose: () => void;
+  onSubmit: (password: string) => void;
+}) {
+  const [pw, setPw] = useState('');
+  return (
+    <Dialog open={isOpen} onOpenChange={(v) => !v && onClose()}>
+      <DialogContent className="bg-[#181c2e] border-[rgba(108,99,255,0.18)] text-[#f0f0f8] max-w-sm mx-auto" dir="rtl">
+        <DialogHeader>
+          <DialogTitle className="text-right text-base">كلمة المرور</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-3 mt-2">
+          <Input
+            value={pw}
+            onChange={(e) => setPw(e.target.value)}
+            placeholder="أدخل كلمة المرور..."
+            className="h-10 bg-[#1c2035] border-[rgba(255,255,255,0.07)] text-[#f0f0f8] text-center"
+            type="password"
+            onKeyDown={(e) => e.key === 'Enter' && pw && onSubmit(pw)}
+          />
+          <div className="flex gap-2">
+            <Button variant="ghost" onClick={onClose} className="flex-1 rounded-xl text-[#9ca3c4]">إلغاء</Button>
+            <Button onClick={() => pw && onSubmit(pw)} disabled={!pw} className="flex-1 bg-[#22c55e] hover:bg-[#22c55e]/80 rounded-xl">دخول</Button>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
 
-  // Auth
-  const [user, setUser] = useState<AuthUser | null>(null);
-  const [loading, setLoading] = useState(true);
+/* ═══════════════════════════════════════════════════════════════════════
+   CREATE ROOM DIALOG
+   ═══════════════════════════════════════════════════════════════════════ */
 
-  // List view
-  const [rooms, setRooms] = useState<VoiceRoom[]>([]);
-  const [roomsLoading, setRoomsLoading] = useState(true);
-
-  // Room interior
-  const [activeRoom, setActiveRoom] = useState<VoiceRoom | null>(null);
-  const [roomDetails, setRoomDetails] = useState<VoiceRoom | null>(null);
-  const [participants, setParticipants] = useState<VoiceRoomParticipant[]>([]);
-  const [myParticipant, setMyParticipant] = useState<VoiceRoomParticipant | null>(null);
-  const [gifts, setGifts] = useState<Gift[]>([]);
-  const [waitlist, setWaitlist] = useState<RoomWaitlist[]>([]);
-  const [actionLog, setActionLog] = useState<RoomActionLog[]>([]);
-
-  // UI State
-  const [showCreate, setShowCreate] = useState(false);
-  const [creating, setCreating] = useState(false);
-  const [joiningRoom, setJoiningRoom] = useState<string | null>(null);
-  const [joinPassword, setJoinPassword] = useState('');
-  const [showJoinPassword, setShowJoinPassword] = useState<string | null>(null);
-
-  // Panels
-  const [showChat, setShowChat] = useState(false);
-  const [showGift, setShowGift] = useState<string | null>(null); // userId
-  const [showSettings, setShowSettings] = useState(false);
-  const [showWaitlist, setShowWaitlist] = useState(false);
-  const [showActionLog, setShowActionLog] = useState(false);
-  const [showUserProfile, setShowUserProfile] = useState<VoiceRoomParticipant | null>(null);
-  const [showSeatContext, setShowSeatContext] = useState<number | null>(null);
-
-  // Chat
-  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
-  const [chatInput, setChatInput] = useState('');
-
-  // Action loading
-  const [actionLoading, setActionLoading] = useState(false);
-
-  // Polling refs
-  const pollParticipantsRef = useRef<NodeJS.Timeout | null>(null);
-  const pollWaitlistRef = useRef<NodeJS.Timeout | null>(null);
-  const pollActionLogRef = useRef<NodeJS.Timeout | null>(null);
-
-  // ─── Auth ──────────────────────────────────────────────────────────
+function CreateRoomDialog({
+  isOpen, onClose, onCreate,
+}: {
+  isOpen: boolean;
+  onClose: () => void;
+  onCreate: (data: { name: string; description: string; micSeatCount: number; roomMode: RoomMode; roomPassword: string; maxParticipants: number; isAutoMode: boolean; micTheme: string }) => void;
+}) {
+  const [name, setName] = useState('');
+  const [description, setDescription] = useState('');
+  const [micSeatCount, setMicSeatCount] = useState(10);
+  const [roomMode, setRoomMode] = useState<RoomMode>('public');
+  const [roomPassword, setRoomPassword] = useState('');
+  const [maxParticipants, setMaxParticipants] = useState(50);
+  const [isAutoMode, setIsAutoMode] = useState(false);
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    fetch('/api/auth/me')
-      .then((r) => r.json())
-      .then((data) => {
-        if (data.success && data.user) setUser(data.user);
-        else router.push('/');
-        setLoading(false);
-      })
-      .catch(() => {
-        router.push('/');
-        setLoading(false);
-      });
-  }, [router]);
+    if (isOpen) {
+      fetch('/api/voice-rooms/template-create?action=template')
+        .then(r => r.json())
+        .then(d => {
+          if (d.template) {
+            const t = d.template;
+            setName(t.name || '');
+            setDescription(t.description || '');
+            setMicSeatCount(t.micSeatCount || 10);
+            setRoomMode((t.roomMode as RoomMode) || 'public');
+            setRoomPassword(t.roomPassword || '');
+            setMaxParticipants(t.maxParticipants || 50);
+            setIsAutoMode(t.isAutoMode || false);
+          }
+        })
+        .catch(() => {});
+    }
+  }, [isOpen]);
 
-  // ─── Load Rooms ────────────────────────────────────────────────────
+  const handleCreate = async () => {
+    if (!name.trim()) return;
+    setSaving(true);
+    await onCreate({ name, description, micSeatCount, roomMode, roomPassword, maxParticipants, isAutoMode, micTheme: 'default' });
+    setSaving(false);
+    onClose();
+    setName(''); setDescription(''); setRoomPassword('');
+    setMicSeatCount(10); setRoomMode('public'); setMaxParticipants(50); setIsAutoMode(false);
+  };
 
-  const loadRooms = useCallback(async () => {
-    try {
-      setRoomsLoading(true);
-      const res = await fetch('/api/voice-rooms');
-      const data = await res.json();
-      if (data.success) setRooms(data.rooms || []);
-    } catch { /* silent */ }
-    finally { setRoomsLoading(false); }
+  return (
+    <Dialog open={isOpen} onOpenChange={(v) => !v && onClose()}>
+      <DialogContent className="bg-[#181c2e] border-[rgba(108,99,255,0.18)] text-[#f0f0f8] max-w-sm mx-auto max-h-[85vh] overflow-y-auto" dir="rtl">
+        <DialogHeader>
+          <DialogTitle className="text-right text-base">إنشاء غرفة صوتية</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-4 mt-3">
+          <div>
+            <label className="text-xs text-[#5a6080] mb-1 block">اسم الغرفة *</label>
+            <Input
+              value={name} onChange={(e) => setName(e.target.value)}
+              placeholder="أدخل اسم الغرفة"
+              className="h-10 bg-[#1c2035] border-[rgba(255,255,255,0.07)] text-[#f0f0f8]"
+            />
+          </div>
+          <div>
+            <label className="text-xs text-[#5a6080] mb-1 block">الوصف</label>
+            <Input
+              value={description} onChange={(e) => setDescription(e.target.value)}
+              placeholder="وصف مختصر للغرفة"
+              className="h-10 bg-[#1c2035] border-[rgba(255,255,255,0.07)] text-[#f0f0f8]"
+            />
+          </div>
+          <div>
+            <label className="text-xs text-[#5a6080] mb-1.5 block">عدد المايكات</label>
+            <div className="grid grid-cols-4 gap-2">
+              {MIC_OPTIONS.map(n => (
+                <button
+                  key={n}
+                  onClick={() => setMicSeatCount(n)}
+                  className={`py-2.5 rounded-xl border text-sm font-medium transition-all ${
+                    micSeatCount === n
+                      ? 'bg-[rgba(108,99,255,0.15)] border-[rgba(108,99,255,0.4)] text-[#a78bfa]'
+                      : 'bg-[#1c2035] border-[rgba(255,255,255,0.07)] text-[#9ca3c4] hover:border-[rgba(255,255,255,0.15)]'
+                  }`}
+                >
+                  {n}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div>
+            <label className="text-xs text-[#5a6080] mb-1.5 block">نوع الغرفة</label>
+            <div className="grid grid-cols-3 gap-2">
+              {ROOM_MODE_OPTIONS.map(opt => {
+                const Icon = opt.icon;
+                return (
+                  <button
+                    key={opt.value}
+                    onClick={() => setRoomMode(opt.value)}
+                    className={`py-2.5 rounded-xl border text-center transition-all ${
+                      roomMode === opt.value
+                        ? 'bg-[rgba(108,99,255,0.15)] border-[rgba(108,99,255,0.4)] text-[#a78bfa]'
+                        : 'bg-[#1c2035] border-[rgba(255,255,255,0.07)] text-[#9ca3c4] hover:border-[rgba(255,255,255,0.15)]'
+                    }`}
+                  >
+                    <Icon className="w-4 h-4 mx-auto mb-0.5" />
+                    <span className="text-[10px]">{opt.label}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+          {roomMode === 'key' && (
+            <div>
+              <label className="text-xs text-[#5a6080] mb-1 block">كلمة المرور</label>
+              <Input
+                value={roomPassword} onChange={(e) => setRoomPassword(e.target.value)}
+                placeholder="كلمة المرور"
+                className="h-10 bg-[#1c2035] border-[rgba(255,255,255,0.07)] text-[#f0f0f8]"
+              />
+            </div>
+          )}
+          <div>
+            <label className="text-xs text-[#5a6080] mb-1 block">الحد الأقصى للمشاركين</label>
+            <Input
+              type="number" min={5} max={500}
+              value={maxParticipants}
+              onChange={(e) => setMaxParticipants(Number(e.target.value))}
+              className="h-10 bg-[#1c2035] border-[rgba(255,255,255,0.07)] text-[#f0f0f8]"
+            />
+          </div>
+          <Button onClick={handleCreate} disabled={saving || !name.trim()} className="w-full bg-gradient-to-l from-[#6c63ff] to-[#a78bfa] hover:opacity-90 rounded-xl">
+            {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : 'إنشاء الغرفة'}
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   ROOM LIST VIEW
+   ═══════════════════════════════════════════════════════════════════════ */
+
+function RoomListView({
+  onJoinRoom, onCreateRoom,
+}: {
+  onJoinRoom: (room: VoiceRoom) => void;
+  onCreateRoom: () => void;
+}) {
+  const [rooms, setRooms] = useState<VoiceRoom[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [showCreate, setShowCreate] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      try {
+        const res = await fetch('/api/voice-rooms');
+        const data = await res.json();
+        if (!cancelled && data.success) setRooms(data.rooms || []);
+      } catch { /* ignore */ }
+      if (!cancelled) setLoading(false);
+    };
+    load();
+    return () => { cancelled = true; };
   }, []);
 
-  useEffect(() => {
-    loadRooms();
-  }, [loadRooms]);
-
-  // ─── Polling ───────────────────────────────────────────────────────
-
-  useEffect(() => {
-    if (!activeRoom) return;
-
-    // Poll participants every 5 seconds
-    const loadParticipants = async () => {
-      try {
-        const res = await fetch(`/api/voice-rooms/${activeRoom.id}?action=participants`);
-        const data = await res.json();
-        if (data.success) {
-          setParticipants(data.participants || []);
-          // Update my participant
-          const me = (data.participants || []).find((p: VoiceRoomParticipant) => p.userId === user?.id);
-          setMyParticipant(me || null);
-        }
-      } catch { /* silent */ }
-    };
-
-    loadParticipants();
-    pollParticipantsRef.current = setInterval(loadParticipants, 5000);
-
-    return () => {
-      if (pollParticipantsRef.current) clearInterval(pollParticipantsRef.current);
-    };
-  }, [activeRoom, user?.id]);
-
-  // Poll waitlist for admins
-  useEffect(() => {
-    if (!activeRoom || !myParticipant || !canDo('manage-waitlist', myParticipant.role)) return;
-
-    const loadWaitlist = async () => {
-      try {
-        const res = await fetch(`/api/voice-rooms/${activeRoom.id}?action=waitlist`);
-        const data = await res.json();
-        if (data.success) {
-          const sorted = [...(data.waitlist || [])].sort((a, b) => {
-            if (b.vipLevel !== a.vipLevel) return b.vipLevel - a.vipLevel;
-            return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
-          });
-          setWaitlist(sorted);
-        }
-      } catch { /* silent */ }
-    };
-
-    loadWaitlist();
-    pollWaitlistRef.current = setInterval(loadWaitlist, 10000);
-
-    return () => {
-      if (pollWaitlistRef.current) clearInterval(pollWaitlistRef.current);
-    };
-  }, [activeRoom, myParticipant]);
-
-  // Poll action log when panel is open
-  useEffect(() => {
-    if (!activeRoom || !showActionLog) return;
-
-    const loadLog = async () => {
-      try {
-        const res = await fetch(`/api/voice-rooms/${activeRoom.id}?action=action-log&limit=50`);
-        const data = await res.json();
-        if (data.success) setActionLog(data.log || []);
-      } catch { /* silent */ }
-    };
-
-    loadLog();
-    pollActionLogRef.current = setInterval(loadLog, 15000);
-
-    return () => {
-      if (pollActionLogRef.current) clearInterval(pollActionLogRef.current);
-    };
-  }, [activeRoom, showActionLog]);
-
-  // ─── Room Actions ──────────────────────────────────────────────────
-
-  const loadRoomDetails = async () => {
-    if (!activeRoom) return;
-    try {
-      const res = await fetch(`/api/voice-rooms/${activeRoom.id}?action=room-details`);
-      const data = await res.json();
-      if (data.success && data.room) setRoomDetails(data.room);
-    } catch { /* silent */ }
+  const modeLabel: Record<RoomMode, string> = {
+    public: 'عام', key: '🔒', private: '✨ خاص',
   };
 
-  const loadGifts = async () => {
+  const modeColor: Record<RoomMode, string> = {
+    public: 'bg-[rgba(34,197,94,0.2)] text-[#22c55e] border-[rgba(34,197,94,0.4)]',
+    key: 'bg-[rgba(245,158,11,0.2)] text-[#f59e0b] border-[rgba(245,158,11,0.4)]',
+    private: 'bg-[rgba(108,99,255,0.2)] text-[#a78bfa] border-[rgba(108,99,255,0.4)]',
+  };
+
+  return (
+    <div className="min-h-screen bg-[#0d0f1a]" dir="rtl">
+      {/* Header */}
+      <div className="sticky top-0 z-30 bg-[#0d0f1a]/90 backdrop-blur-md border-b border-[rgba(108,99,255,0.18)] px-4 py-3 flex items-center justify-between">
+        <h1 className="text-lg font-bold text-[#f0f0f8] flex items-center gap-2">
+          <Volume2 className="w-5 h-5 text-[#6c63ff]" />
+          الغرف الصوتية
+        </h1>
+        <button
+          onClick={() => setShowCreate(true)}
+          className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-gradient-to-l from-amber-500 to-red-500 text-white text-sm font-medium"
+        >
+          <span>+</span>
+          <span>إنشاء</span>
+        </button>
+      </div>
+
+      {/* Room Grid */}
+      <div className="p-4">
+        {loading ? (
+          <div className="flex items-center justify-center py-20">
+            <Loader2 className="w-8 h-8 text-[#6c63ff] animate-spin" />
+          </div>
+        ) : rooms.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-20 text-center">
+            <div className="w-16 h-16 rounded-full bg-[#1c2035] flex items-center justify-center mb-4">
+              <Volume2 className="w-8 h-8 text-[#5a6080]" />
+            </div>
+            <p className="text-[#9ca3c4] text-sm mb-1">لا توجد غرف صوتية</p>
+            <p className="text-[#5a6080] text-xs mb-4">كن أول من ينشئ غرفة!</p>
+            <button onClick={() => setShowCreate(true)} className="px-6 py-2.5 rounded-xl bg-[#6c63ff] text-white text-sm font-medium hover:bg-[#6c63ff]/80 transition-colors">
+              إنشاء غرفة جديدة
+            </button>
+          </div>
+        ) : (
+          <div className="grid grid-cols-2 gap-3">
+            {rooms.map((room, i) => (
+              <motion.button
+                key={room.id}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: i * 0.05 }}
+                onClick={() => onJoinRoom(room)}
+                className="bg-[#141726] border border-[rgba(255,255,255,0.07)] rounded-2xl p-4 text-right hover:border-[rgba(108,99,255,0.3)] transition-all group"
+              >
+                <div className="flex items-center justify-between mb-2">
+                  <span className={`text-[10px] px-2 py-0.5 rounded-full border ${modeColor[room.roomMode || 'public']}`}>
+                    {modeLabel[room.roomMode || 'public']}
+                  </span>
+                  <div className="flex items-center gap-1 text-[#5a6080] text-[10px]">
+                    <Users className="w-3 h-3" />
+                    <span>{room.participantCount || 0}</span>
+                  </div>
+                </div>
+                <h3 className="text-sm font-bold text-[#f0f0f8] truncate mb-1 group-hover:text-[#a78bfa] transition-colors">
+                  {room.name}
+                </h3>
+                <p className="text-[11px] text-[#5a6080] truncate mb-2">{room.description || 'بدون وصف'}</p>
+                <div className="flex items-center gap-1.5">
+                  <div className="w-5 h-5 rounded-full bg-[#6c63ff] flex items-center justify-center">
+                    <span className="text-[8px] font-bold text-white">{(room.hostName || '?').charAt(0)}</span>
+                  </div>
+                  <span className="text-[10px] text-[#5a6080]">{room.hostName || 'مجهول'}</span>
+                </div>
+              </motion.button>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <CreateRoomDialog
+        isOpen={showCreate}
+        onClose={() => setShowCreate(false)}
+        onCreate={onCreateRoom}
+      />
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   ROOM INTERIOR VIEW (HTML reference design)
+   ═══════════════════════════════════════════════════════════════════════ */
+
+function RoomInteriorView({
+  room, onExit,
+}: {
+  room: VoiceRoom;
+  onExit: () => void;
+}) {
+  const { toast } = useToast();
+
+  /* ── State ── */
+  const [participants, setParticipants] = useState<VoiceRoomParticipant[]>([]);
+  const [myParticipant, setMyParticipant] = useState<VoiceRoomParticipant | null>(null);
+  const [myRole, setMyRole] = useState<RoomRole>('visitor');
+  const [gifts, setGifts] = useState<Gift[]>([]);
+  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
+  const [chatInput, setChatInput] = useState('');
+  const [isRoomMuted, setIsRoomMuted] = useState(false);
+  const [isMicMuted, setIsMicMuted] = useState(false);
+  const [loading, setLoading] = useState(true);
+
+  /* ── UI state ── */
+  const [profileSheet, setProfileSheet] = useState<VoiceRoomParticipant | null>(null);
+  const [giftSheetOpen, setGiftSheetOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [kickDialogOpen, setKickDialogOpen] = useState(false);
+  const [passwordDialogOpen, setPasswordDialogOpen] = useState(false);
+
+  const [micMenuSheet, setMicMenuSheet] = useState<{
+    isOpen: boolean;
+    seatIndex: number;
+    participant: VoiceRoomParticipant | null;
+  }>({ isOpen: false, seatIndex: -1, participant: null });
+
+  /* ── Refs ── */
+  const chatEndRef = useRef<HTMLDivElement>(null);
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const roomId = room.id;
+  const currentUserId = myParticipant?.userId || MOCK_USER.id;
+  const isOnSeat = myParticipant && myParticipant.seatIndex >= 0;
+
+  /* ── Build seat data array ── */
+  const buildSeats = useCallback((): SeatData[] => {
+    const seatMap = new Map<number, VoiceRoomParticipant>();
+    participants.forEach(p => {
+      if (p.seatIndex >= 0) seatMap.set(p.seatIndex, p);
+    });
+    const seats: SeatData[] = [];
+    for (let i = 0; i < room.micSeatCount; i++) {
+      const p = seatMap.get(i) || null;
+      seats.push({
+        seatIndex: i,
+        participant: p,
+        status: p ? (p.seatStatus || 'open') : 'open',
+      });
+    }
+    return seats;
+  }, [participants, room.micSeatCount]);
+
+  /* ── API fetchers ── */
+  const fetchParticipants = useCallback(async () => {
     try {
-      const res = await fetch(`/api/voice-rooms/${activeRoom!.id}?action=gifts`);
+      const res = await fetch(`/api/voice-rooms/${roomId}?action=participants`);
+      const data = await res.json();
+      if (data.success && data.participants) {
+        setParticipants(data.participants);
+        const me = data.participants.find((p: VoiceRoomParticipant) => p.userId === MOCK_USER.id);
+        if (me) {
+          setMyParticipant(me);
+          setMyRole(me.role);
+          setIsMicMuted(me.isMuted);
+        }
+      }
+    } catch { /* ignore */ }
+  }, [roomId]);
+
+  const fetchMyParticipant = useCallback(async () => {
+    try {
+      const res = await fetch(`/api/voice-rooms/${roomId}?action=my-participant`);
+      const data = await res.json();
+      if (data.success && data.participant) {
+        setMyParticipant(data.participant);
+        setMyRole(data.participant.role);
+        setIsMicMuted(data.participant.isMuted);
+      }
+    } catch { /* ignore */ }
+  }, [roomId]);
+
+  const fetchGifts = useCallback(async () => {
+    try {
+      const res = await fetch(`/api/voice-rooms/${roomId}?action=gifts`);
       const data = await res.json();
       if (data.success && data.gifts) setGifts(data.gifts);
-    } catch { /* silent */ }
-  };
+    } catch { /* ignore */ }
+  }, [roomId]);
 
-  const joinRoom = async (room: VoiceRoom) => {
-    if (!user) return;
+  const checkKicked = useCallback(async (): Promise<boolean> => {
+    try {
+      const res = await fetch(`/api/voice-rooms/${roomId}?action=kicked`);
+      const data = await res.json();
+      return data.success && data.kicked;
+    } catch { return false; }
+  }, [roomId]);
 
-    // If key room, show password dialog
-    if (room.roomMode === 'key' && !room.roomPassword) {
-      setShowJoinPassword(room.id);
+  /* ── Init + polling ── */
+  useEffect(() => {
+    const init = async () => {
+      setLoading(true);
+      const kicked = await checkKicked();
+      if (kicked) {
+        toast({ title: 'تم طردك من الغرفة', description: 'لا يمكنك الدخول حالياً' });
+        onExit();
+        setLoading(false);
+        return;
+      }
+      await fetchParticipants();
+      await fetchMyParticipant();
+      await fetchGifts();
+      setLoading(false);
+    };
+    init();
+    pollRef.current = setInterval(fetchParticipants, 5000);
+    return () => { if (pollRef.current) clearInterval(pollRef.current); };
+  }, [roomId, checkKicked, fetchParticipants, fetchMyParticipant, fetchGifts, onExit, toast]);
+
+  /* ── Auto-scroll chat ── */
+  useEffect(() => {
+    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [chatMessages]);
+
+  /* ── Actions ── */
+
+  const handleSendChat = useCallback(() => {
+    if (!chatInput.trim() || room.chatMuted) return;
+    const msg: ChatMessage = {
+      id: genId(),
+      userId: MOCK_USER.id,
+      displayName: MOCK_USER.displayName,
+      avatar: MOCK_USER.avatar,
+      text: chatInput.trim(),
+      time: new Date().toLocaleTimeString('ar-SA', { hour: '2-digit', minute: '2-digit' }),
+    };
+    setChatMessages(prev => [...prev, msg]);
+    setChatInput('');
+  }, [chatInput, room.chatMuted]);
+
+  const handleToggleMic = useCallback(async () => {
+    if (myParticipant?.micFrozen) {
+      toast({ title: 'المايك مجمد', description: 'لا يمكنك إلغاء الكتم' });
       return;
     }
-
-    setJoiningRoom(room.id);
     try {
-      const res = await fetch(`/api/voice-rooms/${room.id}?action=join`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          username: user.username,
-          displayName: user.displayName || user.username,
-          avatar: user.avatar,
-          password: room.roomMode === 'key' ? joinPassword : undefined,
-        }),
-      });
+      const res = await fetch(`/api/voice-rooms/${roomId}?action=toggle-mic`, { method: 'PUT' });
       const data = await res.json();
       if (data.success) {
-        setActiveRoom(room);
-        loadRoomDetails();
-        loadGifts();
-        addSystemMessage(`انضم ${user.displayName || user.username} إلى الغرفة`);
-      } else {
-        toast({ title: 'خطأ', description: data.error || 'فشل الانضمام', variant: 'destructive' });
-      }
-    } catch {
-      toast({ title: 'خطأ', description: 'فشل الاتصال', variant: 'destructive' });
-    }
-    setJoiningRoom(null);
-  };
-
-  const joinRoomWithPassword = async () => {
-    if (!activeRoom || !user) return;
-    const room = rooms.find(r => r.id === showJoinPassword);
-    if (!room) return;
-
-    setJoiningRoom(room.id);
-    try {
-      const res = await fetch(`/api/voice-rooms/${room.id}?action=join`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          username: user.username,
-          displayName: user.displayName || user.username,
-          avatar: user.avatar,
-          password: joinPassword,
-        }),
-      });
-      const data = await res.json();
-      if (data.success) {
-        setActiveRoom(room);
-        loadRoomDetails();
-        loadGifts();
-        setShowJoinPassword(null);
-        setJoinPassword('');
-        addSystemMessage(`انضم ${user.displayName || user.username} إلى الغرفة`);
-      } else {
-        toast({ title: 'خطأ', description: data.error || 'كلمة المرور غير صحيحة', variant: 'destructive' });
-      }
-    } catch {
-      toast({ title: 'خطأ', description: 'فشل الاتصال', variant: 'destructive' });
-    }
-    setJoiningRoom(null);
-  };
-
-  const leaveRoom = async () => {
-    if (!activeRoom) return;
-    try {
-      await fetch(`/api/voice-rooms/${activeRoom.id}?action=leave`, { method: 'POST' });
-    } catch { /* silent */ }
-    addSystemMessage(`غادر ${user?.displayName || user?.username} الغرفة`);
-    setActiveRoom(null);
-    setRoomDetails(null);
-    setParticipants([]);
-    setMyParticipant(null);
-    setChatMessages([]);
-    setShowChat(false);
-    setShowGift(null);
-    setShowSettings(false);
-    setShowWaitlist(false);
-    setShowActionLog(false);
-    setShowUserProfile(null);
-    if (pollParticipantsRef.current) clearInterval(pollParticipantsRef.current);
-    if (pollWaitlistRef.current) clearInterval(pollWaitlistRef.current);
-    if (pollActionLogRef.current) clearInterval(pollActionLogRef.current);
-    loadRooms();
-  };
-
-  const deleteRoom = async () => {
-    if (!activeRoom) return;
-    try {
-      const res = await fetch(`/api/voice-rooms/${activeRoom.id}`, { method: 'DELETE' });
-      const data = await res.json();
-      if (data.success) {
-        toast({ title: 'تم إغلاق الغرفة' });
-        setActiveRoom(null);
-        setRoomDetails(null);
-        setParticipants([]);
-        loadRooms();
-      } else {
-        toast({ title: 'خطأ', description: 'فشل إغلاق الغرفة', variant: 'destructive' });
-      }
-    } catch {
-      toast({ title: 'خطأ', description: 'فشل الاتصال', variant: 'destructive' });
-    }
-  };
-
-  const createRoom = async (form: Record<string, unknown>) => {
-    if (!user) return;
-    setCreating(true);
-    try {
-      const res = await fetch('/api/voice-rooms', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: form.name,
-          description: form.description || '',
-          hostName: user.displayName || user.username,
-          maxParticipants: form.maxParticipants || 50,
-          isPrivate: false,
-          micSeatCount: form.micSeatCount || 10,
-          roomMode: form.roomMode || 'public',
-          roomPassword: form.roomPassword || '',
-          micTheme: form.micTheme || 'default',
-          isAutoMode: form.isAutoMode !== false,
-        }),
-      });
-      const data = await res.json();
-      if (data.success) {
-        toast({ title: 'تم إنشاء الغرفة!' });
-        setShowCreate(false);
-        loadRooms();
-        // Auto join
-        if (data.room) joinRoom(data.room);
-      } else {
-        toast({ title: 'خطأ', description: data.error || 'فشل إنشاء الغرفة', variant: 'destructive' });
-      }
-    } catch {
-      toast({ title: 'خطأ', description: 'فشل الاتصال', variant: 'destructive' });
-    }
-    setCreating(false);
-  };
-
-  // ─── Seat / Mic Actions ───────────────────────────────────────────
-
-  const requestSeat = async (seatIndex?: number) => {
-    if (!activeRoom || !user) return;
-    try {
-      const res = await fetch(`/api/voice-rooms/${activeRoom.id}?action=request-seat`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          username: user.username,
-          displayName: user.displayName || user.username,
-          avatar: user.avatar,
-          seatIndex: seatIndex !== undefined ? seatIndex : -1,
-        }),
-      });
-      const data = await res.json();
-      if (data.success) {
-        if (data.autoAssigned) {
-          toast({ title: 'تم تعيين مقعد لك!' });
-        } else {
-          toast({ title: 'تم إرسال الطلب', description: 'بانتظار موافقة الإدارة' });
+        setIsMicMuted(data.isMuted);
+        if (!data.frozen) {
+          toast({ title: data.isMuted ? 'تم كتم المايك' : 'تم فتح المايك' });
         }
-      } else {
-        toast({ title: 'خطأ', description: data.error || 'فشل طلب المقعد', variant: 'destructive' });
       }
-    } catch {
-      toast({ title: 'خطأ', description: 'فشل الاتصال', variant: 'destructive' });
-    }
-  };
+    } catch { /* ignore */ }
+  }, [roomId, myParticipant, toast]);
 
-  const leaveSeat = async () => {
-    if (!activeRoom) return;
+  const handleToggleRoomMute = useCallback(() => {
+    setIsRoomMuted(prev => !prev);
+    toast({ title: !isRoomMuted ? 'تم كتم الغرفة' : 'تم فتح الغرفة' });
+  }, [isRoomMuted, toast]);
+
+  const handleRequestSeat = useCallback(async (seatIndex: number) => {
     try {
-      await fetch(`/api/voice-rooms/${activeRoom.id}?action=leave-seat`, { method: 'POST' });
-      toast({ title: 'غادرت المقعد' });
-    } catch { /* silent */ }
-  };
-
-  const toggleMic = async () => {
-    if (!activeRoom) return;
-    try {
-      const res = await fetch(`/api/voice-rooms/${activeRoom.id}?action=toggle-mic`, { method: 'PUT' });
-      const data = await res.json();
-      if (data.frozen) {
-        toast({ title: 'المايك مجمد', description: 'لا يمكنك فتح المايك حالياً', variant: 'destructive' });
-      }
-    } catch { /* silent */ }
-  };
-
-  // ─── Admin Actions ────────────────────────────────────────────────
-
-  const doAction = async (action: string, body?: Record<string, unknown>, method: 'POST' | 'PUT' = 'POST') => {
-    if (!activeRoom) return;
-    setActionLoading(true);
-    try {
-      const res = await fetch(`/api/voice-rooms/${activeRoom.id}?action=${action}`, {
-        method,
+      const res = await fetch(`/api/voice-rooms/${roomId}?action=request-seat`, {
+        method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: body ? JSON.stringify(body) : undefined,
+        body: JSON.stringify({
+          username: MOCK_USER.username,
+          displayName: MOCK_USER.displayName,
+          avatar: MOCK_USER.avatar,
+          seatIndex,
+        }),
+      });
+      const data = await res.json();
+      if (data.success && data.autoAssigned) {
+        toast({ title: 'تم تعيينك على المايك', description: `مقعد ${data.seatIndex + 1}` });
+        await fetchParticipants();
+        await fetchMyParticipant();
+      } else if (data.success) {
+        toast({ title: 'تم إرسال الطلب', description: 'بانتظار الموافقة' });
+      } else {
+        toast({ title: 'لم يتم الصعود', description: data.error || 'حاول مرة أخرى' });
+      }
+    } catch { /* ignore */ }
+  }, [roomId, fetchParticipants, fetchMyParticipant, toast]);
+
+  const handleKickFromMic = useCallback(async (targetUserId: string) => {
+    try {
+      const res = await fetch(`/api/voice-rooms/${roomId}?action=kick-from-mic`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ targetUserId }),
       });
       const data = await res.json();
       if (data.success) {
-        // Refresh data based on action
-        if (action.includes('waitlist')) {
-          const wlRes = await fetch(`/api/voice-rooms/${activeRoom.id}?action=waitlist`);
-          const wlData = await wlRes.json();
-          if (wlData.success) setWaitlist(wlData.waitlist || []);
-        }
-        if (action.includes('role') || action.includes('transfer') || action.includes('freeze') || action.includes('kick') || action.includes('ban') || action.includes('assign') || action.includes('seat')) {
-          loadRoomDetails();
-        }
+        toast({ title: 'تم سحبه من المايك' });
+        await fetchParticipants();
       } else {
-        toast({ title: 'خطأ', description: data.error || 'فشل تنفيذ الإجراء', variant: 'destructive' });
+        toast({ title: 'فشل', description: data.error || 'حاول مرة أخرى' });
       }
-    } catch {
-      toast({ title: 'خطأ', description: 'فشل الاتصال', variant: 'destructive' });
-    }
-    setActionLoading(false);
-  };
+    } catch { /* ignore */ }
+  }, [roomId, fetchParticipants, toast]);
 
-  // ─── Gift Action ───────────────────────────────────────────────────
+  const handleKickTemp = useCallback(async (minutes: number) => {
+    if (!micMenuSheet.participant) return;
+    try {
+      const res = await fetch(`/api/voice-rooms/${roomId}?action=kick-from-room`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ targetUserId: micMenuSheet.participant.userId, durationMinutes: minutes }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        toast({ title: 'تم طرده مؤقتاً' });
+        await fetchParticipants();
+      }
+    } catch { /* ignore */ }
+  }, [roomId, micMenuSheet.participant, fetchParticipants, toast]);
 
-  const sendGift = async (giftId: string) => {
-    if (!activeRoom || !showGift) return;
-    const res = await fetch(`/api/voice-rooms/${activeRoom.id}?action=gift`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ giftId, toUserId: showGift }),
-    });
-    const data = await res.json();
-    if (data.success) {
-      const target = participants.find(p => p.userId === showGift);
-      addSystemMessage(`${user?.displayName} أرسل هدية إلى ${target?.displayName || 'مستخدم'}`);
-      toast({ title: 'تم إرسال الهدية! 🎁' });
-      setShowGift(null);
+  const handleBan = useCallback(async () => {
+    if (!micMenuSheet.participant) return;
+    try {
+      const res = await fetch(`/api/voice-rooms/${roomId}?action=ban`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ targetUserId: micMenuSheet.participant.userId }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        toast({ title: 'تم طرده نهائياً' });
+        await fetchParticipants();
+      }
+    } catch { /* ignore */ }
+  }, [roomId, micMenuSheet.participant, fetchParticipants, toast]);
+
+  const handleSetSeatStatus = useCallback(async (seatIndex: number, status: SeatStatus) => {
+    try {
+      const res = await fetch(`/api/voice-rooms/${roomId}?action=set-seat-status`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ seatIndex, status }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        toast({ title: status === 'locked' ? 'تم قفل المقعد' : 'تم فتح المقعد' });
+        await fetchParticipants();
+      }
+    } catch { /* ignore */ }
+  }, [roomId, fetchParticipants, toast]);
+
+  const handleSendGift = useCallback(async (giftId: string, target: string) => {
+    try {
+      const toUserId = target === 'specific' ? profileSheet?.userId : undefined;
+      if (target === 'specific' && !toUserId) return;
+      const body: Record<string, unknown> = { giftId };
+      if (toUserId) body.toUserId = toUserId;
+      const res = await fetch(`/api/voice-rooms/${roomId}?action=gift`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      const data = await res.json();
+      if (data.success) {
+        const giftData = (gifts.length > 0 ? gifts : DEFAULT_GIFTS).find(g => g.id === giftId);
+        const giftMsg: ChatMessage = {
+          id: genId(),
+          userId: MOCK_USER.id,
+          displayName: MOCK_USER.displayName,
+          avatar: MOCK_USER.avatar,
+          text: `⭐ ${MOCK_USER.displayName} أرسل ${giftData?.nameAr || 'هدية'} ${target === 'everyone' ? 'للجميع' : `لـ ${profileSheet?.displayName || 'شخص'}`}`,
+          time: new Date().toLocaleTimeString('ar-SA', { hour: '2-digit', minute: '2-digit' }),
+          isGift: true,
+        };
+        setChatMessages(prev => [...prev, giftMsg]);
+        toast({ title: 'تم إرسال الهدية! 🎉' });
+      }
+    } catch { /* ignore */ }
+  }, [roomId, gifts, profileSheet, toast]);
+
+  /* ── Seat click handler ── */
+  const handleSeatClick = useCallback((seatIndex: number) => {
+    const seats = buildSeats();
+    const seatData = seats[seatIndex];
+    if (!seatData) return;
+
+    const isAdmin = canDo(myRole, 'admin');
+    const isMember = canDo(myRole, 'member');
+
+    if (seatData.participant) {
+      if (isAdmin) {
+        setMicMenuSheet({ isOpen: true, seatIndex, participant: seatData.participant });
+      } else {
+        setProfileSheet(seatData.participant);
+      }
     } else {
-      toast({ title: 'خطأ', description: 'فشل إرسال الهدية', variant: 'destructive' });
+      if (isAdmin) {
+        setMicMenuSheet({ isOpen: true, seatIndex, participant: null });
+      } else if (isMember) {
+        if (seatData.status === 'locked') {
+          toast({ title: 'المقعد مقفل', description: 'لا يمكنك الجلوس هنا' });
+        } else {
+          handleRequestSeat(seatIndex);
+        }
+      } else {
+        toast({ title: 'ليس لديك صلاحية الصعود', description: 'تحتاج ترقية دورك' });
+      }
     }
-  };
+  }, [myRole, buildSeats, handleRequestSeat, toast]);
 
-  // ─── Settings Update ───────────────────────────────────────────────
+  /* ── Mic menu action dispatcher ── */
+  const handleMicMenuAction = useCallback(async (action: string) => {
+    const { seatIndex, participant } = micMenuSheet;
+    switch (action) {
+      case 'take-seat':
+        await handleRequestSeat(seatIndex);
+        break;
+      case 'lock-seat':
+        await handleSetSeatStatus(seatIndex, 'locked');
+        break;
+      case 'unlock-seat':
+        await handleSetSeatStatus(seatIndex, 'open');
+        break;
+      case 'pull-from-mic':
+        if (participant) await handleKickFromMic(participant.userId);
+        break;
+      case 'kick-temp':
+        setKickDialogOpen(true);
+        break;
+      case 'kick-perm':
+        await handleBan();
+        break;
+    }
+  }, [micMenuSheet, handleRequestSeat, handleSetSeatStatus, handleKickFromMic, handleBan]);
 
-  const updateSettings = async (data: Partial<VoiceRoom>) => {
-    if (!activeRoom) return;
+  /* ── Update settings ── */
+  const handleUpdateSettings = useCallback(async (data: Record<string, unknown>) => {
     try {
-      const res = await fetch(`/api/voice-rooms/${activeRoom.id}?action=update-settings`, {
+      const res = await fetch(`/api/voice-rooms/${roomId}?action=update-settings`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data),
       });
       const result = await res.json();
-      if (result.success && result.room) {
-        setRoomDetails(result.room);
-        setActiveRoom(result.room);
+      if (result.success) {
         toast({ title: 'تم تحديث الإعدادات' });
-      } else {
-        toast({ title: 'خطأ', description: result.error || 'فشل التحديث', variant: 'destructive' });
       }
-    } catch {
-      toast({ title: 'خطأ', description: 'فشل الاتصال', variant: 'destructive' });
-    }
-  };
+    } catch { /* ignore */ }
+  }, [roomId, toast]);
 
-  // ─── Chat ──────────────────────────────────────────────────────────
+  /* ── Leave room ── */
+  const handleLeaveRoom = useCallback(async () => {
+    try {
+      await fetch(`/api/voice-rooms/${roomId}?action=leave`, { method: 'POST' });
+    } catch { /* ignore */ }
+    setChatMessages([]);
+    onExit();
+  }, [roomId, onExit]);
 
-  const addSystemMessage = (text: string) => {
-    setChatMessages(prev => [...prev, {
-      id: crypto.randomUUID(),
-      userId: 'system',
-      displayName: '',
-      avatar: '',
-      text,
-      time: new Date().toLocaleTimeString('ar-SA', { hour: '2-digit', minute: '2-digit' }),
-      isSystem: true,
-    }]);
-  };
+  /* ── Copy link ── */
+  const handleCopyLink = useCallback(() => {
+    navigator.clipboard?.writeText(window.location.href).then(() => {
+      toast({ title: 'تم نسخ رابط الغرفة' });
+    }).catch(() => {
+      toast({ title: 'تم نسخ رابط الغرفة' });
+    });
+  }, [toast]);
 
-  const sendChat = () => {
-    if (!chatInput.trim() || !user || (roomDetails?.chatMuted && myParticipant?.role !== 'owner' && myParticipant?.role !== 'coowner' && myParticipant?.role !== 'admin')) return;
-    setChatMessages(prev => [...prev, {
-      id: crypto.randomUUID(),
-      userId: user.id,
-      displayName: user.displayName || user.username,
-      avatar: user.avatar,
-      text: chatInput.trim(),
-      time: new Date().toLocaleTimeString('ar-SA', { hour: '2-digit', minute: '2-digit' }),
-    }]);
-    setChatInput('');
-  };
+  const seats = buildSeats();
+  const listenerCount = Math.max(0, participants.length - participants.filter(p => p.seatIndex >= 0).length);
 
-  // ─── Seat Click Handler ────────────────────────────────────────────
-
-  const handleSeatClick = (seatIndex: number, participant: VoiceRoomParticipant | null) => {
-    if (participant) {
-      // Click on occupied seat - show user profile
-      setShowUserProfile(participant);
-    } else {
-      // Click on empty seat
-      if (myParticipant && canDo('set-seat-status', myParticipant.role)) {
-        // Admin: show seat context menu
-        setShowSeatContext(seatIndex);
-      } else if (myParticipant && canDo('request-seat', myParticipant.role)) {
-        // Visitor: request seat
-        requestSeat(seatIndex);
-      }
-    }
-  };
-
-  // ─── User Profile Action Handler ───────────────────────────────────
-
-  const handleProfileAction = (action: string, data?: Record<string, unknown>) => {
-    if (!showUserProfile) return;
-    const target = showUserProfile;
-
-    switch (action) {
-      case 'gift':
-        setShowGift(target.userId);
-        break;
-      case 'kick-from-mic':
-        doAction('kick-from-mic', { targetUserId: target.userId });
-        break;
-      case 'kick-from-room':
-        doAction('kick-from-room', { targetUserId: target.userId });
-        if (target.userId === user?.id) {
-          setTimeout(() => leaveRoom(), 500);
-        }
-        break;
-      case 'ban':
-        doAction('ban', { targetUserId: target.userId });
-        if (target.userId === user?.id) {
-          setTimeout(() => leaveRoom(), 500);
-        }
-        break;
-      case 'freeze-seat':
-        if (target.micFrozen) {
-          doAction('unfreeze-seat', { targetUserId: target.userId });
-        } else {
-          doAction('freeze-seat', { targetUserId: target.userId });
-        }
-        break;
-      case 'change-role':
-        doAction('change-role', { targetUserId: target.userId, newRole: data?.newRole });
-        break;
-      case 'transfer-ownership':
-        doAction('transfer-ownership', { newOwnerId: target.userId });
-        break;
-      case 'leave-seat':
-        leaveSeat();
-        break;
-    }
-  };
-
-  // ─── Audience User Click ───────────────────────────────────────────
-
-  const handleAudienceClick = (participant: VoiceRoomParticipant) => {
-    setShowUserProfile(participant);
-  };
-
-  // ─── Seat Status Change ────────────────────────────────────────────
-
-  const handleSetSeatStatus = (seatIndex: number, status: SeatStatus) => {
-    doAction('set-seat-status', { seatIndex, status }, 'PUT');
-  };
-
-  // ─── Waitlist Actions ──────────────────────────────────────────────
-
-  const handleApproveWaitlist = (waitlistId: string) => {
-    doAction('approve-waitlist', { waitlistId });
-  };
-
-  const handleRejectWaitlist = (waitlistId: string) => {
-    doAction('reject-waitlist', { waitlistId });
-  };
-
-  // ─── Derived State ─────────────────────────────────────────────────
-
-  const myRole = myParticipant?.role || 'visitor';
-  const isOnSeat = myParticipant && myParticipant.seatIndex >= 0;
-  const isAdmin = canDo('manage-waitlist', myRole);
-  const canSettings = hasPower(myRole, 'admin');
-  const room = roomDetails || activeRoom;
-  const micParticipants = participants.filter(p => p.seatIndex >= 0);
-  const audienceParticipants = participants.filter(p => p.seatIndex < 0);
-  const waitlistCount = waitlist.length;
-
-  // ═══════════════════════════════════════════════════════════════════
-  // LOADING STATE
-  // ═══════════════════════════════════════════════════════════════════
-
+  /* ── Loading ── */
   if (loading) {
     return (
-      <div className="min-h-screen bg-slate-950 flex items-center justify-center">
-        <Loader2 className="w-8 h-8 animate-spin text-purple-400" />
+      <div className="min-h-screen bg-[#0d0f1a] flex items-center justify-center" dir="rtl">
+        <Loader2 className="w-10 h-10 text-[#6c63ff] animate-spin" />
       </div>
     );
   }
-
-  // ═══════════════════════════════════════════════════════════════════
-  // ACTIVE ROOM VIEW
-  // ═══════════════════════════════════════════════════════════════════
-
-  if (activeRoom && room) {
-    return (
-      <div className="min-h-screen bg-gradient-to-b from-slate-950 via-purple-950/20 to-slate-950 text-white" dir="rtl">
-        {/* Header */}
-        <div className="bg-slate-900/60 backdrop-blur-xl border-b border-purple-500/20 px-4 py-3 sticky top-0 z-40">
-          <div className="max-w-2xl mx-auto flex items-center justify-between">
-            <div className="flex items-center gap-2 min-w-0 flex-1">
-              <div className="w-8 h-8 rounded-lg bg-purple-500/20 flex items-center justify-center flex-shrink-0">
-                <Radio className="w-4 h-4 text-purple-400" />
-              </div>
-              <div className="min-w-0">
-                <h1 className="font-bold text-white text-sm truncate">{room.name}</h1>
-                <div className="flex items-center gap-2 text-[10px] text-slate-500">
-                  <span>بقلم {room.hostName}</span>
-                  <span>·</span>
-                  <span>{participants.length} مشارك</span>
-                  <span>·</span>
-                  <div className="flex items-center gap-0.5">
-                    <Users className="w-2.5 h-2.5" />
-                    <span>{micParticipants.length}/{room.micSeatCount}</span>
-                  </div>
-                  {room.roomLevel > 0 && (
-                    <>
-                      <span>·</span>
-                      <Badge className="bg-amber-500/20 text-amber-400 border-0 text-[8px] px-1 h-3">
-                        Lv.{room.roomLevel}
-                      </Badge>
-                    </>
-                  )}
-                </div>
-              </div>
-            </div>
-            <div className="flex items-center gap-1 flex-shrink-0">
-              {myRole === 'owner' && (
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  className="text-rose-400 hover:bg-rose-500/10 h-8 px-2 text-[10px]"
-                  onClick={deleteRoom}
-                >
-                  <X className="w-4 h-4 ml-1" />
-                  إغلاق
-                </Button>
-              )}
-              <Button
-                size="sm"
-                variant="ghost"
-                className="text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 h-8 px-2 text-[10px]"
-                onClick={leaveRoom}
-              >
-                <LogOut className="w-4 h-4 ml-1" />
-                مغادرة
-              </Button>
-            </div>
-          </div>
-        </div>
-
-        {/* Room Content */}
-        <div className="max-w-2xl mx-auto px-4 py-5 pb-28">
-          {/* Announcement Banner */}
-          {room.announcement && (
-            <motion.div
-              initial={{ opacity: 0, y: -10 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="mb-4 bg-amber-500/10 border border-amber-500/30 rounded-xl px-4 py-2.5 flex items-start gap-2"
-            >
-              <Megaphone className="w-4 h-4 text-amber-400 mt-0.5 flex-shrink-0" />
-              <p className="text-xs text-amber-200/80 leading-relaxed">{room.announcement}</p>
-            </motion.div>
-          )}
-
-          {/* Participant count badge */}
-          <div className="flex items-center justify-center gap-3 mb-5">
-            <div className="flex items-center gap-1.5 bg-slate-900/60 rounded-full px-3 py-1 border border-slate-800/40">
-              <Eye className="w-3.5 h-3.5 text-purple-400" />
-              <span className="text-xs text-slate-300 font-medium">{participants.length}</span>
-              <span className="text-[10px] text-slate-500">مستمع</span>
-            </div>
-            {isOnSeat && (
-              <Badge className={`border text-[9px] ${ROLE_BG[myRole]}`}>
-                {(() => { const I = ROLE_ICONS[myRole]; return <I className="w-3 h-3 inline ml-0.5" />; })()}
-                {ROLE_LABELS[myRole]}
-              </Badge>
-            )}
-          </div>
-
-          {/* Mic Grid */}
-          <div className="bg-slate-900/30 border border-slate-800/30 rounded-2xl p-4 sm:p-6">
-            <MicGridLayout
-              participants={micParticipants}
-              seatCount={room.micSeatCount}
-              hostId={room.hostId}
-              currentUserId={user?.id || ''}
-              myRole={myRole}
-              micTheme={room.micTheme || 'default'}
-              onSeatClick={handleSeatClick}
-            />
-          </div>
-
-          {/* Audience Row */}
-          {audienceParticipants.length > 0 && (
-            <AudienceRow participants={audienceParticipants} onUserClick={handleAudienceClick} />
-          )}
-
-          {/* Description */}
-          {room.description && (
-            <p className="text-center text-xs text-slate-500 mt-4 px-4">{room.description}</p>
-          )}
-        </div>
-
-        {/* ─── Bottom Control Bar ─────────────────────────────────── */}
-        <div className="fixed bottom-0 left-0 right-0 bg-slate-950/95 backdrop-blur-xl border-t border-slate-800/50 z-40 safe-area-bottom">
-          <div className="max-w-2xl mx-auto flex items-center justify-around py-2.5 px-2">
-            {/* Chat */}
-            <button
-              onClick={() => setShowChat(!showChat)}
-              className={`flex flex-col items-center gap-0.5 px-2 py-1 rounded-xl transition-colors ${
-                showChat ? 'text-purple-400 bg-purple-500/10' : 'text-slate-500 hover:text-slate-300'
-              }`}
-            >
-              <MessageCircle className="w-5 h-5" />
-              <span className="text-[9px]">محادثة</span>
-            </button>
-
-            {/* Mic toggle (on seat) */}
-            {isOnSeat && (
-              <button
-                onClick={toggleMic}
-                className={`flex flex-col items-center gap-0.5 px-2 py-1 rounded-xl transition-colors ${
-                  myParticipant?.isMuted ? 'text-red-400 bg-red-500/10' : 'text-emerald-400 bg-emerald-500/10'
-                }`}
-              >
-                <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
-                  myParticipant?.isMuted
-                    ? 'bg-red-500/20 border-2 border-red-500/50'
-                    : 'bg-emerald-500/20 border-2 border-emerald-500/50'
-                }`}>
-                  {myParticipant?.isMuted ? <MicOff className="w-5 h-5" /> : <Mic className="w-5 h-5" />}
-                </div>
-                <span className="text-[9px]">{myParticipant?.isMuted ? 'مكتوم' : 'مفتوح'}</span>
-              </button>
-            )}
-
-            {/* Take Seat / Leave Seat */}
-            {!isOnSeat && (
-              <button
-                onClick={() => requestSeat()}
-                disabled={actionLoading}
-                className="flex flex-col items-center gap-0.5 px-3 py-1 rounded-xl text-purple-400 bg-purple-500/10 hover:bg-purple-500/20 transition-colors"
-              >
-                <div className="w-10 h-10 rounded-full bg-purple-500/20 border-2 border-purple-500/50 flex items-center justify-center">
-                  {actionLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : <HandMetal className="w-5 h-5" />}
-                </div>
-                <span className="text-[9px]">طلب مقعد</span>
-              </button>
-            )}
-            {isOnSeat && (
-              <button
-                onClick={leaveSeat}
-                className="flex flex-col items-center gap-0.5 px-2 py-1 rounded-xl text-slate-400 hover:text-orange-400 hover:bg-orange-500/10 transition-colors"
-              >
-                <div className="w-10 h-10 rounded-full bg-slate-700/30 border-2 border-slate-600/50 flex items-center justify-center">
-                  <ArrowLeft className="w-5 h-5" />
-                </div>
-                <span className="text-[9px]">مغادرة المقعد</span>
-              </button>
-            )}
-
-            {/* Gift */}
-            <button
-              onClick={() => {}}
-              className="flex flex-col items-center gap-0.5 px-2 py-1 rounded-xl text-amber-400 hover:bg-amber-500/10 transition-colors"
-            >
-              <Gift className="w-5 h-5" />
-              <span className="text-[9px]">هدية</span>
-            </button>
-
-            {/* Settings (admin) */}
-            {canSettings && (
-              <button
-                onClick={() => setShowSettings(true)}
-                className="flex flex-col items-center gap-0.5 px-2 py-1 rounded-xl text-slate-500 hover:text-slate-300 hover:bg-slate-800/40 transition-colors"
-              >
-                <Settings className="w-5 h-5" />
-                <span className="text-[9px]">إعدادات</span>
-              </button>
-            )}
-
-            {/* Waitlist (admin) */}
-            {isAdmin && (
-              <button
-                onClick={() => setShowWaitlist(true)}
-                className="flex flex-col items-center gap-0.5 px-2 py-1 rounded-xl text-slate-500 hover:text-yellow-400 hover:bg-yellow-500/10 transition-colors relative"
-              >
-                <div className="relative">
-                  <Clock className="w-5 h-5" />
-                  {waitlistCount > 0 && (
-                    <span className="absolute -top-1.5 -left-1.5 min-w-[14px] h-[14px] bg-yellow-500 rounded-full flex items-center justify-center text-[8px] font-bold text-slate-900 px-0.5">
-                      {waitlistCount}
-                    </span>
-                  )}
-                </div>
-                <span className="text-[9px]">الانتظار</span>
-              </button>
-            )}
-
-            {/* Action Log (admin) */}
-            {isAdmin && (
-              <button
-                onClick={() => setShowActionLog(true)}
-                className="flex flex-col items-center gap-0.5 px-2 py-1 rounded-xl text-slate-500 hover:text-slate-300 hover:bg-slate-800/40 transition-colors"
-              >
-                <ScrollText className="w-5 h-5" />
-                <span className="text-[9px]">الأحداث</span>
-              </button>
-            )}
-
-            {/* Leave Room */}
-            <button
-              onClick={leaveRoom}
-              className="flex flex-col items-center gap-0.5 px-2 py-1 rounded-xl text-rose-400 hover:bg-rose-500/10 transition-colors"
-            >
-              <div className="w-10 h-10 rounded-full bg-rose-500/15 border-2 border-rose-500/40 flex items-center justify-center">
-                <LogOut className="w-5 h-5" />
-              </div>
-              <span className="text-[9px]">مغادرة</span>
-            </button>
-          </div>
-        </div>
-
-        {/* ─── Panels ─────────────────────────────────────────────── */}
-
-        {/* Chat Panel */}
-        <ChatPanel
-          isOpen={showChat}
-          onClose={() => setShowChat(false)}
-          messages={chatMessages}
-          chatMuted={!!room.chatMuted}
-          chatInput={chatInput}
-          setChatInput={setChatInput}
-          onSend={sendChat}
-        />
-
-        {/* Gift Panel */}
-        {showGift && (
-          <GiftPanel
-            isOpen={!!showGift}
-            onClose={() => setShowGift(null)}
-            gifts={gifts}
-            targetName={participants.find(p => p.userId === showGift)?.displayName || 'مستخدم'}
-            onSendGift={sendGift}
-          />
-        )}
-
-        {/* Settings Panel */}
-        {canSettings && showSettings && (
-          <SettingsPanel
-            isOpen={showSettings}
-            onClose={() => setShowSettings(false)}
-            room={room}
-            isOwner={myRole === 'owner'}
-            myRole={myRole}
-            onUpdate={updateSettings}
-          />
-        )}
-
-        {/* Waitlist Panel */}
-        {isAdmin && (
-          <WaitlistPanel
-            isOpen={showWaitlist}
-            onClose={() => setShowWaitlist(false)}
-            waitlist={waitlist}
-            onApprove={handleApproveWaitlist}
-            onReject={handleRejectWaitlist}
-          />
-        )}
-
-        {/* Action Log Panel */}
-        {isAdmin && (
-          <ActionLogPanel
-            isOpen={showActionLog}
-            onClose={() => setShowActionLog(false)}
-            logs={actionLog}
-          />
-        )}
-
-        {/* User Profile Menu */}
-        {showUserProfile && (
-          <UserProfileMenu
-            isOpen={!!showUserProfile}
-            onClose={() => setShowUserProfile(null)}
-            participant={showUserProfile}
-            myRole={myRole}
-            currentUserId={user?.id || ''}
-            onAction={handleProfileAction}
-          />
-        )}
-
-        {/* Seat Context Menu */}
-        {showSeatContext !== null && (
-          <SeatContextMenu
-            isOpen={showSeatContext !== null}
-            onClose={() => setShowSeatContext(null)}
-            seatIndex={showSeatContext}
-            currentStatus="open"
-            onSetStatus={handleSetSeatStatus}
-          />
-        )}
-
-        {/* Join Password Dialog */}
-        <Dialog open={!!showJoinPassword} onOpenChange={() => setShowJoinPassword(null)}>
-          <DialogContent className="bg-slate-900 border-slate-800 text-white sm:max-w-sm" dir="rtl">
-            <DialogHeader>
-              <DialogTitle className="text-white flex items-center gap-2">
-                <Key className="w-5 h-5 text-yellow-400" />
-                كلمة المرور
-              </DialogTitle>
-            </DialogHeader>
-            <div className="space-y-4 mt-2">
-              <Input
-                placeholder="أدخل كلمة مرور الغرفة"
-                value={joinPassword}
-                onChange={(e) => setJoinPassword(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && joinRoomWithPassword()}
-                className="bg-slate-800 border-slate-700 text-white placeholder:text-slate-500"
-                autoFocus
-              />
-              <div className="flex gap-2">
-                <Button variant="outline" onClick={() => setShowJoinPassword(null)} className="flex-1 border-slate-700 text-slate-300">
-                  إلغاء
-                </Button>
-                <Button onClick={joinRoomWithPassword} disabled={!joinPassword.trim()} className="flex-1 bg-purple-600 hover:bg-purple-500">
-                  دخول
-                </Button>
-              </div>
-            </div>
-          </DialogContent>
-        </Dialog>
-      </div>
-    );
-  }
-
-  // ═══════════════════════════════════════════════════════════════════
-  // ROOMS LIST VIEW
-  // ═══════════════════════════════════════════════════════════════════
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-slate-950 via-purple-950/10 to-slate-950 text-white" dir="rtl">
-      {/* Header */}
-      <div className="bg-slate-900/60 backdrop-blur-xl border-b border-purple-500/20 px-4 py-4 sticky top-0 z-40">
-        <div className="max-w-3xl mx-auto">
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-3">
+    <>
+      <InjectStyles />
+      <div className="h-screen bg-[#0d0f1a] flex flex-col voice-room-root" dir="rtl">
+
+        {/* ══════════════════════════════════════════════
+            TOP BAR: exit (right), title+live (center), settings+share (left)
+            ══════════════════════════════════════════════ */}
+        <header className="h-14 bg-[#141726] flex items-center justify-between px-4 border-b border-[rgba(108,99,255,0.18)] flex-shrink-0">
+          {/* Exit button — right side in RTL */}
+          <button
+            onClick={handleLeaveRoom}
+            className="flex items-center gap-1.5 bg-[rgba(239,68,68,0.12)] border border-[rgba(239,68,68,0.3)] rounded-[10px] px-3 py-1.5 text-[12px] font-semibold text-[#ef4444] active:bg-[rgba(239,68,68,0.25)] transition-colors"
+          >
+            <X className="w-3 h-3" />
+            خروج
+          </button>
+
+          {/* Room title — center */}
+          <div className="flex flex-col items-center gap-0.5">
+            <div className="flex items-center gap-1.5">
+              <div className="w-[7px] h-[7px] rounded-full bg-[#22c55e] animate-live-pulse" />
+              <span className="text-[15px] font-bold text-[#f0f0f8]">{room.name}</span>
+            </div>
+            <span className="text-[10px] text-[#5a6080]">{listenerCount} مستمع</span>
+          </div>
+
+          {/* Settings + Share — left side in RTL */}
+          <div className="flex gap-2">
+            <button
+              onClick={() => setSettingsOpen(true)}
+              className="w-[34px] h-[34px] rounded-[10px] bg-[#1c2035] border border-[rgba(255,255,255,0.07)] flex items-center justify-center active:bg-[#232843] transition-colors"
+            >
+              <Settings className="w-4 h-4 text-[#9ca3c4]" />
+            </button>
+            <button
+              onClick={handleCopyLink}
+              className="w-[34px] h-[34px] rounded-[10px] bg-[#1c2035] border border-[rgba(255,255,255,0.07)] flex items-center justify-center active:bg-[#232843] transition-colors"
+            >
+              <Link2 className="w-4 h-4 text-[#9ca3c4]" />
+            </button>
+          </div>
+        </header>
+
+        {/* ══════════════════════════════════════════════
+            MIC GRID: 5 per row, 52px avatars
+            ══════════════════════════════════════════════ */}
+        <section className="bg-[#141726] px-3 py-3.5 pb-2.5 border-b border-[rgba(255,255,255,0.07)] flex-shrink-0">
+          {/* Header */}
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-[11px] text-[#5a6080]">المنابر الصوتية</span>
+            <span className="text-[10px] bg-[rgba(108,99,255,0.15)] text-[#a78bfa] border border-[rgba(108,99,255,0.3)] rounded-full px-2 py-0.5">
+              {room.micSeatCount} مايك
+            </span>
+          </div>
+          {/* Grid: exactly 5 per row */}
+          <div className="grid grid-cols-5 gap-x-1.5 gap-y-2.5">
+            {seats.map((seat) => (
+              <MicSeat
+                key={seat.seatIndex}
+                seatIndex={seat.seatIndex}
+                seatData={seat}
+                currentUserId={currentUserId}
+                myRole={myRole}
+                hostId={room.hostId}
+                onClick={() => handleSeatClick(seat.seatIndex)}
+              />
+            ))}
+          </div>
+        </section>
+
+        {/* ══════════════════════════════════════════════
+            CHAT AREA: session-only, scrollable
+            ══════════════════════════════════════════════ */}
+        <section className="flex-1 overflow-y-auto px-3 py-2.5 scrollbar-hide" style={{ minHeight: 0 }}>
+          <div className="flex flex-col gap-1.5">
+            {chatMessages.length === 0 && (
+              <p className="text-center text-[10px] text-[#5a6080] py-4">ابدأ المحادثة...</p>
+            )}
+
+            {chatMessages.map((msg) => (
+              <div key={msg.id}>
+                {msg.isGift ? (
+                  /* Gift notification pill */
+                  <div className="self-center animate-fade-up flex justify-center">
+                    <div className="bg-[rgba(245,158,11,0.1)] border border-[rgba(245,158,11,0.2)] rounded-full px-3.5 py-1 text-[10.5px] text-[#f59e0b] flex items-center gap-1.5">
+                      <span>{msg.text}</span>
+                    </div>
+                  </div>
+                ) : msg.isSystem ? (
+                  <p className="text-center text-[10px] text-[#5a6080] py-0.5 italic animate-fade-up">{msg.text}</p>
+                ) : (
+                  /* Normal chat message */
+                  <div className="flex items-start gap-1.5 animate-fade-up">
+                    <div
+                      className="w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5 overflow-hidden"
+                      style={{ background: getAvatarColor(msg.userId) }}
+                    >
+                      {msg.avatar ? (
+                        <img src={msg.avatar} alt="" className="w-full h-full rounded-full object-cover" />
+                      ) : (
+                        <span className="text-[9px] font-bold text-white">{msg.displayName.charAt(0)}</span>
+                      )}
+                    </div>
+                    <div className="bg-[#1c2035] border border-[rgba(255,255,255,0.07)] rounded-[12px_4px_12px_12px] px-2.5 py-1.5 max-w-[75%]">
+                      <div className="text-[10px] font-bold mb-0.5" style={{ color: getSenderColor(msg.userId) }}>
+                        {msg.displayName}
+                      </div>
+                      <div className="text-[12px] text-[#9ca3c4] leading-relaxed break-words">{msg.text}</div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            ))}
+
+            <div ref={chatEndRef} />
+          </div>
+        </section>
+
+        {/* ══════════════════════════════════════════════
+            BOTTOM BAR: mute-room + mic-toggle + chat-input + gift
+            ══════════════════════════════════════════════ */}
+        <footer className="bg-[#141726] border-t border-[rgba(108,99,255,0.18)] px-3 py-2.5 pb-5 flex-shrink-0">
+          <div className="flex items-center gap-2">
+            {/* Mute room button */}
+            <button
+              onClick={handleToggleRoomMute}
+              className={`w-[38px] h-[38px] rounded-full bg-[#1c2035] border flex items-center justify-center flex-shrink-0 active:scale-95 transition-all ${
+                isRoomMuted
+                  ? 'border-[rgba(239,68,68,0.3)] bg-[rgba(239,68,68,0.1)]'
+                  : 'border-[rgba(255,255,255,0.07)]'
+              }`}
+            >
+              {isRoomMuted
+                ? <VolumeX className="w-[18px] h-[18px] text-[#ef4444]" />
+                : <Volume2 className="w-[18px] h-[18px] text-[#9ca3c4]" />
+              }
+            </button>
+
+            {/* Mic toggle — only when user is on a seat */}
+            {isOnSeat && (
               <button
-                onClick={() => router.push('/')}
-                className="w-8 h-8 rounded-lg bg-slate-800/60 flex items-center justify-center hover:bg-slate-700/60 transition-colors"
+                onClick={handleToggleMic}
+                className={`w-[38px] h-[38px] rounded-full flex items-center justify-center flex-shrink-0 active:scale-95 transition-all ${
+                  isMicMuted
+                    ? 'bg-[rgba(239,68,68,0.1)] border border-[rgba(239,68,68,0.3)]'
+                    : 'bg-[rgba(34,197,94,0.15)] border border-[#22c55e]'
+                }`}
               >
-                <ArrowLeft className="w-4 h-4 text-slate-400" />
+                {isMicMuted
+                  ? <MicOff className="w-[18px] h-[18px] text-[#ef4444]" />
+                  : <Mic className="w-[18px] h-[18px] text-[#22c55e]" />
+                }
               </button>
-              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-purple-500/20 to-fuchsia-500/20 border border-purple-500/30 flex items-center justify-center">
-                <Headphones className="w-5 h-5 text-purple-400" />
-              </div>
-              <div>
-                <h1 className="text-lg font-bold text-white">المجلس</h1>
-                <p className="text-[11px] text-slate-400">غرف صوتية تفاعلية</p>
-              </div>
-            </div>
-            <CreateRoomDialog open={showCreate} onOpenChange={setShowCreate} onCreate={createRoom} loading={creating} />
-          </div>
+            )}
 
-          {/* Quick Stats */}
-          <div className="flex items-center gap-3">
-            <div className="flex items-center gap-1.5 bg-slate-800/40 rounded-full px-3 py-1">
-              <Radio className="w-3 h-3 text-emerald-400" />
-              <span className="text-[11px] text-slate-300 font-medium">{rooms.length}</span>
-              <span className="text-[10px] text-slate-500">غرفة نشطة</span>
-            </div>
-            <div className="flex items-center gap-1.5 bg-slate-800/40 rounded-full px-3 py-1">
-              <Users className="w-3 h-3 text-purple-400" />
-              <span className="text-[11px] text-slate-300 font-medium">
-                {rooms.reduce((sum, r) => sum + (r.participantCount || 0), 0)}
-              </span>
-              <span className="text-[10px] text-slate-500">مستمع</span>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Rooms Grid */}
-      <div className="max-w-3xl mx-auto p-4 pb-8">
-        <AnimatePresence mode="wait">
-          {roomsLoading ? (
-            <motion.div
-              key="loading"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              className="text-center py-16"
-            >
-              <Loader2 className="w-8 h-8 animate-spin text-purple-400 mx-auto" />
-              <p className="text-slate-500 text-sm mt-3">جارٍ تحميل الغرف...</p>
-            </motion.div>
-          ) : rooms.length === 0 ? (
-            <motion.div
-              key="empty"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              className="text-center py-16"
-            >
-              <div className="w-20 h-20 rounded-2xl bg-slate-900/60 border border-slate-800/40 flex items-center justify-center mx-auto mb-4">
-                <Headphones className="w-10 h-10 text-slate-700" />
-              </div>
-              <p className="text-slate-400 text-sm font-medium">لا توجد غرف صوتية</p>
-              <p className="text-slate-600 text-xs mt-1">أنشئ غرفتك الأولى وابدأ المحادثة!</p>
-              <Button
-                onClick={() => setShowCreate(true)}
-                className="mt-4 bg-gradient-to-l from-purple-600 to-purple-700 text-white rounded-xl"
+            {/* Chat input */}
+            <div className="flex-1 bg-[#1c2035] border border-[rgba(255,255,255,0.07)] rounded-full flex items-center px-3.5 h-[38px] gap-1.5">
+              <input
+                type="text"
+                value={chatInput}
+                onChange={(e) => setChatInput(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && handleSendChat()}
+                placeholder={room.chatMuted ? 'المحادثة مكتومة' : 'اكتب رسالة...'}
+                disabled={room.chatMuted}
+                className="flex-1 bg-transparent border-none outline-none text-[13px] text-[#f0f0f8] placeholder:text-[#5a6080] disabled:opacity-50"
+                dir="rtl"
+              />
+              <button
+                onClick={handleSendChat}
+                disabled={!chatInput.trim() || room.chatMuted}
+                className="w-[26px] h-[26px] rounded-full bg-[#6c63ff] flex items-center justify-center flex-shrink-0 disabled:opacity-30 transition-opacity"
               >
-                <Plus className="w-4 h-4 ml-1.5" /> إنشاء غرفة
-              </Button>
-            </motion.div>
-          ) : (
-            <motion.div
-              key="rooms"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              className="grid grid-cols-1 sm:grid-cols-2 gap-3"
+                <Send className="w-3 h-3 text-white" />
+              </button>
+            </div>
+
+            {/* Gift button */}
+            <button
+              onClick={() => setGiftSheetOpen(true)}
+              className="w-[38px] h-[38px] rounded-full bg-gradient-to-br from-amber-500 to-red-500 flex items-center justify-center flex-shrink-0 shadow-lg active:scale-95 transition-transform"
             >
-              {rooms.map((room, i) => (
-                <RoomCard
-                  key={room.id}
-                  room={room}
-                  index={i}
-                  onClick={() => joinRoom(room)}
-                />
-              ))}
-            </motion.div>
-          )}
-        </AnimatePresence>
+              <Gift className="w-[18px] h-[18px] text-white" />
+            </button>
+          </div>
+        </footer>
       </div>
-    </div>
+
+      {/* ══════════════════════════════════════════════
+          BOTTOM SHEETS & DIALOGS
+          ══════════════════════════════════════════════ */}
+
+      <MicMenuBottomSheet
+        isOpen={micMenuSheet.isOpen}
+        onClose={() => setMicMenuSheet(prev => ({ ...prev, isOpen: false }))}
+        seatIndex={micMenuSheet.seatIndex}
+        participant={micMenuSheet.participant}
+        onAction={handleMicMenuAction}
+      />
+
+      <ProfileBottomSheet
+        isOpen={!!profileSheet}
+        onClose={() => setProfileSheet(null)}
+        participant={profileSheet}
+        onGiftClick={() => setGiftSheetOpen(true)}
+      />
+
+      <GiftBottomSheet
+        isOpen={giftSheetOpen}
+        onClose={() => setGiftSheetOpen(false)}
+        gifts={gifts}
+        onSendGift={handleSendGift}
+      />
+
+      <SettingsBottomSheet
+        isOpen={settingsOpen}
+        onClose={() => setSettingsOpen(false)}
+        room={room}
+        onUpdate={handleUpdateSettings}
+      />
+
+      <KickDurationDialog
+        isOpen={kickDialogOpen}
+        onClose={() => setKickDialogOpen(false)}
+        onConfirm={(minutes) => { handleKickTemp(minutes); setKickDialogOpen(false); }}
+      />
+
+      <PasswordDialog
+        isOpen={passwordDialogOpen}
+        onClose={() => setPasswordDialogOpen(false)}
+        onSubmit={() => { setPasswordDialogOpen(false); }}
+      />
+    </>
   );
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   MAIN PAGE COMPONENT
+   ═══════════════════════════════════════════════════════════════════════ */
+
+export default function VoiceRoomsPage() {
+  const [activeRoom, setActiveRoom] = useState<VoiceRoom | null>(null);
+
+  const handleJoinRoom = useCallback(async (room: VoiceRoom) => {
+    if (room.roomMode === 'key' && !room.roomPassword) {
+      // Would need password dialog in real flow
+    }
+
+    try {
+      const res = await fetch(`/api/voice-rooms/${room.id}?action=join`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          username: MOCK_USER.username,
+          displayName: MOCK_USER.displayName,
+          avatar: MOCK_USER.avatar,
+        }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setActiveRoom(room);
+      } else {
+        setActiveRoom(room);
+      }
+    } catch {
+      setActiveRoom(room);
+    }
+  }, []);
+
+  const handleCreateRoom = useCallback(async (data: {
+    name: string; description: string; micSeatCount: number;
+    roomMode: RoomMode; roomPassword: string; maxParticipants: number;
+    isAutoMode: boolean; micTheme: string;
+  }) => {
+    try {
+      const res = await fetch('/api/voice-rooms', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ...data,
+          hostName: MOCK_USER.displayName,
+        }),
+      });
+      const result = await res.json();
+      if (result.success && result.room) {
+        try {
+          await fetch(`/api/voice-rooms/${result.room.id}?action=save-template`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              name: data.name,
+              description: data.description,
+              micSeatCount: data.micSeatCount,
+              roomMode: data.roomMode,
+              roomPassword: data.roomPassword,
+              maxParticipants: data.maxParticipants,
+              isAutoMode: data.isAutoMode,
+              micTheme: data.micTheme,
+              allowedRoles: [],
+            }),
+          });
+        } catch { /* ignore */ }
+
+        await handleJoinRoom(result.room);
+      }
+    } catch { /* ignore */ }
+  }, [handleJoinRoom]);
+
+  const handleExitRoom = useCallback(() => {
+    setActiveRoom(null);
+  }, []);
+
+  if (activeRoom) {
+    return <RoomInteriorView room={activeRoom} onExit={handleExitRoom} />;
+  }
+
+  return <RoomListView onJoinRoom={handleJoinRoom} onCreateRoom={handleCreateRoom} />;
 }

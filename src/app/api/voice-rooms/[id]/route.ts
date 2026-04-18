@@ -8,6 +8,8 @@ import {
   assignSeat, requestSeat, approveWaitlist, rejectWaitlist, getWaitlist,
   changeUserRole, transferOwnership, updateRoomSettings,
   getActionLog, setSeatStatus, getRoomById,
+  kickFromRoomTimed, isUserKicked, cleanExpiredKicks,
+  getRoomTemplate, saveRoomTemplate,
 } from '@/lib/admin-db';
 
 const JWT_SECRET = new TextEncoder().encode(process.env.JWT_SECRET || 'gg-platform-secret-key-2024');
@@ -68,6 +70,19 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       if (!p) return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
       const me = await getParticipant(id, p.userId as string);
       return NextResponse.json({ success: true, participant: me });
+    }
+    if (action === 'kicked') {
+      const p = await getPayload(request);
+      if (!p) return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
+      await cleanExpiredKicks(id);
+      const kicked = await isUserKicked(id, p.userId as string);
+      return NextResponse.json({ success: true, kicked });
+    }
+    if (action === 'template') {
+      const p = await getPayload(request);
+      if (!p) return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
+      const tpl = await getRoomTemplate(p.userId as string);
+      return NextResponse.json({ success: true, template: tpl });
     }
 
     return NextResponse.json({ error: 'طلب غير صالح' }, { status: 400 });
@@ -201,11 +216,20 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     }
 
     if (action === 'kick-from-room') {
-      const { targetUserId } = await request.json();
+      const { targetUserId, durationMinutes } = await request.json();
       if (!targetUserId) return NextResponse.json({ error: 'بيانات ناقصة' }, { status: 400 });
+      if (durationMinutes && durationMinutes > 0) {
+        const ok = await kickFromRoomTimed(id, targetUserId, userId, durationMinutes);
+        return NextResponse.json({ success: ok });
+      }
       const ok = await kickFromRoom(id, targetUserId, userId);
       if (!ok) return NextResponse.json({ error: 'فشل طرده من الغرفة' }, { status: 403 });
       return NextResponse.json({ success: true });
+    }
+    if (action === 'save-template') {
+      const body = await request.json();
+      const tpl = await saveRoomTemplate({ userId, ...body });
+      return NextResponse.json({ success: true, template: tpl });
     }
 
     if (action === 'freeze-seat') {

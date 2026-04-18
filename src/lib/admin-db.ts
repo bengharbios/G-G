@@ -601,6 +601,26 @@ async function ensureAdminTables(): Promise<void> {
       targetName TEXT DEFAULT '', details TEXT DEFAULT '', createdAt TEXT DEFAULT (datetime('now')))
   `);
 
+  // RoomTemplate - saves user's room preferences (one per user)
+  await c.execute(`
+    CREATE TABLE IF NOT EXISTS RoomTemplate (
+      id TEXT PRIMARY KEY, userId TEXT UNIQUE NOT NULL,
+      name TEXT DEFAULT '', description TEXT DEFAULT '',
+      micSeatCount INTEGER DEFAULT 10, roomMode TEXT DEFAULT 'public',
+      roomPassword TEXT DEFAULT '', maxParticipants INTEGER DEFAULT 50,
+      isAutoMode INTEGER DEFAULT 1, micTheme TEXT DEFAULT 'default',
+      allowedRoles TEXT DEFAULT '["member","admin","coowner","owner"]',
+      updatedAt TEXT DEFAULT (datetime('now')))
+  `);
+
+  // RoomKickTimer - temp kick with duration
+  await c.execute(`
+    CREATE TABLE IF NOT EXISTS RoomKickTimer (
+      id TEXT PRIMARY KEY, roomId TEXT NOT NULL, userId TEXT NOT NULL,
+      kickedBy TEXT NOT NULL, durationMinutes INTEGER DEFAULT 0,
+      kickedAt TEXT DEFAULT (datetime('now')))
+  `);
+
   _tablesReady = true;
 }
 
@@ -3592,4 +3612,126 @@ export async function getParticipant(roomId: string, userId: string): Promise<Vo
     vipLevel: Number(row.vipLevel) || 0,
     joinedAt: row.joinedAt as string,
   };
+}
+
+// ─── RoomTemplate ──────────────────────────────────────────────────
+
+export interface RoomTemplate {
+  id: string;
+  userId: string;
+  name: string;
+  description: string;
+  micSeatCount: number;
+  roomMode: 'public' | 'key' | 'private';
+  roomPassword: string;
+  maxParticipants: number;
+  isAutoMode: boolean;
+  micTheme: string;
+  allowedRoles: string[]; // JSON array of roles allowed on mic
+  updatedAt: string;
+}
+
+export async function getRoomTemplate(userId: string): Promise<RoomTemplate | null> {
+  const c = getClient();
+  await ensureAdminTables();
+  const result = await c.execute({ sql: 'SELECT * FROM RoomTemplate WHERE userId = ?', args: [userId] });
+  if (result.rows.length === 0) return null;
+  const row = result.rows[0];
+  let allowedRoles: string[] = ['member', 'admin', 'coowner', 'owner'];
+  try { const parsed = JSON.parse((row.allowedRoles as string) || '[]'); if (Array.isArray(parsed)) allowedRoles = parsed; } catch {}
+  return {
+    id: row.id as string, userId: row.userId as string,
+    name: (row.name as string) || '', description: (row.description as string) || '',
+    micSeatCount: Number(row.micSeatCount) || 10,
+    roomMode: (row.roomMode as RoomTemplate['roomMode']) || 'public',
+    roomPassword: (row.roomPassword as string) || '',
+    maxParticipants: Number(row.maxParticipants) || 50,
+    isAutoMode: Boolean(row.isAutoMode),
+    micTheme: (row.micTheme as string) || 'default',
+    allowedRoles,
+    updatedAt: row.updatedAt as string,
+  };
+}
+
+export async function saveRoomTemplate(data: {
+  userId: string; name: string; description: string;
+  micSeatCount: number; roomMode: string; roomPassword: string;
+  maxParticipants: number; isAutoMode: boolean; micTheme: string;
+  allowedRoles: string[];
+}): Promise<RoomTemplate> {
+  const c = getClient();
+  await ensureAdminTables();
+  const existing = await c.execute({ sql: 'SELECT id FROM RoomTemplate WHERE userId = ?', args: [data.userId] });
+  if (existing.rows.length > 0) {
+    await c.execute({
+      sql: `UPDATE RoomTemplate SET name=?, description=?, micSeatCount=?, roomMode=?, roomPassword=?,
+            maxParticipants=?, isAutoMode=?, micTheme=?, allowedRoles=?, updatedAt=datetime('now') WHERE userId=?`,
+      args: [data.name, data.description, data.micSeatCount, data.roomMode, data.roomPassword,
+        data.maxParticipants, data.isAutoMode ? 1 : 0, data.micTheme, JSON.stringify(data.allowedRoles), data.userId],
+    });
+  } else {
+    await c.execute({
+      sql: `INSERT INTO RoomTemplate (id, userId, name, description, micSeatCount, roomMode, roomPassword,
+            maxParticipants, isAutoMode, micTheme, allowedRoles)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      args: [crypto.randomUUID(), data.userId, data.name, data.description, data.micSeatCount,
+        data.roomMode, data.roomPassword, data.maxParticipants, data.isAutoMode ? 1 : 0,
+        data.micTheme, JSON.stringify(data.allowedRoles)],
+    });
+  }
+  return (await getRoomTemplate(data.userId))!;
+}
+
+// ─── Temp Kick with Duration ──────────────────────────────────────
+
+export async function kickFromRoomTimed(roomId: string, targetUserId: string, actorId: string, durationMinutes: number): Promise<boolean> {
+  const c = getClient();
+  await ensureAdminTables();
+
+  const actorResult = await c.execute({ sql: 'SELECT username, displayName FROM VoiceRoomParticipant WHERE roomId = ? AND userId = ?', args: [roomId, actorId] });
+  const actorName = (actorResult.rows[0]?.username || actorResult.rows[0]?.displayName || '') as string;
+
+  const targetResult = await c.execute({ sql: 'SELECT username, displayName FROM VoiceRoomParticipant WHERE roomId = ? AND userId = ?', args: [roomId, targetUserId] });
+  if (targetResult.rows.length === 0) return false;
+  const targetName = (targetResult.rows[0]?.username || targetResult.rows[0]?.displayName || '') as string;
+
+  await c.execute({ sql: 'DELETE FROM VoiceRoomParticipant WHERE roomId = ? AND userId = ?', args: [roomId, targetUserId] });
+  await c.execute({ sql: 'DELETE FROM RoomWaitlist WHERE roomId = ? AND userId = ?', args: [roomId, targetUserId] });
+
+  if (durationMinutes > 0) {
+    await c.execute({
+      sql: 'INSERT INTO RoomKickTimer (id, roomId, userId, kickedBy, durationMinutes) VALUES (?, ?, ?, ?, ?)',
+      args: [crypto.randomUUID(), roomId, targetUserId, actorId, durationMinutes],
+    });
+  }
+
+  await logAction(roomId, actorId, actorName, 'kick_timed', targetUserId, targetName, `${durationMinutes} minutes`);
+  return true;
+}
+
+export async function isUserKicked(roomId: string, userId: string): Promise<boolean> {
+  const c = getClient();
+  await ensureAdminTables();
+  const result = await c.execute({ sql: 'SELECT id, kickedAt, durationMinutes FROM RoomKickTimer WHERE roomId = ? AND userId = ?', args: [roomId, userId] });
+  if (result.rows.length === 0) return false;
+  const row = result.rows[0];
+  const durationMs = Number(row.durationMinutes) * 60 * 1000;
+  if (durationMs <= 0) return true; // permanent kick
+  const kickedAt = new Date(row.kickedAt as string).getTime();
+  return Date.now() - kickedAt < durationMs;
+}
+
+export async function cleanExpiredKicks(roomId: string): Promise<void> {
+  const c = getClient();
+  await ensureAdminTables();
+  const result = await c.execute({ sql: 'SELECT id, kickedAt, durationMinutes FROM RoomKickTimer WHERE roomId = ?', args: [roomId] });
+  for (const row of result.rows) {
+    const durationMs = Number(row.durationMinutes) * 60 * 1000;
+    if (durationMs > 0) {
+      const kickedAt = new Date(row.kickedAt as string).getTime();
+      if (Date.now() - kickedAt >= durationMs) {
+        await c.execute({ sql: 'DELETE FROM RoomKickTimer WHERE id = ?', args: [row.id as string] });
+      }
+    }
+  }
 }
