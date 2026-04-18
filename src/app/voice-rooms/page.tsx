@@ -360,6 +360,20 @@ function MicMenuBottomSheet({
         {/* When someone is ON the mic */}
         {participant && (
           <>
+            {/* View profile */}
+            <button
+              onClick={() => { onAction('view-profile'); onClose(); }}
+              className="w-full flex items-center gap-3 px-3.5 py-3 rounded-xl text-[#a78bfa] hover:bg-[#232843] active:bg-[#232843] transition-colors"
+            >
+              <div className="w-9 h-9 rounded-full bg-[rgba(108,99,255,0.15)] flex items-center justify-center flex-shrink-0">
+                <Users className="w-[18px] h-[18px] text-[#a78bfa]" />
+              </div>
+              <div className="text-right">
+                <div className="text-[14px] font-semibold">عرض البروفايل</div>
+                <div className="text-[11px] text-[#5a6080] font-normal">مشاهدة ملف المستخدم الشخصي</div>
+              </div>
+            </button>
+
             {/* Close mic (lock + pull) */}
             {!isSeatLocked && (
               <button
@@ -515,7 +529,11 @@ function ProfileBottomSheet({
   const avatarColor = participant ? getAvatarColor(participant.userId) : '#1c2035';
 
   const canManageRoles = canDo(myRole, 'owner') && participant?.userId !== authUserId && participant?.userId !== hostId;
+  // Check if target is an unregistered guest (no real username, or userId starts with 'guest-')
+  const isGuest = !participant?.username || participant?.userId?.startsWith('guest-');
   const availableRoles: RoomRole[] = ['member', 'admin', 'coowner'];
+  // Visitors get "grant membership", members get "change role"
+  const showGrantMembership = canManageRoles && participant?.role === 'visitor' && !isGuest;
 
   return (
     <BottomSheetOverlay isOpen={isOpen} onClose={onClose}>
@@ -539,6 +557,11 @@ function ProfileBottomSheet({
                 <span className={`text-[10px] px-2 py-0.5 rounded-full font-semibold ${ROLE_PILL_BG[participant.role]}`}>
                   {ROLE_LABELS[participant.role]}
                 </span>
+                {isGuest && (
+                  <span className="text-[10px] px-2 py-0.5 rounded-full font-semibold bg-[rgba(148,163,184,0.15)] text-[#5a6080]">
+                    مستمع
+                  </span>
+                )}
                 {participant.vipLevel > 0 && (
                   <span className="text-[11px] text-[#5a6080]">
                     مستوى <span className="text-[#f0f0f8] font-bold">{participant.vipLevel}</span>
@@ -565,32 +588,58 @@ function ProfileBottomSheet({
           </div>
 
           {/* Role management - owner only */}
-          {canManageRoles && (
+          {canManageRoles && !isGuest && (
             <div className="px-4 mt-2.5 border-t border-[rgba(255,255,255,0.07)] pt-2.5">
-              <button
-                onClick={() => setRoleMenuOpen(!roleMenuOpen)}
-                className="w-full flex items-center justify-between bg-[#1c2035] rounded-xl px-3.5 py-3 hover:bg-[#232843] active:bg-[#232843] transition-colors"
-              >
-                <span className="text-[13px] font-semibold text-[#f0f0f8]">تغيير الدور</span>
-                <span className="text-[11px] text-[#5a6080]">{ROLE_LABELS[participant.role]}</span>
-              </button>
-              {roleMenuOpen && (
-                <div className="flex gap-1.5 mt-2">
-                  {availableRoles.map(role => (
-                    <button
-                      key={role}
-                      onClick={() => { onChangeRole(participant.userId, role); setRoleMenuOpen(false); onClose(); }}
-                      className={`flex-1 py-2 rounded-lg border text-[11px] font-bold transition-all ${
-                        participant.role === role
-                          ? 'bg-[#6c63ff] border-[#6c63ff] text-white'
-                          : 'bg-[#1c2035] border-[rgba(255,255,255,0.07)] text-[#9ca3c4] hover:border-[#6c63ff]'
-                      }`}
-                    >
-                      {ROLE_LABELS[role]}
-                    </button>
-                  ))}
-                </div>
+              {showGrantMembership ? (
+                <button
+                  onClick={() => { onChangeRole(participant.userId, 'member'); onClose(); }}
+                  className="w-full flex items-center gap-3 bg-[#1c2035] rounded-xl px-3.5 py-3 hover:bg-[#232843] active:bg-[#232843] transition-colors"
+                >
+                  <div className="w-9 h-9 rounded-full bg-[rgba(34,197,94,0.15)] flex items-center justify-center flex-shrink-0">
+                    <span className="text-base">⭐</span>
+                  </div>
+                  <div className="text-right">
+                    <div className="text-[14px] font-semibold text-[#f0f0f8]">منح العضوية</div>
+                    <div className="text-[11px] text-[#5a6080] font-normal">ترقية المستخدم ليصبح عضواً في الغرفة</div>
+                  </div>
+                </button>
+              ) : (
+                <>
+                  <button
+                    onClick={() => setRoleMenuOpen(!roleMenuOpen)}
+                    className="w-full flex items-center justify-between bg-[#1c2035] rounded-xl px-3.5 py-3 hover:bg-[#232843] active:bg-[#232843] transition-colors"
+                  >
+                    <span className="text-[13px] font-semibold text-[#f0f0f8]">تغيير الدور</span>
+                    <span className="text-[11px] text-[#5a6080]">{ROLE_LABELS[participant.role]}</span>
+                  </button>
+                  {roleMenuOpen && (
+                    <div className="flex gap-1.5 mt-2">
+                      {availableRoles.map(role => (
+                        <button
+                          key={role}
+                          onClick={() => { onChangeRole(participant.userId, role); setRoleMenuOpen(false); onClose(); }}
+                          className={`flex-1 py-2 rounded-lg border text-[11px] font-bold transition-all ${
+                            participant.role === role
+                              ? 'bg-[#6c63ff] border-[#6c63ff] text-white'
+                              : 'bg-[#1c2035] border-[rgba(255,255,255,0.07)] text-[#9ca3c4] hover:border-[#6c63ff]'
+                          }`}
+                        >
+                          {ROLE_LABELS[role]}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </>
               )}
+            </div>
+          )}
+          {/* Guest indicator - unregistered users */}
+          {isGuest && canDo(myRole, 'admin') && (
+            <div className="px-4 mt-2.5 border-t border-[rgba(255,255,255,0.07)] pt-2.5">
+              <div className="flex items-center gap-2 bg-[rgba(148,163,184,0.08)] rounded-xl px-3.5 py-3">
+                <Users className="w-4 h-4 text-[#5a6080]" />
+                <span className="text-[12px] text-[#5a6080]">مستخدم غير مسجل - لا يمكن منحه عضوية</span>
+              </div>
             </div>
           )}
 
@@ -608,6 +657,8 @@ function ProfileBottomSheet({
 
           {/* Action buttons row */}
           <div className="flex gap-2 px-4 mt-3 pb-6">
+            {/* Send gift - only for registered users */}
+            {authUserId && (
             <button
               onClick={() => { onClose(); setTimeout(onGiftClick, 300); }}
               className="flex-1 flex flex-col items-center gap-1.5 py-3 rounded-[14px] bg-[#1c2035] border border-[rgba(255,255,255,0.07)] hover:bg-[#232843] active:scale-[0.97] transition-all"
@@ -615,6 +666,7 @@ function ProfileBottomSheet({
               <Gift className="w-[22px] h-[22px] text-[#f59e0b]" />
               <span className="text-[11px] text-[#9ca3c4] font-semibold">إرسال هدية</span>
             </button>
+            )}
             <button
               onClick={onClose}
               className="flex-1 flex flex-col items-center gap-1.5 py-3 rounded-[14px] bg-[#1c2035] border border-[rgba(255,255,255,0.07)] hover:bg-[#232843] active:scale-[0.97] transition-all"
@@ -1381,30 +1433,65 @@ function RoomInteriorView({
     } catch { return false; }
   }, [roomId]);
 
-  /* ── Init + polling ── */
+  /* ── Stable polling using refs (avoids re-render loops) ── */
+  const fetchParticipantsRef = useRef(fetchParticipants);
+  const fetchChatMessagesRef = useRef(fetchChatMessages);
+  const fetchRoomDetailsRef = useRef(fetchRoomDetails);
+  const fetchMyParticipantRef = useRef(fetchMyParticipant);
+  const fetchGiftsRef = useRef(fetchGifts);
+  const checkKickedRef = useRef(checkKicked);
+  const toastRef = useRef(toast);
+  const onExitRef = useRef(onExit);
+
+  useEffect(() => { fetchParticipantsRef.current = fetchParticipants; }, [fetchParticipants]);
+  useEffect(() => { fetchChatMessagesRef.current = fetchChatMessages; }, [fetchChatMessages]);
+  useEffect(() => { fetchRoomDetailsRef.current = fetchRoomDetails; }, [fetchRoomDetails]);
+  useEffect(() => { fetchMyParticipantRef.current = fetchMyParticipant; }, [fetchMyParticipant]);
+  useEffect(() => { fetchGiftsRef.current = fetchGifts; }, [fetchGifts]);
+  useEffect(() => { checkKickedRef.current = checkKicked; }, [checkKicked]);
+  useEffect(() => { toastRef.current = toast; }, [toast]);
+  useEffect(() => { onExitRef.current = onExit; }, [onExit]);
+
   useEffect(() => {
+    let cancelled = false;
+    let partPoll: ReturnType<typeof setInterval> | null = null;
+    let chatPoll: ReturnType<typeof setInterval> | null = null;
+    let roomPoll: ReturnType<typeof setInterval> | null = null;
+
     const init = async () => {
       setLoading(true);
-      const kicked = await checkKicked();
+      const kicked = await checkKickedRef.current();
       if (kicked) {
-        toast({ title: 'تم طردك من الغرفة', description: 'لا يمكنك الدخول حالياً' });
-        onExit();
+        toastRef.current({ title: 'تم طردك من الغرفة', description: 'لا يمكنك الدخول حالياً' });
+        onExitRef.current();
         setLoading(false);
         return;
       }
-      await Promise.all([fetchParticipants(), fetchMyParticipant(), fetchGifts(), fetchChatMessages(), fetchRoomDetails()]);
-      setLoading(false);
+      if (!cancelled) {
+        await Promise.all([
+          fetchParticipantsRef.current(),
+          fetchMyParticipantRef.current(),
+          fetchGiftsRef.current(),
+          fetchChatMessagesRef.current(),
+          fetchRoomDetailsRef.current(),
+        ]);
+        setLoading(false);
+      }
     };
     init();
-    const partPoll = setInterval(fetchParticipants, 4000);
-    const chatPoll = setInterval(fetchChatMessages, 2000);
-    const roomPoll = setInterval(fetchRoomDetails, 5000);
+
+    // Stable intervals that won't reset when callbacks change
+    partPoll = setInterval(() => { if (!cancelled) fetchParticipantsRef.current(); }, 4000);
+    chatPoll = setInterval(() => { if (!cancelled) fetchChatMessagesRef.current(); }, 3000);
+    roomPoll = setInterval(() => { if (!cancelled) fetchRoomDetailsRef.current(); }, 6000);
+
     return () => {
+      cancelled = true;
       if (partPoll) clearInterval(partPoll);
       if (chatPoll) clearInterval(chatPoll);
       if (roomPoll) clearInterval(roomPoll);
     };
-  }, [roomId, checkKicked, fetchParticipants, fetchMyParticipant, fetchGifts, fetchChatMessages, fetchRoomDetails, onExit, toast]);
+  }, [roomId]);
 
   /* ── Auto-scroll chat ── */
   useEffect(() => {
@@ -1620,8 +1707,13 @@ function RoomInteriorView({
           toast({ title: 'المقعد مقفل', description: 'لا يمكنك الجلوس هنا' });
         }
       } else {
-        // Open seat: sit on it directly
-        handleRequestSeat(seatIndex);
+        // Open seat: admins see menu with "sit on mic" or "close mic", regular users sit directly
+        if (isAdmin) {
+          setMicMenuSheet({ isOpen: true, seatIndex, participant: null });
+        } else {
+          // Regular users (visitor, member) sit directly
+          handleRequestSeat(seatIndex);
+        }
       }
     }
   }, [myRole, buildSeats, handleRequestSeat, toast]);
@@ -1630,6 +1722,9 @@ function RoomInteriorView({
   const handleMicMenuAction = useCallback(async (action: string) => {
     const { seatIndex, participant } = micMenuSheet;
     switch (action) {
+      case 'view-profile':
+        if (participant) setProfileSheet(participant);
+        break;
       case 'take-seat':
         await handleRequestSeat(seatIndex);
         break;
@@ -1795,24 +1890,39 @@ function RoomInteriorView({
             <div className="flex gap-2 overflow-x-auto scrollbar-hide pb-1">
               {participants
                 .filter(p => p.seatIndex < 0)
-                .map(p => (
+                .map(p => {
+                  const isGuestUser = !p.username || p.userId?.startsWith('guest-');
+                  return (
                   <button
                     key={p.userId}
                     onClick={() => setProfileSheet(p)}
                     className="flex-shrink-0 active:scale-95 transition-transform"
                   >
-                    <div
-                      className="w-[32px] h-[32px] rounded-full border border-[rgba(108,99,255,0.3)] overflow-hidden flex items-center justify-center"
-                      style={{ background: getAvatarColor(p.userId) }}
-                    >
-                      {p.avatar ? (
-                        <img src={p.avatar} alt="" className="w-full h-full rounded-full object-cover" />
-                      ) : (
-                        <span className="text-[10px] font-bold text-white">{p.displayName.charAt(0)}</span>
+                    <div className="relative">
+                      <div
+                        className={`w-[32px] h-[32px] rounded-full border overflow-hidden flex items-center justify-center ${
+                          isGuestUser
+                            ? 'border-[rgba(148,163,184,0.3)] opacity-60'
+                            : 'border-[rgba(108,99,255,0.3)]'
+                        }`}
+                        style={{ background: getAvatarColor(p.userId) }}
+                      >
+                        {p.avatar ? (
+                          <img src={p.avatar} alt="" className="w-full h-full rounded-full object-cover" />
+                        ) : (
+                          <span className="text-[10px] font-bold text-white">{p.displayName.charAt(0)}</span>
+                        )}
+                      </div>
+                      {/* Guest listener badge */}
+                      {isGuestUser && (
+                        <div className="absolute -bottom-0.5 -left-0.5 w-3.5 h-3.5 rounded-full bg-[#5a6080] border-2 border-[#141726] flex items-center justify-center">
+                          <span className="text-[6px] leading-none">?</span>
+                        </div>
                       )}
                     </div>
                   </button>
-                ))}
+                  );
+                })}
             </div>
           </section>
         )}
@@ -1840,20 +1950,55 @@ function RoomInteriorView({
                 ) : (
                   /* Normal chat message */
                   <div className="flex items-start gap-1.5 animate-fade-up">
-                    <div
-                      className="w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5 overflow-hidden"
-                      style={{ background: getAvatarColor(msg.userId) }}
+                    <button
+                      onClick={() => {
+                        const p = participants.find(p => p.userId === msg.userId);
+                        if (p) {
+                          setProfileSheet(p);
+                        } else {
+                          setProfileSheet({
+                            id: '', roomId, userId: msg.userId, username: '',
+                            displayName: msg.displayName, avatar: msg.avatar || '',
+                            isMuted: false, micFrozen: false, role: 'visitor' as RoomRole,
+                            seatIndex: -1, seatStatus: 'open' as SeatStatus, vipLevel: 0,
+                            joinedAt: new Date().toISOString(),
+                          });
+                        }
+                      }}
+                      className="flex-shrink-0 mt-0.5 active:scale-95 transition-transform"
                     >
-                      {msg.avatar ? (
-                        <img src={msg.avatar} alt="" className="w-full h-full rounded-full object-cover" />
-                      ) : (
-                        <span className="text-[9px] font-bold text-white">{msg.displayName.charAt(0)}</span>
-                      )}
-                    </div>
-                    <div className="bg-[#1c2035] border border-[rgba(255,255,255,0.07)] rounded-[12px_4px_12px_12px] px-2.5 py-1.5 max-w-[75%]">
-                      <div className="text-[10px] font-bold mb-0.5" style={{ color: getSenderColor(msg.userId) }}>
-                        {msg.displayName}
+                      <div
+                        className="w-6 h-6 rounded-full flex items-center justify-center overflow-hidden"
+                        style={{ background: getAvatarColor(msg.userId) }}
+                      >
+                        {msg.avatar ? (
+                          <img src={msg.avatar} alt="" className="w-full h-full rounded-full object-cover" />
+                        ) : (
+                          <span className="text-[9px] font-bold text-white">{msg.displayName.charAt(0)}</span>
+                        )}
                       </div>
+                    </button>
+                    <div className="bg-[#1c2035] border border-[rgba(255,255,255,0.07)] rounded-[12px_4px_12px_12px] px-2.5 py-1.5 max-w-[75%]">
+                      <button
+                        onClick={() => {
+                          const p = participants.find(p => p.userId === msg.userId);
+                          if (p) {
+                            setProfileSheet(p);
+                          } else {
+                            setProfileSheet({
+                              id: '', roomId, userId: msg.userId, username: '',
+                              displayName: msg.displayName, avatar: msg.avatar || '',
+                              isMuted: false, micFrozen: false, role: 'visitor' as RoomRole,
+                              seatIndex: -1, seatStatus: 'open' as SeatStatus, vipLevel: 0,
+                              joinedAt: new Date().toISOString(),
+                            });
+                          }
+                        }}
+                        className="text-[10px] font-bold mb-0.5 text-right w-full"
+                        style={{ color: getSenderColor(msg.userId) }}
+                      >
+                        {msg.displayName}
+                      </button>
                       <div className="text-[12px] text-[#9ca3c4] leading-relaxed break-words">{msg.text}</div>
                     </div>
                   </div>
@@ -1911,27 +2056,29 @@ function RoomInteriorView({
                 value={chatInput}
                 onChange={(e) => setChatInput(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && handleSendChat()}
-                placeholder={isRoomMuted ? 'المحادثة مكتومة' : 'اكتب رسالة...'}
-                disabled={isRoomMuted}
+                placeholder={!authUser ? 'سجل دخولك للمشاركة في المحادثة' : isRoomMuted ? 'المحادثة مكتومة' : 'اكتب رسالة...'}
+                disabled={isRoomMuted || !authUser}
                 className="flex-1 bg-transparent border-none outline-none text-[13px] text-[#f0f0f8] placeholder:text-[#5a6080] disabled:opacity-50"
                 dir="rtl"
               />
               <button
                 onClick={handleSendChat}
-                disabled={!chatInput.trim() || isRoomMuted}
+                disabled={!chatInput.trim() || isRoomMuted || !authUser}
                 className="w-[26px] h-[26px] rounded-full bg-[#6c63ff] flex items-center justify-center flex-shrink-0 disabled:opacity-30 transition-opacity"
               >
                 <Send className="w-3 h-3 text-white" />
               </button>
             </div>
 
-            {/* Gift button */}
+            {/* Gift button - only for registered users */}
+            {authUser && (
             <button
               onClick={() => setGiftSheetOpen(true)}
               className="w-[38px] h-[38px] rounded-full bg-gradient-to-br from-amber-500 to-red-500 flex items-center justify-center flex-shrink-0 shadow-lg active:scale-95 transition-transform"
             >
               <Gift className="w-[18px] h-[18px] text-white" />
             </button>
+            )}
           </div>
         </footer>
       </div>
