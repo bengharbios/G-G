@@ -20,9 +20,9 @@ export async function POST(request: NextRequest) {
   try {
     const userId = await getUserId(request);
     if (!userId) return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
-    const { name, description, hostName, maxParticipants, isPrivate } = await request.json();
+    const { name, description, hostName, maxParticipants, isPrivate, micSeatCount } = await request.json();
     if (!name) return NextResponse.json({ error: 'اسم الغرفة مطلوب' }, { status: 400 });
-    const room = await createVoiceRoom(userId, hostName || 'مستخدم', name, description || '', maxParticipants || 10, isPrivate || false);
+    const room = await createVoiceRoom(userId, hostName || 'مستخدم', name, description || '', maxParticipants || 10, isPrivate || false, micSeatCount || 10);
     return NextResponse.json({ success: true, room });
   } catch (e) { console.error('[VR POST]', e); return NextResponse.json({ error: 'حدث خطأ' }, { status: 500 }); }
 }

@@ -536,6 +536,14 @@ async function ensureAdminTables(): Promise<void> {
     }
   } catch { /* ignore */ }
 
+  // Migration: add micSeatCount column to VoiceRoom if missing
+  try {
+    const vrCols = await c.execute('PRAGMA table_info(VoiceRoom)');
+    if (!vrCols.rows.some(r => r.name === 'micSeatCount')) {
+      await c.execute('ALTER TABLE VoiceRoom ADD COLUMN micSeatCount INTEGER DEFAULT 10');
+    }
+  } catch { /* ignore */ }
+
   _tablesReady = true;
 }
 
@@ -2612,6 +2620,7 @@ export interface VoiceRoom {
   hostName: string;
   maxParticipants: number;
   isPrivate: boolean;
+  micSeatCount: number;
   participantCount?: number;
   createdAt: string;
 }
@@ -2712,13 +2721,13 @@ export async function searchUsers(query: string, currentUserId: string): Promise
 
 // ─── Voice Rooms functions ────────────────────────────────────────────
 
-export async function createVoiceRoom(hostId: string, hostName: string, name: string, description: string, maxParticipants: number, isPrivate: boolean): Promise<VoiceRoom> {
+export async function createVoiceRoom(hostId: string, hostName: string, name: string, description: string, maxParticipants: number, isPrivate: boolean, micSeatCount: number = 10): Promise<VoiceRoom> {
   const c = getClient();
   await ensureAdminTables();
   const id = crypto.randomUUID();
-  await c.execute({ sql: 'INSERT INTO VoiceRoom (id, name, description, hostId, hostName, maxParticipants, isPrivate) VALUES (?, ?, ?, ?, ?, ?, ?)', args: [id, name, description, hostId, hostName, maxParticipants, isPrivate ? 1 : 0] });
+  await c.execute({ sql: 'INSERT INTO VoiceRoom (id, name, description, hostId, hostName, maxParticipants, isPrivate, micSeatCount) VALUES (?, ?, ?, ?, ?, ?, ?, ?)', args: [id, name, description, hostId, hostName, maxParticipants, isPrivate ? 1 : 0, micSeatCount] });
   await c.execute({ sql: 'INSERT INTO VoiceRoomParticipant (id, roomId, userId, username, displayName, avatar, isMuted) VALUES (?, ?, ?, ?, ?, ?, ?)', args: [crypto.randomUUID(), id, hostId, hostName, hostName, '', 0] });
-  return { id, name, description, hostId, hostName, maxParticipants, isPrivate, createdAt: new Date().toISOString() };
+  return { id, name, description, hostId, hostName, maxParticipants, isPrivate, micSeatCount, createdAt: new Date().toISOString() };
 }
 
 export async function getAllVoiceRooms(): Promise<VoiceRoom[]> {
@@ -2728,7 +2737,7 @@ export async function getAllVoiceRooms(): Promise<VoiceRoom[]> {
   return result.rows.map(row => ({
     id: row.id as string, name: row.name as string, description: (row.description as string) || '',
     hostId: row.hostId as string, hostName: (row.hostName as string) || '', maxParticipants: Number(row.maxParticipants) || 10,
-    isPrivate: Boolean(row.isPrivate), participantCount: Number(row.participantCount) || 0, createdAt: row.createdAt as string,
+    isPrivate: Boolean(row.isPrivate), micSeatCount: Number(row.micSeatCount) || 10, participantCount: Number(row.participantCount) || 0, createdAt: row.createdAt as string,
   }));
 }
 

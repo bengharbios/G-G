@@ -25,6 +25,7 @@ import {
   Home,
   Calendar,
   ShoppingBag,
+  Radio,
   User,
   Play,
   Trophy,
@@ -1244,7 +1245,7 @@ function GamesSection() {
 
 // ─── Bottom Navigation ───────────────────────────────────────────────────────
 
-type BottomTab = 'home' | 'games' | 'events' | 'store' | 'profile';
+type BottomTab = 'home' | 'games' | 'events' | 'council' | 'profile';
 
 function BottomNavigation({ eventsModalOpen, setEventsModalOpen, onProfileClick }: { eventsModalOpen: boolean; setEventsModalOpen: (open: boolean) => void; onProfileClick?: () => void }) {
   const [activeTab, setActiveTab] = useState<BottomTab>('home');
@@ -1255,7 +1256,7 @@ function BottomNavigation({ eventsModalOpen, setEventsModalOpen, onProfileClick 
     { id: 'home', label: 'الرئيسية', icon: <Home className="w-5 h-5" /> },
     { id: 'games', label: 'الألعاب', icon: <Gamepad2 className="w-5 h-5" /> },
     { id: 'events', label: 'الأحداث', icon: <Calendar className="w-5 h-5" /> },
-    { id: 'store', label: 'المتجر', icon: <ShoppingBag className="w-5 h-5" /> },
+    { id: 'council', label: 'المجلس', icon: <Radio className="w-5 h-5" /> },
     { id: 'profile', label: 'الملف', icon: <User className="w-5 h-5" /> },
   ];
 
@@ -1278,8 +1279,9 @@ function BottomNavigation({ eventsModalOpen, setEventsModalOpen, onProfileClick 
       return;
     }
 
-    if (tabId === 'store') {
-      setModalOpen(tabId);
+    if (tabId === 'council') {
+      window.location.href = '/voice-rooms';
+      return;
     }
 
     if (tabId === 'profile') {
@@ -1290,6 +1292,7 @@ function BottomNavigation({ eventsModalOpen, setEventsModalOpen, onProfileClick 
 
   const modalContent: Record<string, { title: string; description: string; icon: string }> = {
     store: { title: '🛍️ المتجر', description: 'قريباً! ستتمكن من شراء العناصر المميزة والعملات والمكافآت من المتجر.', icon: '🛍️' },
+    council: { title: '🎙️ المجلس', description: 'غرف صوتية تفاعلية - تحدث مع أصدقائك مباشرة!', icon: '🎙️' },
   };
 
   return (
