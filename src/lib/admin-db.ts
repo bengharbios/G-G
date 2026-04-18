@@ -3525,11 +3525,14 @@ export async function changeUserRole(roomId: string, targetUserId: string, newRo
   // Only owner can set coowner
   if (newRole === 'coowner' && ROLE_HIERARCHY[actorRole] < ROLE_HIERARCHY.owner) return false;
 
-  // Owner/coowner can set admin/member
-  if ((newRole === 'admin' || newRole === 'member') && ROLE_HIERARCHY[actorRole] < ROLE_HIERARCHY.coowner) return false;
-
-  // Can set to visitor or member (demote) if you're higher rank
+  // Cannot promote someone to your level or above
   if (ROLE_HIERARCHY[newRole] >= ROLE_HIERARCHY[actorRole]) return false;
+
+  // If demoting from a seated role, also remove from mic seat
+  const seatResult = await c.execute({ sql: 'SELECT seatIndex FROM VoiceRoomParticipant WHERE roomId = ? AND userId = ? AND seatIndex >= 0', args: [roomId, targetUserId] });
+  if (seatResult.rows.length > 0 && newRole === 'visitor') {
+    await c.execute({ sql: 'UPDATE VoiceRoomParticipant SET seatIndex = -1, seatStatus = "open" WHERE roomId = ? AND userId = ?', args: [roomId, targetUserId] });
+  }
 
   await c.execute({ sql: 'UPDATE VoiceRoomParticipant SET role = ? WHERE roomId = ? AND userId = ?', args: [newRole, roomId, targetUserId] });
   await logAction(roomId, actorId, actorName, 'change_role', targetUserId, targetName, `${targetRole} -> ${newRole}`);
@@ -3549,9 +3552,11 @@ export async function inviteRoleToRoom(roomId: string, targetUserId: string, new
   if (targetResult.rows.length === 0) return false;
   const targetRole = targetResult.rows[0].role as string;
   
-  // Only owner can send invitations
-  if (ROLE_HIERARCHY[actorRole as RoomRole] < ROLE_HIERARCHY['owner' as RoomRole]) return false;
+  // Owner and co-owner can send role invitations
+  if (ROLE_HIERARCHY[actorRole as RoomRole] < ROLE_HIERARCHY['coowner' as RoomRole]) return false;
   if (ROLE_HIERARCHY[targetRole as RoomRole] >= ROLE_HIERARCHY[actorRole as RoomRole]) return false;
+  // Cannot promote above own level
+  if (ROLE_HIERARCHY[newRole as RoomRole] >= ROLE_HIERARCHY[actorRole as RoomRole]) return false;
   
   // For member role: directly set the role AND pendingRole (popup is informational)
   if (newRole === 'member') {

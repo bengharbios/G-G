@@ -354,7 +354,7 @@ function BottomSheetOverlay({ isOpen, onClose, children }: {
    ═══════════════════════════════════════════════════════════════════════ */
 
 function MicMenuBottomSheet({
-  isOpen, onClose, seatIndex, participant, isSeatLocked, onAction, currentUserId, myRole,
+  isOpen, onClose, seatIndex, participant, isSeatLocked, onAction, currentUserId, myRole, mySeatIndex,
 }: {
   isOpen: boolean;
   onClose: () => void;
@@ -364,9 +364,11 @@ function MicMenuBottomSheet({
   onAction: (action: string) => void;
   currentUserId: string;
   myRole: RoomRole;
+  mySeatIndex: number;
 }) {
   const isAdmin = canDo(myRole, 'admin');
   const isOnMic = participant?.userId === currentUserId;
+  const isAlreadyOnSeat = mySeatIndex >= 0 && mySeatIndex !== seatIndex;
   return (
     <BottomSheetOverlay isOpen={isOpen} onClose={onClose}>
       {/* Title */}
@@ -474,19 +476,36 @@ function MicMenuBottomSheet({
         {/* When seat is EMPTY */}
         {!participant && (
           <>
-            {/* Sit on this mic / Change mic (if already on a different seat) */}
-            <button
-              onClick={() => { onAction('take-seat'); onClose(); }}
-              className="w-full flex items-center gap-3 px-3.5 py-3 rounded-xl text-[#22c55e] hover:bg-[#232843] active:bg-[#232843] transition-colors"
-            >
-              <div className="w-9 h-9 rounded-full bg-[rgba(34,197,94,0.15)] flex items-center justify-center flex-shrink-0">
-                <Mic className="w-[18px] h-[18px] text-[#22c55e]" />
-              </div>
-              <div className="text-right">
-                <div className="text-[14px] font-semibold">صعود للمايك</div>
-                <div className="text-[11px] text-[#5a6080] font-normal">الجلوس على هذا المقعد الصوتي</div>
-              </div>
-            </button>
+            {/* Change mic (if already on a different seat) */}
+            {isAlreadyOnSeat && (
+              <button
+                onClick={() => { onAction('change-mic'); onClose(); }}
+                className="w-full flex items-center gap-3 px-3.5 py-3 rounded-xl text-[#a78bfa] hover:bg-[#232843] active:bg-[#232843] transition-colors"
+              >
+                <div className="w-9 h-9 rounded-full bg-[rgba(108,99,255,0.15)] flex items-center justify-center flex-shrink-0">
+                  <Mic className="w-[18px] h-[18px] text-[#a78bfa]" />
+                </div>
+                <div className="text-right">
+                  <div className="text-[14px] font-semibold">تغيير المايك</div>
+                  <div className="text-[11px] text-[#5a6080] font-normal">الانتقال من المايك {mySeatIndex + 1} إلى المايك {seatIndex + 1}</div>
+                </div>
+              </button>
+            )}
+            {/* Sit on this mic (when not on any seat) */}
+            {!isAlreadyOnSeat && (
+              <button
+                onClick={() => { onAction('take-seat'); onClose(); }}
+                className="w-full flex items-center gap-3 px-3.5 py-3 rounded-xl text-[#22c55e] hover:bg-[#232843] active:bg-[#232843] transition-colors"
+              >
+                <div className="w-9 h-9 rounded-full bg-[rgba(34,197,94,0.15)] flex items-center justify-center flex-shrink-0">
+                  <Mic className="w-[18px] h-[18px] text-[#22c55e]" />
+                </div>
+                <div className="text-right">
+                  <div className="text-[14px] font-semibold">صعود للمايك</div>
+                  <div className="text-[11px] text-[#5a6080] font-normal">الجلوس على هذا المقعد الصوتي</div>
+                </div>
+              </button>
+            )}
 
             {/* Lock seat (close empty mic) */}
             {!isSeatLocked && isAdmin && (
@@ -531,7 +550,7 @@ function MicMenuBottomSheet({
    ═══════════════════════════════════════════════════════════════════════ */
 
 function ProfileBottomSheet({
-  isOpen, onClose, participant, stats, onGiftClick, myRole, authUserId, hostId, onKickTemp, onBanUser, onChangeRole, onInviteToMic,
+  isOpen, onClose, participant, stats, onGiftClick, myRole, authUserId, hostId, onKickTemp, onBanUser, onChangeRole, onInviteToMic, onRemoveRole,
 }: {
   isOpen: boolean;
   onClose: () => void;
@@ -545,18 +564,23 @@ function ProfileBottomSheet({
   onBanUser: (userId: string) => void;
   onChangeRole: (userId: string, newRole: RoomRole) => void;
   onInviteToMic: (userId: string) => void;
+  onRemoveRole: (userId: string) => void;
 }) {
   const [roleMenuOpen, setRoleMenuOpen] = useState(false);
   if (!participant && !isOpen) return null;
   const avatarColor = participant ? getAvatarColor(participant.userId) : '#1c2035';
 
-  const canManageRoles = canDo(myRole, 'owner') && participant?.userId !== authUserId && participant?.userId !== hostId;
+  // Owner and co-owner can manage roles
+  const canManageRoles = canDo(myRole, 'coowner') && participant?.userId !== authUserId && participant?.userId !== hostId;
   const canInviteMic = canDo(myRole, 'admin') && participant?.userId !== authUserId && participant?.seatIndex < 0;
   // Check if target is an unregistered guest (no real username, or userId starts with 'guest-')
   const isGuest = !participant?.username || participant?.userId?.startsWith('guest-');
   const availableRoles: RoomRole[] = ['member', 'admin', 'coowner'];
   // Visitors get "grant membership", members get "change role"
   const showGrantMembership = canManageRoles && participant?.role === 'visitor' && !isGuest;
+  // Show remove role button for members, admins, co-owners (not visitors, not self, not host)
+  const showRemoveRole = canManageRoles && ['member', 'admin', 'coowner'].includes(participant?.role || '');
+  const removeRoleLabel = participant?.role === 'coowner' ? 'إزالة النيابة' : participant?.role === 'admin' ? 'إزالة الإشراف' : 'إزالة العضوية';
 
   return (
     <BottomSheetOverlay isOpen={isOpen} onClose={onClose}>
@@ -654,6 +678,23 @@ function ProfileBottomSheet({
                   )}
                 </>
               )}
+            </div>
+          )}
+          {/* Remove role button - for members, admins, co-owners */}
+          {showRemoveRole && (
+            <div className="px-4 mt-2.5 border-t border-[rgba(255,255,255,0.07)] pt-2.5">
+              <button
+                onClick={() => { onRemoveRole(participant!.userId); onClose(); }}
+                className="w-full flex items-center gap-3 bg-[rgba(239,68,68,0.06)] rounded-xl px-3.5 py-3 hover:bg-[rgba(239,68,68,0.1)] active:bg-[rgba(239,68,68,0.1)] transition-colors"
+              >
+                <div className="w-9 h-9 rounded-full bg-[rgba(239,68,68,0.15)] flex items-center justify-center flex-shrink-0">
+                  <UserMinus className="w-[18px] h-[18px] text-[#ef4444]" />
+                </div>
+                <div className="text-right">
+                  <div className="text-[14px] font-semibold text-[#ef4444]">{removeRoleLabel}</div>
+                  <div className="text-[11px] text-[#5a6080] font-normal">إزالة الدور وإعادته إلى زائر في الغرفة</div>
+                </div>
+              </button>
             </div>
           )}
           {/* Guest indicator - unregistered users */}
@@ -1561,7 +1602,8 @@ function RoomInteriorView({
     isOpen: boolean;
     seatIndex: number;
     participant: VoiceRoomParticipant | null;
-  }>({ isOpen: false, seatIndex: -1, participant: null });
+    mySeatIndex: number;
+  }>({ isOpen: false, seatIndex: -1, participant: null, mySeatIndex: -1 });
 
   /* ── Refs ── */
   const chatEndRef = useRef<HTMLDivElement>(null);
@@ -1830,13 +1872,14 @@ function RoomInteriorView({
       const data = await res.json();
       if (data.success && data.autoAssigned) {
         toast({ title: 'تم تعيينك على المايك', description: `مقعد ${data.seatIndex + 1}` });
-        await fetchParticipants();
-        await fetchMyParticipant();
       } else if (data.success) {
         toast({ title: 'تم إرسال الطلب', description: 'بانتظار الموافقة' });
       } else {
         toast({ title: 'لم يتم الصعود', description: data.error || 'حاول مرة أخرى' });
       }
+      // Always refresh participants after any seat request
+      await fetchParticipants();
+      await fetchMyParticipant();
     } catch { /* ignore */ }
   }, [roomId, authUser, fetchParticipants, fetchMyParticipant, toast]);
 
@@ -1941,14 +1984,15 @@ function RoomInteriorView({
     if (!seatData) return;
 
     const isAdmin = canDo(myRole, 'admin');
+    const mySeat = myParticipant?.seatIndex ?? -1;
 
     if (seatData.participant) {
       // Someone is on this seat
       if (isAdmin) {
-        setMicMenuSheet({ isOpen: true, seatIndex, participant: seatData.participant });
+        setMicMenuSheet({ isOpen: true, seatIndex, participant: seatData.participant, mySeatIndex: mySeat });
       } else if (seatData.participant.userId === currentUserId) {
         // Clicking own seat - show menu with leave option
-        setMicMenuSheet({ isOpen: true, seatIndex, participant: seatData.participant });
+        setMicMenuSheet({ isOpen: true, seatIndex, participant: seatData.participant, mySeatIndex: mySeat });
       } else {
         setProfileSheet(seatData.participant);
       }
@@ -1956,21 +2000,24 @@ function RoomInteriorView({
       // Empty seat
       if (seatData.status === 'locked') {
         if (isAdmin) {
-          setMicMenuSheet({ isOpen: true, seatIndex, participant: null });
+          setMicMenuSheet({ isOpen: true, seatIndex, participant: null, mySeatIndex: mySeat });
         } else {
           toast({ title: 'المقعد مقفل', description: 'لا يمكنك الجلوس هنا' });
         }
       } else {
         // Open seat
         if (isAdmin) {
-          setMicMenuSheet({ isOpen: true, seatIndex, participant: null });
+          setMicMenuSheet({ isOpen: true, seatIndex, participant: null, mySeatIndex: mySeat });
+        } else if (mySeat >= 0 && mySeat !== seatIndex) {
+          // Non-admin user already on a seat - change mic directly
+          handleRequestSeat(seatIndex);
         } else {
           // Members and visitors sit directly (members go directly, visitors may get waitlisted)
           handleRequestSeat(seatIndex);
         }
       }
     }
-  }, [myRole, buildSeats, handleRequestSeat, toast, currentUserId]);
+  }, [myRole, buildSeats, handleRequestSeat, toast, currentUserId, myParticipant?.seatIndex]);
 
   /* ── Mic menu action dispatcher ── */
   const handleMicMenuAction = useCallback(async (action: string) => {
@@ -1980,6 +2027,9 @@ function RoomInteriorView({
         if (participant) setProfileSheet(participant);
         break;
       case 'take-seat':
+        await handleRequestSeat(seatIndex);
+        break;
+      case 'change-mic':
         await handleRequestSeat(seatIndex);
         break;
       case 'lock-seat':
@@ -2432,6 +2482,7 @@ function RoomInteriorView({
         onAction={handleMicMenuAction}
         currentUserId={currentUserId}
         myRole={myRole}
+        mySeatIndex={micMenuSheet.mySeatIndex}
       />
 
       <ProfileBottomSheet
@@ -2444,6 +2495,25 @@ function RoomInteriorView({
         authUserId={authUser?.id || ''}
         hostId={room.hostId}
         onInviteToMic={handleInviteToMic}
+        onRemoveRole={async (userId: string) => {
+          try {
+            const res = await fetch(`/api/voice-rooms/${roomId}?action=change-role`, {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ targetUserId: userId, newRole: 'visitor' }),
+            });
+            const data = await res.json();
+            if (data.success) {
+              toast({ title: 'تم إزالة الدور', description: 'أصبح المستخدم زائراً في الغرفة' });
+              await fetchParticipants();
+              await fetchMyParticipant();
+            } else {
+              toast({ title: 'فشل الإزالة', description: data.error || 'لا يمكنك إزالة هذا الدور' });
+            }
+          } catch {
+            toast({ title: 'خطأ في الاتصال' });
+          }
+        }}
         onKickTemp={(userId: string) => {
           fetch(`/api/voice-rooms/${roomId}?action=kick-from-room`, {
             method: 'POST',

@@ -72,3 +72,37 @@ Stage Summary:
 - Profile picture upload feature implemented: users can tap camera icon on avatar to upload image
 - Image is resized client-side to 256x256 max, compressed to JPEG quality 0.8
 - Base64 data URL stored in avatar field via existing update-profile API
+
+---
+Task ID: 2
+Agent: Main Agent
+Task: Fix member mic access, add change mic button, add remove membership/moderation feature
+
+Work Log:
+- Added `mySeatIndex` prop to `MicMenuBottomSheet` component and state
+- Added "تغيير المايك" (Change Mic) button in empty mic menu when user is already on a different seat
+- Added "صعود للمايك" button only shows when user is NOT on any seat
+- Added 'change-mic' action handler in `handleMicMenuAction`
+- Updated `handleSeatClick` to pass `mySeatIndex` to all mic menu sheet states
+- Non-admin members on a seat can now switch mics directly by clicking empty seat
+- Fixed `handleRequestSeat` to always call `fetchParticipants()` and `fetchMyParticipant()` after any seat request
+- Updated `ProfileBottomSheet` to allow co-owners (not just owner) to manage roles via `canDo(myRole, 'coowner')`
+- Added "إزالة العضوية/الإشراف/النيابة" (Remove Role) button in ProfileBottomSheet for members/admins/co-owners
+- Added `onRemoveRole` handler that calls change-role API with 'visitor'
+- Updated backend `changeUserRole` in admin-db.ts:
+  - Removed overly restrictive line that prevented co-owners from setting admin/member roles
+  - Added: when demoting to 'visitor', also removes from mic seat (seatIndex = -1)
+  - Simplified permission logic: cannot promote above own level, cannot change higher/equal roles
+- Updated `inviteRoleToRoom` in admin-db.ts:
+  - Changed from owner-only to co-owner+ for sending role invitations
+  - Added check: cannot promote above own level
+- Build verified successfully
+
+Stage Summary:
+- Members can now sit directly on mics without approval (backend already supported this)
+- Owner/admins can now change mics via "تغيير المايك" button in empty mic settings
+- Members can switch between mics freely by clicking any empty mic
+- Owner/co-owner can remove anyone's role (member/admin/co-owner), reverting them to visitor
+- Cannot remove role from self or from host
+- Co-owner can now grant membership and manage roles (not just owner)
+- When role is removed, user is also pulled from mic if they were seated
