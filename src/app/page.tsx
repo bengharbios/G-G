@@ -43,6 +43,8 @@ import {
   LogIn,
   LogOut,
   Settings,
+  Mic,
+  UserPlus,
 } from 'lucide-react';
 
 // ─── Admin game config hook ───────────────────────────────────────────────────
@@ -725,6 +727,30 @@ function Header({ onProfileClick, onLoginClick, avatarLetter, level, authUser, o
                 title="لوحة التحكم"
               >
                 <Settings className="w-4 h-4" />
+              </a>
+            )}
+
+            {/* Friends - only when logged in */}
+            {authUser && (
+              <a
+                href="/friends"
+                className="w-9 h-9 rounded-full bg-slate-800/60 border border-slate-700/40 flex items-center justify-center text-slate-400 hover:text-emerald-400 hover:bg-emerald-500/10 hover:border-emerald-500/30 transition-all"
+                aria-label="الأصدقاء"
+                title="الأصدقاء"
+              >
+                <UserPlus className="w-4 h-4" />
+              </a>
+            )}
+
+            {/* Voice Rooms - only when logged in */}
+            {authUser && (
+              <a
+                href="/voice-rooms"
+                className="w-9 h-9 rounded-full bg-slate-800/60 border border-slate-700/40 flex items-center justify-center text-slate-400 hover:text-purple-400 hover:bg-purple-500/10 hover:border-purple-500/30 transition-all"
+                aria-label="الغرف الصوتية"
+                title="الغرف الصوتية"
+              >
+                <Mic className="w-4 h-4" />
               </a>
             )}
 

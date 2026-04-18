@@ -491,6 +491,51 @@ async function ensureAdminTables(): Promise<void> {
     )
   `);
 
+  // FriendRequest table
+  await c.execute(`
+    CREATE TABLE IF NOT EXISTS FriendRequest (
+      id TEXT PRIMARY KEY, fromUserId TEXT NOT NULL, toUserId TEXT NOT NULL,
+      status TEXT DEFAULT 'pending', createdAt TEXT DEFAULT (datetime('now')), updatedAt TEXT DEFAULT (datetime('now')))
+  `);
+
+  // VoiceRoom table
+  await c.execute(`
+    CREATE TABLE IF NOT EXISTS VoiceRoom (
+      id TEXT PRIMARY KEY, name TEXT NOT NULL, description TEXT DEFAULT '',
+      hostId TEXT NOT NULL, hostName TEXT DEFAULT '', maxParticipants INTEGER DEFAULT 10,
+      isPrivate INTEGER DEFAULT 0, createdAt TEXT DEFAULT (datetime('now')))
+  `);
+
+  // VoiceRoomParticipant table
+  await c.execute(`
+    CREATE TABLE IF NOT EXISTS VoiceRoomParticipant (
+      id TEXT PRIMARY KEY, roomId TEXT NOT NULL, userId TEXT NOT NULL,
+      username TEXT DEFAULT '', displayName TEXT DEFAULT '', avatar TEXT DEFAULT '',
+      isMuted INTEGER DEFAULT 0, joinedAt TEXT DEFAULT (datetime('now')))
+  `);
+
+  // Gift table
+  await c.execute(`
+    CREATE TABLE IF NOT EXISTS Gift (
+      id TEXT PRIMARY KEY, name TEXT NOT NULL, nameAr TEXT NOT NULL,
+      emoji TEXT DEFAULT '', price INTEGER DEFAULT 0, isActive INTEGER DEFAULT 1)
+  `);
+
+  // GiftHistory table
+  await c.execute(`
+    CREATE TABLE IF NOT EXISTS GiftHistory (
+      id TEXT PRIMARY KEY, giftId TEXT NOT NULL, fromUserId TEXT NOT NULL,
+      toUserId TEXT NOT NULL, roomId TEXT DEFAULT '', createdAt TEXT DEFAULT (datetime('now')))
+  `);
+
+  // Migration: add level column to AppUser if missing
+  try {
+    const userCols = await c.execute('PRAGMA table_info(AppUser)');
+    if (!userCols.rows.some(r => r.name === 'level')) {
+      await c.execute('ALTER TABLE AppUser ADD COLUMN level INTEGER DEFAULT 1');
+    }
+  } catch { /* ignore */ }
+
   _tablesReady = true;
 }
 
@@ -2533,4 +2578,248 @@ export async function getUserBySubscriptionId(
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const { passwordHash: _, ...safeUser } = user;
   return safeUser;
+}
+
+// ─── Friends & Voice Rooms types ──────────────────────────────────────
+
+export interface FriendRequest {
+  id: string;
+  fromUserId: string;
+  toUserId: string;
+  status: 'pending' | 'accepted' | 'rejected';
+  fromUsername?: string;
+  fromDisplayName?: string;
+  fromAvatar?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface FriendWithUser {
+  friendshipId: string;
+  userId: string;
+  username: string;
+  displayName: string;
+  avatar: string;
+  level: number;
+  createdAt: string;
+}
+
+export interface VoiceRoom {
+  id: string;
+  name: string;
+  description: string;
+  hostId: string;
+  hostName: string;
+  maxParticipants: number;
+  isPrivate: boolean;
+  participantCount?: number;
+  createdAt: string;
+}
+
+export interface VoiceRoomParticipant {
+  id: string;
+  roomId: string;
+  userId: string;
+  username: string;
+  displayName: string;
+  avatar: string;
+  isMuted: boolean;
+  joinedAt: string;
+}
+
+export interface Gift {
+  id: string;
+  name: string;
+  nameAr: string;
+  emoji: string;
+  price: number;
+  isActive: boolean;
+}
+
+// ─── Friends functions ────────────────────────────────────────────────
+
+export async function sendFriendRequest(fromUserId: string, toUsername: string): Promise<{ success: boolean; error?: string }> {
+  const c = getClient();
+  await ensureAdminTables();
+  const targetResult = await c.execute({ sql: 'SELECT id FROM AppUser WHERE username = ?', args: [toUsername] });
+  if (targetResult.rows.length === 0) return { success: false, error: 'المستخدم غير موجود' };
+  const toUserId = targetResult.rows[0].id as string;
+  if (fromUserId === toUserId) return { success: false, error: 'لا يمكنك إرسال طلب لنفسك' };
+  const existing = await c.execute({ sql: 'SELECT id, status FROM FriendRequest WHERE (fromUserId = ? AND toUserId = ?) OR (fromUserId = ? AND toUserId = ?)', args: [fromUserId, toUserId, toUserId, fromUserId] });
+  if (existing.rows.length > 0) {
+    const status = existing.rows[0].status as string;
+    if (status === 'pending') return { success: false, error: 'يوجد طلب معلق بالفعل' };
+    if (status === 'accepted') return { success: false, error: 'أصدقاء بالفعل' };
+    await c.execute({ sql: 'DELETE FROM FriendRequest WHERE id = ?', args: [existing.rows[0].id] });
+  }
+  await c.execute({ sql: 'INSERT INTO FriendRequest (id, fromUserId, toUserId, status) VALUES (?, ?, ?, ?)', args: [crypto.randomUUID(), fromUserId, toUserId, 'pending'] });
+  return { success: true };
+}
+
+export async function acceptFriendRequest(requestId: string): Promise<boolean> {
+  const c = getClient();
+  await ensureAdminTables();
+  const result = await c.execute({ sql: "UPDATE FriendRequest SET status = 'accepted', updatedAt = datetime('now') WHERE id = ? AND status = 'pending'", args: [requestId] });
+  return result.rowsAffected > 0;
+}
+
+export async function rejectFriendRequest(requestId: string): Promise<boolean> {
+  const c = getClient();
+  await ensureAdminTables();
+  const result = await c.execute({ sql: "UPDATE FriendRequest SET status = 'rejected', updatedAt = datetime('now') WHERE id = ? AND status = 'pending'", args: [requestId] });
+  return result.rowsAffected > 0;
+}
+
+export async function removeFriend(friendshipId: string, userId: string): Promise<boolean> {
+  const c = getClient();
+  await ensureAdminTables();
+  const result = await c.execute({ sql: "DELETE FROM FriendRequest WHERE id = ? AND status = 'accepted' AND (fromUserId = ? OR toUserId = ?)", args: [friendshipId, userId, userId] });
+  return result.rowsAffected > 0;
+}
+
+export async function getFriendsList(userId: string): Promise<FriendWithUser[]> {
+  const c = getClient();
+  await ensureAdminTables();
+  const result = await c.execute({ sql: `SELECT f.id as friendshipId, u.id as userId, u.username, COALESCE(u.displayName, u.username) as displayName, u.avatar, COALESCE(u.level,1) as level, f.createdAt
+    FROM FriendRequest f JOIN AppUser u ON CASE WHEN f.fromUserId = ? THEN u.id = f.toUserId ELSE u.id = f.fromUserId END
+    WHERE f.status = 'accepted' AND (f.fromUserId = ? OR f.toUserId = ?) ORDER BY f.updatedAt DESC`, args: [userId, userId, userId] });
+  return result.rows.map(row => ({
+    friendshipId: row.friendshipId as string, userId: row.userId as string, username: row.username as string,
+    displayName: row.displayName as string, avatar: (row.avatar as string) || '', level: Number(row.level) || 1,
+    createdAt: row.createdAt as string,
+  }));
+}
+
+export async function getPendingRequests(userId: string): Promise<FriendRequest[]> {
+  const c = getClient();
+  await ensureAdminTables();
+  const result = await c.execute({ sql: `SELECT f.*, u.username as fromUsername, COALESCE(u.displayName, u.username) as fromDisplayName, u.avatar as fromAvatar
+    FROM FriendRequest f JOIN AppUser u ON u.id = f.fromUserId WHERE f.toUserId = ? AND f.status = 'pending' ORDER BY f.createdAt DESC`, args: [userId] });
+  return result.rows.map(row => ({
+    id: row.id as string, fromUserId: row.fromUserId as string, toUserId: row.toUserId as string,
+    status: 'pending' as const, fromUsername: row.fromUsername as string,
+    fromDisplayName: row.fromDisplayName as string, fromAvatar: (row.fromAvatar as string) || '',
+    createdAt: row.createdAt as string, updatedAt: row.updatedAt as string,
+  }));
+}
+
+export async function searchUsers(query: string, currentUserId: string): Promise<{ id: string; username: string; displayName: string; avatar: string }[]> {
+  const c = getClient();
+  await ensureAdminTables();
+  const result = await c.execute({ sql: `SELECT id, username, COALESCE(displayName, username) as displayName, avatar FROM AppUser WHERE (username LIKE ? OR displayName LIKE ?) AND id != ? LIMIT 20`, args: [`%${query}%`, `%${query}%`, currentUserId] });
+  return result.rows.map(row => ({ id: row.id as string, username: row.username as string, displayName: row.displayName as string, avatar: (row.avatar as string) || '' }));
+}
+
+// ─── Voice Rooms functions ────────────────────────────────────────────
+
+export async function createVoiceRoom(hostId: string, hostName: string, name: string, description: string, maxParticipants: number, isPrivate: boolean): Promise<VoiceRoom> {
+  const c = getClient();
+  await ensureAdminTables();
+  const id = crypto.randomUUID();
+  await c.execute({ sql: 'INSERT INTO VoiceRoom (id, name, description, hostId, hostName, maxParticipants, isPrivate) VALUES (?, ?, ?, ?, ?, ?, ?)', args: [id, name, description, hostId, hostName, maxParticipants, isPrivate ? 1 : 0] });
+  await c.execute({ sql: 'INSERT INTO VoiceRoomParticipant (id, roomId, userId, username, displayName, avatar, isMuted) VALUES (?, ?, ?, ?, ?, ?, ?)', args: [crypto.randomUUID(), id, hostId, hostName, hostName, '', 0] });
+  return { id, name, description, hostId, hostName, maxParticipants, isPrivate, createdAt: new Date().toISOString() };
+}
+
+export async function getAllVoiceRooms(): Promise<VoiceRoom[]> {
+  const c = getClient();
+  await ensureAdminTables();
+  const result = await c.execute({ sql: 'SELECT vr.*, COUNT(vrp.id) as participantCount FROM VoiceRoom vr LEFT JOIN VoiceRoomParticipant vrp ON vr.id = vrp.roomId GROUP BY vr.id ORDER BY vr.createdAt DESC', args: [] });
+  return result.rows.map(row => ({
+    id: row.id as string, name: row.name as string, description: (row.description as string) || '',
+    hostId: row.hostId as string, hostName: (row.hostName as string) || '', maxParticipants: Number(row.maxParticipants) || 10,
+    isPrivate: Boolean(row.isPrivate), participantCount: Number(row.participantCount) || 0, createdAt: row.createdAt as string,
+  }));
+}
+
+export async function getVoiceRoomParticipants(roomId: string): Promise<VoiceRoomParticipant[]> {
+  const c = getClient();
+  await ensureAdminTables();
+  const result = await c.execute({ sql: 'SELECT * FROM VoiceRoomParticipant WHERE roomId = ? ORDER BY joinedAt', args: [roomId] });
+  return result.rows.map(row => ({
+    id: row.id as string, roomId: row.roomId as string, userId: row.userId as string,
+    username: row.username as string, displayName: (row.displayName as string) || '', avatar: (row.avatar as string) || '',
+    isMuted: Boolean(row.isMuted), joinedAt: row.joinedAt as string,
+  }));
+}
+
+export async function joinVoiceRoom(roomId: string, userId: string, username: string, displayName: string, avatar: string): Promise<boolean> {
+  const c = getClient();
+  await ensureAdminTables();
+  const existing = await c.execute({ sql: 'SELECT id FROM VoiceRoomParticipant WHERE roomId = ? AND userId = ?', args: [roomId, userId] });
+  if (existing.rows.length > 0) return true;
+  await c.execute({ sql: 'INSERT INTO VoiceRoomParticipant (id, roomId, userId, username, displayName, avatar, isMuted) VALUES (?, ?, ?, ?, ?, ?, ?)', args: [crypto.randomUUID(), roomId, userId, username, displayName, avatar, 0] });
+  return true;
+}
+
+export async function leaveVoiceRoom(roomId: string, userId: string): Promise<boolean> {
+  const c = getClient();
+  await ensureAdminTables();
+  await c.execute({ sql: 'DELETE FROM VoiceRoomParticipant WHERE roomId = ? AND userId = ?', args: [roomId, userId] });
+  const participants = await c.execute({ sql: 'SELECT COUNT(*) as c FROM VoiceRoomParticipant WHERE roomId = ?', args: [roomId] });
+  if (Number(participants.rows[0].c) === 0) await c.execute({ sql: 'DELETE FROM VoiceRoom WHERE id = ?', args: [roomId] });
+  return true;
+}
+
+export async function toggleMicInRoom(roomId: string, userId: string): Promise<boolean> {
+  const c = getClient();
+  await ensureAdminTables();
+  const result = await c.execute({ sql: 'SELECT isMuted FROM VoiceRoomParticipant WHERE roomId = ? AND userId = ?', args: [roomId, userId] });
+  if (result.rows.length === 0) return false;
+  const current = Boolean(result.rows[0].isMuted);
+  await c.execute({ sql: 'UPDATE VoiceRoomParticipant SET isMuted = ? WHERE roomId = ? AND userId = ?', args: [current ? 0 : 1, roomId, userId] });
+  return !current;
+}
+
+export async function sendGiftInRoom(roomId: string, giftId: string, fromUserId: string, toUserId: string): Promise<boolean> {
+  const c = getClient();
+  await ensureAdminTables();
+  await c.execute({ sql: 'INSERT INTO GiftHistory (id, giftId, fromUserId, toUserId, roomId) VALUES (?, ?, ?, ?, ?)', args: [crypto.randomUUID(), giftId, fromUserId, toUserId, roomId] });
+  return true;
+}
+
+export async function deleteVoiceRoom(roomId: string, hostId: string): Promise<boolean> {
+  const c = getClient();
+  await ensureAdminTables();
+  const result = await c.execute({ sql: 'DELETE FROM VoiceRoom WHERE id = ? AND hostId = ?', args: [roomId, hostId] });
+  if (result.rowsAffected > 0) { await c.execute({ sql: 'DELETE FROM VoiceRoomParticipant WHERE roomId = ?', args: [roomId] }); return true; }
+  return false;
+}
+
+export async function getGifts(): Promise<Gift[]> {
+  const c = getClient();
+  await ensureAdminTables();
+  await seedGifts();
+  const result = await c.execute({ sql: 'SELECT * FROM Gift WHERE isActive = 1 ORDER BY price', args: [] });
+  return result.rows.map(row => ({ id: row.id as string, name: row.name as string, nameAr: row.nameAr as string, emoji: (row.emoji as string) || '', price: Number(row.price) || 0, isActive: Boolean(row.isActive) }));
+}
+
+async function seedGifts(): Promise<void> {
+  const c = getClient();
+  const count = await c.execute({ sql: 'SELECT COUNT(*) as c FROM Gift', args: [] });
+  if (Number(count.rows[0].c) > 0) return;
+  const gifts = [
+    { name: 'Rose', nameAr: 'وردة', emoji: '🌹', price: 10 },
+    { name: 'Heart', nameAr: 'قلب', emoji: '❤️', price: 20 },
+    { name: 'Star', nameAr: 'نجمة', emoji: '⭐', price: 30 },
+    { name: 'Crown', nameAr: 'تاج', emoji: '👑', price: 50 },
+    { name: 'Diamond', nameAr: 'ماسة', emoji: '💎', price: 100 },
+    { name: 'Fire', nameAr: 'نار', emoji: '🔥', price: 40 },
+    { name: 'Gift Box', nameAr: 'صندوق هدايا', emoji: '🎁', price: 60 },
+    { name: 'Rocket', nameAr: 'صاروخ', emoji: '🚀', price: 80 },
+  ];
+  for (const g of gifts) {
+    await c.execute({ sql: 'INSERT INTO Gift (id, name, nameAr, emoji, price) VALUES (?, ?, ?, ?, ?)', args: [crypto.randomUUID(), g.name, g.nameAr, g.emoji, g.price] });
+  }
+}
+
+// ─── Ensure new tables ────────────────────────────────────────────────
+
+const _newTablesReady: { [key: string]: boolean } = {};
+
+async function ensureNewTables(tableName: string, createSql: string): Promise<void> {
+  if (_newTablesReady[tableName]) return;
+  const c = getClient();
+  await c.execute(createSql);
+  _newTablesReady[tableName] = true;
 }
