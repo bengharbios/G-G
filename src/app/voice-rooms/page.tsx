@@ -439,6 +439,20 @@ function MicMenuBottomSheet({
         {/* When seat is EMPTY */}
         {!participant && (
           <>
+            {/* Sit on this mic */}
+            <button
+              onClick={() => { onAction('take-seat'); onClose(); }}
+              className="w-full flex items-center gap-3 px-3.5 py-3 rounded-xl text-[#22c55e] hover:bg-[#232843] active:bg-[#232843] transition-colors"
+            >
+              <div className="w-9 h-9 rounded-full bg-[rgba(34,197,94,0.15)] flex items-center justify-center flex-shrink-0">
+                <Mic className="w-[18px] h-[18px] text-[#22c55e]" />
+              </div>
+              <div className="text-right">
+                <div className="text-[14px] font-semibold">صعود للمايك</div>
+                <div className="text-[11px] text-[#5a6080] font-normal">الجلوس على هذا المقعد الصوتي</div>
+              </div>
+            </button>
+
             {/* Lock seat (close empty mic) */}
             {!isSeatLocked && (
               <button
@@ -1597,16 +1611,17 @@ function RoomInteriorView({
         setProfileSheet(seatData.participant);
       }
     } else {
-      if (isAdmin) {
-        setMicMenuSheet({ isOpen: true, seatIndex, participant: null });
-      } else if (isMember) {
-        if (seatData.status === 'locked') {
-          toast({ title: 'المقعد مقفل', description: 'لا يمكنك الجلوس هنا' });
+      // Empty seat - everyone can try to sit (unless locked)
+      if (seatData.status === 'locked') {
+        // Locked: admins can still manage, others get toast
+        if (isAdmin) {
+          setMicMenuSheet({ isOpen: true, seatIndex, participant: null });
         } else {
-          handleRequestSeat(seatIndex);
+          toast({ title: 'المقعد مقفل', description: 'لا يمكنك الجلوس هنا' });
         }
       } else {
-        toast({ title: 'ليس لديك صلاحية الصعود', description: 'تحتاج ترقية دورك' });
+        // Open seat: sit on it directly
+        handleRequestSeat(seatIndex);
       }
     }
   }, [myRole, buildSeats, handleRequestSeat, toast]);
@@ -1722,14 +1737,16 @@ function RoomInteriorView({
             <span className="text-[10px] text-[#5a6080]">{listenerCount} مستمع</span>
           </div>
 
-          {/* Settings + Share — left side in RTL */}
+          {/* Settings + Share — left side in RTL (settings only for admin+) */}
           <div className="flex gap-2">
-            <button
-              onClick={() => setSettingsOpen(true)}
-              className="w-[34px] h-[34px] rounded-[10px] bg-[#1c2035] border border-[rgba(255,255,255,0.07)] flex items-center justify-center active:bg-[#232843] transition-colors"
-            >
-              <Settings className="w-4 h-4 text-[#9ca3c4]" />
-            </button>
+            {canDo(myRole, 'admin') && (
+              <button
+                onClick={() => setSettingsOpen(true)}
+                className="w-[34px] h-[34px] rounded-[10px] bg-[#1c2035] border border-[rgba(255,255,255,0.07)] flex items-center justify-center active:bg-[#232843] transition-colors"
+              >
+                <Settings className="w-4 h-4 text-[#9ca3c4]" />
+              </button>
+            )}
             <button
               onClick={handleCopyLink}
               className="w-[34px] h-[34px] rounded-[10px] bg-[#1c2035] border border-[rgba(255,255,255,0.07)] flex items-center justify-center active:bg-[#232843] transition-colors"
@@ -1765,6 +1782,40 @@ function RoomInteriorView({
             ))}
           </div>
         </section>
+
+        {/* ══════════════════════════════════════════════
+            AUDIENCE ROW: small avatars, no names, click → profile
+            ══════════════════════════════════════════════ */}
+        {listenerCount > 0 && (
+          <section className="bg-[#141726] px-3 py-2 border-b border-[rgba(255,255,255,0.07)] flex-shrink-0">
+            <div className="flex items-center justify-between mb-1.5">
+              <span className="text-[10px] text-[#5a6080]">المستمعون</span>
+              <span className="text-[10px] text-[#6c63ff] font-semibold">{listenerCount}</span>
+            </div>
+            <div className="flex gap-2 overflow-x-auto scrollbar-hide pb-1">
+              {participants
+                .filter(p => p.seatIndex < 0)
+                .map(p => (
+                  <button
+                    key={p.userId}
+                    onClick={() => setProfileSheet(p)}
+                    className="flex-shrink-0 active:scale-95 transition-transform"
+                  >
+                    <div
+                      className="w-[32px] h-[32px] rounded-full border border-[rgba(108,99,255,0.3)] overflow-hidden flex items-center justify-center"
+                      style={{ background: getAvatarColor(p.userId) }}
+                    >
+                      {p.avatar ? (
+                        <img src={p.avatar} alt="" className="w-full h-full rounded-full object-cover" />
+                      ) : (
+                        <span className="text-[10px] font-bold text-white">{p.displayName.charAt(0)}</span>
+                      )}
+                    </div>
+                  </button>
+                ))}
+            </div>
+          </section>
+        )}
 
         {/* ══════════════════════════════════════════════
             CHAT AREA: session-only, scrollable
@@ -1819,7 +1870,8 @@ function RoomInteriorView({
             ══════════════════════════════════════════════ */}
         <footer className="bg-[#141726] border-t border-[rgba(108,99,255,0.18)] px-3 py-2.5 pb-5 flex-shrink-0">
           <div className="flex items-center gap-2">
-            {/* Mute room button */}
+            {/* Mute room button — only for admin+ */}
+            {canDo(myRole, 'admin') && (
             <button
               onClick={handleToggleRoomMute}
               className={`w-[38px] h-[38px] rounded-full bg-[#1c2035] border flex items-center justify-center flex-shrink-0 active:scale-95 transition-all ${
@@ -1833,6 +1885,7 @@ function RoomInteriorView({
                 : <Volume2 className="w-[18px] h-[18px] text-[#9ca3c4]" />
               }
             </button>
+            )}
 
             {/* Mic toggle — only when user is on a seat */}
             {isOnSeat && (
@@ -1999,26 +2052,27 @@ export default function VoiceRoomsPage() {
       .catch(() => {});
   }, []);
 
-  // Restore active room from sessionStorage on mount
+  // Restore active room from localStorage on mount
   useEffect(() => {
     try {
-      const savedRoomId = sessionStorage.getItem('vr_active_room');
+      const savedRoomId = localStorage.getItem('vr_active_room');
       if (savedRoomId) {
-        fetch(`/api/voice-rooms/${savedRoomId}?action=room-details`)
-          .then(r => r.json())
-          .then(d => {
-            if (d.success && d.room) {
-              const room = { ...d.room, lockedSeats: d.room.lockedSeats || [] };
-              setActiveRoom(room);
-            } else {
-              sessionStorage.removeItem('vr_active_room');
-            }
-            setRestoring(false);
-          })
-          .catch(() => {
-            sessionStorage.removeItem('vr_active_room');
-            setRestoring(false);
-          });
+        // Verify we're still in the room by checking our participant record
+        Promise.all([
+          fetch(`/api/voice-rooms/${savedRoomId}?action=room-details`).then(r => r.json()),
+          fetch(`/api/voice-rooms/${savedRoomId}?action=my-participant`).then(r => r.json()),
+        ]).then(([roomData, partData]) => {
+          if (roomData.success && roomData.room && partData.success && partData.participant) {
+            const room = { ...roomData.room, lockedSeats: roomData.room.lockedSeats || [] };
+            setActiveRoom(room);
+          } else {
+            localStorage.removeItem('vr_active_room');
+          }
+          setRestoring(false);
+        }).catch(() => {
+          localStorage.removeItem('vr_active_room');
+          setRestoring(false);
+        });
       } else {
         setRestoring(false);
       }
@@ -2029,7 +2083,7 @@ export default function VoiceRoomsPage() {
 
   const handleRoomUpdate = useCallback((updatedRoom: VoiceRoom) => {
     setActiveRoom(updatedRoom);
-    try { sessionStorage.setItem('vr_active_room', updatedRoom.id); } catch {}
+    try { localStorage.setItem('vr_active_room', updatedRoom.id); } catch {}
   }, []);
 
   const handleJoinRoom = useCallback(async (room: VoiceRoom) => {
@@ -2050,14 +2104,14 @@ export default function VoiceRoomsPage() {
       const data = await res.json();
       if (data.success) {
         setActiveRoom(room);
-        try { sessionStorage.setItem('vr_active_room', room.id); } catch {}
+        try { localStorage.setItem('vr_active_room', room.id); } catch {}
       } else {
         setActiveRoom(room);
-        try { sessionStorage.setItem('vr_active_room', room.id); } catch {}
+        try { localStorage.setItem('vr_active_room', room.id); } catch {}
       }
     } catch {
       setActiveRoom(room);
-      try { sessionStorage.setItem('vr_active_room', room.id); } catch {}
+      try { localStorage.setItem('vr_active_room', room.id); } catch {}
     }
   }, [authUser]);
 
@@ -2100,9 +2154,15 @@ export default function VoiceRoomsPage() {
     } catch { /* ignore */ }
   }, [authUser, handleJoinRoom]);
 
-  const handleExitRoom = useCallback(() => {
+  const handleExitRoom = useCallback(async () => {
+    try {
+      const savedRoomId = localStorage.getItem('vr_active_room');
+      if (savedRoomId) {
+        await fetch(`/api/voice-rooms/${savedRoomId}?action=leave`, { method: 'POST' });
+      }
+    } catch { /* ignore */ }
     setActiveRoom(null);
-    try { sessionStorage.removeItem('vr_active_room'); } catch {}
+    try { localStorage.removeItem('vr_active_room'); } catch {}
   }, []);
 
   // Show loading while restoring room
