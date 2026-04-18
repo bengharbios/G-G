@@ -66,10 +66,10 @@ interface ChatMessage {
 }
 
 const MIC_LAYOUTS = [
-  { value: 5, label: '5 مايكات', desc: '5 مقاعد فقط' },
-  { value: 10, label: '10 مايكات', desc: 'صفين × 5' },
-  { value: 11, label: '11 مايك', desc: 'مقدم + 10 مقاعد' },
-  { value: 15, label: '15 مايك', desc: '3 صفوف × 5' },
+  { value: 5,  label: '5 مايكات',  desc: 'صف واحد × 5 مقاعد' },
+  { value: 10, label: '10 مايكات', desc: 'صفين × 5 مقاعد' },
+  { value: 11, label: '11 مايك',  desc: 'مقدم + صفين × 5' },
+  { value: 15, label: '15 مايك',  desc: '3 صفوف × 5 مقاعد' },
 ] as const;
 
 const FALLBACK_AVATARS = [
@@ -254,21 +254,12 @@ function MicGridLayout({
     seats.push(sorted[i] || null);
   }
 
-  // Determine grid layout based on micSeatCount
-  const getGridConfig = () => {
-    switch (micSeatCount) {
-      case 5:  return { cols: 5, rows: 1 };
-      case 10: return { cols: 5, rows: 2 };
-      case 11: return { cols: 6, rows: 2, isHostLayout: true }; // 1 host top + 5+5 bottom
-      case 15: return { cols: 5, rows: 3 };
-      default: return { cols: 5, rows: Math.ceil(micSeatCount / 5) };
-    }
-  };
-
-  const config = getGridConfig();
+  // All layouts: 5 mics per row always
+  const isHostLayout = micSeatCount === 11;
+  const totalRows = isHostLayout ? 3 : Math.ceil(micSeatCount / 5);
 
   // For 11-layout: host at top center, then 5+5 below
-  if (config.isHostLayout) {
+  if (isHostLayout) {
     const host = participants.find(p => p.userId === hostId);
     const others = participants.filter(p => p.userId !== hostId);
     const row1: (Participant | null)[] = [host || null];
@@ -324,12 +315,12 @@ function MicGridLayout({
     );
   }
 
-  // Standard grid: rows × cols
+  // Standard grid: always 5 per row
   const rows: (Participant | null)[][] = [];
-  for (let r = 0; r < config.rows; r++) {
+  for (let r = 0; r < totalRows; r++) {
     const row: (Participant | null)[] = [];
-    for (let c = 0; c < config.cols; c++) {
-      const idx = r * config.cols + c;
+    for (let c = 0; c < 5; c++) {
+      const idx = r * 5 + c;
       row.push(idx < seats.length ? seats[idx] : null);
     }
     rows.push(row);
