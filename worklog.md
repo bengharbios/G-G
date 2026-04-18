@@ -1623,3 +1623,32 @@ Stage Summary:
 - Frame gallery with equip/unequip functionality added to profile
 - Zero new lint errors introduced
 - Deployed and live at g-g-beta.vercel.app
+---
+Task ID: 1
+Agent: Main Agent
+Task: Replace المتجر with المجلس in bottom nav + redesign voice rooms page
+
+Work Log:
+- Analyzed uploaded images showing mic layout design and room list design
+- Explored current codebase structure (voice-rooms page, API, DB functions)
+- Replaced المتجر (Store) tab with المجلس (Council) in bottom navigation, routing to /voice-rooms
+- Added micSeatCount column to VoiceRoom DB table with migration
+- Updated VoiceRoom interface, createVoiceRoom, getAllVoiceRooms functions
+- Updated voice-rooms API route to accept micSeatCount parameter
+- Completely redesigned voice-rooms/page.tsx with:
+  - MicGridLayout component supporting 5/10/11/15 seat layouts
+  - 11-seat layout: host at top center + 2 rows of 5 below
+  - MicSeat component with gradient avatars, host crown, mute/speaking indicators
+  - AudienceRow component showing small profile pictures for non-mic participants
+  - Room chat feature with message input
+  - Create room dialog with mic layout picker (5/10/11/15 options)
+  - 2-column grid room cards with gradient backgrounds
+  - Fixed bottom controls bar (chat, mic toggle, leave)
+  - Gift sending panel
+  - Auto-polling participants every 5 seconds
+- Build succeeded, committed, pushed to GitHub, deployed to Vercel automatically
+
+Stage Summary:
+- Commit: f3b89a6 pushed to main
+- Vercel deployment: READY at g-g-beta.vercel.app
+- Key files modified: page.tsx, voice-rooms/page.tsx, admin-db.ts, api/voice-rooms/route.ts
