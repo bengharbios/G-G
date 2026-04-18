@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Card,
@@ -49,6 +49,7 @@ import {
   Settings,
   Fingerprint,
   TrendingUp,
+  Camera,
 } from 'lucide-react';
 
 // ─── Types ────────────────────────────────────────────────────────────
@@ -628,6 +629,83 @@ export default function ProfilePage() {
   const [editPhone, setEditPhone] = useState('');
   const [isSavingProfile, setIsSavingProfile] = useState(false);
 
+  // Avatar upload state
+  const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
+  const avatarInputRef = useRef<HTMLInputElement>(null);
+
+  // ─── Avatar Upload Handler ─────────────────────────────────────
+  const handleAvatarUpload = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      toast({ title: 'خطأ', description: 'يرجى اختيار ملف صورة فقط', variant: 'destructive' });
+      return;
+    }
+    // Validate file size (max 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      toast({ title: 'حجم كبير', description: 'حجم الصورة يجب ألا يتجاوز 5 ميجابايت', variant: 'destructive' });
+      return;
+    }
+
+    setIsUploadingAvatar(true);
+    try {
+      // Resize image on client side before uploading
+      const resizedBase64 = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = (ev) => {
+          const img = new Image();
+          img.onload = () => {
+            const canvas = document.createElement('canvas');
+            const maxSize = 256;
+            let { width, height } = img;
+            if (width > height) {
+              if (width > maxSize) { height = (height * maxSize) / width; width = maxSize; }
+            } else {
+              if (height > maxSize) { width = (width * maxSize) / height; height = maxSize; }
+            }
+            canvas.width = width;
+            canvas.height = height;
+            const ctx = canvas.getContext('2d');
+            if (!ctx) { reject(new Error('Canvas not supported')); return; }
+            ctx.drawImage(img, 0, 0, width, height);
+            resolve(canvas.toDataURL('image/jpeg', 0.8));
+          };
+          img.onerror = () => reject(new Error('Failed to load image'));
+          img.src = ev.target?.result as string;
+        };
+        reader.onerror = () => reject(new Error('Failed to read file'));
+        reader.readAsDataURL(file);
+      });
+
+      // Upload to server
+      const res = await fetch('/api/auth/update-profile', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ avatar: resizedBase64 }),
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        toast({ title: 'تم تحديث الصورة', description: 'تم تغيير صورة الملف الشخصي' });
+        // Refresh user data
+        const meRes = await fetch('/api/auth/me');
+        if (meRes.ok) {
+          const meData = await meRes.json();
+          if (meData.success && meData.user) setAuthUser(meData.user);
+        }
+      } else {
+        toast({ title: 'خطأ', description: data.error || 'فشل رفع الصورة', variant: 'destructive' });
+      }
+    } catch {
+      toast({ title: 'خطأ', description: 'فشل رفع الصورة', variant: 'destructive' });
+    } finally {
+      setIsUploadingAvatar(false);
+      // Reset file input
+      if (avatarInputRef.current) avatarInputRef.current.value = '';
+    }
+  }, [toast]);
+
   // Password state
   const [showChangePassword, setShowChangePassword] = useState(false);
   const [passwordCurrent, setPasswordCurrent] = useState('');
@@ -808,7 +886,7 @@ export default function ProfilePage() {
     setIsSavingProfile(true);
     try {
       const res = await fetch('/api/auth/update-profile', {
-        method: 'POST',
+        method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ displayName: editDisplayName, phone: editPhone }),
       });
@@ -1042,14 +1120,37 @@ export default function ProfilePage() {
 
               {/* Avatar + Level Ring - centered, overlapping the cover */}
               <div className="flex flex-col items-center -mt-24 sm:-mt-28 relative z-10 pb-6">
-                <AvatarLevelRing
-                  level={displayLevel}
-                  progress={displayProgress}
-                  tier={levelTier}
-                  avatarUrl={authUser?.avatar}
-                  avatarLetter={displayName.charAt(0)}
-                  equippedFrame={equippedFrame}
+                {/* Hidden file input for avatar upload */}
+                <input
+                  ref={avatarInputRef}
+                  type="file"
+                  accept="image/*"
+                  onChange={handleAvatarUpload}
+                  className="hidden"
                 />
+                <div className="relative">
+                  <AvatarLevelRing
+                    level={displayLevel}
+                    progress={displayProgress}
+                    tier={levelTier}
+                    avatarUrl={authUser?.avatar}
+                    avatarLetter={displayName.charAt(0)}
+                    equippedFrame={equippedFrame}
+                  />
+                  {/* Camera button overlay */}
+                  <button
+                    onClick={() => avatarInputRef.current?.click()}
+                    disabled={isUploadingAvatar}
+                    className="absolute bottom-4 left-4 z-40 w-10 h-10 rounded-full bg-gradient-to-br from-amber-500 to-orange-600 border-2 border-slate-950 flex items-center justify-center shadow-lg hover:scale-110 active:scale-95 transition-transform disabled:opacity-50"
+                    title="تغيير صورة الملف الشخصي"
+                  >
+                    {isUploadingAvatar ? (
+                      <Loader2 className="w-4 h-4 text-white animate-spin" />
+                    ) : (
+                      <Camera className="w-4 h-4 text-white" />
+                    )}
+                  </button>
+                </div>
 
                 {/* Name section */}
                 <motion.div

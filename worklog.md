@@ -51,3 +51,24 @@ Stage Summary:
 - All builds passing
 - Key fixes: mic click behavior, polling stability, clickable profiles, role management, unregistered user handling
 
+---
+Task ID: 1
+Agent: Main
+Task: Answer user questions about voice permissions on small screens and profile picture upload
+
+Work Log:
+- Analyzed voice room page.tsx for responsive design - confirmed grid-cols-5 mic layout, bottom sheets, flex bottom bar all work on small screens
+- Checked profile/page.tsx - found avatar field in DB but NO upload UI existed
+- Checked update-profile API - already supports avatar field with PUT method
+- Added Camera icon import from lucide-react
+- Added useRef for hidden file input
+- Added handleAvatarUpload function: validates file type/size (max 5MB), resizes to 256x256 using Canvas API, converts to JPEG base64, sends to update-profile API
+- Added hidden file input + camera button overlay on avatar in profile page
+- Fixed existing handleSaveProfile to use PUT instead of POST (API uses PUT)
+- Verified build compiles successfully
+
+Stage Summary:
+- Voice permissions work fine on small screens (responsive design confirmed)
+- Profile picture upload feature implemented: users can tap camera icon on avatar to upload image
+- Image is resized client-side to 256x256 max, compressed to JPEG quality 0.8
+- Base64 data URL stored in avatar field via existing update-profile API
