@@ -3514,9 +3514,21 @@ export default function AdminPage() {
                             }
                             setBgUploading(true);
                             try {
-                              const formData = new FormData();
-                              formData.append('file', file);
-                              const res = await fetch('/api/admin/backgrounds/upload', { method: 'POST', body: formData });
+                              // Convert file to base64 for reliable upload
+                              const base64 = await new Promise<string>((resolve, reject) => {
+                                const reader = new FileReader();
+                                reader.onload = () => {
+                                  const result = reader.result as string;
+                                  resolve(result.split(',')[1]);
+                                };
+                                reader.onerror = () => reject(new Error('فشل في قراءة الملف'));
+                                reader.readAsDataURL(file);
+                              });
+                              const res = await fetch('/api/admin/backgrounds/upload', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ file: base64, name: file.name, type: file.type }),
+                              });
                               const data = await res.json();
                               if (data.success) {
                                 setBgForm(p => ({
@@ -3526,10 +3538,11 @@ export default function AdminPage() {
                                 }));
                                 showToast('تم رفع الصورة بنجاح');
                               } else {
-                                showToast(data.error || 'فشل في رفع الصورة', 'error');
+                                showToast(data.details ? `${data.error}: ${data.details}` : (data.error || 'فشل في رفع الصورة'), 'error');
                               }
-                            } catch {
+                            } catch (uploadErr) {
                               showToast('فشل في رفع الصورة', 'error');
+                              console.error('Upload error:', uploadErr);
                             }
                             setBgUploading(false);
                             e.target.value = '';
