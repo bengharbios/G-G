@@ -2939,6 +2939,7 @@ export async function getRoomById(roomId: string): Promise<VoiceRoom | null> {
     isAutoMode: Boolean(row.isAutoMode),
     lockedSeats,
     createdAt: row.createdAt as string,
+    roomImage: (row.roomImage as string) || '',
   };
 }
 
