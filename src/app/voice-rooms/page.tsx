@@ -2853,6 +2853,7 @@ function RoomInteriorView({
    ═══════════════════════════════════════════════════════════════════════ */
 
 export default function VoiceRoomsPage() {
+  const { toast } = useToast();
   const [activeRoom, setActiveRoom] = useState<VoiceRoom | null>(null);
   const [authUser, setAuthUser] = useState<AuthUser | null>(null);
   const [restoring, setRestoring] = useState(true);
