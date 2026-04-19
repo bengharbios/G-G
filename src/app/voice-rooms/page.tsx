@@ -1854,6 +1854,7 @@ function RoomInteriorView({
   const fetchRoomDetailsRef = useRef(fetchRoomDetails);
   const fetchMyParticipantRef = useRef(fetchMyParticipant);
   const fetchGiftsRef = useRef(fetchGifts);
+  const fetchWeeklyGemsRef = useRef(fetchWeeklyGems);
   const checkKickedRef = useRef(checkKicked);
   const toastRef = useRef(toast);
   const onExitRef = useRef(onExit);
@@ -1863,6 +1864,7 @@ function RoomInteriorView({
   useEffect(() => { fetchRoomDetailsRef.current = fetchRoomDetails; }, [fetchRoomDetails]);
   useEffect(() => { fetchMyParticipantRef.current = fetchMyParticipant; }, [fetchMyParticipant]);
   useEffect(() => { fetchGiftsRef.current = fetchGifts; }, [fetchGifts]);
+  useEffect(() => { fetchWeeklyGemsRef.current = fetchWeeklyGems; }, [fetchWeeklyGems]);
   useEffect(() => { checkKickedRef.current = checkKicked; }, [checkKicked]);
   useEffect(() => { toastRef.current = toast; }, [toast]);
   useEffect(() => { onExitRef.current = onExit; }, [onExit]);
@@ -1889,6 +1891,7 @@ function RoomInteriorView({
           fetchGiftsRef.current(),
           fetchChatMessagesRef.current(),
           fetchRoomDetailsRef.current(),
+          fetchWeeklyGemsRef.current(),
         ]);
         setLoading(false);
       }
@@ -2383,53 +2386,61 @@ function RoomInteriorView({
         </header>
 
         {/* ══════════════════════════════════════════════
-            AUDIENCE ROW: small avatars, no names, click → profile
+            AUDIENCE ROW: trophy (right RTL) + scrollable listeners + user count (left RTL)
             ══════════════════════════════════════════════ */}
-        {listenerCount > 0 && (
-          <section className="bg-black/30 backdrop-blur-sm px-3 py-2 border-b border-[rgba(255,255,255,0.07)] flex-shrink-0">
-            <div className="flex items-center justify-between mb-1.5">
-              <span className="text-[10px] text-[#5a6080]">المستمعون</span>
-              <span className="text-[10px] text-[#6c63ff] font-semibold">{listenerCount}</span>
+        <section className="bg-transparent px-3 py-2 border-b border-[rgba(255,255,255,0.07)] flex-shrink-0">
+          <div className="flex items-center gap-2.5">
+            {/* Right side (RTL): Trophy icon + weekly gems */}
+            <div className="flex items-center gap-1 flex-shrink-0 bg-[rgba(245,158,11,0.08)] border border-[rgba(245,158,11,0.2)] rounded-full px-2 py-1">
+              <Trophy className="w-3.5 h-3.5 text-[#f59e0b]" />
+              <span className="text-[10px] text-[#f59e0b] font-bold">{weeklyGems.toLocaleString('ar-SA')}</span>
             </div>
-            <div className="flex gap-2 overflow-x-auto scrollbar-hide pb-1">
+
+            {/* Center: Scrollable listener avatars */}
+            <div className="flex-1 flex gap-2 overflow-x-auto scrollbar-hide py-0.5 min-w-0">
               {participants
                 .filter(p => p.seatIndex < 0)
                 .map(p => {
                   const isGuestUser = !p.username || p.userId?.startsWith('guest-');
                   return (
-                  <button
-                    key={p.userId}
-                    onClick={() => setProfileSheet(p)}
-                    className="flex-shrink-0 active:scale-95 transition-transform"
-                  >
-                    <div className="relative">
-                      <div
-                        className={`w-[32px] h-[32px] rounded-full border overflow-hidden flex items-center justify-center ${
-                          isGuestUser
-                            ? 'border-[rgba(148,163,184,0.3)] opacity-60'
-                            : 'border-[rgba(108,99,255,0.3)]'
-                        }`}
-                        style={{ background: getAvatarColor(p.userId) }}
-                      >
-                        {p.avatar ? (
-                          <img src={p.avatar} alt="" className="w-full h-full rounded-full object-cover" />
-                        ) : (
-                          <span className="text-[10px] font-bold text-white">{p.displayName.charAt(0)}</span>
+                    <button
+                      key={p.userId}
+                      onClick={() => setProfileSheet(p)}
+                      className="flex-shrink-0 active:scale-95 transition-transform"
+                    >
+                      <div className="relative">
+                        <div
+                          className={`w-[32px] h-[32px] rounded-full border overflow-hidden flex items-center justify-center ${
+                            isGuestUser
+                              ? 'border-[rgba(148,163,184,0.3)] opacity-60'
+                              : 'border-[rgba(108,99,255,0.3)]'
+                          }`}
+                          style={{ background: getAvatarColor(p.userId) }}
+                        >
+                          {p.avatar ? (
+                            <img src={p.avatar} alt="" className="w-full h-full rounded-full object-cover" />
+                          ) : (
+                            <span className="text-[10px] font-bold text-white">{p.displayName.charAt(0)}</span>
+                          )}
+                        </div>
+                        {isGuestUser && (
+                          <div className="absolute -bottom-0.5 -left-0.5 w-3.5 h-3.5 rounded-full bg-[#5a6080] border-2 border-[#141726] flex items-center justify-center">
+                            <span className="text-[6px] leading-none">?</span>
+                          </div>
                         )}
                       </div>
-                      {/* Guest listener badge */}
-                      {isGuestUser && (
-                        <div className="absolute -bottom-0.5 -left-0.5 w-3.5 h-3.5 rounded-full bg-[#5a6080] border-2 border-[#141726] flex items-center justify-center">
-                          <span className="text-[6px] leading-none">?</span>
-                        </div>
-                      )}
-                    </div>
-                  </button>
+                    </button>
                   );
                 })}
             </div>
-          </section>
-        )}
+
+            {/* Left side (RTL): User count */}
+            <div className="flex items-center gap-1 flex-shrink-0 bg-[rgba(108,99,255,0.1)] border border-[rgba(108,99,255,0.25)] rounded-full px-2 py-1">
+              <Users className="w-3 h-3 text-[#a78bfa]" />
+              <span className="text-[10px] text-[#a78bfa] font-bold">{participants.length}</span>
+            </div>
+          </div>
+        </section>
 
         {/* ══════════════════════════════════════════════
             MIC GRID: 5 per row, 52px avatars
