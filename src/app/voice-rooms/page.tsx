@@ -883,6 +883,9 @@ function SettingsBottomSheet({
   const [roomType, setRoomType] = useState<RoomMode>(room.roomMode);
   const [kickDuration] = useState(10);
   const [saving, setSaving] = useState(false);
+  const [availableBgs, setAvailableBgs] = useState<Array<{ id: string; imageUrl: string; thumbnailUrl: string; nameAr: string; rarity: string; price: number; owned: boolean }>>([]);
+  const [selectedBg, setSelectedBg] = useState(room.roomImage || '');
+  const [bgLoading, setBgLoading] = useState(false);
 
   const roomTypes: { value: RoomMode; label: string; icon: string }[] = [
     { value: 'public', label: 'عامة', icon: '🔓' },
@@ -895,9 +898,10 @@ function SettingsBottomSheet({
     await onUpdate({
       micSeatCount: micCount,
       roomMode: roomType,
-      isAutoMode: guestMic ? 1 : 0, // guest mic permission controls autoMode
+      isAutoMode: guestMic ? 1 : 0,
       guestMicEnabled: guestMic,
       memberMicEnabled: memberMic,
+      roomImage: selectedBg,
     });
     setSaving(false);
     onClose();
@@ -907,6 +911,26 @@ function SettingsBottomSheet({
     if (isOpen) {
       setMicCount(room.micSeatCount);
       setRoomType(room.roomMode);
+      setSelectedBg(room.roomImage || '');
+      // Fetch available backgrounds
+      setBgLoading(true);
+      fetch('/api/room-backgrounds')
+        .then(r => r.json())
+        .then(data => {
+          if (data.success && data.backgrounds) {
+            setAvailableBgs(data.backgrounds.map((b: any) => ({
+              id: b.background.id,
+              imageUrl: b.background.imageUrl,
+              thumbnailUrl: b.background.thumbnailUrl,
+              nameAr: b.background.nameAr,
+              rarity: b.background.rarity,
+              price: b.background.price,
+              owned: b.owned,
+            })));
+          }
+        })
+        .catch(() => {})
+        .finally(() => setBgLoading(false));
     }
   }, [isOpen, room]);
 
@@ -974,6 +998,61 @@ function SettingsBottomSheet({
                 </div>
               </button>
             </div>
+          </div>
+
+          {/* Section: Room Background */}
+          <div className="mb-3.5">
+            <div className="text-[11px] text-[#5a6080] font-semibold mb-2">موضوع الغرفة (الخلفية)</div>
+            {bgLoading ? (
+              <div className="flex items-center justify-center py-6">
+                <Loader2 className="w-5 h-5 animate-spin text-[#6c63ff]" />
+              </div>
+            ) : availableBgs.length > 0 ? (
+              <div className="grid grid-cols-4 gap-1.5">
+                {/* No background option */}
+                <button
+                  onClick={() => setSelectedBg('')}
+                  className={`relative rounded-xl overflow-hidden border-2 transition-all aspect-[3/4] ${
+                    selectedBg === '' ? 'border-[#6c63ff]' : 'border-transparent'
+                  }`}
+                >
+                  <div className="w-full h-full bg-[#141726] flex items-center justify-center">
+                    <span className="text-[10px] text-[#5a6080]">بدون</span>
+                  </div>
+                </button>
+                {availableBgs.map((bg) => (
+                  <button
+                    key={bg.id}
+                    onClick={() => bg.owned ? setSelectedBg(bg.imageUrl) : undefined}
+                    className={`relative rounded-xl overflow-hidden border-2 transition-all aspect-[3/4] ${
+                      selectedBg === bg.imageUrl ? 'border-[#6c63ff]' : 'border-transparent'
+                    } ${!bg.owned ? 'opacity-50' : ''}`}
+                  >
+                    {(bg.thumbnailUrl || bg.imageUrl) ? (
+                      <img src={bg.thumbnailUrl || bg.imageUrl} alt={bg.nameAr} className="w-full h-full object-cover" />
+                    ) : (
+                      <div className="w-full h-full bg-[#1c2035] flex items-center justify-center">
+                        <ImageIcon className="w-4 h-4 text-[#5a6080]" />
+                      </div>
+                    )}
+                    {!bg.owned && (
+                      <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
+                        <span className="text-[9px] text-[#f59e0b] font-bold">{bg.price} 💎</span>
+                      </div>
+                    )}
+                    {selectedBg === bg.imageUrl && (
+                      <div className="absolute top-1 left-1 w-4 h-4 rounded-full bg-[#6c63ff] flex items-center justify-center">
+                        <span className="text-[8px] text-white">✓</span>
+                      </div>
+                    )}
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <div className="bg-[#1c2035] rounded-xl px-3.5 py-3 text-center">
+                <span className="text-[12px] text-[#5a6080]">لا توجد خلفيات متاحة حالياً</span>
+              </div>
+            )}
           </div>
 
           {/* Section: Privacy */}

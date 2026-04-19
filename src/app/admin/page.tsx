@@ -43,6 +43,7 @@ import {
   Search,
   Frame,
   User,
+  ImageIcon,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -214,7 +215,7 @@ interface LeaderboardEntry {
   isSpecialId: boolean;
 }
 
-type ActiveSection = 'dashboard' | 'games' | 'subscriptions' | 'sessions' | 'messages' | 'settings' | 'tables' | 'gem-charges' | 'leaderboard' | 'events' | 'frames' | 'users';
+type ActiveSection = 'dashboard' | 'games' | 'subscriptions' | 'sessions' | 'messages' | 'settings' | 'tables' | 'gem-charges' | 'leaderboard' | 'events' | 'frames' | 'users' | 'backgrounds';
 
 // ─── Navigation items ─────────────────────────────────────────────────
 
@@ -230,6 +231,7 @@ const navItems: { id: ActiveSection; label: string; icon: React.ReactNode }[] = 
   { id: 'leaderboard', label: 'المتصدرين', icon: <Trophy className="w-5 h-5" /> },
   { id: 'frames', label: 'إدارة الإطارات', icon: <Frame className="w-5 h-5" /> },
   { id: 'users', label: 'إدارة المستخدمين', icon: <UserPlus className="w-5 h-5" /> },
+  { id: 'backgrounds', label: 'خلفيات الرومات', icon: <ImageIcon className="w-5 h-5" /> },
   { id: 'settings', label: 'الإعدادات', icon: <Settings className="w-5 h-5" /> },
 ];
 
@@ -419,6 +421,19 @@ export default function AdminPage() {
   const [grantSelectedUser, setGrantSelectedUser] = useState<{ id: string; username: string; displayName: string } | null>(null);
   const [grantLoading, setGrantLoading] = useState(false);
   const [userSearchResults, setUserSearchResults] = useState<Array<{ id: string; username: string; displayName: string }>>([]);
+  // Backgrounds state
+  const [backgrounds, setBackgrounds] = useState<Array<{
+    id: string; name: string; nameAr: string; description: string; imageUrl: string;
+    thumbnailUrl: string; rarity: string; price: number; isFree: boolean; isDefault: boolean;
+    isActive: boolean; sortOrder: number; totalOwned: number; createdAt: string; updatedAt: string;
+  }>>([]);
+  const [bgFormOpen, setBgFormOpen] = useState(false);
+  const [editingBg, setEditingBg] = useState<typeof backgrounds[number] | null>(null);
+  const [bgForm, setBgForm] = useState({
+    name: '', nameAr: '', description: '', imageUrl: '', thumbnailUrl: '',
+    rarity: 'common' as string, price: 0, isFree: false, isDefault: false, isActive: true, sortOrder: 0,
+  });
+  const [bgFormLoading, setBgFormLoading] = useState(false);
 
   // ─── Toast helper ───────────────────────────────────────────────────
 
@@ -600,6 +615,16 @@ export default function AdminPage() {
     } catch { /* ignore */ }
   }, []);
 
+  const fetchBackgrounds = useCallback(async () => {
+    try {
+      const res = await fetch('/api/admin/backgrounds');
+      if (res.ok) {
+        const data = await res.json();
+        setBackgrounds(data.backgrounds || []);
+      }
+    } catch { /* ignore */ }
+  }, []);
+
   // ─── User CRUD Operations ───────────────────────────────────────────
 
   const handleEditUser = useCallback((user: typeof appUsers[number]) => {
@@ -713,11 +738,14 @@ export default function AdminPage() {
       case 'users':
         fetchUsers();
         break;
+      case 'backgrounds':
+        fetchBackgrounds();
+        break;
       case 'settings':
         fetchSettings();
         break;
     }
-  }, [activeSection, isAuthenticated, fetchStats, fetchGames, fetchSubscriptions, fetchSessions, fetchMessages, fetchSettings, fetchTables, fetchEvents, fetchGemCharges, fetchLeaderboard, fetchFrames, fetchUsers, gamesLoadedOnce, games.length]);
+  }, [activeSection, isAuthenticated, fetchStats, fetchGames, fetchSubscriptions, fetchSessions, fetchMessages, fetchSettings, fetchTables, fetchEvents, fetchGemCharges, fetchLeaderboard, fetchFrames, fetchUsers, fetchBackgrounds, gamesLoadedOnce, games.length]);
 
   // ─── Auto-refresh tables every 10 seconds ──────────────────────────
 
@@ -3307,6 +3335,253 @@ export default function AdminPage() {
               </div>
             </DialogContent>
           </Dialog>
+
+          {/* ─── Backgrounds ───────────────────────────────────── */}
+          {activeSection === 'backgrounds' && (
+            <div className="space-y-4">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                <div>
+                  <h2 className="text-lg font-bold text-white flex items-center gap-2">
+                    <ImageIcon className="w-5 h-5 text-violet-400" />
+                    خلفيات الرومات
+                  </h2>
+                  <p className="text-sm text-slate-400 mt-1">إدارة خلفيات غرف الصوت - الافتراضية والمباعة</p>
+                </div>
+                <Button
+                  onClick={() => {
+                    setEditingBg(null);
+                    setBgForm({ name: '', nameAr: '', description: '', imageUrl: '', thumbnailUrl: '', rarity: 'common', price: 0, isFree: false, isDefault: false, isActive: true, sortOrder: 0 });
+                    setBgFormOpen(true);
+                  }}
+                  className="bg-violet-600 hover:bg-violet-500 text-white flex items-center gap-2"
+                >
+                  <Plus className="w-4 h-4" /> إضافة خلفية
+                </Button>
+              </div>
+
+              {/* Backgrounds grid */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                {backgrounds.map((bg) => (
+                  <Card key={bg.id} className="bg-slate-900/60 border-slate-800/40 overflow-hidden">
+                    {/* Thumbnail */}
+                    <div className="relative h-32 bg-slate-800 overflow-hidden">
+                      {bg.thumbnailUrl || bg.imageUrl ? (
+                        <img
+                          src={bg.thumbnailUrl || bg.imageUrl}
+                          alt={bg.nameAr}
+                          className="w-full h-full object-cover"
+                          onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                        />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center text-slate-600">
+                          <ImageIcon className="w-8 h-8" />
+                        </div>
+                      )}
+                      {/* Badges */}
+                      <div className="absolute top-2 right-2 flex gap-1">
+                        {bg.isDefault && <Badge className="bg-amber-500/20 text-amber-300 border-amber-500/30 text-[10px]">افتراضية</Badge>}
+                        {bg.isFree && <Badge className="bg-emerald-500/20 text-emerald-300 border-emerald-500/30 text-[10px]">مجانية</Badge>}
+                        {!bg.isActive && <Badge className="bg-red-500/20 text-red-300 border-red-500/30 text-[10px]">معطلة</Badge>}
+                      </div>
+                      {/* Rarity */}
+                      <div className="absolute top-2 left-2">
+                        <Badge className={`text-[10px] ${
+                          bg.rarity === 'legendary' ? 'bg-amber-500/20 text-amber-300 border-amber-500/30' :
+                          bg.rarity === 'epic' ? 'bg-purple-500/20 text-purple-300 border-purple-500/30' :
+                          bg.rarity === 'rare' ? 'bg-blue-500/20 text-blue-300 border-blue-500/30' :
+                          'bg-slate-500/20 text-slate-300 border-slate-500/30'
+                        }`}>
+                          {{ common: 'عادي', rare: 'نادر', epic: 'ملحمي', legendary: 'أسطوري' }[bg.rarity] || bg.rarity}
+                        </Badge>
+                      </div>
+                    </div>
+                    {/* Info */}
+                    <CardContent className="p-3">
+                      <h3 className="text-sm font-bold text-white truncate">{bg.nameAr}</h3>
+                      <p className="text-[11px] text-slate-400 mt-0.5 truncate">{bg.description || 'بدون وصف'}</p>
+                      <div className="flex items-center justify-between mt-2">
+                        <span className="text-xs font-bold text-amber-400">{bg.price > 0 ? `${bg.price} 💎` : 'مجاني'}</span>
+                        <span className="text-[10px] text-slate-500">مملوكة: {bg.totalOwned}</span>
+                      </div>
+                      {/* Actions */}
+                      <div className="flex gap-1.5 mt-3">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="flex-1 h-7 text-[11px] border-slate-700 text-slate-300 hover:bg-slate-800"
+                          onClick={() => {
+                            setEditingBg(bg);
+                            setBgForm({
+                              name: bg.name, nameAr: bg.nameAr, description: bg.description,
+                              imageUrl: bg.imageUrl, thumbnailUrl: bg.thumbnailUrl, rarity: bg.rarity,
+                              price: bg.price, isFree: bg.isFree, isDefault: bg.isDefault,
+                              isActive: bg.isActive, sortOrder: bg.sortOrder,
+                            });
+                            setBgFormOpen(true);
+                          }}
+                        >
+                          <Edit className="w-3 h-3 ml-1" /> تعديل
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className={`h-7 text-[11px] border-slate-700 ${bg.isActive ? 'text-red-300 hover:bg-red-500/10' : 'text-emerald-300 hover:bg-emerald-500/10'}`}
+                          onClick={async () => {
+                            try {
+                              await fetch('/api/admin/backgrounds', {
+                                method: 'PUT',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ id: bg.id, isActive: !bg.isActive }),
+                              });
+                              fetchBackgrounds();
+                              showToast(bg.isActive ? 'تم تعطيل الخلفية' : 'تم تفعيل الخلفية');
+                            } catch { showToast('فشل', 'error'); }
+                          }}
+                        >
+                          {bg.isActive ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="h-7 text-[11px] border-red-500/30 text-red-300 hover:bg-red-500/10"
+                          onClick={async () => {
+                            if (confirm(`حذف "${bg.nameAr}" نهائياً؟`)) {
+                              try {
+                                await fetch(`/api/admin/backgrounds?id=${bg.id}`, { method: 'DELETE' });
+                                fetchBackgrounds();
+                                showToast('تم حذف الخلفية');
+                              } catch { showToast('فشل', 'error'); }
+                            }
+                          }}
+                        >
+                          <Trash2 className="w-3 h-3" />
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+
+              {backgrounds.length === 0 && (
+                <Card className="bg-slate-900/60 border-slate-800/40 p-8 text-center">
+                  <ImageIcon className="w-12 h-12 text-slate-600 mx-auto mb-3" />
+                  <p className="text-slate-400">لا توجد خلفيات بعد</p>
+                  <p className="text-slate-500 text-sm mt-1">اضغط "إضافة خلفية" لبدء الإضافة</p>
+                </Card>
+              )}
+
+              {/* Background Form Dialog */}
+              <Dialog open={bgFormOpen} onOpenChange={setBgFormOpen}>
+                <DialogContent className="bg-slate-900 border-slate-700 text-white max-w-lg mx-auto" dir="rtl">
+                  <DialogHeader>
+                    <DialogTitle className="text-right">
+                      {editingBg ? `تعديل: ${editingBg.nameAr}` : 'إضافة خلفية جديدة'}
+                    </DialogTitle>
+                  </DialogHeader>
+                  <div className="space-y-3 mt-2">
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="text-xs text-slate-400 mb-1 block">الاسم (إنجليزي)</label>
+                        <Input value={bgForm.name} onChange={e => setBgForm(p => ({ ...p, name: e.target.value }))}
+                          className="bg-slate-800 border-slate-700 text-white" placeholder="room-bg-1" dir="ltr" />
+                      </div>
+                      <div>
+                        <label className="text-xs text-slate-400 mb-1 block">الاسم (عربي)</label>
+                        <Input value={bgForm.nameAr} onChange={e => setBgForm(p => ({ ...p, nameAr: e.target.value }))}
+                          className="bg-slate-800 border-slate-700 text-white" placeholder="خلفية فضاء" />
+                      </div>
+                    </div>
+                    <div>
+                      <label className="text-xs text-slate-400 mb-1 block">الوصف</label>
+                      <Input value={bgForm.description} onChange={e => setBgForm(p => ({ ...p, description: e.target.value }))}
+                        className="bg-slate-800 border-slate-700 text-white" placeholder="وصف الخلفية..." />
+                    </div>
+                    <div>
+                      <label className="text-xs text-slate-400 mb-1 block">رابط الصورة (الأساسية)</label>
+                      <Input value={bgForm.imageUrl} onChange={e => setBgForm(p => ({ ...p, imageUrl: e.target.value }))}
+                        className="bg-slate-800 border-slate-700 text-white" placeholder="https://..." dir="ltr" />
+                    </div>
+                    <div>
+                      <label className="text-xs text-slate-400 mb-1 block">رابط الصورة المصغرة (اختياري)</label>
+                      <Input value={bgForm.thumbnailUrl} onChange={e => setBgForm(p => ({ ...p, thumbnailUrl: e.target.value }))}
+                        className="bg-slate-800 border-slate-700 text-white" placeholder="https://..." dir="ltr" />
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="text-xs text-slate-400 mb-1 block">الندرة</label>
+                        <select
+                          value={bgForm.rarity}
+                          onChange={e => setBgForm(p => ({ ...p, rarity: e.target.value }))}
+                          className="w-full h-9 bg-slate-800 border border-slate-700 text-white rounded-md px-3 text-sm"
+                        >
+                          <option value="common">عادي</option>
+                          <option value="rare">نادر</option>
+                          <option value="epic">ملحمي</option>
+                          <option value="legendary">أسطوري</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className="text-xs text-slate-400 mb-1 block">السعر (جواهر)</label>
+                        <Input type="number" min={0} value={bgForm.price} onChange={e => setBgForm(p => ({ ...p, price: Number(e.target.value) }))}
+                          className="bg-slate-800 border-slate-700 text-white" dir="ltr" />
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="text-xs text-slate-400 mb-1 block">الترتيب</label>
+                        <Input type="number" min={0} value={bgForm.sortOrder} onChange={e => setBgForm(p => ({ ...p, sortOrder: Number(e.target.value) }))}
+                          className="bg-slate-800 border-slate-700 text-white" dir="ltr" />
+                      </div>
+                      <div className="flex items-center gap-4 mt-5">
+                        <label className="flex items-center gap-2 cursor-pointer">
+                          <input type="checkbox" checked={bgForm.isDefault} onChange={e => setBgForm(p => ({ ...p, isDefault: e.target.checked }))}
+                            className="w-4 h-4 rounded border-slate-600" />
+                          <span className="text-xs text-slate-300">افتراضية</span>
+                        </label>
+                        <label className="flex items-center gap-2 cursor-pointer">
+                          <input type="checkbox" checked={bgForm.isFree} onChange={e => setBgForm(p => ({ ...p, isFree: e.target.checked }))}
+                            className="w-4 h-4 rounded border-slate-600" />
+                          <span className="text-xs text-slate-300">مجانية</span>
+                        </label>
+                      </div>
+                    </div>
+                  </div>
+                  <DialogFooter className="mt-4">
+                    <Button variant="outline" onClick={() => setBgFormOpen(false)} className="border-slate-700 text-slate-300">
+                      إلغاء
+                    </Button>
+                    <Button
+                      onClick={async () => {
+                        if (!bgForm.name || !bgForm.nameAr || !bgForm.imageUrl) {
+                          showToast('الاسم ورابط الصورة مطلوبان', 'error');
+                          return;
+                        }
+                        setBgFormLoading(true);
+                        try {
+                          const url = editingBg ? '/api/admin/backgrounds' : '/api/admin/backgrounds';
+                          const method = editingBg ? 'PUT' : 'POST';
+                          const body = editingBg ? { id: editingBg.id, ...bgForm } : bgForm;
+                          const res = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+                          if (res.ok) {
+                            showToast(editingBg ? 'تم تحديث الخلفية' : 'تم إضافة الخلفية');
+                            fetchBackgrounds();
+                            setBgFormOpen(false);
+                          } else {
+                            showToast('فشل', 'error');
+                          }
+                        } catch { showToast('فشل في الاتصال', 'error'); }
+                        setBgFormLoading(false);
+                      }}
+                      disabled={bgFormLoading}
+                      className="bg-violet-600 hover:bg-violet-500 text-white"
+                    >
+                      {bgFormLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : editingBg ? 'حفظ التغييرات' : 'إضافة'}
+                    </Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
+            </div>
+          )}
 
           {/* ─── Settings ───────────────────────────────────── */}
           {activeSection === 'settings' && (

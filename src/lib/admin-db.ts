@@ -625,6 +625,39 @@ async function ensureAdminTables(): Promise<void> {
       kickedAt TEXT DEFAULT (datetime('now')))
   `);
 
+  // RoomBackground - catalog of room backgrounds
+  await c.execute(`
+    CREATE TABLE IF NOT EXISTS RoomBackground (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      nameAr TEXT NOT NULL,
+      description TEXT DEFAULT '',
+      imageUrl TEXT NOT NULL,
+      thumbnailUrl TEXT DEFAULT '',
+      rarity TEXT DEFAULT 'common',
+      price INTEGER DEFAULT 0,
+      isFree INTEGER DEFAULT 0,
+      isDefault INTEGER DEFAULT 0,
+      isActive INTEGER DEFAULT 1,
+      sortOrder INTEGER DEFAULT 0,
+      totalOwned INTEGER DEFAULT 0,
+      createdAt TEXT DEFAULT (datetime('now')),
+      updatedAt TEXT DEFAULT (datetime('now')))
+  `);
+
+  // UserBackground - user ownership of room backgrounds
+  await c.execute(`
+    CREATE TABLE IF NOT EXISTS UserBackground (
+      id TEXT PRIMARY KEY,
+      userId TEXT NOT NULL,
+      backgroundId TEXT NOT NULL,
+      isEquipped INTEGER DEFAULT 0,
+      obtainedFrom TEXT DEFAULT 'purchase',
+      obtainedNote TEXT DEFAULT '',
+      obtainedAt TEXT DEFAULT (datetime('now')),
+      UNIQUE(userId, backgroundId))
+  `);
+
   _tablesReady = true;
 }
 
@@ -3719,7 +3752,7 @@ export async function updateRoomSettings(roomId: string, settings: Partial<Voice
   // Known VoiceRoom columns (ignore unknown keys)
   const knownColumns = ['roomMode', 'roomPassword', 'micTheme', 'giftSplit', 'micSeatCount',
     'chatMuted', 'bgmEnabled', 'announcement', 'isAutoMode', 'roomLevel', 'name', 'description',
-    'maxParticipants', 'lockedSeats'];
+    'maxParticipants', 'lockedSeats', 'roomImage'];
 
   const setClauses: string[] = [];
   const values: unknown[] = [];
@@ -3997,4 +4030,223 @@ export async function getUserGiftStats(userId: string, roomId?: string): Promise
     totalSentValue: Number(sentRow.total ?? 0),
     totalReceivedValue: Number(receivedRow.total ?? 0),
   };
+}
+
+// ─── Room Background operations ──────────────────────────────────────
+
+export interface RoomBackground {
+  id: string;
+  name: string;
+  nameAr: string;
+  description: string;
+  imageUrl: string;
+  thumbnailUrl: string;
+  rarity: 'common' | 'rare' | 'epic' | 'legendary';
+  price: number;
+  isFree: boolean;
+  isDefault: boolean;
+  isActive: boolean;
+  sortOrder: number;
+  totalOwned: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface UserBackground {
+  id: string;
+  userId: string;
+  backgroundId: string;
+  isEquipped: boolean;
+  obtainedFrom: 'purchase' | 'event' | 'admin' | 'reward';
+  obtainedNote: string;
+  obtainedAt: string;
+}
+
+function toRoomBackground(row: Record<string, unknown>): RoomBackground {
+  return {
+    id: row.id as string,
+    name: (row.name as string) ?? '',
+    nameAr: (row.nameAr as string) ?? '',
+    description: (row.description as string) ?? '',
+    imageUrl: (row.imageUrl as string) ?? '',
+    thumbnailUrl: (row.thumbnailUrl as string) ?? '',
+    rarity: (row.rarity as RoomBackground['rarity']) ?? 'common',
+    price: Number(row.price ?? 0),
+    isFree: !!(row.isFree && row.isFree !== 0),
+    isDefault: !!(row.isDefault && row.isDefault !== 0),
+    isActive: !!(row.isActive && row.isActive !== 0),
+    sortOrder: Number(row.sortOrder ?? 0),
+    totalOwned: Number(row.totalOwned ?? 0),
+    createdAt: (row.createdAt as string) ?? new Date().toISOString(),
+    updatedAt: (row.updatedAt as string) ?? new Date().toISOString(),
+  };
+}
+
+function toUserBackground(row: Record<string, unknown>): UserBackground {
+  return {
+    id: row.id as string,
+    userId: (row.userId as string) ?? '',
+    backgroundId: (row.backgroundId as string) ?? '',
+    isEquipped: !!(row.isEquipped && row.isEquipped !== 0),
+    obtainedFrom: (row.obtainedFrom as UserBackground['obtainedFrom']) ?? 'purchase',
+    obtainedNote: (row.obtainedNote as string) ?? '',
+    obtainedAt: (row.obtainedAt as string) ?? new Date().toISOString(),
+  };
+}
+
+export async function getAllRoomBackgrounds(): Promise<RoomBackground[]> {
+  const c = getClient();
+  await ensureAdminTables();
+  const result = await c.execute({ sql: 'SELECT * FROM RoomBackground ORDER BY sortOrder ASC, createdAt DESC', args: [] });
+  return result.rows.map(r => toRoomBackground(r as Record<string, unknown>));
+}
+
+export async function getActiveRoomBackgrounds(): Promise<RoomBackground[]> {
+  const c = getClient();
+  await ensureAdminTables();
+  const result = await c.execute({ sql: 'SELECT * FROM RoomBackground WHERE isActive = 1 ORDER BY sortOrder ASC', args: [] });
+  return result.rows.map(r => toRoomBackground(r as Record<string, unknown>));
+}
+
+export async function getDefaultRoomBackgrounds(): Promise<RoomBackground[]> {
+  const c = getClient();
+  await ensureAdminTables();
+  const result = await c.execute({ sql: 'SELECT * FROM RoomBackground WHERE isActive = 1 AND (isDefault = 1 OR isFree = 1 OR price = 0) ORDER BY sortOrder ASC', args: [] });
+  return result.rows.map(r => toRoomBackground(r as Record<string, unknown>));
+}
+
+export async function getRoomBackgroundById(id: string): Promise<RoomBackground | null> {
+  const c = getClient();
+  await ensureAdminTables();
+  const result = await c.execute({ sql: 'SELECT * FROM RoomBackground WHERE id = ?', args: [id] });
+  if (result.rows.length === 0) return null;
+  return toRoomBackground(result.rows[0] as Record<string, unknown>);
+}
+
+export async function createRoomBackground(data: {
+  name: string; nameAr: string; description?: string; imageUrl: string;
+  thumbnailUrl?: string; rarity?: string; price?: number; isFree?: boolean;
+  isDefault?: boolean; sortOrder?: number;
+}): Promise<RoomBackground> {
+  const c = getClient();
+  await ensureAdminTables();
+  const id = crypto.randomUUID();
+  await c.execute({
+    sql: `INSERT INTO RoomBackground (id, name, nameAr, description, imageUrl, thumbnailUrl, rarity, price, isFree, isDefault, isActive, sortOrder)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    args: [id, data.name, data.nameAr, data.description || '', data.imageUrl, data.thumbnailUrl || '',
+      data.rarity || 'common', data.price || 0, data.isFree ? 1 : 0, data.isDefault ? 1 : 0, 1, data.sortOrder || 0],
+  });
+  const bg = await getRoomBackgroundById(id);
+  return bg!;
+}
+
+export async function updateRoomBackground(id: string, data: Partial<Omit<RoomBackground, 'id' | 'createdAt'>>): Promise<RoomBackground | null> {
+  const c = getClient();
+  await ensureAdminTables();
+  const entries = Object.entries(data).filter(([k, v]) => v !== undefined && k !== 'createdAt');
+  if (entries.length === 0) return getRoomBackgroundById(id);
+  const setClauses: string[] = ["updatedAt = datetime('now')"];
+  const values: unknown[] = [];
+  for (const [key, val] of entries) {
+    if (key === 'isFree' || key === 'isDefault' || key === 'isActive') {
+      setClauses.push(`${key} = ?`);
+      values.push(val ? 1 : 0);
+    } else {
+      setClauses.push(`${key} = ?`);
+      values.push(val);
+    }
+  }
+  values.push(id);
+  await c.execute({ sql: `UPDATE RoomBackground SET ${setClauses.join(', ')} WHERE id = ?`, args: values });
+  return getRoomBackgroundById(id);
+}
+
+export async function deleteRoomBackground(id: string): Promise<boolean> {
+  const c = getClient();
+  await ensureAdminTables();
+  await c.execute({ sql: 'DELETE FROM UserBackground WHERE backgroundId = ?', args: [id] });
+  const result = await c.execute({ sql: 'DELETE FROM RoomBackground WHERE id = ?', args: [id] });
+  return result.rowsAffected > 0;
+}
+
+export async function getUserRoomBackgrounds(userId: string): Promise<UserBackground[]> {
+  const c = getClient();
+  await ensureAdminTables();
+  const result = await c.execute({ sql: 'SELECT * FROM UserBackground WHERE userId = ? ORDER BY obtainedAt DESC', args: [userId] });
+  return result.rows.map(r => toUserBackground(r as Record<string, unknown>));
+}
+
+export async function getBackgroundsAvailableToUser(userId: string): Promise<{ background: RoomBackground; owned: boolean }[]> {
+  const c = getClient();
+  await ensureAdminTables();
+  // Get all active backgrounds
+  const allBgs = await getActiveRoomBackgrounds();
+  // Get user's owned backgrounds
+  const owned = await getUserRoomBackgrounds(userId);
+  const ownedIds = new Set(owned.map(o => o.backgroundId));
+  return allBgs.map(bg => ({ background: bg, owned: ownedIds.has(bg.id) || bg.isFree || bg.isDefault }));
+}
+
+export async function purchaseRoomBackground(userId: string, backgroundId: string): Promise<{ success: boolean; error?: string }> {
+  const c = getClient();
+  await ensureAdminTables();
+  // Check if background exists
+  const bg = await getRoomBackgroundById(backgroundId);
+  if (!bg) return { success: false, error: 'الخلفية غير موجودة' };
+  if (!bg.isActive) return { success: false, error: 'الخلفية غير متاحة' };
+  if (bg.isFree || bg.isDefault || bg.price === 0) {
+    // Free background - just grant it
+    try {
+      await c.execute({
+        sql: 'INSERT INTO UserBackground (id, userId, backgroundId, isEquipped, obtainedFrom, obtainedNote) VALUES (?, ?, ?, 0, ?, ?)',
+        args: [crypto.randomUUID(), userId, backgroundId, 'purchase', 'خلفية مجانية'],
+      });
+      await c.execute({ sql: 'UPDATE RoomBackground SET totalOwned = totalOwned + 1 WHERE id = ?', args: [backgroundId] });
+      return { success: true };
+    } catch {
+      // Already owned
+      return { success: false, error: 'تمتلك هذه الخلفية بالفعل' };
+    }
+  }
+  // Paid background - check gems balance
+  const userResult = await c.execute({ sql: 'SELECT gemsBalance FROM Subscription WHERE subscriptionId IN (SELECT subscriptionId FROM AppUser WHERE id = ?)', args: [userId] });
+  if (userResult.rows.length === 0) return { success: false, error: 'المستخدم غير موجود' };
+  const userGems = Number(userResult.rows[0].gemsBalance ?? 0);
+  if (userGems < bg.price) return { success: false, error: 'رصيد الجواهر غير كافٍ' };
+  // Deduct gems and grant background
+  await c.execute({
+    sql: 'UPDATE Subscription SET gemsBalance = gemsBalance - ? WHERE subscriptionId IN (SELECT subscriptionId FROM AppUser WHERE id = ?)',
+    args: [bg.price, userId],
+  });
+  try {
+    await c.execute({
+      sql: 'INSERT INTO UserBackground (id, userId, backgroundId, isEquipped, obtainedFrom, obtainedNote) VALUES (?, ?, ?, 0, ?, ?)',
+      args: [crypto.randomUUID(), userId, backgroundId, 'purchase', `شراء بـ ${bg.price} جوهرة`],
+    });
+    await c.execute({ sql: 'UPDATE RoomBackground SET totalOwned = totalOwned + 1 WHERE id = ?', args: [backgroundId] });
+    return { success: true };
+  } catch {
+    // Refund gems if insert fails (already owned)
+    await c.execute({
+      sql: 'UPDATE Subscription SET gemsBalance = gemsBalance + ? WHERE subscriptionId IN (SELECT subscriptionId FROM AppUser WHERE id = ?)',
+      args: [bg.price, userId],
+    });
+    return { success: false, error: 'تمتلك هذه الخلفية بالفعل' };
+  }
+}
+
+export async function grantRoomBackground(userId: string, backgroundId: string, source: string, note?: string): Promise<boolean> {
+  const c = getClient();
+  await ensureAdminTables();
+  try {
+    await c.execute({
+      sql: 'INSERT INTO UserBackground (id, userId, backgroundId, isEquipped, obtainedFrom, obtainedNote) VALUES (?, ?, ?, 0, ?, ?)',
+      args: [crypto.randomUUID(), userId, backgroundId, source, note || ''],
+    });
+    await c.execute({ sql: 'UPDATE RoomBackground SET totalOwned = totalOwned + 1 WHERE id = ?', args: [backgroundId] });
+    return true;
+  } catch {
+    return false; // Already owned
+  }
 }
