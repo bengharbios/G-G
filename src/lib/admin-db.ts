@@ -3268,14 +3268,21 @@ async function seedGifts(): Promise<void> {
   const count = await c.execute({ sql: 'SELECT COUNT(*) as c FROM Gift', args: [] });
   if (Number(count.rows[0].c) > 0) return;
   const gifts = [
-    { name: 'Rose', nameAr: 'وردة', emoji: '🌹', price: 10 },
-    { name: 'Heart', nameAr: 'قلب', emoji: '❤️', price: 20 },
-    { name: 'Star', nameAr: 'نجمة', emoji: '⭐', price: 30 },
-    { name: 'Crown', nameAr: 'تاج', emoji: '👑', price: 50 },
-    { name: 'Diamond', nameAr: 'ماسة', emoji: '💎', price: 100 },
-    { name: 'Fire', nameAr: 'نار', emoji: '🔥', price: 40 },
-    { name: 'Gift Box', nameAr: 'صندوق هدايا', emoji: '🎁', price: 60 },
-    { name: 'Rocket', nameAr: 'صاروخ', emoji: '🚀', price: 80 },
+    // Popular
+    { name: 'Rose', nameAr: 'ورد', emoji: '🌹', price: 3 },
+    { name: 'Star', nameAr: 'نجمة', emoji: '⭐', price: 9 },
+    { name: 'Heart', nameAr: 'قلب', emoji: '💖', price: 19 },
+    { name: 'Fire', nameAr: 'نار', emoji: '🔥', price: 49 },
+    // Luxury
+    { name: 'GiftBox', nameAr: 'هدية', emoji: '🎁', price: 99 },
+    { name: 'Crown', nameAr: 'تاج', emoji: '👑', price: 199 },
+    { name: 'Rose99', nameAr: 'بوكيه ورد', emoji: '💐', price: 520 },
+    { name: 'Rocket', nameAr: 'صاروخ', emoji: '🚀', price: 1314 },
+    // Special
+    { name: 'Diamond', nameAr: 'ماسة', emoji: '💎', price: 2999 },
+    { name: 'Trophy', nameAr: 'كأس', emoji: '🏆', price: 5200 },
+    { name: 'GoldStar', nameAr: 'نجم ذهبي', emoji: '🌟', price: 10000 },
+    { name: 'Castle', nameAr: 'قلعة', emoji: '🏰', price: 52000 },
   ];
   for (const g of gifts) {
     await c.execute({ sql: 'INSERT INTO Gift (id, name, nameAr, emoji, price) VALUES (?, ?, ?, ?, ?)', args: [crypto.randomUUID(), g.name, g.nameAr, g.emoji, g.price] });

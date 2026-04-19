@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -11,7 +11,8 @@ import {
   X, Loader2, Send, Settings,
   Users, Key, Globe, EyeOff, Ban,
   UserMinus, Unlock, ImageIcon,
-  VolumeX, Link2, Timer, Home, User, Store, Trophy
+  VolumeX, Link2, Timer, Home, User, Store, Trophy,
+  Sparkles, Flame, Star, Heart
 } from 'lucide-react';
 import SiteHeader from '@/components/shared/SiteHeader';
 import SiteBottomNav from '@/components/shared/SiteBottomNav';
@@ -54,6 +55,7 @@ interface VoiceRoomParticipant {
 
 interface Gift {
   id: string; name: string; nameAr: string; emoji: string; price: number;
+  category?: string; animation?: 'none' | 'particles' | 'fireworks' | 'hearts' | 'stars' | 'confetti';
 }
 
 interface RoomTemplate {
@@ -72,6 +74,19 @@ interface ChatMessage {
   time: string;
   isSystem?: boolean;
   isGift?: boolean;
+  giftEmoji?: string;
+  giftAnimation?: string;
+}
+
+interface ActiveGiftAnimation {
+  id: string;
+  emoji: string;
+  senderName: string;
+  receiverName: string;
+  giftName: string;
+  animation: 'none' | 'particles' | 'fireworks' | 'hearts' | 'stars' | 'confetti';
+  price: number;
+  timestamp: number;
 }
 
 interface SeatData {
@@ -108,15 +123,25 @@ const ROLE_PILL_BG: Record<RoomRole, string> = {
   visitor: 'bg-[rgba(108,99,255,0.15)] text-[#a78bfa]',
 };
 
+const GIFT_CATEGORIES = [
+  { id: 'popular', name: 'الأكثر شعبية', icon: '🔥' },
+  { id: 'luxury', name: 'فاخرة', icon: '👑' },
+  { id: 'special', name: 'مميزة', icon: '✨' },
+];
+
 const DEFAULT_GIFTS: Gift[] = [
-  { id: 'g1', name: 'Rose', nameAr: 'ورد', emoji: '🌹', price: 3 },
-  { id: 'g2', name: 'Star', nameAr: 'نجمة', emoji: '⭐', price: 9 },
-  { id: 'g3', name: 'GiftBox', nameAr: 'هدية', emoji: '🎁', price: 99 },
-  { id: 'g4', name: 'Crown', nameAr: 'تاج', emoji: '👑', price: 199 },
-  { id: 'g5', name: 'Rocket', nameAr: 'صاروخ', emoji: '🚀', price: 1999 },
-  { id: 'g6', name: 'Diamond', nameAr: 'ماسة', emoji: '💎', price: 2999 },
-  { id: 'g7', name: 'Trophy', nameAr: 'كأس', emoji: '🏆', price: 3999 },
-  { id: 'g8', name: 'GoldStar', nameAr: 'نجم ذهبي', emoji: '🌟', price: 4999 },
+  { id: 'g1', name: 'Rose', nameAr: 'ورد', emoji: '🌹', price: 3, category: 'popular', animation: 'hearts' },
+  { id: 'g2', name: 'Star', nameAr: 'نجمة', emoji: '⭐', price: 9, category: 'popular', animation: 'stars' },
+  { id: 'g3', name: 'Heart', nameAr: 'قلب', emoji: '💖', price: 19, category: 'popular', animation: 'hearts' },
+  { id: 'g4', name: 'Fire', nameAr: 'نار', emoji: '🔥', price: 49, category: 'popular', animation: 'particles' },
+  { id: 'g5', name: 'GiftBox', nameAr: 'هدية', emoji: '🎁', price: 99, category: 'luxury', animation: 'fireworks' },
+  { id: 'g6', name: 'Crown', nameAr: 'تاج', emoji: '👑', price: 199, category: 'luxury', animation: 'stars' },
+  { id: 'g7', name: 'Rose99', nameAr: 'بوكيه ورد', emoji: '💐', price: 520, category: 'luxury', animation: 'hearts' },
+  { id: 'g8', name: 'Rocket', nameAr: 'صاروخ', emoji: '🚀', price: 1314, category: 'luxury', animation: 'fireworks' },
+  { id: 'g9', name: 'Diamond', nameAr: 'ماسة', emoji: '💎', price: 2999, category: 'special', animation: 'confetti' },
+  { id: 'g10', name: 'Trophy', nameAr: 'كأس', emoji: '🏆', price: 5200, category: 'special', animation: 'fireworks' },
+  { id: 'g11', name: 'GoldStar', nameAr: 'نجم ذهبي', emoji: '🌟', price: 10000, category: 'special', animation: 'confetti' },
+  { id: 'g12', name: 'Castle', nameAr: 'قلعة', emoji: '🏰', price: 52000, category: 'special', animation: 'fireworks' },
 ];
 
 const MIC_OPTIONS = [5, 10, 15, 20];
@@ -130,6 +155,252 @@ const ROOM_MODE_OPTIONS: { value: RoomMode; label: string; icon: typeof Globe; d
 const AVATAR_COLORS = ['#1e3a7a', '#3a1e6a', '#1a4040', '#3a2010', '#4a1e3a', '#1e4a3a', '#3a3a1e', '#2a1e4a'];
 
 const CHAT_SENDER_COLORS = ['#6c63ff', '#f59e0b', '#22c55e', '#f97316'];
+
+/* ═══════════════════════════════════════════════════════════════════════
+   GIFT ANIMATION ENGINE
+   ═══════════════════════════════════════════════════════════════════════ */
+
+function ParticleBurst() {
+  const particles = useMemo(() => {
+    return Array.from({ length: 20 }, (_, i) => ({
+      id: i,
+      x: Math.random() * 200 - 100,
+      y: Math.random() * 200 - 100,
+      color: ['#f59e0b', '#ef4444', '#a78bfa', '#22c55e', '#3b82f6', '#ec4899'][i % 6],
+      size: Math.random() * 8 + 4,
+      delay: Math.random() * 0.3,
+    }));
+  }, []);
+
+  return (
+    <div className="absolute inset-0 pointer-events-none overflow-hidden">
+      {particles.map((p) => (
+        <motion.div
+          key={p.id}
+          initial={{ opacity: 1, x: 0, y: 0, scale: 0 }}
+          animate={{ opacity: 0, x: p.x, y: p.y, scale: 1 }}
+          transition={{ duration: 1.2, delay: p.delay, ease: 'easeOut' }}
+          className="absolute left-1/2 top-1/2 rounded-full"
+          style={{ width: p.size, height: p.size, backgroundColor: p.color, marginLeft: -(p.size / 2), marginTop: -(p.size / 2) }}
+        />
+      ))}
+    </div>
+  );
+}
+
+function FireworksBurst() {
+  const bursts = useMemo(() => {
+    return Array.from({ length: 5 }, (_, i) => ({
+      id: i,
+      x: Math.random() * 160 - 80,
+      y: -(Math.random() * 120 + 40),
+      color: ['#f59e0b', '#ef4444', '#a78bfa', '#22c55e', '#ec4899'][i % 5],
+      delay: i * 0.25,
+    }));
+  }, []);
+
+  return (
+    <div className="absolute inset-0 pointer-events-none overflow-hidden">
+      {bursts.map((b) => (
+        <motion.div
+          key={b.id}
+          initial={{ opacity: 1, scale: 0 }}
+          animate={{ opacity: 0, scale: 2.5 }}
+          transition={{ duration: 1.5, delay: b.delay, ease: 'easeOut' }}
+          className="absolute left-1/2 top-1/2 rounded-full"
+          style={{ width: 60, height: 60, backgroundColor: b.color, marginLeft: -30, marginTop: -30, x: b.x, y: b.y, boxShadow: '0 0 20px ' + b.color }}
+        />
+      ))}
+    </div>
+  );
+}
+
+function FloatingHearts() {
+  const hearts = useMemo(() => {
+    const emojis = ['❤️', '💖', '💕', '💗', '🌹'];
+    return Array.from({ length: 12 }, (_, i) => ({
+      id: i,
+      x: Math.random() * 160 - 80,
+      delay: Math.random() * 0.8,
+      emoji: emojis[i % emojis.length],
+      size: Math.random() * 12 + 16,
+    }));
+  }, []);
+
+  return (
+    <div className="absolute inset-0 pointer-events-none overflow-hidden">
+      {hearts.map((h) => (
+        <motion.div
+          key={h.id}
+          initial={{ opacity: 1, y: 60, x: 0 }}
+          animate={{ opacity: 0, y: -250, x: h.x }}
+          transition={{ duration: 2.2, delay: h.delay, ease: 'easeOut' }}
+          className="absolute left-1/2 bottom-1/3"
+          style={{ fontSize: h.size, marginLeft: -(h.size / 2) }}
+        >
+          {h.emoji}
+        </motion.div>
+      ))}
+    </div>
+  );
+}
+
+function FallingStars() {
+  const stars = useMemo(() => {
+    return Array.from({ length: 15 }, (_, i) => ({
+      id: i,
+      x: Math.random() * 300 - 150,
+      y: -(Math.random() * 200 + 50),
+      delay: Math.random() * 0.6,
+      size: Math.random() * 10 + 10,
+      rotation: Math.random() * 360,
+    }));
+  }, []);
+
+  return (
+    <div className="absolute inset-0 pointer-events-none overflow-hidden">
+      {stars.map((s) => (
+        <motion.div
+          key={s.id}
+          initial={{ opacity: 0, y: s.y - 100, x: s.x, rotate: s.rotation }}
+          animate={{ opacity: [0, 1, 1, 0], y: 200, rotate: s.rotation + 180 }}
+          transition={{ duration: 2, delay: s.delay, ease: 'easeIn' }}
+          className="absolute left-1/2 top-0"
+          style={{ fontSize: s.size }}
+        >
+          ⭐
+        </motion.div>
+      ))}
+    </div>
+  );
+}
+
+function ConfettiBurst() {
+  const confetti = useMemo(() => {
+    const colors = ['#f59e0b', '#ef4444', '#a78bfa', '#22c55e', '#3b82f6', '#ec4899', '#f97316'];
+    return Array.from({ length: 30 }, (_, i) => ({
+      id: i,
+      x: Math.random() * 300 - 150,
+      y: Math.random() * 100 - 200,
+      rotation: Math.random() * 720 - 360,
+      color: colors[i % colors.length],
+      width: Math.random() * 8 + 4,
+      height: Math.random() * 12 + 6,
+      delay: Math.random() * 0.5,
+    }));
+  }, []);
+
+  return (
+    <div className="absolute inset-0 pointer-events-none overflow-hidden">
+      {confetti.map((c) => (
+        <motion.div
+          key={c.id}
+          initial={{ opacity: 1, y: -80, x: 0, rotate: 0 }}
+          animate={{ opacity: 0, y: 400, x: c.x, rotate: c.rotation }}
+          transition={{ duration: 3, delay: c.delay, ease: 'easeIn' }}
+          className="absolute left-1/2 top-0"
+          style={{ width: c.width, height: c.height, backgroundColor: c.color, marginLeft: -(c.width / 2), borderRadius: 2 }}
+        />
+      ))}
+    </div>
+  );
+}
+
+function FloatingGiftEmoji({ emoji }: { emoji: string }) {
+  return (
+    <motion.div
+      initial={{ opacity: 1, y: 0, scale: 0.5 }}
+      animate={{ opacity: 0, y: -120, scale: 1.5 }}
+      transition={{ duration: 1.8, ease: 'easeOut' }}
+      className="absolute left-1/2 -translate-x-1/2 pointer-events-none"
+      style={{ fontSize: 48, zIndex: 100 }}
+    >
+      {emoji}
+    </motion.div>
+  );
+}
+
+function GiftAnimationOverlay({ activeGift }: { activeGift: ActiveGiftAnimation | null }) {
+  const [showAnimation, setShowAnimation] = useState(false);
+
+  useEffect(() => {
+    if (!activeGift) {
+      setShowAnimation(false);
+      return;
+    }
+    setShowAnimation(true);
+  }, [activeGift]);
+
+  if (!activeGift || !showAnimation) return null;
+
+  const isPremium = activeGift.price >= 199;
+  const glowColor = activeGift.price >= 5200 ? 'rgba(245,158,11,0.3)' : activeGift.price >= 199 ? 'rgba(167,139,250,0.25)' : 'rgba(108,99,255,0.15)';
+
+  return (
+    <AnimatePresence>
+      {showAnimation && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.3 }}
+          className="fixed inset-0 z-[200] pointer-events-none flex items-center justify-center"
+        >
+          {/* Premium glow background */}
+          {isPremium && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: [0, 0.6, 0.6, 0] }}
+              transition={{ duration: 4, times: [0, 0.1, 0.7, 1] }}
+              className="absolute inset-0"
+              style={{ background: 'radial-gradient(circle at center, ' + glowColor + ', transparent 70%)' }}
+            />
+          )}
+
+          {/* Central emoji */}
+          <motion.div
+            initial={{ scale: 0, opacity: 0 }}
+            animate={{ scale: [0, 1.4, 1], opacity: [0, 1, 1, 0] }}
+            transition={{ duration: 3.5, times: [0, 0.15, 0.3, 1], ease: 'easeOut' }}
+            className="relative flex items-center justify-center"
+            style={{ width: 120, height: 120 }}
+          >
+            <span style={{ fontSize: 80, filter: 'drop-shadow(0 0 20px rgba(245,158,11,0.5))' }}>{activeGift.emoji}</span>
+          </motion.div>
+
+          {/* Animation effect */}
+          {activeGift.animation === 'particles' && <ParticleBurst />}
+          {activeGift.animation === 'fireworks' && <FireworksBurst />}
+          {activeGift.animation === 'hearts' && <FloatingHearts />}
+          {activeGift.animation === 'stars' && <FallingStars />}
+          {activeGift.animation === 'confetti' && <ConfettiBurst />}
+
+          {/* Banner notification */}
+          <motion.div
+            initial={{ opacity: 0, y: 40 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 20 }}
+            transition={{ duration: 0.5, delay: 0.3 }}
+            className="absolute bottom-[25%] left-1/2 -translate-x-1/2"
+          >
+            <div
+              className="rounded-full px-5 py-2 flex items-center gap-2"
+              style={{
+                background: 'linear-gradient(135deg, rgba(245,158,11,0.9), rgba(239,68,68,0.9), rgba(167,139,250,0.9))',
+                boxShadow: '0 4px 20px rgba(245,158,11,0.3)',
+              }}
+            >
+              <span className="text-white text-[13px] font-bold">
+                {activeGift.senderName} ← {activeGift.emoji} → {activeGift.receiverName}
+              </span>
+              <span className="text-white/80 text-[11px] font-semibold">{activeGift.price} 💎</span>
+            </div>
+          </motion.div>
+        </motion.div>
+      )}
+    </AnimatePresence>
+  );
+}
 
 /* ═══════════════════════════════════════════════════════════════════════
    HELPERS
@@ -784,7 +1055,7 @@ function ProfileBottomSheet({
 }
 
 /* ═══════════════════════════════════════════════════════════════════════
-   GIFT BOTTOM SHEET (4-column grid + target selector)
+   GIFT BOTTOM SHEET (categories + quantity + 4-column grid)
    ═══════════════════════════════════════════════════════════════════════ */
 
 function GiftBottomSheet({
@@ -793,27 +1064,55 @@ function GiftBottomSheet({
   isOpen: boolean;
   onClose: () => void;
   gifts: Gift[];
-  onSendGift: (giftId: string, target: string) => void;
+  onSendGift: (giftId: string, target: string, quantity: number) => void;
 }) {
   const [selectedGift, setSelectedGift] = useState<string | null>(null);
+  const [activeCategory, setActiveCategory] = useState('popular');
   const [target, setTarget] = useState<'specific' | 'on-mic' | 'everyone'>('everyone');
+  const [quantity, setQuantity] = useState(1);
 
   const giftList = gifts.length > 0 ? gifts : DEFAULT_GIFTS;
+  const filteredGifts = giftList.filter(g => g.category === activeCategory);
+  const selectedGiftData = giftList.find(g => g.id === selectedGift);
+  const totalCost = selectedGiftData ? selectedGiftData.price * quantity : 0;
 
   useEffect(() => {
-    if (isOpen) setSelectedGift(null);
+    if (isOpen) { setSelectedGift(null); setActiveCategory('popular'); setQuantity(1); }
   }, [isOpen]);
+
+  const quantities = [
+    { label: '×1', value: 1 },
+    { label: '×10', value: 10 },
+    { label: '×66', value: 66 },
+    { label: '×99', value: 99 },
+  ];
 
   return (
     <BottomSheetOverlay isOpen={isOpen} onClose={onClose}>
       <div className="max-h-[85vh] flex flex-col pb-6">
         {/* Title */}
-        <div className="text-[14px] font-bold text-center text-[#f0f0f8] px-4 pb-2.5">
+        <div className="text-[14px] font-bold text-center text-[#f0f0f8] px-4 pb-2">
           اختر هدية
         </div>
 
+        {/* Category tabs */}
+        <div className="flex gap-1.5 px-4 pb-2.5 overflow-x-auto scrollbar-hide">
+          {GIFT_CATEGORIES.map((cat) => (
+            <button
+              key={cat.id}
+              onClick={() => setActiveCategory(cat.id)}
+              className={activeCategory === cat.id
+                ? "flex-shrink-0 text-[11px] font-semibold px-3.5 py-1.5 rounded-full border bg-[rgba(108,99,255,0.15)] border-[#6c63ff] text-[#a78bfa] transition-all"
+                : "flex-shrink-0 text-[11px] font-semibold px-3.5 py-1.5 rounded-full border bg-[#1c2035] border-[rgba(255,255,255,0.07)] text-[#5a6080] transition-all"
+              }
+            >
+              {cat.icon} {cat.name}
+            </button>
+          ))}
+        </div>
+
         {/* Target selector pills */}
-        <div className="flex gap-1.5 px-4 pb-3 overflow-x-auto scrollbar-hide">
+        <div className="flex gap-1.5 px-4 pb-2.5 overflow-x-auto scrollbar-hide">
           {([
             { value: 'specific' as const, label: 'شخص محدد' },
             { value: 'on-mic' as const, label: 'من في المايك' },
@@ -822,11 +1121,10 @@ function GiftBottomSheet({
             <button
               key={opt.value}
               onClick={() => setTarget(opt.value)}
-              className={`flex-shrink-0 text-[11px] font-semibold px-3.5 py-1.5 rounded-full border transition-all ${
-                target === opt.value
-                  ? 'bg-[rgba(108,99,255,0.15)] border-[#6c63ff] text-[#a78bfa]'
-                  : 'bg-[#1c2035] border-[rgba(255,255,255,0.07)] text-[#5a6080]'
-              }`}
+              className={target === opt.value
+                ? "flex-shrink-0 text-[11px] font-semibold px-3.5 py-1.5 rounded-full border bg-[rgba(108,99,255,0.15)] border-[#6c63ff] text-[#a78bfa] transition-all"
+                : "flex-shrink-0 text-[11px] font-semibold px-3.5 py-1.5 rounded-full border bg-[#1c2035] border-[rgba(255,255,255,0.07)] text-[#5a6080] transition-all"
+              }
             >
               {opt.label}
             </button>
@@ -835,19 +1133,26 @@ function GiftBottomSheet({
 
         {/* Scrollable gift grid */}
         <div className="flex-1 overflow-y-auto scrollbar-hide">
-          <div className="grid grid-cols-4 gap-2 px-3 pb-3">
-            {giftList.map((gift) => {
+          <div className="grid grid-cols-4 gap-2 px-3 pb-2">
+            {filteredGifts.map((gift) => {
               const receive = Math.floor(gift.price / 3);
+              const isLuxury = gift.price >= 199;
               return (
                 <button
                   key={gift.id}
                   onClick={() => setSelectedGift(gift.id)}
-                  className={`flex flex-col items-center gap-1 py-2.5 px-1 rounded-[14px] border transition-all ${
-                    selectedGift === gift.id
-                      ? 'border-[#f59e0b] bg-[rgba(245,158,11,0.08)]'
-                      : 'bg-[#1c2035] border-[rgba(255,255,255,0.07)]'
-                  }`}
+                  className={selectedGift === gift.id
+                    ? "relative flex flex-col items-center gap-1 py-2.5 px-1 rounded-[14px] border border-[#f59e0b] bg-[rgba(245,158,11,0.08)] transition-all"
+                    : "relative flex flex-col items-center gap-1 py-2.5 px-1 rounded-[14px] border bg-[#1c2035] border-[rgba(255,255,255,0.07)] transition-all"
+                  }
+                  style={selectedGift === gift.id ? { boxShadow: '0 0 12px rgba(245,158,11,0.3)' } : undefined}
                 >
+                  {/* Sparkles badge on luxury gifts */}
+                  {isLuxury && (
+                    <div className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-[#f59e0b] flex items-center justify-center">
+                      <Sparkles className="w-2.5 h-2.5 text-white" />
+                    </div>
+                  )}
                   <span className="text-[26px] leading-none">{gift.emoji}</span>
                   <span className="text-[10px] text-[#9ca3c4] font-semibold">{gift.nameAr}</span>
                   <span className="text-[11px] font-bold text-[#f59e0b]">{gift.price.toLocaleString()} 💎</span>
@@ -857,21 +1162,46 @@ function GiftBottomSheet({
             })}
           </div>
 
+          {/* Quantity selector */}
+          {selectedGift && (
+            <div className="px-4 pb-2">
+              <div className="flex items-center justify-between bg-[#1c2035] rounded-xl px-3 py-2.5">
+                <span className="text-[11px] text-[#5a6080] font-semibold">الكمية</span>
+                <div className="flex gap-1.5">
+                  {quantities.map((q) => (
+                    <button
+                      key={q.value}
+                      onClick={() => setQuantity(q.value)}
+                      className={quantity === q.value
+                        ? "px-3 py-1 rounded-lg text-[11px] font-bold bg-[#f59e0b] text-white transition-all"
+                        : "px-3 py-1 rounded-lg text-[11px] font-bold bg-[#232843] text-[#9ca3c4] border border-[rgba(255,255,255,0.07)] transition-all"
+                      }
+                    >
+                      {q.label}
+                    </button>
+                  ))}
+                </div>
+                <span className="text-[12px] font-bold text-[#f59e0b]">{totalCost.toLocaleString()} 💎</span>
+              </div>
+            </div>
+          )}
+
           {/* Send button */}
           <div className="px-4 pb-2">
             <button
               onClick={() => {
                 if (selectedGift) {
-                  onSendGift(selectedGift, target);
+                  onSendGift(selectedGift, target, quantity);
                   setSelectedGift(null);
+                  setQuantity(1);
                   onClose();
                 }
               }}
               disabled={!selectedGift}
-              className="w-full h-11 rounded-[14px] font-bold text-[15px] text-white bg-gradient-to-l from-[#6c63ff] to-[#a78bfa] transition-all disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              className="w-full h-11 rounded-[14px] font-bold text-[15px] text-white bg-gradient-to-l from-amber-500 via-red-500 to-purple-500 transition-all disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2"
             >
               <Gift className="w-4 h-4" />
-              إرسال الهدية
+              {totalCost > 0 ? "إرسال " + totalCost.toLocaleString() + " 💎" : "إرسال الهدية"}
             </button>
           </div>
         </div>
@@ -1715,6 +2045,7 @@ function RoomInteriorView({
   /* ── UI state ── */
   const [profileSheet, setProfileSheet] = useState<VoiceRoomParticipant | null>(null);
   const [giftSheetOpen, setGiftSheetOpen] = useState(false);
+  const [activeGiftAnimation, setActiveGiftAnimation] = useState<ActiveGiftAnimation | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [kickDialogOpen, setKickDialogOpen] = useState(false);
   const [passwordDialogOpen, setPasswordDialogOpen] = useState(false);
@@ -2103,14 +2434,15 @@ function RoomInteriorView({
     } catch { /* ignore */ }
   }, [roomId, fetchParticipants, toast]);
 
-  const handleSendGift = useCallback(async (giftId: string, target: string) => {
+  const handleSendGift = useCallback(async (giftId: string, target: string, quantity: number) => {
     if (!authUser) return;
     try {
       const toUserId = target === 'specific' ? profileSheet?.userId : undefined;
       if (target === 'specific' && !toUserId) return;
       const body: Record<string, unknown> = { giftId };
       if (toUserId) body.toUserId = toUserId;
-      const res = await fetch(`/api/voice-rooms/${roomId}?action=gift`, {
+      if (quantity && quantity > 1) body.quantity = quantity;
+      const res = await fetch("/api/voice-rooms/" + roomId + "?action=gift", {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
@@ -2118,20 +2450,47 @@ function RoomInteriorView({
       const data = await res.json();
       if (data.success) {
         const giftData = (gifts.length > 0 ? gifts : DEFAULT_GIFTS).find(g => g.id === giftId);
+        const totalCost = (giftData?.price || 0) * (quantity || 1);
+        const receiverName = target === 'everyone' ? 'الجميع' : profileSheet?.displayName || 'شخص';
+
         const giftMsg: ChatMessage = {
           id: genId(),
           userId: authUser.id,
           displayName: authUser.displayName,
           avatar: authUser.avatar,
-          text: `⭐ ${authUser.displayName} أرسل ${giftData?.nameAr || 'هدية'} ${target === 'everyone' ? 'للجميع' : `لـ ${profileSheet?.displayName || 'شخص'}`}`,
+          text: quantity && quantity > 1
+            ? "⭐ " + authUser.displayName + " أرسل " + (quantity) + "× " + (giftData?.nameAr || 'هدية') + " " + (target === 'everyone' ? 'للجميع' : "لـ " + receiverName)
+            : "⭐ " + authUser.displayName + " أرسل " + (giftData?.nameAr || 'هدية') + " " + (target === 'everyone' ? 'للجميع' : "لـ " + receiverName),
           time: new Date().toLocaleTimeString('ar-SA', { hour: '2-digit', minute: '2-digit' }),
           isGift: true,
+          giftEmoji: giftData?.emoji,
+          giftAnimation: giftData?.animation,
         };
         setChatMessages(prev => [...prev, giftMsg]);
+
+        // Trigger gift animation
+        if (giftData && giftData.animation && giftData.animation !== 'none') {
+          const anim: ActiveGiftAnimation = {
+            id: genId(),
+            emoji: giftData.emoji,
+            senderName: authUser.displayName,
+            receiverName: receiverName,
+            giftName: giftData.nameAr,
+            animation: giftData.animation,
+            price: totalCost,
+            timestamp: Date.now(),
+          };
+          setActiveGiftAnimation(anim);
+          const clearDelay = totalCost >= 5200 ? 4000 : totalCost >= 199 ? 3000 : 2000;
+          setTimeout(() => setActiveGiftAnimation(null), clearDelay);
+        }
+
         toast({ title: 'تم إرسال الهدية! 🎉' });
+        fetchWeeklyGems();
+        fetchTopGifts();
       }
     } catch { /* ignore */ }
-  }, [roomId, authUser, gifts, profileSheet, toast]);
+  }, [roomId, authUser, gifts, profileSheet, toast, fetchWeeklyGems, fetchTopGifts]);
 
   /* ── Seat click handler ── */
   const handleSeatClick = useCallback((seatIndex: number) => {
@@ -2518,12 +2877,18 @@ function RoomInteriorView({
             {chatMessages.map((msg) => (
               <div key={msg.id}>
                 {msg.isGift ? (
-                  /* Gift notification pill */
-                  <div className="self-center animate-fade-up flex justify-center">
+                  /* Gift notification pill with emoji */
+                  <motion.div
+                    initial={{ opacity: 0, scale: 0.8, y: 8 }}
+                    animate={{ opacity: 1, scale: 1, y: 0 }}
+                    transition={{ duration: 0.4, ease: 'easeOut' }}
+                    className="self-center flex justify-center"
+                  >
                     <div className="bg-[rgba(245,158,11,0.1)] border border-[rgba(245,158,11,0.2)] rounded-full px-3.5 py-1 text-[10.5px] text-[#f59e0b] flex items-center gap-1.5">
+                      {msg.giftEmoji && <span className="text-[16px]">{msg.giftEmoji}</span>}
                       <span>{msg.text}</span>
                     </div>
-                  </div>
+                  </motion.div>
                 ) : msg.isSystem ? (
                   <p className="text-center text-[10px] text-[#5a6080] py-0.5 italic animate-fade-up">{msg.text}</p>
                 ) : (
@@ -2842,6 +3207,10 @@ function RoomInteriorView({
         topGifts={topGifts}
         userGems={0}
       />
+
+      {/* Gift Animation Overlay */}
+      <GiftAnimationOverlay activeGift={activeGiftAnimation} />
+
       </div>
         {/* End relative z-10 */}
       </>
