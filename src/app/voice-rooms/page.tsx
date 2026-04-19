@@ -11,7 +11,7 @@ import {
   X, Loader2, Send, Settings,
   Users, Key, Globe, EyeOff, Ban,
   UserMinus, Unlock, ImageIcon,
-  VolumeX, Link2, Timer
+  VolumeX, Link2, Timer, Home, User, Store
 } from 'lucide-react';
 
 /* ═══════════════════════════════════════════════════════════════════════
@@ -38,6 +38,7 @@ interface VoiceRoom {
   announcement: string; giftSplit: number; isAutoMode: boolean;
   lockedSeats: number[];
   participantCount?: number; createdAt: string;
+  roomImage?: string;
 }
 
 interface VoiceRoomParticipant {
