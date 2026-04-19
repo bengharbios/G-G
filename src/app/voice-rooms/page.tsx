@@ -1372,33 +1372,43 @@ function RoomListView({
   };
 
   return (
-    <div className="min-h-screen bg-[#0d0f1a]" dir="rtl">
-      {/* Header */}
-      <div className="sticky top-0 z-30 bg-[#0d0f1a]/90 backdrop-blur-md border-b border-[rgba(108,99,255,0.18)] px-4 py-3 flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <button onClick={() => window.location.href = '/'} className="w-8 h-8 rounded-full bg-[#1c2035] flex items-center justify-center">
-            <Home className="w-4 h-4 text-[#9ca3c4]" />
-          </button>
-          <h1 className="text-lg font-bold text-[#f0f0f8] flex items-center gap-2">
-            <Volume2 className="w-5 h-5 text-[#6c63ff]" />
-            الغرف الصوتية
-          </h1>
+    <div className="min-h-screen bg-slate-950" dir="rtl">
+      {/* Header - matching main page */}
+      <header className="sticky top-0 z-50 bg-slate-950/90 backdrop-blur-lg border-b border-slate-800/40">
+        <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-6">
+          <div className="flex items-center justify-between h-14 sm:h-16">
+            {/* Logo */}
+            <div className="flex items-center gap-2.5">
+              <a href="/" className="flex items-center gap-2 shrink-0">
+                <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-gradient-to-br from-amber-500 to-rose-600 flex items-center justify-center shadow-lg shadow-amber-500/20">
+                  <img src="/platform-logo.png" alt="ألعاب الغريب" className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg object-contain"
+                    onError={(e) => { const t = e.target as HTMLImageElement; t.style.display = 'none'; t.parentElement!.innerHTML = '<span class="text-white text-lg font-black">غ</span>'; }} />
+                </div>
+              </a>
+              <div className="hidden sm:block">
+                <h1 className="text-base sm:text-lg font-black bg-gradient-to-l from-amber-300 via-yellow-300 to-amber-400 bg-clip-text text-transparent">ألعاب الغريب</h1>
+              </div>
+            </div>
+            {/* Right side */}
+            <div className="flex items-center gap-2">
+              <a href="/voice-rooms" className="flex items-center gap-1.5 text-[#6c63ff]">
+                <Volume2 className="w-5 h-5" />
+                <span className="text-sm font-bold text-[#f0f0f8] hidden sm:inline">الغرف الصوتية</span>
+              </a>
+              <a href="/profile" className="w-9 h-9 rounded-full bg-slate-800/60 border border-slate-700/40 flex items-center justify-center text-slate-400 hover:text-white hover:bg-slate-700/60 transition-all">
+                <User className="w-4 h-4" />
+              </a>
+              {!hasRoom && (
+                <button onClick={() => setShowCreate(true)}
+                  className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-gradient-to-l from-amber-500 to-red-500 text-white text-sm font-medium">
+                  <span>+</span>
+                  <span>إنشاء</span>
+                </button>
+              )}
+            </div>
+          </div>
         </div>
-        <div className="flex items-center gap-2">
-          <button onClick={() => window.location.href = '/profile'} className="w-8 h-8 rounded-full bg-[#1c2035] flex items-center justify-center">
-            <User className="w-4 h-4 text-[#9ca3c4]" />
-          </button>
-          {!hasRoom && (
-            <button
-              onClick={() => setShowCreate(true)}
-              className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-gradient-to-l from-amber-500 to-red-500 text-white text-sm font-medium"
-            >
-              <span>+</span>
-              <span>إنشاء</span>
-            </button>
-          )}
-        </div>
-      </div>
+      </header>
 
       {/* Room Grid */}
       <div className="p-4">
@@ -2183,15 +2193,19 @@ function RoomInteriorView({
       const result = await res.json();
       if (result.success) {
         toast({ title: 'تم تحديث الإعدادات' });
-        // Re-fetch room data and participants to reflect changes immediately
-        await Promise.all([fetchRoomDetails(), fetchParticipants()]);
+        // Update room state immediately with the sent data for instant UI feedback
+        setRoom(prev => ({ ...prev, ...data }));
+        onRoomUpdate({ ...room, ...data });
+        // Also re-fetch from server for consistency
+        fetchRoomDetails();
+        fetchParticipants();
       } else {
         toast({ title: 'فشل التحديث', description: result.error || 'حاول مرة أخرى' });
       }
     } catch {
       toast({ title: 'خطأ في الاتصال' });
     }
-  }, [roomId, toast, fetchRoomDetails, fetchParticipants]);
+  }, [roomId, toast, fetchRoomDetails, fetchParticipants, room, onRoomUpdate]);
 
   /* ── Accept/Reject role invitation ── */
   const handleAcceptInvite = useCallback(async () => {
