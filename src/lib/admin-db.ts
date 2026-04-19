@@ -567,14 +567,30 @@ async function ensureAdminTables(): Promise<void> {
   try {
     const vrpCols = await c.execute('PRAGMA table_info(VoiceRoomParticipant)');
     const vrpColNames = vrpCols.rows.map(r => r.name);
-    if (!vrpColNames.includes('role')) await c.execute("ALTER TABLE VoiceRoomParticipant ADD COLUMN role TEXT DEFAULT 'visitor'");
-    if (!vrpColNames.includes('seatIndex')) await c.execute('ALTER TABLE VoiceRoomParticipant ADD COLUMN seatIndex INTEGER DEFAULT -1');
-    if (!vrpColNames.includes('seatStatus')) await c.execute("ALTER TABLE VoiceRoomParticipant ADD COLUMN seatStatus TEXT DEFAULT 'open'");
-    if (!vrpColNames.includes('micFrozen')) await c.execute('ALTER TABLE VoiceRoomParticipant ADD COLUMN micFrozen INTEGER DEFAULT 0');
-    if (!vrpColNames.includes('vipLevel')) await c.execute('ALTER TABLE VoiceRoomParticipant ADD COLUMN vipLevel INTEGER DEFAULT 0');
-    if (!vrpColNames.includes('pendingRole')) await c.execute("ALTER TABLE VoiceRoomParticipant ADD COLUMN pendingRole TEXT DEFAULT ''");
-    if (!vrpColNames.includes('pendingMicInvite')) await c.execute('ALTER TABLE VoiceRoomParticipant ADD COLUMN pendingMicInvite INTEGER DEFAULT -1');
-  } catch { /* ignore */ }
+    console.log('[ensureAdminTables] VRP columns:', vrpColNames);
+    
+    // Helper to safely add column (ignores error if exists)
+    const safeAddCol = async (colName: string, colDef: string) => {
+      if (!vrpColNames.includes(colName)) {
+        try {
+          await c.execute(`ALTER TABLE VoiceRoomParticipant ADD COLUMN ${colName} ${colDef}`);
+          console.log(`[ensureAdminTables] Added column: ${colName}`);
+        } catch (alterErr: any) {
+          console.warn(`[ensureAdminTables] Could not add ${colName}:`, alterErr?.message);
+        }
+      }
+    };
+    
+    await safeAddCol('role', "TEXT DEFAULT 'visitor'");
+    await safeAddCol('seatIndex', 'INTEGER DEFAULT -1');
+    await safeAddCol('seatStatus', "TEXT DEFAULT 'open'");
+    await safeAddCol('micFrozen', 'INTEGER DEFAULT 0');
+    await safeAddCol('vipLevel', 'INTEGER DEFAULT 0');
+    await safeAddCol('pendingRole', "TEXT DEFAULT ''");
+    await safeAddCol('pendingMicInvite', 'INTEGER DEFAULT -1');
+  } catch (e) {
+    console.error('[ensureAdminTables] VRP migration error:', e);
+  }
 
   // Migration: add vipLevel to AppUser
   try {
@@ -3638,30 +3654,44 @@ export async function acceptRoleInvite(roomId: string, userId: string): Promise<
   const c = getClient();
   await ensureAdminTables();
   
-  const result = await c.execute({ sql: 'SELECT pendingRole FROM VoiceRoomParticipant WHERE roomId = ? AND userId = ?', args: [roomId, userId] });
-  if (result.rows.length === 0) return false;
-  
-  const pendingRole = String(result.rows[0].pendingRole || '').trim();
-  if (!pendingRole) return false;
-  
-  await c.execute({ sql: 'UPDATE VoiceRoomParticipant SET role = ?, pendingRole = "" WHERE roomId = ? AND userId = ?', args: [pendingRole, roomId, userId] });
-  
-  return true;
+  try {
+    const result = await c.execute({ sql: 'SELECT pendingRole FROM VoiceRoomParticipant WHERE roomId = ? AND userId = ?', args: [roomId, userId] });
+    if (result.rows.length === 0) return false;
+    
+    const pendingRole = String(result.rows[0].pendingRole || '').trim();
+    if (!pendingRole) return false;
+    
+    await c.execute({ sql: 'UPDATE VoiceRoomParticipant SET role = ?, pendingRole = "" WHERE roomId = ? AND userId = ?', args: [pendingRole, roomId, userId] });
+    return true;
+  } catch (err) {
+    console.error('[acceptRoleInvite] DB error:', err);
+    // Column might not exist yet — force migration
+    try {
+      await c.execute("ALTER TABLE VoiceRoomParticipant ADD COLUMN pendingRole TEXT DEFAULT ''");
+      console.log('[acceptRoleInvite] Force-added pendingRole column');
+    } catch { /* already exists */ }
+    return false;
+  }
 }
 
 export async function rejectRoleInvite(roomId: string, userId: string): Promise<boolean> {
   const c = getClient();
   await ensureAdminTables();
   
-  const result = await c.execute({ sql: 'SELECT pendingRole FROM VoiceRoomParticipant WHERE roomId = ? AND userId = ?', args: [roomId, userId] });
-  if (result.rows.length === 0) return false;
-  const pendingRole = result.rows[0].pendingRole as string;
-  
-  // If member invitation was rejected, revert role to visitor
-  if (pendingRole === 'member') {
-    await c.execute({ sql: "UPDATE VoiceRoomParticipant SET role = 'visitor', pendingRole = '' WHERE roomId = ? AND userId = ?", args: [roomId, userId] });
-  } else {
-    await c.execute({ sql: 'UPDATE VoiceRoomParticipant SET pendingRole = "" WHERE roomId = ? AND userId = ?', args: [roomId, userId] });
+  try {
+    const result = await c.execute({ sql: 'SELECT pendingRole FROM VoiceRoomParticipant WHERE roomId = ? AND userId = ?', args: [roomId, userId] });
+    if (result.rows.length === 0) return false;
+    const pendingRole = String(result.rows[0].pendingRole || '');
+    
+    // If member invitation was rejected, revert role to visitor
+    if (pendingRole === 'member') {
+      await c.execute({ sql: "UPDATE VoiceRoomParticipant SET role = 'visitor', pendingRole = '' WHERE roomId = ? AND userId = ?", args: [roomId, userId] });
+    } else {
+      await c.execute({ sql: 'UPDATE VoiceRoomParticipant SET pendingRole = "" WHERE roomId = ? AND userId = ?', args: [roomId, userId] });
+    }
+  } catch {
+    // Column might not exist — force add
+    try { await c.execute("ALTER TABLE VoiceRoomParticipant ADD COLUMN pendingRole TEXT DEFAULT ''"); } catch { /* */ }
   }
   return true;
 }
@@ -3919,22 +3949,43 @@ export async function setSeatStatus(roomId: string, seatIndex: number, status: S
 export async function getParticipant(roomId: string, userId: string): Promise<VoiceRoomParticipant | null> {
   const c = getClient();
   await ensureAdminTables();
-  const result = await c.execute({ sql: 'SELECT * FROM VoiceRoomParticipant WHERE roomId = ? AND userId = ?', args: [roomId, userId] });
-  if (result.rows.length === 0) return null;
-  const row = result.rows[0];
-  return {
-    id: row.id as string, roomId: row.roomId as string, userId: row.userId as string,
-    username: row.username as string, displayName: (row.displayName as string) || '',
-    avatar: (row.avatar as string) || '', isMuted: Boolean(row.isMuted),
-    micFrozen: Boolean(row.micFrozen),
-    role: (row.role as RoomRole) || 'visitor',
-    seatIndex: Number(row.seatIndex) ?? -1,
-    seatStatus: (row.seatStatus as SeatStatus) || 'open',
-    vipLevel: Number(row.vipLevel) || 0,
-    joinedAt: row.joinedAt as string,
-    pendingRole: (row.pendingRole as string) || '',
-    pendingMicInvite: Number(row.pendingMicInvite) ?? -1,
-  };
+  
+  try {
+    const result = await c.execute({ sql: 'SELECT id, roomId, userId, username, displayName, avatar, isMuted, micFrozen, role, seatIndex, seatStatus, vipLevel, joinedAt, pendingRole, pendingMicInvite FROM VoiceRoomParticipant WHERE roomId = ? AND userId = ?', args: [roomId, userId] });
+    if (result.rows.length === 0) return null;
+    const row = result.rows[0];
+    return {
+      id: row.id as string, roomId: row.roomId as string, userId: row.userId as string,
+      username: row.username as string, displayName: (row.displayName as string) || '',
+      avatar: (row.avatar as string) || '', isMuted: Boolean(row.isMuted),
+      micFrozen: Boolean(row.micFrozen),
+      role: (row.role as RoomRole) || 'visitor',
+      seatIndex: Number(row.seatIndex) ?? -1,
+      seatStatus: (row.seatStatus as SeatStatus) || 'open',
+      vipLevel: Number(row.vipLevel) || 0,
+      joinedAt: row.joinedAt as string,
+      pendingRole: (row.pendingRole as string) || '',
+      pendingMicInvite: Number(row.pendingMicInvite) ?? -1,
+    };
+  } catch {
+    // Fallback: columns may not exist yet, use basic query
+    const result = await c.execute({ sql: 'SELECT id, roomId, userId, username, displayName, avatar, isMuted, micFrozen, role, seatIndex, seatStatus, vipLevel, joinedAt FROM VoiceRoomParticipant WHERE roomId = ? AND userId = ?', args: [roomId, userId] });
+    if (result.rows.length === 0) return null;
+    const row = result.rows[0];
+    return {
+      id: row.id as string, roomId: row.roomId as string, userId: row.userId as string,
+      username: row.username as string, displayName: (row.displayName as string) || '',
+      avatar: (row.avatar as string) || '', isMuted: Boolean(row.isMuted),
+      micFrozen: Boolean(row.micFrozen),
+      role: (row.role as RoomRole) || 'visitor',
+      seatIndex: Number(row.seatIndex) ?? -1,
+      seatStatus: (row.seatStatus as SeatStatus) || 'open',
+      vipLevel: Number(row.vipLevel) || 0,
+      joinedAt: row.joinedAt as string,
+      pendingRole: '',
+      pendingMicInvite: -1,
+    };
+  }
 }
 
 // ─── RoomTemplate ──────────────────────────────────────────────────
