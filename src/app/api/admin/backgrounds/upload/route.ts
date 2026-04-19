@@ -1,7 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { validateToken } from '@/lib/admin-auth';
-import { writeFile, mkdir, readFile } from 'fs/promises';
-import { join } from 'path';
 import { randomUUID } from 'crypto';
 
 export const dynamic = 'force-dynamic';
@@ -27,42 +25,26 @@ function getExtFromMime(mimeType: string): string {
   return map[mimeType] || 'webp';
 }
 
-async function saveUploadedFile(buffer: Buffer, originalName: string, mimeType: string) {
-  const ext = getExtFromMime(mimeType);
-  const uniqueId = randomUUID().slice(0, 8);
-  const filename = `${uniqueId}_${Date.now()}.${ext}`;
-
-  // Ensure directories exist
-  const bgDir = join(process.cwd(), 'public', 'backgrounds');
-  const thumbDir = join(bgDir, 'thumbnails');
-  await mkdir(bgDir, { recursive: true });
-  await mkdir(thumbDir, { recursive: true });
-
-  // Save original file
-  const filePath = join(bgDir, filename);
-  await writeFile(filePath, buffer);
-
-  // Generate thumbnail using sharp
-  let thumbnailUrl: string | null = null;
+async function generateThumbnail(buffer: Buffer): Promise<Buffer | null> {
   try {
     const sharp = (await import('sharp')).default;
-    const thumbFilename = `thumb_${filename.replace(/\.[^.]+$/, '.webp')}`;
-    const thumbPath = join(thumbDir, thumbFilename);
-
-    await sharp(filePath)
+    return await sharp(buffer)
       .resize(300, 400, { fit: 'cover' })
       .webp({ quality: 80 })
-      .toFile(thumbPath);
-
-    thumbnailUrl = `/backgrounds/thumbnails/${thumbFilename}`;
+      .toBuffer();
   } catch (err) {
     console.error('Thumbnail generation failed:', err);
-    // Don't fail the whole upload - thumbnail is optional
+    return null;
   }
+}
 
-  const imageUrl = `/backgrounds/${filename}`;
-
-  return { imageUrl, thumbnailUrl, filename, originalName, size: buffer.length };
+async function uploadToBlobStorage(buffer: Buffer, filename: string, contentType: string): Promise<string> {
+  const { put } = await import('@vercel/blob');
+  const blob = await put(`backgrounds/${filename}`, buffer, {
+    access: 'public',
+    contentType,
+  });
+  return blob.url;
 }
 
 export async function POST(request: NextRequest) {
@@ -76,71 +58,98 @@ export async function POST(request: NextRequest) {
     const allowedTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
     const MAX_SIZE = 10 * 1024 * 1024;
 
-    // Check if this is a base64 JSON upload or multipart form upload
+    let buffer: Buffer;
+    let originalName: string;
+    let mimeType: string;
+
     if (contentType.includes('application/json')) {
       // Base64 JSON upload approach
       const body = await request.json();
-      const { file: base64Data, name, type: mimeType } = body;
+      const { file: base64Data, name, type } = body;
 
-      if (!base64Data || !mimeType) {
+      if (!base64Data || !type) {
         return NextResponse.json({ error: 'بيانات الملف مطلوبة' }, { status: 400 });
       }
 
-      if (!allowedTypes.includes(mimeType)) {
+      if (!allowedTypes.includes(type)) {
         return NextResponse.json({ error: 'نوع الملف غير مدعوم. يُسمح بـ: JPEG, PNG, WebP, GIF' }, { status: 400 });
       }
 
-      const buffer = Buffer.from(base64Data, 'base64');
+      buffer = Buffer.from(base64Data, 'base64');
+      originalName = name || 'upload';
+      mimeType = type;
+    } else {
+      // Multipart form data upload
+      let formData: FormData;
+      try {
+        formData = await request.formData();
+      } catch (formError) {
+        console.error('FormData parsing failed:', formError);
+        return NextResponse.json({
+          error: 'فشل في قراءة البيانات المرسلة',
+          details: formError instanceof Error ? formError.message : String(formError),
+        }, { status: 400 });
+      }
 
-      if (buffer.length > MAX_SIZE) {
+      const file = formData.get('file') as File | null;
+      if (!file) {
+        return NextResponse.json({ error: 'لم يتم إرسال ملف' }, { status: 400 });
+      }
+      if (!allowedTypes.includes(file.type)) {
+        return NextResponse.json({ error: 'نوع الملف غير مدعوم. يُسمح بـ: JPEG, PNG, WebP, GIF' }, { status: 400 });
+      }
+      if (file.size > MAX_SIZE) {
         return NextResponse.json({ error: 'حجم الملف كبير جداً. الحد الأقصى 10 ميجابايت' }, { status: 400 });
       }
 
-      const result = await saveUploadedFile(buffer, name || 'upload', mimeType);
-      return NextResponse.json({ success: true, ...result });
+      const bytes = await file.arrayBuffer();
+      buffer = Buffer.from(bytes);
+      originalName = file.name;
+      mimeType = file.type;
     }
 
-    // Multipart form data upload
-    let formData: FormData;
-    try {
-      formData = await request.formData();
-    } catch (formError) {
-      console.error('FormData parsing failed:', formError);
-      return NextResponse.json({
-        error: 'فشل في قراءة البيانات المرسلة',
-        details: formError instanceof Error ? formError.message : String(formError),
-      }, { status: 400 });
-    }
-
-    const file = formData.get('file') as File | null;
-
-    if (!file) {
-      return NextResponse.json({ error: 'لم يتم إرسال ملف' }, { status: 400 });
-    }
-
-    // Validate file type
-    if (!allowedTypes.includes(file.type)) {
-      return NextResponse.json({ error: 'نوع الملف غير مدعوم. يُسمح بـ: JPEG, PNG, WebP, GIF' }, { status: 400 });
-    }
-
-    // Validate file size (max 10MB)
-    if (file.size > MAX_SIZE) {
+    if (buffer.length > MAX_SIZE) {
       return NextResponse.json({ error: 'حجم الملف كبير جداً. الحد الأقصى 10 ميجابايت' }, { status: 400 });
     }
 
-    // Read file buffer
-    let buffer: Buffer;
+    // Generate unique filenames
+    const ext = getExtFromMime(mimeType);
+    const uniqueId = randomUUID().slice(0, 8);
+    const filename = `${uniqueId}_${Date.now()}.${ext}`;
+    const thumbFilename = `thumb_${uniqueId}_${Date.now()}.webp`;
+
+    // Upload original image to Vercel Blob
+    let imageUrl: string;
     try {
-      const bytes = await file.arrayBuffer();
-      buffer = Buffer.from(bytes);
-    } catch (bufferError) {
-      console.error('File buffer read failed:', bufferError);
-      return NextResponse.json({ error: 'فشل في قراءة الملف' }, { status: 400 });
+      imageUrl = await uploadToBlobStorage(buffer, filename, mimeType);
+    } catch (blobError) {
+      console.error('Blob upload failed:', blobError);
+      return NextResponse.json({
+        error: 'فشل في رفع الملف إلى التخزين السحابي',
+        details: blobError instanceof Error ? blobError.message : String(blobError),
+      }, { status: 500 });
     }
 
-    const result = await saveUploadedFile(buffer, file.name, file.type);
-    return NextResponse.json({ success: true, ...result });
+    // Generate and upload thumbnail
+    let thumbnailUrl: string | null = null;
+    const thumbBuffer = await generateThumbnail(buffer);
+    if (thumbBuffer) {
+      try {
+        thumbnailUrl = await uploadToBlobStorage(thumbBuffer, thumbFilename, 'image/webp');
+      } catch (thumbUploadErr) {
+        console.error('Thumbnail blob upload failed:', thumbUploadErr);
+        // Thumbnail is optional, don't fail the upload
+      }
+    }
 
+    return NextResponse.json({
+      success: true,
+      imageUrl,
+      thumbnailUrl,
+      filename,
+      originalName,
+      size: buffer.length,
+    });
   } catch (error) {
     console.error('Upload background error:', error);
     const message = error instanceof Error ? error.message : String(error);
