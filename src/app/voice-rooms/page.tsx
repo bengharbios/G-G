@@ -2829,7 +2829,7 @@ function RoomInteriorView({
         onJoin={() => { setRoomInfoOpen(false); }}
         onFollow={() => { toast({ title: 'تمت المتابعة' }); }}
         isFollowing={false}
-        isJoined={true}
+        isJoined={!!myParticipant}
         members={participants
           .filter(p => ['owner', 'coowner', 'admin', 'member'].includes(p.role))
           .map(p => ({
@@ -2928,14 +2928,12 @@ export default function VoiceRoomsPage() {
         setActiveRoom(room);
         try { localStorage.setItem('vr_active_room', room.id); } catch {}
       } else {
-        setActiveRoom(room);
-        try { localStorage.setItem('vr_active_room', room.id); } catch {}
+        toast({ title: 'لا يمكن الانضمام', description: data.error || 'حاول مرة أخرى' });
       }
     } catch {
-      setActiveRoom(room);
-      try { localStorage.setItem('vr_active_room', room.id); } catch {}
+      toast({ title: 'خطأ في الاتصال' });
     }
-  }, [authUser]);
+  }, [authUser, toast]);
 
   const handleCreateRoom = useCallback(async (data: {
     name: string; description: string; micSeatCount: number;

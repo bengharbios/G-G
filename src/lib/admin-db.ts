@@ -3088,6 +3088,8 @@ export async function getVoiceRoomParticipants(roomId: string): Promise<VoiceRoo
     seatStatus: (row.seatStatus as SeatStatus) || 'open',
     vipLevel: Number(row.vipLevel) || 0,
     joinedAt: row.joinedAt as string,
+    pendingRole: (row.pendingRole as string) || '',
+    pendingMicInvite: Number(row.pendingMicInvite) ?? -1,
   }));
 }
 
@@ -3462,17 +3464,15 @@ export async function requestSeat(roomId: string, userId: string, username: stri
   const lockedSeats: number[] = [];
   try { const ls = JSON.parse(room.lockedSeats as string || '[]'); if (Array.isArray(ls)) ls.forEach((s: any) => lockedSeats.push(Number(s))); } catch {}
 
-  // Check mic permissions: members and guests
-  if (!canSitDirectly && memberMicEnabled && !guestMicEnabled && !isAutoMode) {
-    // Visitor, member-only mic, no guest mic, no auto — can't sit
+  // Check mic permissions: visitors and members
+  // In auto mode, visitors can only sit if guestMicEnabled is true
+  // Members can always sit in auto mode
+  if (!canSitDirectly && !guestMicEnabled) {
+    // Visitor with guest mic disabled — cannot sit even in auto mode
     return { success: false, error: 'المايك للأعضاء فقط - اطلب العضوية من إدارة الغرفة' };
   }
-  if (!canSitDirectly && !guestMicEnabled && !isAutoMode) {
-    // Visitor with all mics disabled
-    return { success: false, error: 'المايك مغلق حالياً - لا يمكن الصعود' };
-  }
 
-  if (isAutoMode || (canSitDirectly && memberMicEnabled) || (canSitDirectly && ['admin', 'coowner', 'owner'].includes(userRole)) || (!canSitDirectly && (guestMicEnabled || isAutoMode))) {
+  if (isAutoMode || (canSitDirectly && memberMicEnabled) || (canSitDirectly && ['admin', 'coowner', 'owner'].includes(userRole)) || (!canSitDirectly && guestMicEnabled)) {
     // Find an open seat
     const occupiedSeats = await c.execute({ sql: 'SELECT seatIndex FROM VoiceRoomParticipant WHERE roomId = ? AND seatIndex >= 0 AND userId != ?', args: [roomId, userId] });
     const occupied = new Set(occupiedSeats.rows.map(r => Number(r.seatIndex)));
@@ -3645,10 +3645,28 @@ export async function changeUserRole(roomId: string, targetUserId: string, newRo
   return true;
 }
 
+// Helper: ensure a specific column exists in a table
+async function ensureColumn(tableName: string, columnName: string, columnDef: string): Promise<boolean> {
+  const c = getClient();
+  try {
+    const cols = await c.execute({ sql: `PRAGMA table_info(${tableName})`, args: [] });
+    if (cols.rows.some((r) => r.name === columnName)) return true;
+    await c.execute(`ALTER TABLE ${tableName} ADD COLUMN ${columnName} ${columnDef}`);
+    console.log(`[ensureColumn] Added ${tableName}.${columnName}`);
+    return true;
+  } catch (err) {
+    console.error(`[ensureColumn] Failed to add ${tableName}.${columnName}:`, err);
+    return false;
+  }
+}
+
 // 22b. Invite a user to a role (sets pendingRole instead of directly changing)
 export async function inviteRoleToRoom(roomId: string, targetUserId: string, newRole: string, actorId: string): Promise<boolean> {
   const c = getClient();
   await ensureAdminTables();
+  
+  // Force-ensure pendingRole column exists
+  await ensureColumn('VoiceRoomParticipant', 'pendingRole', "TEXT DEFAULT ''");
   
   const actorResult = await c.execute({ sql: 'SELECT role FROM VoiceRoomParticipant WHERE roomId = ? AND userId = ?', args: [roomId, actorId] });
   if (actorResult.rows.length === 0) return false;
@@ -3664,11 +3682,13 @@ export async function inviteRoleToRoom(roomId: string, targetUserId: string, new
   // Cannot promote above own level
   if (ROLE_HIERARCHY[newRole as RoomRole] >= ROLE_HIERARCHY[actorRole as RoomRole]) return false;
   
-  // For member role: only set pendingRole (user must accept via dialog)
-  if (newRole === 'member') {
+  // Set pendingRole (user must accept via dialog)
+  try {
     await c.execute({ sql: 'UPDATE VoiceRoomParticipant SET pendingRole = ? WHERE roomId = ? AND userId = ?', args: [newRole, roomId, targetUserId] });
-  } else {
-    await c.execute({ sql: 'UPDATE VoiceRoomParticipant SET pendingRole = ? WHERE roomId = ? AND userId = ?', args: [newRole, roomId, targetUserId] });
+    console.log(`[inviteRoleToRoom] Set pendingRole='${newRole}' for userId=${targetUserId} in room=${roomId}`);
+  } catch (err) {
+    console.error('[inviteRoleToRoom] Failed to set pendingRole:', err);
+    return false;
   }
   
   // Log action
@@ -3683,22 +3703,29 @@ export async function acceptRoleInvite(roomId: string, userId: string): Promise<
   const c = getClient();
   await ensureAdminTables();
   
+  // Force-ensure pendingRole column exists before any operation
+  const colExists = await ensureColumn('VoiceRoomParticipant', 'pendingRole', "TEXT DEFAULT ''");
+  if (!colExists) {
+    console.error('[acceptRoleInvite] Cannot ensure pendingRole column exists');
+    return false;
+  }
+  
   try {
     const result = await c.execute({ sql: 'SELECT pendingRole FROM VoiceRoomParticipant WHERE roomId = ? AND userId = ?', args: [roomId, userId] });
-    if (result.rows.length === 0) return false;
+    if (result.rows.length === 0) {
+      console.log(`[acceptRoleInvite] No participant found: roomId=${roomId} userId=${userId}`);
+      return false;
+    }
     
     const pendingRole = String(result.rows[0].pendingRole || '').trim();
+    console.log(`[acceptRoleInvite] pendingRole='${pendingRole}' for userId=${userId}`);
     if (!pendingRole) return false;
     
     await c.execute({ sql: 'UPDATE VoiceRoomParticipant SET role = ?, pendingRole = "" WHERE roomId = ? AND userId = ?', args: [pendingRole, roomId, userId] });
+    console.log(`[acceptRoleInvite] Accepted! role='${pendingRole}' for userId=${userId}`);
     return true;
   } catch (err) {
-    console.error('[acceptRoleInvite] DB error:', err);
-    // Column might not exist yet — force migration
-    try {
-      await c.execute("ALTER TABLE VoiceRoomParticipant ADD COLUMN pendingRole TEXT DEFAULT ''");
-      console.log('[acceptRoleInvite] Force-added pendingRole column');
-    } catch { /* already exists */ }
+    console.error('[acceptRoleInvite] DB error after column check:', err);
     return false;
   }
 }
@@ -3706,6 +3733,9 @@ export async function acceptRoleInvite(roomId: string, userId: string): Promise<
 export async function rejectRoleInvite(roomId: string, userId: string): Promise<boolean> {
   const c = getClient();
   await ensureAdminTables();
+  
+  // Force-ensure pendingRole column exists
+  await ensureColumn('VoiceRoomParticipant', 'pendingRole', "TEXT DEFAULT ''");
   
   try {
     const result = await c.execute({ sql: 'SELECT pendingRole FROM VoiceRoomParticipant WHERE roomId = ? AND userId = ?', args: [roomId, userId] });
@@ -3718,9 +3748,8 @@ export async function rejectRoleInvite(roomId: string, userId: string): Promise<
     } else {
       await c.execute({ sql: 'UPDATE VoiceRoomParticipant SET pendingRole = "" WHERE roomId = ? AND userId = ?', args: [roomId, userId] });
     }
-  } catch {
-    // Column might not exist — force add
-    try { await c.execute("ALTER TABLE VoiceRoomParticipant ADD COLUMN pendingRole TEXT DEFAULT ''"); } catch { /* */ }
+  } catch (err) {
+    console.error('[rejectRoleInvite] DB error:', err);
   }
   return true;
 }
@@ -3729,6 +3758,9 @@ export async function rejectRoleInvite(roomId: string, userId: string): Promise<
 export async function inviteToMic(roomId: string, targetUserId: string, seatIndex: number, actorId: string): Promise<boolean> {
   const c = getClient();
   await ensureAdminTables();
+
+  // Force-ensure pendingMicInvite column exists
+  await ensureColumn('VoiceRoomParticipant', 'pendingMicInvite', 'INTEGER DEFAULT -1');
 
   // Verify actor is admin+
   const actorResult = await c.execute({ sql: 'SELECT role FROM VoiceRoomParticipant WHERE roomId = ? AND userId = ?', args: [roomId, actorId] });
@@ -3762,6 +3794,9 @@ export async function inviteToMic(roomId: string, targetUserId: string, seatInde
 export async function acceptMicInvite(roomId: string, userId: string): Promise<{ success: boolean; seatIndex?: number }> {
   const c = getClient();
   await ensureAdminTables();
+
+  // Force-ensure pendingMicInvite column exists
+  await ensureColumn('VoiceRoomParticipant', 'pendingMicInvite', 'INTEGER DEFAULT -1');
 
   const result = await c.execute({ sql: 'SELECT pendingMicInvite FROM VoiceRoomParticipant WHERE roomId = ? AND userId = ? AND pendingMicInvite >= 0', args: [roomId, userId] });
   if (result.rows.length === 0) return { success: false };
