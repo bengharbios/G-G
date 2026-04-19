@@ -2308,7 +2308,7 @@ function RoomInteriorView({
         {/* ══════════════════════════════════════════════
             TOP BAR: room info (right), settings+exit+share (left)
             ══════════════════════════════════════════════ */}
-        <header className="h-14 bg-[#0d0f1a]/70 backdrop-blur-sm flex items-center justify-between px-4 border-b border-[rgba(108,99,255,0.18)] flex-shrink-0">
+        <header className="h-14 bg-transparent flex items-center justify-between px-4 border-b border-[rgba(108,99,255,0.18)] flex-shrink-0">
           {/* Room info — right side in RTL */}
           <div className="flex flex-col items-start gap-0 min-w-0">
             <div className="flex items-center gap-1.5">
@@ -2355,7 +2355,7 @@ function RoomInteriorView({
             AUDIENCE ROW: small avatars, no names, click → profile
             ══════════════════════════════════════════════ */}
         {listenerCount > 0 && (
-          <section className="bg-[#0d0f1a]/50 backdrop-blur-sm px-3 py-2 border-b border-[rgba(255,255,255,0.07)] flex-shrink-0">
+          <section className="bg-transparent px-3 py-2 border-b border-[rgba(255,255,255,0.07)] flex-shrink-0">
             <div className="flex items-center justify-between mb-1.5">
               <span className="text-[10px] text-[#5a6080]">المستمعون</span>
               <span className="text-[10px] text-[#6c63ff] font-semibold">{listenerCount}</span>
@@ -2403,7 +2403,7 @@ function RoomInteriorView({
         {/* ══════════════════════════════════════════════
             MIC GRID: 5 per row, 52px avatars
             ══════════════════════════════════════════════ */}
-        <section className="bg-[#0d0f1a]/50 backdrop-blur-sm px-3 py-3.5 pb-2.5 border-b border-[rgba(255,255,255,0.07)] flex-shrink-0">
+        <section className="bg-transparent px-3 py-3.5 pb-2.5 border-b border-[rgba(255,255,255,0.07)] flex-shrink-0">
           {/* Header */}
           <div className="flex items-center justify-between mb-3">
             <span className="text-[11px] text-[#5a6080]">المنابر الصوتية</span>
@@ -2513,7 +2513,7 @@ function RoomInteriorView({
         {/* ══════════════════════════════════════════════
             BOTTOM BAR: mute-room + mic-toggle + chat-input + gift
             ══════════════════════════════════════════════ */}
-        <footer className="bg-[#0d0f1a]/70 backdrop-blur-sm border-t border-[rgba(108,99,255,0.18)] px-3 py-2.5 pb-5 flex-shrink-0">
+        <footer className="bg-transparent border-t border-[rgba(108,99,255,0.18)] px-3 py-2.5 pb-5 flex-shrink-0">
           <div className="flex items-center gap-2">
             {/* Mute room button — only for admin+ */}
             {canDo(myRole, 'admin') && (
