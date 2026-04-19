@@ -2235,8 +2235,12 @@ function RoomInteriorView({
         toast({ title: 'تم قبول الدعوة! ⭐', description: `أصبحت ${ROLE_LABELS[pendingInvite as RoomRole] || pendingInvite}` });
         setPendingInvite('');
         await Promise.all([fetchParticipants(), fetchMyParticipant()]);
+      } else {
+        toast({ title: 'فشل قبول الدعوة', description: 'حاول مرة أخرى' });
       }
-    } catch { /* ignore */ }
+    } catch {
+      toast({ title: 'خطأ في الاتصال', description: 'تحقق من الإنترنت وحاول مرة أخرى' });
+    }
   }, [roomId, pendingInvite, toast, fetchParticipants, fetchMyParticipant]);
 
   const handleRejectInvite = useCallback(async () => {
@@ -2390,16 +2394,18 @@ function RoomInteriorView({
         {/* ══════════════════════════════════════════════
             AUDIENCE ROW: trophy (right RTL) + scrollable listeners + user count (left RTL)
             ══════════════════════════════════════════════ */}
-        <section className="bg-transparent px-3 py-2 border-b border-[rgba(255,255,255,0.07)] flex-shrink-0">
-          <div className="flex items-center gap-2.5">
-            {/* Right side (RTL): Trophy icon + weekly gems */}
-            <div className="flex items-center gap-1 flex-shrink-0 bg-[rgba(245,158,11,0.08)] border border-[rgba(245,158,11,0.2)] rounded-full px-2 py-1">
-              <Trophy className="w-3.5 h-3.5 text-[#f59e0b]" />
-              <span className="text-[10px] text-[#f59e0b] font-bold">{weeklyGems.toLocaleString('ar-SA')}</span>
+        <section className="bg-transparent px-3 py-2 flex-shrink-0">
+          <div className="flex items-center gap-2">
+            {/* Right side (RTL): Trophy pill + weekly gems */}
+            <div className="flex items-center gap-1.5 flex-shrink-0 bg-[rgba(245,158,11,0.12)] rounded-full px-2.5 py-1">
+              <div className="w-4 h-4 rounded-full bg-[#f59e0b] flex items-center justify-center">
+                <Trophy className="w-2.5 h-2.5 text-white" />
+              </div>
+              <span className="text-[11px] text-[#f59e0b] font-bold tabular-nums">{weeklyGems.toLocaleString('ar-SA')}</span>
             </div>
 
-            {/* Center: Scrollable listener avatars */}
-            <div className="flex-1 flex gap-2 overflow-x-auto scrollbar-hide py-0.5 min-w-0">
+            {/* Center: Scrollable listener avatars — no header label */}
+            <div className="flex-1 flex gap-1.5 overflow-x-auto scrollbar-hide py-0.5 min-w-0">
               {participants
                 .filter(p => p.seatIndex < 0)
                 .map(p => {
@@ -2412,22 +2418,22 @@ function RoomInteriorView({
                     >
                       <div className="relative">
                         <div
-                          className={`w-[32px] h-[32px] rounded-full border overflow-hidden flex items-center justify-center ${
+                          className={`w-[34px] h-[34px] rounded-full overflow-hidden flex items-center justify-center shadow-sm ${
                             isGuestUser
-                              ? 'border-[rgba(148,163,184,0.3)] opacity-60'
-                              : 'border-[rgba(108,99,255,0.3)]'
+                              ? 'opacity-50'
+                              : ''
                           }`}
                           style={{ background: getAvatarColor(p.userId) }}
                         >
                           {p.avatar ? (
                             <img src={p.avatar} alt="" className="w-full h-full rounded-full object-cover" />
                           ) : (
-                            <span className="text-[10px] font-bold text-white">{p.displayName.charAt(0)}</span>
+                            <span className="text-[11px] font-bold text-white">{p.displayName.charAt(0)}</span>
                           )}
                         </div>
                         {isGuestUser && (
-                          <div className="absolute -bottom-0.5 -left-0.5 w-3.5 h-3.5 rounded-full bg-[#5a6080] border-2 border-[#141726] flex items-center justify-center">
-                            <span className="text-[6px] leading-none">?</span>
+                          <div className="absolute -bottom-0.5 -left-0.5 w-3 h-3 rounded-full bg-[#5a6080] border-2 border-[#0d0f1a] flex items-center justify-center">
+                            <span className="text-[5px] leading-none text-white">?</span>
                           </div>
                         )}
                       </div>
@@ -2436,10 +2442,12 @@ function RoomInteriorView({
                 })}
             </div>
 
-            {/* Left side (RTL): User count */}
-            <div className="flex items-center gap-1 flex-shrink-0 bg-[rgba(108,99,255,0.1)] border border-[rgba(108,99,255,0.25)] rounded-full px-2 py-1">
-              <Users className="w-3 h-3 text-[#a78bfa]" />
-              <span className="text-[10px] text-[#a78bfa] font-bold">{participants.length}</span>
+            {/* Left side (RTL): User count pill */}
+            <div className="flex items-center gap-1.5 flex-shrink-0 bg-[rgba(108,99,255,0.12)] rounded-full px-2.5 py-1">
+              <div className="w-4 h-4 rounded-full bg-[#6c63ff] flex items-center justify-center">
+                <Users className="w-2.5 h-2.5 text-white" />
+              </div>
+              <span className="text-[11px] text-[#a78bfa] font-bold tabular-nums">{participants.length}</span>
             </div>
           </div>
         </section>

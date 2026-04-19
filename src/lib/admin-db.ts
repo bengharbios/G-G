@@ -3640,10 +3640,11 @@ export async function acceptRoleInvite(roomId: string, userId: string, newRole: 
   const c = getClient();
   await ensureAdminTables();
   
-  const result = await c.execute({ sql: 'SELECT pendingRole FROM VoiceRoomParticipant WHERE roomId = ? AND userId = ? AND pendingRole != ""', args: [roomId, userId] });
+  const result = await c.execute({ sql: 'SELECT pendingRole FROM VoiceRoomParticipant WHERE roomId = ? AND userId = ?', args: [roomId, userId] });
   if (result.rows.length === 0) return false;
   
-  const pendingRole = result.rows[0].pendingRole as string;
+  const pendingRole = (result.rows[0].pendingRole as string) || '';
+  if (!pendingRole || pendingRole === '') return false;
   
   await c.execute({ sql: 'UPDATE VoiceRoomParticipant SET role = ?, pendingRole = "" WHERE roomId = ? AND userId = ?', args: [pendingRole || newRole, roomId, userId] });
   
