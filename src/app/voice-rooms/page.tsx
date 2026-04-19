@@ -1903,6 +1903,7 @@ function RoomInteriorView({
     chatPoll = setInterval(() => { if (!cancelled) fetchChatMessagesRef.current(); }, 3000);
     roomPoll = setInterval(() => { if (!cancelled) fetchRoomDetailsRef.current(); }, 6000);
     const myPoll = setInterval(() => { if (!cancelled) fetchMyParticipantRef.current(); }, 4000);
+    const gemsPoll = setInterval(() => { if (!cancelled) fetchWeeklyGemsRef.current(); }, 10000);
 
     return () => {
       cancelled = true;
@@ -1910,6 +1911,7 @@ function RoomInteriorView({
       if (chatPoll) clearInterval(chatPoll);
       if (roomPoll) clearInterval(roomPoll);
       if (myPoll) clearInterval(myPoll);
+      if (gemsPoll) clearInterval(gemsPoll);
     };
   }, [roomId]);
 

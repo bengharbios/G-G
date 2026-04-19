@@ -3483,6 +3483,12 @@ export async function approveWaitlist(waitlistId: string, actorId: string): Prom
   if (wlResult.rows.length === 0) return false;
   const wl = wlResult.rows[0] as Record<string, unknown>;
 
+  // Permission check: admin+ only
+  const actorPermResult = await c.execute({ sql: 'SELECT role FROM VoiceRoomParticipant WHERE roomId = ? AND userId = ?', args: [wl.roomId, actorId] });
+  if (actorPermResult.rows.length === 0) return false;
+  const actorRole = actorPermResult.rows[0].role as string;
+  if (ROLE_HIERARCHY[actorRole as RoomRole] < ROLE_HIERARCHY['admin' as RoomRole]) return false;
+
   const actorResult = await c.execute({ sql: 'SELECT username, displayName FROM VoiceRoomParticipant WHERE roomId = ? AND userId = ?', args: [wl.roomId, actorId] });
   const actorName = (actorResult.rows[0]?.username || actorResult.rows[0]?.displayName || '') as string;
 
@@ -3525,6 +3531,12 @@ export async function rejectWaitlist(waitlistId: string, actorId: string): Promi
   const wlResult = await c.execute({ sql: 'SELECT * FROM RoomWaitlist WHERE id = ?', args: [waitlistId] });
   if (wlResult.rows.length === 0) return false;
   const wl = wlResult.rows[0] as Record<string, unknown>;
+
+  // Permission check: admin+ only
+  const actorPermResult = await c.execute({ sql: 'SELECT role FROM VoiceRoomParticipant WHERE roomId = ? AND userId = ?', args: [wl.roomId, actorId] });
+  if (actorPermResult.rows.length === 0) return false;
+  const actorRole = actorPermResult.rows[0].role as string;
+  if (ROLE_HIERARCHY[actorRole as RoomRole] < ROLE_HIERARCHY['admin' as RoomRole]) return false;
 
   const actorResult = await c.execute({ sql: 'SELECT username, displayName FROM VoiceRoomParticipant WHERE roomId = ? AND userId = ?', args: [wl.roomId, actorId] });
   const actorName = (actorResult.rows[0]?.username || actorResult.rows[0]?.displayName || '') as string;
