@@ -570,16 +570,22 @@ function ProfileBottomSheet({
   if (!participant && !isOpen) return null;
   const avatarColor = participant ? getAvatarColor(participant.userId) : '#1c2035';
 
-  // Owner and co-owner can manage roles
-  const canManageRoles = canDo(myRole, 'coowner') && participant?.userId !== authUserId && participant?.userId !== hostId;
+  // Cannot manage self or host
+  const isNotSelf = participant?.userId !== authUserId && participant?.userId !== hostId;
+  // Owner and co-owner can fully manage roles (change/grant)
+  const canManageRoles = canDo(myRole, 'coowner') && isNotSelf;
+  // Admin+ can remove membership from members (demote to visitor)
+  const canRemoveMembership = canDo(myRole, 'admin') && isNotSelf && participant?.role === 'member';
+  // Owner+ can remove admin/co-owner roles
+  const canRemoveHigherRole = canDo(myRole, 'coowner') && isNotSelf && ['admin', 'coowner'].includes(participant?.role || '');
   const canInviteMic = canDo(myRole, 'admin') && participant?.userId !== authUserId && participant?.seatIndex < 0;
   // Check if target is an unregistered guest (no real username, or userId starts with 'guest-')
   const isGuest = !participant?.username || participant?.userId?.startsWith('guest-');
   const availableRoles: RoomRole[] = ['member', 'admin', 'coowner'];
   // Visitors get "grant membership", members get "change role"
   const showGrantMembership = canManageRoles && participant?.role === 'visitor' && !isGuest;
-  // Show remove role button for members, admins, co-owners (not visitors, not self, not host)
-  const showRemoveRole = canManageRoles && ['member', 'admin', 'coowner'].includes(participant?.role || '');
+  // Show remove role button for anyone with a role higher than visitor
+  const showRemoveRole = canRemoveMembership || canRemoveHigherRole;
   const removeRoleLabel = participant?.role === 'coowner' ? 'إزالة النيابة' : participant?.role === 'admin' ? 'إزالة الإشراف' : 'إزالة العضوية';
 
   return (
