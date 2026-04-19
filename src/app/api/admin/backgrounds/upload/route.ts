@@ -15,16 +15,6 @@ async function verifyAdminAuth(request: NextRequest) {
   }
 }
 
-function getExtFromMime(mimeType: string): string {
-  const map: Record<string, string> = {
-    'image/jpeg': 'jpg',
-    'image/png': 'png',
-    'image/webp': 'webp',
-    'image/gif': 'gif',
-  };
-  return map[mimeType] || 'webp';
-}
-
 async function generateThumbnail(buffer: Buffer): Promise<Buffer | null> {
   try {
     const sharp = (await import('sharp')).default;
@@ -36,15 +26,6 @@ async function generateThumbnail(buffer: Buffer): Promise<Buffer | null> {
     console.error('Thumbnail generation failed:', err);
     return null;
   }
-}
-
-async function uploadToBlobStorage(buffer: Buffer, filename: string, contentType: string): Promise<string> {
-  const { put } = await import('@vercel/blob');
-  const blob = await put(`backgrounds/${filename}`, buffer, {
-    access: 'public',
-    contentType,
-  });
-  return blob.url;
 }
 
 export async function POST(request: NextRequest) {
@@ -63,14 +44,12 @@ export async function POST(request: NextRequest) {
     let mimeType: string;
 
     if (contentType.includes('application/json')) {
-      // Base64 JSON upload approach
       const body = await request.json();
       const { file: base64Data, name, type } = body;
 
       if (!base64Data || !type) {
         return NextResponse.json({ error: 'بيانات الملف مطلوبة' }, { status: 400 });
       }
-
       if (!allowedTypes.includes(type)) {
         return NextResponse.json({ error: 'نوع الملف غير مدعوم. يُسمح بـ: JPEG, PNG, WebP, GIF' }, { status: 400 });
       }
@@ -79,7 +58,6 @@ export async function POST(request: NextRequest) {
       originalName = name || 'upload';
       mimeType = type;
     } else {
-      // Multipart form data upload
       let formData: FormData;
       try {
         formData = await request.formData();
@@ -112,41 +90,32 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'حجم الملف كبير جداً. الحد الأقصى 10 ميجابايت' }, { status: 400 });
     }
 
-    // Generate unique filenames
-    const ext = getExtFromMime(mimeType);
-    const uniqueId = randomUUID().slice(0, 8);
-    const filename = `${uniqueId}_${Date.now()}.${ext}`;
-    const thumbFilename = `thumb_${uniqueId}_${Date.now()}.webp`;
-
-    // Upload original image to Vercel Blob
-    let imageUrl: string;
+    // Compress original image with sharp for smaller storage
+    let processedBuffer: Buffer;
     try {
-      imageUrl = await uploadToBlobStorage(buffer, filename, mimeType);
-    } catch (blobError) {
-      console.error('Blob upload failed:', blobError);
-      return NextResponse.json({
-        error: 'فشل في رفع الملف إلى التخزين السحابي',
-        details: blobError instanceof Error ? blobError.message : String(blobError),
-      }, { status: 500 });
+      const sharp = (await import('sharp')).default;
+      processedBuffer = await sharp(buffer)
+        .webp({ quality: 85 })
+        .toBuffer();
+    } catch {
+      processedBuffer = buffer;
     }
 
-    // Generate and upload thumbnail
+    // Convert to data URLs (stored directly in database - no external storage needed)
+    const imageUrl = `data:image/webp;base64,${processedBuffer.toString('base64')}`;
+
+    // Generate thumbnail
     let thumbnailUrl: string | null = null;
     const thumbBuffer = await generateThumbnail(buffer);
     if (thumbBuffer) {
-      try {
-        thumbnailUrl = await uploadToBlobStorage(thumbBuffer, thumbFilename, 'image/webp');
-      } catch (thumbUploadErr) {
-        console.error('Thumbnail blob upload failed:', thumbUploadErr);
-        // Thumbnail is optional, don't fail the upload
-      }
+      thumbnailUrl = `data:image/webp;base64,${thumbBuffer.toString('base64')}`;
     }
 
     return NextResponse.json({
       success: true,
       imageUrl,
       thumbnailUrl,
-      filename,
+      filename: `${randomUUID().slice(0, 8)}.webp`,
       originalName,
       size: buffer.length,
     });

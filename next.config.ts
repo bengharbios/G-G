@@ -7,7 +7,7 @@ const nextConfig: NextConfig = {
     ignoreBuildErrors: true,
   },
   reactStrictMode: false,
-  serverExternalPackages: ["@libsql/client", "@prisma/adapter-libsql", "sharp", "@vercel/blob"],
+  serverExternalPackages: ["@libsql/client", "@prisma/adapter-libsql", "sharp"],
 };
 
 export default nextConfig;
