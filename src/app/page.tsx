@@ -1533,6 +1533,7 @@ export default function HomePage() {
   return (
     <div dir="rtl" className="min-h-screen bg-slate-950 text-white">
       <SiteHeader
+        authUser={authUser}
         onProfileClick={() => { window.location.href = '/profile'; }}
         onLoginClick={() => setLoginOpen(true)}
         onLogout={handleLogout}

@@ -1386,6 +1386,7 @@ function RoomListView({
     <div className="min-h-screen bg-slate-950" dir="rtl">
       {/* Shared Header (same as main page) */}
       <SiteHeader
+        authUser={authUser}
         onProfileClick={() => { window.location.href = '/profile'; }}
         extraContent={
           !hasRoom ? (
@@ -1959,7 +1960,10 @@ function RoomInteriorView({
   }, [roomId, isRoomMuted, toast]);
 
   const handleRequestSeat = useCallback(async (seatIndex: number) => {
-    if (!authUser) return;
+    if (!authUser) {
+      toast({ title: 'يجب تسجيل الدخول', description: 'سجل دخولك أولاً للصعود على المايك' });
+      return;
+    }
     try {
       const res = await fetch(`/api/voice-rooms/${roomId}?action=request-seat`, {
         method: 'POST',
@@ -2354,7 +2358,7 @@ function RoomInteriorView({
             AUDIENCE ROW: small avatars, no names, click → profile
             ══════════════════════════════════════════════ */}
         {listenerCount > 0 && (
-          <section className="bg-transparent px-3 py-2 border-b border-[rgba(255,255,255,0.07)] flex-shrink-0">
+          <section className="bg-black/30 backdrop-blur-sm px-3 py-2 border-b border-[rgba(255,255,255,0.07)] flex-shrink-0">
             <div className="flex items-center justify-between mb-1.5">
               <span className="text-[10px] text-[#5a6080]">المستمعون</span>
               <span className="text-[10px] text-[#6c63ff] font-semibold">{listenerCount}</span>

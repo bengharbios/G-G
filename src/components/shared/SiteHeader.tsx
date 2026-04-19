@@ -5,24 +5,25 @@ import {
   Search, Bell, Gem, Settings, UserPlus, Mic, LogIn, LogOut,
 } from 'lucide-react';
 
-interface AuthUser {
-  id: string;
-  username: string;
-  email: string;
-  displayName: string;
-  phone: string;
-  avatar: string;
-  role: string;
-}
-
 interface SiteHeaderProps {
+  /** Pass auth user from parent (recommended). Falls back to /api/auth/me if not provided. */
+  authUser?: {
+    id: string;
+    username: string;
+    email?: string;
+    displayName?: string;
+    phone?: string;
+    avatar?: string;
+    role?: string;
+    vipLevel?: number;
+  } | null;
   /** Optional extra content to render on the right side of the header */
   extraContent?: React.ReactNode;
   /** Called when profile avatar is clicked */
   onProfileClick?: () => void;
   /** Called when login button is clicked */
   onLoginClick?: () => void;
-  /** Called when logout is clicked */
+  /** Called when logout is clicked (if not provided, default logout is used) */
   onLogout?: () => void;
 }
 
@@ -62,52 +63,30 @@ function useActivePlayers() {
 }
 
 export default function SiteHeader({
+  authUser: authUserProp,
   extraContent,
   onProfileClick,
   onLoginClick,
   onLogout,
 }: SiteHeaderProps) {
-  const [authUser, setAuthUser] = useState<AuthUser | null>(null);
-  const { count, visible: countVisible } = useActivePlayers();
+  // If no authUser prop provided, fetch from /api/auth/me
+  const [fetchedUser, setFetchedUser] = useState<SiteHeaderProps['authUser']>(null);
+  const authUser = authUserProp !== undefined ? authUserProp : fetchedUser;
 
-  // Load auth state from localStorage on mount
   useEffect(() => {
-    try {
-      const stored = localStorage.getItem('gg_auth_user');
-      if (stored) {
-        setAuthUser(JSON.parse(stored));
-      }
-    } catch { /* ignore */ }
-
-    // Listen for storage changes (e.g., login/logout in other tabs)
-    const handler = () => {
-      try {
-        const stored = localStorage.getItem('gg_auth_user');
-        if (stored) {
-          setAuthUser(JSON.parse(stored));
-        } else {
-          setAuthUser(null);
+    // Only fetch if no prop is provided
+    if (authUserProp !== undefined) return;
+    fetch('/api/auth/me')
+      .then(r => r.json())
+      .then(d => {
+        if (d.success && d.user) {
+          setFetchedUser(d.user);
         }
-      } catch { /* ignore */ }
-    };
-    window.addEventListener('storage', handler);
-    // Also poll localStorage periodically for same-tab changes
-    const interval = setInterval(handler, 2000);
-    return () => {
-      window.removeEventListener('storage', handler);
-      clearInterval(interval);
-    };
-  }, []);
+      })
+      .catch(() => {});
+  }, [authUserProp]);
 
-  const handleLogout = () => {
-    try {
-      localStorage.removeItem('gg_auth_user');
-      localStorage.removeItem('gg_sub_code');
-      localStorage.removeItem('gg_sub_info');
-    } catch { /* ignore */ }
-    setAuthUser(null);
-    onLogout?.();
-  };
+  const { count, visible: countVisible } = useActivePlayers();
 
   const isAdmin = authUser?.role === 'admin';
   const avatarLetter = authUser?.displayName?.charAt(0) || 'غ';
@@ -223,7 +202,7 @@ export default function SiteHeader({
             {authUser ? (
               <div className="flex items-center gap-2">
                 <button
-                  onClick={handleLogout}
+                  onClick={() => onLogout?.()}
                   className="w-9 h-9 rounded-full bg-slate-800/60 border border-slate-700/40 flex items-center justify-center text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 hover:border-rose-500/30 transition-all"
                   aria-label="تسجيل الخروج"
                   title="تسجيل الخروج"

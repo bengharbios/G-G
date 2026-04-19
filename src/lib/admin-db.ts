@@ -559,6 +559,8 @@ async function ensureAdminTables(): Promise<void> {
     if (!vrColNames.includes('isAutoMode')) await c.execute('ALTER TABLE VoiceRoom ADD COLUMN isAutoMode INTEGER DEFAULT 1');
     if (!vrColNames.includes('lockedSeats')) await c.execute("ALTER TABLE VoiceRoom ADD COLUMN lockedSeats TEXT DEFAULT '[]'");
     if (!vrColNames.includes('roomImage')) await c.execute("ALTER TABLE VoiceRoom ADD COLUMN roomImage TEXT DEFAULT ''");
+    if (!vrColNames.includes('guestMicEnabled')) await c.execute('ALTER TABLE VoiceRoom ADD COLUMN guestMicEnabled INTEGER DEFAULT 0');
+    if (!vrColNames.includes('memberMicEnabled')) await c.execute('ALTER TABLE VoiceRoom ADD COLUMN memberMicEnabled INTEGER DEFAULT 1');
   } catch { /* ignore */ }
 
   // Migration: add new VoiceRoomParticipant columns
@@ -3398,15 +3400,31 @@ export async function requestSeat(roomId: string, userId: string, username: stri
   }
 
   // Check if auto mode is on
-  const roomResult = await c.execute({ sql: 'SELECT micSeatCount, isAutoMode, lockedSeats FROM VoiceRoom WHERE id = ?', args: [roomId] });
+  const roomResult = await c.execute({ sql: 'SELECT micSeatCount, isAutoMode, lockedSeats, guestMicEnabled, memberMicEnabled FROM VoiceRoom WHERE id = ?', args: [roomId] });
   if (roomResult.rows.length === 0) return { success: false };
   const room = roomResult.rows[0];
   const micCount = Number(room.micSeatCount) || 10;
   const isAutoMode = Boolean(room.isAutoMode);
+  const guestMicEnabled = Boolean(room.guestMicEnabled);
+  const memberMicEnabled = Boolean(room.memberMicEnabled);
   const lockedSeats: number[] = [];
   try { const ls = JSON.parse(room.lockedSeats as string || '[]'); if (Array.isArray(ls)) ls.forEach((s: any) => lockedSeats.push(Number(s))); } catch {}
 
-  if (isAutoMode || canSitDirectly) {
+  // Check mic permissions: members and guests
+  if (canSitDirectly && !memberMicEnabled) {
+    // Members exist but member mic is disabled — go to waitlist
+    // (unless they're admin+)
+    if (!['admin', 'coowner', 'owner'].includes(effectiveRole)) {
+      const effectiveAutoMode = false;
+      // Fall through to waitlist logic below
+    }
+  }
+  if (!canSitDirectly && !guestMicEnabled && !isAutoMode) {
+    // Visitor with guest mic disabled and auto mode off — can't sit
+    return { success: false };
+  }
+
+  if (isAutoMode || (canSitDirectly && memberMicEnabled) || (canSitDirectly && ['admin', 'coowner', 'owner'].includes(effectiveRole)) || (!canSitDirectly && (guestMicEnabled || isAutoMode))) {
     // Find an open seat
     const occupiedSeats = await c.execute({ sql: 'SELECT seatIndex FROM VoiceRoomParticipant WHERE roomId = ? AND seatIndex >= 0 AND userId != ?', args: [roomId, userId] });
     const occupied = new Set(occupiedSeats.rows.map(r => Number(r.seatIndex)));
@@ -3746,7 +3764,7 @@ export async function updateRoomSettings(roomId: string, settings: Partial<Voice
   // Known VoiceRoom columns (ignore unknown keys)
   const knownColumns = ['roomMode', 'roomPassword', 'micTheme', 'giftSplit', 'micSeatCount',
     'chatMuted', 'bgmEnabled', 'announcement', 'isAutoMode', 'roomLevel', 'name', 'description',
-    'maxParticipants', 'lockedSeats', 'roomImage'];
+    'maxParticipants', 'lockedSeats', 'roomImage', 'guestMicEnabled', 'memberMicEnabled'];
 
   const setClauses: string[] = [];
   const values: unknown[] = [];
