@@ -168,9 +168,13 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
     }
 
     if (action === 'accept-invite') {
-      // No need to read body — server reads pendingRole from DB
-      const ok = await acceptRoleInvite(id, userId);
-      return NextResponse.json({ success: ok });
+      try {
+        const ok = await acceptRoleInvite(id, userId);
+        return NextResponse.json({ success: ok });
+      } catch (e: any) {
+        console.error('[accept-invite] error:', e);
+        return NextResponse.json({ success: false, error: e?.message || 'خطأ في قبول الدعوة' });
+      }
     }
 
     if (action === 'reject-invite') {

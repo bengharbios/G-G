@@ -3387,14 +3387,12 @@ export async function requestSeat(roomId: string, userId: string, username: stri
   await ensureAdminTables();
 
   // Get user role to determine if they can sit directly
-  const participantRow = await c.execute({ sql: 'SELECT role, pendingRole, seatIndex FROM VoiceRoomParticipant WHERE roomId = ? AND userId = ?', args: [roomId, userId] });
+  const participantRow = await c.execute({ sql: 'SELECT role, seatIndex FROM VoiceRoomParticipant WHERE roomId = ? AND userId = ?', args: [roomId, userId] });
   const userRole = participantRow.rows.length > 0 ? (participantRow.rows[0].role as string) : 'visitor';
-  const pendingRole = participantRow.rows.length > 0 ? (participantRow.rows[0].pendingRole as string) : '';
   const currentSeat = participantRow.rows.length > 0 ? Number(participantRow.rows[0].seatIndex) : -1;
 
-  // Members and above always sit directly (also check pendingRole for invited members)
-  const effectiveRole = ['member', 'admin', 'coowner', 'owner'].includes(pendingRole) ? pendingRole : userRole;
-  const canSitDirectly = ['member', 'admin', 'coowner', 'owner'].includes(effectiveRole);
+  // Only the actual accepted role grants mic access — pendingRole is just an invitation
+  const canSitDirectly = ['member', 'admin', 'coowner', 'owner'].includes(userRole);
 
   // Check if user is already on this exact seat
   if (currentSeat === requestedSeat) {
@@ -3416,7 +3414,7 @@ export async function requestSeat(roomId: string, userId: string, username: stri
   if (canSitDirectly && !memberMicEnabled) {
     // Members exist but member mic is disabled — go to waitlist
     // (unless they're admin+)
-    if (!['admin', 'coowner', 'owner'].includes(effectiveRole)) {
+    if (!['admin', 'coowner', 'owner'].includes(userRole)) {
       const effectiveAutoMode = false;
       // Fall through to waitlist logic below
     }
@@ -3429,7 +3427,7 @@ export async function requestSeat(roomId: string, userId: string, username: stri
     return { success: false, error: 'المايك مغلق حالياً - لا يمكن الصعود' };
   }
 
-  if (isAutoMode || (canSitDirectly && memberMicEnabled) || (canSitDirectly && ['admin', 'coowner', 'owner'].includes(effectiveRole)) || (!canSitDirectly && (guestMicEnabled || isAutoMode))) {
+  if (isAutoMode || (canSitDirectly && memberMicEnabled) || (canSitDirectly && ['admin', 'coowner', 'owner'].includes(userRole)) || (!canSitDirectly && (guestMicEnabled || isAutoMode))) {
     // Find an open seat
     const occupiedSeats = await c.execute({ sql: 'SELECT seatIndex FROM VoiceRoomParticipant WHERE roomId = ? AND seatIndex >= 0 AND userId != ?', args: [roomId, userId] });
     const occupied = new Set(occupiedSeats.rows.map(r => Number(r.seatIndex)));
