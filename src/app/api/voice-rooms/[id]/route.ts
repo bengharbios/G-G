@@ -12,7 +12,7 @@ import {
   getRoomTemplate, saveRoomTemplate, getUserGiftStats,
   inviteRoleToRoom, acceptRoleInvite, rejectRoleInvite,
   inviteToMic, acceptMicInvite, rejectMicInvite,
-  ROLE_HIERARCHY, RoomRole, getRoomWeeklyGems,
+  ROLE_HIERARCHY, RoomRole, getRoomWeeklyGems, getRoomTopGifts,
 } from '@/lib/admin-db';
 
 const JWT_SECRET = new TextEncoder().encode(process.env.JWT_SECRET || 'gg-platform-secret-key-2024');
@@ -97,6 +97,11 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     if (action === 'weekly-gems') {
       const gems = await getRoomWeeklyGems(id);
       return NextResponse.json({ success: true, gems });
+    }
+    if (action === 'top-gifts') {
+      const limit = Number(searchParams.get('limit')) || 20;
+      const gifts = await getRoomTopGifts(id, limit);
+      return NextResponse.json({ success: true, gifts });
     }
 
     return NextResponse.json({ error: 'طلب غير صالح' }, { status: 400 });

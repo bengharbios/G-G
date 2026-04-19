@@ -561,35 +561,27 @@ async function ensureAdminTables(): Promise<void> {
     if (!vrColNames.includes('roomImage')) await c.execute("ALTER TABLE VoiceRoom ADD COLUMN roomImage TEXT DEFAULT ''");
     if (!vrColNames.includes('guestMicEnabled')) await c.execute('ALTER TABLE VoiceRoom ADD COLUMN guestMicEnabled INTEGER DEFAULT 0');
     if (!vrColNames.includes('memberMicEnabled')) await c.execute('ALTER TABLE VoiceRoom ADD COLUMN memberMicEnabled INTEGER DEFAULT 1');
+    if (!vrColNames.includes('joinPrice')) await c.execute('ALTER TABLE VoiceRoom ADD COLUMN joinPrice INTEGER DEFAULT 0');
   } catch { /* ignore */ }
 
   // Migration: add new VoiceRoomParticipant columns
-  try {
-    const vrpCols = await c.execute('PRAGMA table_info(VoiceRoomParticipant)');
-    const vrpColNames = vrpCols.rows.map(r => r.name);
-    console.log('[ensureAdminTables] VRP columns:', vrpColNames);
-    
-    // Helper to safely add column (ignores error if exists)
-    const safeAddCol = async (colName: string, colDef: string) => {
-      if (!vrpColNames.includes(colName)) {
-        try {
-          await c.execute(`ALTER TABLE VoiceRoomParticipant ADD COLUMN ${colName} ${colDef}`);
-          console.log(`[ensureAdminTables] Added column: ${colName}`);
-        } catch (alterErr: any) {
-          console.warn(`[ensureAdminTables] Could not add ${colName}:`, alterErr?.message);
-        }
-      }
-    };
-    
-    await safeAddCol('role', "TEXT DEFAULT 'visitor'");
-    await safeAddCol('seatIndex', 'INTEGER DEFAULT -1');
-    await safeAddCol('seatStatus', "TEXT DEFAULT 'open'");
-    await safeAddCol('micFrozen', 'INTEGER DEFAULT 0');
-    await safeAddCol('vipLevel', 'INTEGER DEFAULT 0');
-    await safeAddCol('pendingRole', "TEXT DEFAULT ''");
-    await safeAddCol('pendingMicInvite', 'INTEGER DEFAULT -1');
-  } catch (e) {
-    console.error('[ensureAdminTables] VRP migration error:', e);
+  // Use direct ALTER TABLE — ignore "duplicate column" errors
+  const vrpColumns = [
+    { name: 'role', def: "TEXT DEFAULT 'visitor'" },
+    { name: 'seatIndex', def: 'INTEGER DEFAULT -1' },
+    { name: 'seatStatus', def: "TEXT DEFAULT 'open'" },
+    { name: 'micFrozen', def: 'INTEGER DEFAULT 0' },
+    { name: 'vipLevel', def: 'INTEGER DEFAULT 0' },
+    { name: 'pendingRole', def: "TEXT DEFAULT ''" },
+    { name: 'pendingMicInvite', def: 'INTEGER DEFAULT -1' },
+  ];
+  for (const col of vrpColumns) {
+    try {
+      await c.execute(`ALTER TABLE VoiceRoomParticipant ADD COLUMN ${col.name} ${col.def}`);
+      console.log(`[ensureAdminTables] Added VRP column: ${col.name}`);
+    } catch {
+      // Column already exists — ignore
+    }
   }
 
   // Migration: add vipLevel to AppUser
@@ -2765,6 +2757,10 @@ export interface VoiceRoom {
   lockedSeats: number[];
   participantCount?: number;
   createdAt: string;
+  roomImage: string;
+  joinPrice: number;
+  guestMicEnabled: boolean;
+  memberMicEnabled: boolean;
 }
 
 export type RoomRole = 'owner' | 'coowner' | 'admin' | 'member' | 'visitor';
@@ -2960,6 +2956,9 @@ export async function getRoomById(roomId: string): Promise<VoiceRoom | null> {
     lockedSeats,
     createdAt: row.createdAt as string,
     roomImage: (row.roomImage as string) || '',
+    joinPrice: Number(row.joinPrice) || 0,
+    guestMicEnabled: Boolean(row.guestMicEnabled),
+    memberMicEnabled: Boolean(row.memberMicEnabled),
   };
 }
 
@@ -3203,6 +3202,43 @@ export async function sendGiftInRoom(roomId: string, giftId: string, fromUserId:
   return true;
 }
 
+// Get top gifts sent in a room (for Moments tab)
+export async function getRoomTopGifts(roomId: string, limit: number = 20): Promise<Array<{
+  giftName: string; giftEmoji: string; gems: number;
+  senderName: string; senderAvatar: string;
+  receiverName: string; receiverAvatar: string;
+  createdAt: string;
+}>> {
+  const c = getClient();
+  await ensureAdminTables();
+
+  const result = await c.execute({
+    sql: `SELECT gh.giftId, gh.fromUserId, gh.toUserId, gh.createdAt,
+                 g.nameAr as giftName, g.emoji as giftEmoji, g.price as gems,
+                 fu.displayName as senderName, fu.avatar as senderAvatar,
+                 tu.displayName as receiverName, tu.avatar as receiverAvatar
+          FROM GiftHistory gh
+          JOIN Gift g ON gh.giftId = g.id
+          LEFT JOIN VoiceRoomParticipant fu ON fu.roomId = ? AND fu.userId = gh.fromUserId
+          LEFT JOIN VoiceRoomParticipant tu ON tu.roomId = ? AND tu.userId = gh.toUserId
+          WHERE gh.roomId = ?
+          ORDER BY g.price DESC
+          LIMIT ?`,
+    args: [roomId, roomId, roomId, limit],
+  });
+
+  return result.rows.map(row => ({
+    giftName: (row.giftName as string) || '',
+    giftEmoji: (row.giftEmoji as string) || '',
+    gems: Number(row.gems) || 0,
+    senderName: (row.senderName as string) || 'مجهول',
+    senderAvatar: (row.senderAvatar as string) || '',
+    receiverName: (row.receiverName as string) || 'مجهول',
+    receiverAvatar: (row.receiverAvatar as string) || '',
+    createdAt: row.createdAt as string,
+  }));
+}
+
 export async function deleteVoiceRoom(roomId: string, hostId: string): Promise<boolean> {
   const c = getClient();
   await ensureAdminTables();
@@ -3427,19 +3463,12 @@ export async function requestSeat(roomId: string, userId: string, username: stri
   try { const ls = JSON.parse(room.lockedSeats as string || '[]'); if (Array.isArray(ls)) ls.forEach((s: any) => lockedSeats.push(Number(s))); } catch {}
 
   // Check mic permissions: members and guests
-  if (canSitDirectly && !memberMicEnabled) {
-    // Members exist but member mic is disabled — go to waitlist
-    // (unless they're admin+)
-    if (!['admin', 'coowner', 'owner'].includes(userRole)) {
-      const effectiveAutoMode = false;
-      // Fall through to waitlist logic below
-    }
+  if (!canSitDirectly && memberMicEnabled && !guestMicEnabled && !isAutoMode) {
+    // Visitor, member-only mic, no guest mic, no auto — can't sit
+    return { success: false, error: 'المايك للأعضاء فقط - اطلب العضوية من إدارة الغرفة' };
   }
   if (!canSitDirectly && !guestMicEnabled && !isAutoMode) {
-    // Visitor with guest mic disabled and auto mode off — can't sit
-    if (memberMicEnabled) {
-      return { success: false, error: 'المايك للأعضاء فقط - اطلب العضوية من إدارة الغرفة' };
-    }
+    // Visitor with all mics disabled
     return { success: false, error: 'المايك مغلق حالياً - لا يمكن الصعود' };
   }
 

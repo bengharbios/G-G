@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import SiteHeader from '@/components/shared/SiteHeader';
 import SiteBottomNav from '@/components/shared/SiteBottomNav';
+import RoomInfoSheet from './components/RoomInfoSheet';
 
 /* ═══════════════════════════════════════════════════════════════════════
    TYPES
@@ -1703,6 +1704,13 @@ function RoomInteriorView({
   const [isMicMuted, setIsMicMuted] = useState(false);
   const [loading, setLoading] = useState(true);
   const [weeklyGems, setWeeklyGems] = useState(0);
+  const [roomInfoOpen, setRoomInfoOpen] = useState(false);
+  const [topGifts, setTopGifts] = useState<Array<{
+    giftName: string; giftEmoji: string; gems: number;
+    senderName: string; senderAvatar: string;
+    receiverName: string; receiverAvatar: string;
+    createdAt: string;
+  }>>([]);
 
   /* ── UI state ── */
   const [profileSheet, setProfileSheet] = useState<VoiceRoomParticipant | null>(null);
@@ -1800,6 +1808,14 @@ function RoomInteriorView({
     } catch { /* ignore */ }
   }, [roomId]);
 
+  const fetchTopGifts = useCallback(async () => {
+    try {
+      const res = await fetch(`/api/voice-rooms/${roomId}?action=top-gifts&limit=20`);
+      const data = await res.json();
+      if (data.success && data.gifts) setTopGifts(data.gifts);
+    } catch { /* ignore */ }
+  }, [roomId]);
+
   const fetchChatMessages = useCallback(async () => {
     try {
       const res = await fetch(`/api/voice-rooms/${roomId}/chat?after=${lastChatTimestamp}`);
@@ -1855,6 +1871,7 @@ function RoomInteriorView({
   const fetchMyParticipantRef = useRef(fetchMyParticipant);
   const fetchGiftsRef = useRef(fetchGifts);
   const fetchWeeklyGemsRef = useRef(fetchWeeklyGems);
+  const fetchTopGiftsRef = useRef(fetchTopGifts);
   const checkKickedRef = useRef(checkKicked);
   const toastRef = useRef(toast);
   const onExitRef = useRef(onExit);
@@ -1865,6 +1882,7 @@ function RoomInteriorView({
   useEffect(() => { fetchMyParticipantRef.current = fetchMyParticipant; }, [fetchMyParticipant]);
   useEffect(() => { fetchGiftsRef.current = fetchGifts; }, [fetchGifts]);
   useEffect(() => { fetchWeeklyGemsRef.current = fetchWeeklyGems; }, [fetchWeeklyGems]);
+  useEffect(() => { fetchTopGiftsRef.current = fetchTopGifts; }, [fetchTopGifts]);
   useEffect(() => { checkKickedRef.current = checkKicked; }, [checkKicked]);
   useEffect(() => { toastRef.current = toast; }, [toast]);
   useEffect(() => { onExitRef.current = onExit; }, [onExit]);
@@ -1892,6 +1910,7 @@ function RoomInteriorView({
           fetchChatMessagesRef.current(),
           fetchRoomDetailsRef.current(),
           fetchWeeklyGemsRef.current(),
+          fetchTopGiftsRef.current(),
         ]);
         setLoading(false);
       }
@@ -1930,6 +1949,12 @@ function RoomInteriorView({
       .catch(() => { if (!cancelled) setProfileStats(null); });
     return () => { cancelled = true; };
   }, [profileSheet, roomId]);
+
+  /* ── Fetch top gifts when roomInfo opens ── */
+  useEffect(() => {
+    if (!roomInfoOpen) return;
+    fetchTopGifts();
+  }, [roomInfoOpen, fetchTopGifts]);
 
   /* ── Actions ── */
 
@@ -2354,7 +2379,9 @@ function RoomInteriorView({
           <div className="flex flex-col items-start gap-0 min-w-0">
             <div className="flex items-center gap-1.5">
               <div className="w-[7px] h-[7px] rounded-full bg-[#22c55e] animate-live-pulse flex-shrink-0" />
-              <span className="text-[15px] font-bold text-[#f0f0f8] truncate max-w-[160px]">{room.name}</span>
+              <button onClick={() => setRoomInfoOpen(true)} className="active:scale-[0.97] transition-transform">
+                <span className="text-[15px] font-bold text-[#f0f0f8] truncate max-w-[160px] block">{room.name}</span>
+              </button>
             </div>
             <div className="flex items-center gap-2">
               <div className="flex items-center gap-1 bg-[rgba(108,99,255,0.12)] rounded-full px-1.5 py-0.5">
@@ -2777,6 +2804,43 @@ function RoomInteriorView({
         onAccept={handleAcceptMicInvite}
         onReject={handleRejectMicInvite}
         seatIndex={pendingMicInvite}
+      />
+
+      {/* Room info sheet */}
+      <RoomInfoSheet
+        isOpen={roomInfoOpen}
+        onClose={() => setRoomInfoOpen(false)}
+        room={{
+          id: room.id,
+          name: room.name,
+          description: room.description || '',
+          hostId: room.hostId,
+          hostName: room.hostName || '',
+          roomLevel: room.roomLevel || 1,
+          roomImage: room.roomImage || '',
+          micSeatCount: room.micSeatCount || 10,
+          maxParticipants: room.maxParticipants || 50,
+          joinPrice: (room as any).joinPrice || 0,
+          isAutoMode: room.isAutoMode !== false,
+          roomMode: room.roomMode || 'public',
+        }}
+        participantCount={participants.length}
+        weeklyGems={weeklyGems}
+        onJoin={() => { setRoomInfoOpen(false); }}
+        onFollow={() => { toast({ title: 'تمت المتابعة' }); }}
+        isFollowing={false}
+        isJoined={true}
+        members={participants
+          .filter(p => ['owner', 'coowner', 'admin', 'member'].includes(p.role))
+          .map(p => ({
+            userId: p.userId,
+            displayName: p.displayName,
+            avatar: p.avatar,
+            role: p.role,
+            joinedAt: p.joinedAt,
+          }))}
+        topGifts={topGifts}
+        userGems={0}
       />
       </div>
         {/* End relative z-10 */}
