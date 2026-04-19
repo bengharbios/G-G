@@ -2303,7 +2303,15 @@ function RoomInteriorView({
   return (
     <>
       <InjectStyles />
-      <div className="h-screen bg-[#0d0f1a] flex flex-col voice-room-root" dir="rtl">
+      <div className="h-screen flex flex-col voice-room-root relative" dir="rtl" style={{ backgroundColor: '#0d0f1a' }}>
+        {/* Room background image */}
+        {room.roomImage && (
+          <div className="absolute inset-0 z-0">
+            <img src={room.roomImage} alt="" className="w-full h-full object-cover" />
+            <div className="absolute inset-0 bg-[#0d0f1a]/75" />
+          </div>
+        )}
+        <div className="relative z-10 flex flex-col h-full">
 
         {/* ══════════════════════════════════════════════
             TOP BAR: room info (right), settings+exit+share (left)
@@ -2726,7 +2734,9 @@ function RoomInteriorView({
         onReject={handleRejectMicInvite}
         seatIndex={pendingMicInvite}
       />
-    </>
+      </div>
+        {/* End relative z-10 */}
+      </>
   );
 }
 
