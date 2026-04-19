@@ -1372,22 +1372,32 @@ function RoomListView({
   };
 
   return (
-    <div className="min-h-screen bg-[#0d0f1a] pb-20" dir="rtl">
+    <div className="min-h-screen bg-[#0d0f1a]" dir="rtl">
       {/* Header */}
       <div className="sticky top-0 z-30 bg-[#0d0f1a]/90 backdrop-blur-md border-b border-[rgba(108,99,255,0.18)] px-4 py-3 flex items-center justify-between">
-        <h1 className="text-lg font-bold text-[#f0f0f8] flex items-center gap-2">
-          <Volume2 className="w-5 h-5 text-[#6c63ff]" />
-          الغرف الصوتية
-        </h1>
-        {!hasRoom && (
-          <button
-            onClick={() => setShowCreate(true)}
-            className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-gradient-to-l from-amber-500 to-red-500 text-white text-sm font-medium"
-          >
-            <span>+</span>
-            <span>إنشاء</span>
+        <div className="flex items-center gap-3">
+          <button onClick={() => window.location.href = '/'} className="w-8 h-8 rounded-full bg-[#1c2035] flex items-center justify-center">
+            <Home className="w-4 h-4 text-[#9ca3c4]" />
           </button>
-        )}
+          <h1 className="text-lg font-bold text-[#f0f0f8] flex items-center gap-2">
+            <Volume2 className="w-5 h-5 text-[#6c63ff]" />
+            الغرف الصوتية
+          </h1>
+        </div>
+        <div className="flex items-center gap-2">
+          <button onClick={() => window.location.href = '/profile'} className="w-8 h-8 rounded-full bg-[#1c2035] flex items-center justify-center">
+            <User className="w-4 h-4 text-[#9ca3c4]" />
+          </button>
+          {!hasRoom && (
+            <button
+              onClick={() => setShowCreate(true)}
+              className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-gradient-to-l from-amber-500 to-red-500 text-white text-sm font-medium"
+            >
+              <span>+</span>
+              <span>إنشاء</span>
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Room Grid */}
@@ -1512,6 +1522,24 @@ function RoomListView({
         onClose={() => setShowCreate(false)}
         onCreate={onCreateRoom}
       />
+
+      {/* Bottom Navigation Bar */}
+      <div className="fixed bottom-0 left-0 right-0 z-30 bg-[#141726] border-t border-[rgba(108,99,255,0.18)]">
+        <div className="flex items-center justify-around py-2 pb-4">
+          <button onClick={() => window.location.href = '/'} className="flex flex-col items-center gap-0.5">
+            <Home className="w-5 h-5 text-[#5a6080]" />
+            <span className="text-[9px] text-[#5a6080]">الرئيسية</span>
+          </button>
+          <button className="flex flex-col items-center gap-0.5">
+            <Volume2 className="w-5 h-5 text-[#6c63ff]" />
+            <span className="text-[9px] text-[#6c63ff] font-bold">الغرف</span>
+          </button>
+          <button onClick={() => window.location.href = '/profile'} className="flex flex-col items-center gap-0.5">
+            <User className="w-5 h-5 text-[#5a6080]" />
+            <span className="text-[9px] text-[#5a6080]">حسابي</span>
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
@@ -1655,7 +1683,7 @@ function RoomInteriorView({
   room: initialRoom, onExit, authUser, onRoomUpdate,
 }: {
   room: VoiceRoom;
-  onExit: () => void;
+  onExit: (alreadyCalledLeave?: boolean) => void;
   authUser: AuthUser | null;
   onRoomUpdate: (updatedRoom: VoiceRoom) => void;
 }) {
@@ -2248,7 +2276,7 @@ function RoomInteriorView({
       await fetch(`/api/voice-rooms/${roomId}?action=leave`, { method: 'POST' });
     } catch { /* ignore */ }
     setChatMessages([]);
-    onExit();
+    onExit(true); // pass flag: already called leave API
   }, [roomId, onExit]);
 
   /* ── Copy link ── */
@@ -2324,33 +2352,6 @@ function RoomInteriorView({
         </header>
 
         {/* ══════════════════════════════════════════════
-            MIC GRID: 5 per row, 52px avatars
-            ══════════════════════════════════════════════ */}
-        <section className="bg-[#141726] px-3 py-3.5 pb-2.5 border-b border-[rgba(255,255,255,0.07)] flex-shrink-0">
-          {/* Header */}
-          <div className="flex items-center justify-between mb-3">
-            <span className="text-[11px] text-[#5a6080]">المنابر الصوتية</span>
-            <span className="text-[10px] bg-[rgba(108,99,255,0.15)] text-[#a78bfa] border border-[rgba(108,99,255,0.3)] rounded-full px-2 py-0.5">
-              {room.micSeatCount} مايك
-            </span>
-          </div>
-          {/* Grid: exactly 5 per row */}
-          <div className="grid grid-cols-5 gap-x-1.5 gap-y-2.5">
-            {seats.map((seat) => (
-              <MicSeat
-                key={seat.seatIndex}
-                seatIndex={seat.seatIndex}
-                seatData={seat}
-                currentUserId={currentUserId}
-                myRole={myRole}
-                hostId={room.hostId}
-                onClick={() => handleSeatClick(seat.seatIndex)}
-              />
-            ))}
-          </div>
-        </section>
-
-        {/* ══════════════════════════════════════════════
             AUDIENCE ROW: small avatars, no names, click → profile
             ══════════════════════════════════════════════ */}
         {listenerCount > 0 && (
@@ -2398,6 +2399,33 @@ function RoomInteriorView({
             </div>
           </section>
         )}
+
+        {/* ══════════════════════════════════════════════
+            MIC GRID: 5 per row, 52px avatars
+            ══════════════════════════════════════════════ */}
+        <section className="bg-[#141726] px-3 py-3.5 pb-2.5 border-b border-[rgba(255,255,255,0.07)] flex-shrink-0">
+          {/* Header */}
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-[11px] text-[#5a6080]">المنابر الصوتية</span>
+            <span className="text-[10px] bg-[rgba(108,99,255,0.15)] text-[#a78bfa] border border-[rgba(108,99,255,0.3)] rounded-full px-2 py-0.5">
+              {room.micSeatCount} مايك
+            </span>
+          </div>
+          {/* Grid: exactly 5 per row */}
+          <div className="grid grid-cols-5 gap-x-1.5 gap-y-2.5">
+            {seats.map((seat) => (
+              <MicSeat
+                key={seat.seatIndex}
+                seatIndex={seat.seatIndex}
+                seatData={seat}
+                currentUserId={currentUserId}
+                myRole={myRole}
+                hostId={room.hostId}
+                onClick={() => handleSeatClick(seat.seatIndex)}
+              />
+            ))}
+          </div>
+        </section>
 
         {/* ══════════════════════════════════════════════
             CHAT AREA: session-only, scrollable
@@ -2830,11 +2858,13 @@ export default function VoiceRoomsPage() {
     } catch { /* ignore */ }
   }, [authUser, handleJoinRoom]);
 
-  const handleExitRoom = useCallback(async () => {
+  const handleExitRoom = useCallback(async (alreadyCalledLeave?: boolean) => {
     try {
-      const savedRoomId = localStorage.getItem('vr_active_room');
-      if (savedRoomId) {
-        await fetch(`/api/voice-rooms/${savedRoomId}?action=leave`, { method: 'POST' });
+      if (!alreadyCalledLeave) {
+        const savedRoomId = localStorage.getItem('vr_active_room');
+        if (savedRoomId) {
+          await fetch(`/api/voice-rooms/${savedRoomId}?action=leave`, { method: 'POST' });
+        }
       }
     } catch { /* ignore */ }
     setActiveRoom(null);
@@ -2854,5 +2884,5 @@ export default function VoiceRoomsPage() {
     return <RoomInteriorView room={activeRoom} onExit={handleExitRoom} authUser={authUser} onRoomUpdate={handleRoomUpdate} />;
   }
 
-  return <RoomListView onJoinRoom={handleJoinRoom} onCreateRoom={handleCreateRoom} />;
+  return <RoomListView onJoinRoom={handleJoinRoom} onCreateRoom={handleCreateRoom} authUser={authUser} />;
 }

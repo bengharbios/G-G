@@ -3134,7 +3134,7 @@ export async function leaveVoiceRoom(roomId: string, userId: string): Promise<bo
 
   await logAction(roomId, userId, leavingName, 'leave_room', '', '', '');
 
-  // Transfer ownership if owner left
+  // Transfer ownership if owner left — but do NOT delete the room
   if (leavingRole === 'owner') {
     const roomResult = await c.execute({ sql: 'SELECT hostId, hostName FROM VoiceRoom WHERE id = ?', args: [roomId] });
     if (roomResult.rows.length > 0) {
@@ -3148,24 +3148,17 @@ export async function leaveVoiceRoom(roomId: string, userId: string): Promise<bo
         });
         if (successor.rows.length > 0) {
           const s = successor.rows[0] as Record<string, unknown>;
-          await c.execute({ sql: "UPDATE VoiceRoomParticipant SET role = 'coowner' WHERE roomId = ? AND userId = ?", args: [roomId, userId] });
-          // Note: userId already left, so we update the new owner
           await c.execute({ sql: "UPDATE VoiceRoomParticipant SET role = 'owner' WHERE roomId = ? AND userId = ?", args: [roomId, s.userId] });
           await c.execute({ sql: 'UPDATE VoiceRoom SET hostId = ?, hostName = ? WHERE id = ?', args: [s.userId, s.username || s.displayName || '', roomId] });
           await logAction(roomId, userId, leavingName, 'transfer_ownership', s.userId as string, (s.username as string) || '', 'Auto-transfer on leave');
         }
+        // If no successor, the room keeps its original hostId — it persists and shows in "غرفتي"
       }
     }
   }
 
-  // Clean up empty room
-  const participants = await c.execute({ sql: 'SELECT COUNT(*) as c FROM VoiceRoomParticipant WHERE roomId = ?', args: [roomId] });
-  if (Number(participants.rows[0].c) === 0) {
-    await c.execute({ sql: 'DELETE FROM VoiceRoom WHERE id = ?', args: [roomId] });
-    await c.execute({ sql: 'DELETE FROM RoomWaitlist WHERE roomId = ?', args: [roomId] });
-    await c.execute({ sql: 'DELETE FROM RoomBan WHERE roomId = ?', args: [roomId] });
-    await c.execute({ sql: 'DELETE FROM RoomActionLog WHERE roomId = ?', args: [roomId] });
-  }
+  // NOTE: We NO LONGER delete the room when empty. The room persists so the owner
+  // can rejoin it. It stays pinned in their "غرفتي" section.
 
   return true;
 }
@@ -3783,6 +3776,23 @@ export async function updateRoomSettings(roomId: string, settings: Partial<Voice
 
   values.push(roomId);
   await c.execute({ sql: `UPDATE VoiceRoom SET ${setClauses.join(', ')} WHERE id = ?`, args: values });
+
+  // If micSeatCount was reduced, eject participants from seats beyond the new count
+  if (settings.micSeatCount !== undefined) {
+    const newCount = Number(settings.micSeatCount);
+    // Get current room mic count
+    const roomResult = await c.execute({ sql: 'SELECT micSeatCount FROM VoiceRoom WHERE id = ?', args: [roomId] });
+    if (roomResult.rows.length > 0) {
+      const currentCount = Number(roomResult.rows[0].micSeatCount) || 10;
+      // If the seat count was reduced, remove participants from seats >= newCount
+      if (newCount < currentCount) {
+        await c.execute({
+          sql: 'UPDATE VoiceRoomParticipant SET seatIndex = -1, seatStatus = \'open\' WHERE roomId = ? AND seatIndex >= ?',
+          args: [roomId, newCount],
+        });
+      }
+    }
+  }
 
   await logAction(roomId, userId, actorName, 'update_settings', '', '', JSON.stringify(settings));
   return getRoomById(roomId);
