@@ -169,7 +169,9 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
 
     if (action === 'accept-invite') {
       const { acceptRole } = await request.json();
+      console.log('[accept-invite] roomId:', id, 'userId:', userId, 'acceptRole:', acceptRole);
       const ok = await acceptRoleInvite(id, userId, acceptRole as string);
+      console.log('[accept-invite] result:', ok);
       return NextResponse.json({ success: ok });
     }
 
