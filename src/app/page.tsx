@@ -9,6 +9,8 @@ import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import EventsModal from '@/components/shared/EventsModal';
 import UserProfileModal from '@/components/shared/UserProfileModal';
+import SiteHeader from '@/components/shared/SiteHeader';
+import SiteBottomNav from '@/components/shared/SiteBottomNav';
 import { LoginModal, RegisterModal } from '@/components/AuthModals';
 import {
   Dialog,
@@ -1530,12 +1532,9 @@ export default function HomePage() {
 
   return (
     <div dir="rtl" className="min-h-screen bg-slate-950 text-white">
-      <Header
+      <SiteHeader
         onProfileClick={() => { window.location.href = '/profile'; }}
         onLoginClick={() => setLoginOpen(true)}
-        avatarLetter={authUser?.displayName?.charAt(0) || profileData?.subscriber?.name?.charAt(0)}
-        level={undefined}
-        authUser={authUser}
         onLogout={handleLogout}
       />
 
@@ -1567,7 +1566,7 @@ export default function HomePage() {
       </main>
 
       <Footer />
-      <BottomNavigation eventsModalOpen={eventsModalOpen} setEventsModalOpen={setEventsModalOpen} onProfileClick={() => { window.location.href = '/profile'; }} />
+      <SiteBottomNav activeTab="home" />
 
       {/* Auth Modals */}
       <LoginModal

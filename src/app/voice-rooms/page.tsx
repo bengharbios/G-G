@@ -13,6 +13,8 @@ import {
   UserMinus, Unlock, ImageIcon,
   VolumeX, Link2, Timer, Home, User, Store
 } from 'lucide-react';
+import SiteHeader from '@/components/shared/SiteHeader';
+import SiteBottomNav from '@/components/shared/SiteBottomNav';
 
 /* ═══════════════════════════════════════════════════════════════════════
    TYPES
@@ -887,6 +889,7 @@ function SettingsBottomSheet({
   const [availableBgs, setAvailableBgs] = useState<Array<{ id: string; imageUrl: string; thumbnailUrl: string; nameAr: string; rarity: string; price: number; owned: boolean }>>([]);
   const [selectedBg, setSelectedBg] = useState(room.roomImage || '');
   const [bgLoading, setBgLoading] = useState(false);
+  const hasLoadedBgs = useRef(false);
 
   const roomTypes: { value: RoomMode; label: string; icon: string }[] = [
     { value: 'public', label: 'عامة', icon: '🔓' },
@@ -908,32 +911,40 @@ function SettingsBottomSheet({
     onClose();
   };
 
+  // Only load backgrounds once when the sheet opens (not on every room change)
   useEffect(() => {
     if (isOpen) {
+      // Reset form values from room state at the moment of opening
       setMicCount(room.micSeatCount);
       setRoomType(room.roomMode);
       setSelectedBg(room.roomImage || '');
-      // Fetch available backgrounds
-      setBgLoading(true);
-      fetch('/api/room-backgrounds')
-        .then(r => r.json())
-        .then(data => {
-          if (data.success && data.backgrounds) {
-            setAvailableBgs(data.backgrounds.map((b: any) => ({
-              id: b.background.id,
-              imageUrl: b.background.imageUrl,
-              thumbnailUrl: b.background.thumbnailUrl,
-              nameAr: b.background.nameAr,
-              rarity: b.background.rarity,
-              price: b.background.price,
-              owned: b.owned,
-            })));
-          }
-        })
-        .catch(() => {})
-        .finally(() => setBgLoading(false));
+      hasLoadedBgs.current = false;
     }
-  }, [isOpen, room]);
+  }, [isOpen]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Separate effect for fetching backgrounds - only once per open
+  useEffect(() => {
+    if (!isOpen || hasLoadedBgs.current) return;
+    hasLoadedBgs.current = true;
+    setBgLoading(true);
+    fetch('/api/room-backgrounds')
+      .then(r => r.json())
+      .then(data => {
+        if (data.success && data.backgrounds) {
+          setAvailableBgs(data.backgrounds.map((b: any) => ({
+            id: b.background.id,
+            imageUrl: b.background.imageUrl,
+            thumbnailUrl: b.background.thumbnailUrl,
+            nameAr: b.background.nameAr,
+            rarity: b.background.rarity,
+            price: b.background.price,
+            owned: b.owned,
+          })));
+        }
+      })
+      .catch(() => {})
+      .finally(() => setBgLoading(false));
+  }, [isOpen]);
 
   return (
     <BottomSheetOverlay isOpen={isOpen} onClose={onClose}>
@@ -1373,42 +1384,24 @@ function RoomListView({
 
   return (
     <div className="min-h-screen bg-slate-950" dir="rtl">
-      {/* Header - matching main page */}
-      <header className="sticky top-0 z-50 bg-slate-950/90 backdrop-blur-lg border-b border-slate-800/40">
-        <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-6">
-          <div className="flex items-center justify-between h-14 sm:h-16">
-            {/* Logo */}
-            <div className="flex items-center gap-2.5">
-              <a href="/" className="flex items-center gap-2 shrink-0">
-                <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-gradient-to-br from-amber-500 to-rose-600 flex items-center justify-center shadow-lg shadow-amber-500/20">
-                  <img src="/platform-logo.png" alt="ألعاب الغريب" className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg object-contain"
-                    onError={(e) => { const t = e.target as HTMLImageElement; t.style.display = 'none'; t.parentElement!.innerHTML = '<span class="text-white text-lg font-black">غ</span>'; }} />
-                </div>
-              </a>
-              <div className="hidden sm:block">
-                <h1 className="text-base sm:text-lg font-black bg-gradient-to-l from-amber-300 via-yellow-300 to-amber-400 bg-clip-text text-transparent">ألعاب الغريب</h1>
-              </div>
-            </div>
-            {/* Right side */}
-            <div className="flex items-center gap-2">
-              <a href="/voice-rooms" className="flex items-center gap-1.5 text-[#6c63ff]">
-                <Volume2 className="w-5 h-5" />
-                <span className="text-sm font-bold text-[#f0f0f8] hidden sm:inline">الغرف الصوتية</span>
-              </a>
-              <a href="/profile" className="w-9 h-9 rounded-full bg-slate-800/60 border border-slate-700/40 flex items-center justify-center text-slate-400 hover:text-white hover:bg-slate-700/60 transition-all">
-                <User className="w-4 h-4" />
-              </a>
-              {!hasRoom && (
-                <button onClick={() => setShowCreate(true)}
-                  className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-gradient-to-l from-amber-500 to-red-500 text-white text-sm font-medium">
-                  <span>+</span>
-                  <span>إنشاء</span>
-                </button>
-              )}
-            </div>
-          </div>
-        </div>
-      </header>
+      {/* Shared Header (same as main page) */}
+      <SiteHeader
+        onProfileClick={() => { window.location.href = '/profile'; }}
+        extraContent={
+          !hasRoom ? (
+            <button
+              onClick={() => setShowCreate(true)}
+              className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-gradient-to-l from-amber-500 to-red-500 text-white text-sm font-medium"
+            >
+              <span>+</span>
+              <span className="hidden sm:inline">إنشاء</span>
+            </button>
+          ) : undefined
+        }
+      />
+
+      {/* Spacer for fixed header */}
+      <div className="h-14 sm:h-16" />
 
       {/* Room Grid */}
       <div className="p-4">
@@ -1533,23 +1526,8 @@ function RoomListView({
         onCreate={onCreateRoom}
       />
 
-      {/* Bottom Navigation Bar */}
-      <div className="fixed bottom-0 left-0 right-0 z-30 bg-[#141726] border-t border-[rgba(108,99,255,0.18)]">
-        <div className="flex items-center justify-around py-2 pb-4">
-          <button onClick={() => window.location.href = '/'} className="flex flex-col items-center gap-0.5">
-            <Home className="w-5 h-5 text-[#5a6080]" />
-            <span className="text-[9px] text-[#5a6080]">الرئيسية</span>
-          </button>
-          <button className="flex flex-col items-center gap-0.5">
-            <Volume2 className="w-5 h-5 text-[#6c63ff]" />
-            <span className="text-[9px] text-[#6c63ff] font-bold">الغرف</span>
-          </button>
-          <button onClick={() => window.location.href = '/profile'} className="flex flex-col items-center gap-0.5">
-            <User className="w-5 h-5 text-[#5a6080]" />
-            <span className="text-[9px] text-[#5a6080]">حسابي</span>
-          </button>
-        </div>
-      </div>
+      {/* Shared Bottom Navigation (same as main page) */}
+      <SiteBottomNav activeTab="council" />
     </div>
   );
 }
