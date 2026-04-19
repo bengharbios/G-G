@@ -2337,10 +2337,9 @@ function RoomInteriorView({
             )}
             <button
               onClick={handleLeaveRoom}
-              className="flex items-center gap-1.5 bg-[rgba(239,68,68,0.12)] border border-[rgba(239,68,68,0.3)] rounded-[10px] px-3 py-1.5 text-[12px] font-semibold text-[#ef4444] active:bg-[rgba(239,68,68,0.25)] transition-colors"
+              className="w-[34px] h-[34px] rounded-[10px] bg-[rgba(239,68,68,0.12)] border border-[rgba(239,68,68,0.3)] flex items-center justify-center text-[#ef4444] active:bg-[rgba(239,68,68,0.25)] transition-colors"
             >
-              <X className="w-3 h-3" />
-              خروج
+              <X className="w-4 h-4" />
             </button>
             <button
               onClick={handleCopyLink}
