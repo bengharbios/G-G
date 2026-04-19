@@ -1,0 +1,92 @@
+[
+  {
+    "url": "https://www.tencentcloud.com/ind/document/product/1071/76704",
+    "name": "Gift System (TUILiveKit) - Tencent Cloud",
+    "snippet": "TUILiveKit delivers a complete solution for live streaming gift interactions, including gift asset management, gift billing callbacks, ... Missing: TUIVoiceRoom 2024 2025",
+    "host_name": "www.tencentcloud.com",
+    "rank": 0,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://trtc.io/document/60038",
+    "name": "Interactive Barrage Feature - TUILiveKit - Tencent RTC Documentation",
+    "snippet": "The interactive barrage feature is a crucial real-time communication tool that supports various interactive methods. Users can input emojis in the barrage ... Missing: TUIVoiceRoom animation 2024 2025",
+    "host_name": "trtc.io",
+    "rank": 1,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://github.com/Tencent-RTC/TUILiveKit",
+    "name": "TUILiveKit is a product suitable for interactive live scenes  - GitHub",
+    "snippet": "Interactive Barrage：We support custom text, custom emoticons, room information reminders, and other interactive message displays. Interactive Gifts：We support ... Missing: TUIVoiceRoom list 2024",
+    "host_name": "github.com",
+    "rank": 2,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://www.tencentcloud.com/document/product/1071/78150",
+    "name": "TUILiveKit Release Notes - Tencent Cloud",
+    "snippet": "Gift Function Deep Upgrade (RTCRoomEngine Integration). Newly Upgraded Gift Function System, covering data statistics, notification stability ... Missing: TUIVoiceRoom animation",
+    "host_name": "www.tencentcloud.com",
+    "rank": 3,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://github.com/Tencent-RTC/TUILiveKit/releases",
+    "name": "Releases · Tencent-RTC/TUILiveKit - GitHub",
+    "snippet": "New Features · 1. Multi-Template Video Mix-Streaming · 2. Experimental Picture-in-Picture API · 3. Flutter Platform Updates · 4. Web Platform ... Missing: TUIVoiceRoom animation barrage",
+    "host_name": "github.com",
+    "rank": 4,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://www.tencentcloud.com/ind/document/product/1071/76701",
+    "name": "Live Gift Component (iOS UIKit) - Tencent Cloud",
+    "snippet": "This guide introduces how to quickly integrate the TUILiveKit live gifting component into your project. Component Overview. The gifting feature ... Missing: TUIVoiceRoom 2024 2025",
+    "host_name": "www.tencentcloud.com",
+    "rank": 5,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://www.tencentcloud.com/document/product/647/60034",
+    "name": "Overview - Tencent Cloud",
+    "snippet": "Provide a comprehensive gift solution, including gift material configuration, panel display, special effects playback and data analytics ... Missing: animation 2024 2025",
+    "host_name": "www.tencentcloud.com",
+    "rank": 6,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://www.tencentcloud.com/ko/document/product/647/73997",
+    "name": "Live Gift Component (iOS UIKit) - Tencent Cloud",
+    "snippet": "This guide introduces how to quickly integrate the TUILiveKit live gifting component into your project. Component Overview. The gifting feature in TUILiveKit ... Missing: TUIVoiceRoom barrage 2024",
+    "host_name": "www.tencentcloud.com",
+    "rank": 7,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://www.tencentcloud.com/ko/document/product/647/77818",
+    "name": "Live Gift Component（Web Vue3 Desktop Browser） - Tencent Cloud",
+    "snippet": "This guide shows you how to integrate the LiveGift component from TUILiveKit into your React web application for desktop browsers. ﻿. Core ... Missing: TUIVoiceRoom barrage 2024 2025",
+    "host_name": "www.tencentcloud.com",
+    "rank": 8,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://www.tencentcloud.com/document/product/647/67252",
+    "name": "Web - Tencent Cloud",
+    "snippet": "Core Features: Manage barrage features in live rooms, including text ... List of barrage messages. API Functions. Function List. Missing: gift animation 2024",
+    "host_name": "www.tencentcloud.com",
+    "rank": 9,
+    "date": "",
+    "favicon": ""
+  }
+]
