@@ -11,7 +11,7 @@ import {
   X, Loader2, Send, Settings,
   Users, Key, Globe, EyeOff, Ban,
   UserMinus, Unlock, ImageIcon,
-  VolumeX, Link2, Timer, Home, User, Store
+  VolumeX, Link2, Timer, Home, User, Store, Trophy
 } from 'lucide-react';
 import SiteHeader from '@/components/shared/SiteHeader';
 import SiteBottomNav from '@/components/shared/SiteBottomNav';
@@ -47,6 +47,8 @@ interface VoiceRoomParticipant {
   id: string; roomId: string; userId: string; username: string; displayName: string;
   avatar: string; isMuted: boolean; micFrozen: boolean; role: RoomRole;
   seatIndex: number; seatStatus: SeatStatus; vipLevel: number; joinedAt: string;
+  pendingRole?: string;
+  pendingMicInvite?: number;
 }
 
 interface Gift {
@@ -183,22 +185,11 @@ function InjectStyles() {
           to { opacity: 1; transform: translateY(0); }
         }
         @keyframes speakGlow {
-          0% { box-shadow: 0 0 4px 2px rgba(34,197,94,0.4), 0 0 12px 4px rgba(34,197,94,0.15); }
-          15% { box-shadow: 0 0 8px 3px rgba(34,197,94,0.6), 0 0 20px 6px rgba(34,197,94,0.25); }
-          30% { box-shadow: 0 0 5px 2px rgba(34,197,94,0.35), 0 0 14px 5px rgba(34,197,94,0.12); }
-          45% { box-shadow: 0 0 10px 4px rgba(34,197,94,0.65), 0 0 24px 8px rgba(34,197,94,0.3); }
-          60% { box-shadow: 0 0 6px 3px rgba(34,197,94,0.45), 0 0 16px 5px rgba(34,197,94,0.18); }
-          75% { box-shadow: 0 0 9px 3px rgba(34,197,94,0.55), 0 0 22px 7px rgba(34,197,94,0.22); }
-          90% { box-shadow: 0 0 4px 2px rgba(34,197,94,0.3), 0 0 12px 4px rgba(34,197,94,0.1); }
-          100% { box-shadow: 0 0 4px 2px rgba(34,197,94,0.4), 0 0 12px 4px rgba(34,197,94,0.15); }
-        }
-        @keyframes speakPulse {
-          0%, 100% { transform: scale(1); }
-          50% { transform: scale(1.06); }
+          0%, 100% { box-shadow: 0 0 3px 1px rgba(34,197,94,0.3); }
+          50% { box-shadow: 0 0 6px 2px rgba(34,197,94,0.5); }
         }
         .animate-speak-ring { animation: speakRing 1s infinite; }
-        .animate-speak-glow { animation: speakGlow 1.2s ease-in-out infinite; }
-        .animate-speak-pulse { animation: speakPulse 1.2s ease-in-out infinite; }
+        .animate-speak-glow { animation: speakGlow 2s ease-in-out infinite; }
         .animate-live-pulse { animation: livePulse 1.8s infinite; }
         .animate-fade-up { animation: fadeUp 0.3s ease; }
         .scrollbar-hide::-webkit-scrollbar { display: none; }
@@ -248,11 +239,10 @@ function MicSeat({
     let ringClass = 'border-[#22c55e] bg-[#1c2035]';
     if (isOwner) ringClass = 'border-[#f59e0b] bg-[#1c2035] shadow-[0_0_0_2px_rgba(245,158,11,0.2)]';
     else if (isSpeaking) ringClass = 'border-[#22c55e] bg-[#1c2035] animate-speak-glow';
-    const avatarPulse = isSpeaking && !isOwner ? 'animate-speak-pulse' : '';
 
     return (
       <button onClick={onClick} className="flex flex-col items-center gap-1 cursor-pointer active:scale-95 transition-transform">
-        <div className={`relative ${avatarPulse}`}>
+        <div className="relative">
           <div
             className={`w-[52px] h-[52px] rounded-full flex items-center justify-center overflow-hidden border-2 ${ringClass}`}
             style={{ background: avatarColor }}
@@ -269,7 +259,7 @@ function MicSeat({
               <span className="text-[7px] leading-none">★</span>
             </div>
           )}
-          {/* Speaking badge */}
+          {/* Speaking indicator - subtle green dot (no animation) */}
           {isSpeaking && !isOwner && (
             <div className="absolute -bottom-0.5 -left-0.5 w-4 h-4 rounded-full bg-[#22c55e] border-2 border-[#141726] flex items-center justify-center">
               <span className="text-[7px] leading-none">♪</span>
@@ -386,7 +376,7 @@ function MicMenuBottomSheet({
         {/* When someone is ON the mic */}
         {participant && (
           <>
-            {/* View profile */}
+            {/* View profile — always available */}
             <button
               onClick={() => { onAction('view-profile'); onClose(); }}
               className="w-full flex items-center gap-3 px-3.5 py-3 rounded-xl text-[#a78bfa] hover:bg-[#232843] active:bg-[#232843] transition-colors"
@@ -400,79 +390,100 @@ function MicMenuBottomSheet({
               </div>
             </button>
 
-            {/* Close mic (lock + pull) */}
-            {!isSeatLocked && (
+            {/* ── ADMIN ACTIONS: only visible to admin+ ── */}
+            {isAdmin && (
+              <>
+                {/* Close mic (lock + pull) */}
+                {!isSeatLocked && (
+                  <button
+                    onClick={() => { onAction('close-seat'); onClose(); }}
+                    className="w-full flex items-center gap-3 px-3.5 py-3 rounded-xl text-[#f59e0b] hover:bg-[#232843] active:bg-[#232843] transition-colors"
+                  >
+                    <div className="w-9 h-9 rounded-full bg-[rgba(245,158,11,0.15)] flex items-center justify-center flex-shrink-0">
+                      <Lock className="w-[18px] h-[18px] text-[#f59e0b]" />
+                    </div>
+                    <div className="text-right">
+                      <div className="text-[14px] font-semibold">إغلاق المايك</div>
+                      <div className="text-[11px] text-[#5a6080] font-normal">إغلاق المايك وإخراج العضو منه</div>
+                    </div>
+                  </button>
+                )}
+
+                {/* Pull from mic (without locking) */}
+                <button
+                  onClick={() => { onAction('pull-from-mic'); onClose(); }}
+                  className="w-full flex items-center gap-3 px-3.5 py-3 rounded-xl text-[#ef4444] hover:bg-[#232843] active:bg-[#232843] transition-colors"
+                >
+                  <div className="w-9 h-9 rounded-full bg-[rgba(239,68,68,0.15)] flex items-center justify-center flex-shrink-0">
+                    <UserMinus className="w-[18px] h-[18px] text-[#ef4444]" />
+                  </div>
+                  <div className="text-right">
+                    <div className="text-[14px] font-semibold">إنزال من المايك</div>
+                    <div className="text-[11px] text-[#5a6080] font-normal">إخراج العضو من المنبر فوراً</div>
+                  </div>
+                </button>
+
+                {/* Open the mic (unlock) - only if locked */}
+                {isSeatLocked && (
+                  <button
+                    onClick={() => { onAction('unlock-seat'); onClose(); }}
+                    className="w-full flex items-center gap-3 px-3.5 py-3 rounded-xl text-[#22c55e] hover:bg-[#232843] active:bg-[#232843] transition-colors"
+                  >
+                    <div className="w-9 h-9 rounded-full bg-[rgba(34,197,94,0.15)] flex items-center justify-center flex-shrink-0">
+                      <Unlock className="w-[18px] h-[18px] text-[#22c55e]" />
+                    </div>
+                    <div className="text-right">
+                      <div className="text-[14px] font-semibold">فتح المايك</div>
+                      <div className="text-[11px] text-[#5a6080] font-normal">فتح المايك والسماح بالجلوس</div>
+                    </div>
+                  </button>
+                )}
+
+                {/* Temp kick from room */}
+                <button
+                  onClick={() => { onAction('kick-temp'); onClose(); }}
+                  className="w-full flex items-center gap-3 px-3.5 py-3 rounded-xl text-[#f97316] hover:bg-[#232843] active:bg-[#232843] transition-colors"
+                >
+                  <div className="w-9 h-9 rounded-full bg-[rgba(249,115,22,0.15)] flex items-center justify-center flex-shrink-0">
+                    <Timer className="w-[18px] h-[18px] text-[#f97316]" />
+                  </div>
+                  <div className="text-right">
+                    <div className="text-[14px] font-semibold">طرد مؤقت من الروم</div>
+                    <div className="text-[11px] text-[#5a6080] font-normal">مدة الطرد: 10 دقائق</div>
+                  </div>
+                </button>
+
+                {/* Perm ban from room */}
+                <button
+                  onClick={() => { onAction('kick-perm'); onClose(); }}
+                  className="w-full flex items-center gap-3 px-3.5 py-3 rounded-xl text-[#ef4444] hover:bg-[#232843] active:bg-[#232843] transition-colors"
+                >
+                  <div className="w-9 h-9 rounded-full bg-[rgba(239,68,68,0.15)] flex items-center justify-center flex-shrink-0">
+                    <Ban className="w-[18px] h-[18px] text-[#ef4444]" />
+                  </div>
+                  <div className="text-right">
+                    <div className="text-[14px] font-semibold">طرد نهائي من الروم</div>
+                    <div className="text-[11px] text-[#5a6080] font-normal">حظر دائم من الغرفة</div>
+                  </div>
+                </button>
+              </>
+            )}
+
+            {/* ── OWN SEAT ACTIONS: only for the person sitting on this mic ── */}
+            {isOnMic && (
               <button
-                onClick={() => { onAction('close-seat'); onClose(); }}
-                className="w-full flex items-center gap-3 px-3.5 py-3 rounded-xl text-[#f59e0b] hover:bg-[#232843] active:bg-[#232843] transition-colors"
+                onClick={() => { onAction('leave-seat'); onClose(); }}
+                className="w-full flex items-center gap-3 px-3.5 py-3 rounded-xl text-[#ef4444] hover:bg-[#232843] active:bg-[#232843] transition-colors"
               >
-                <div className="w-9 h-9 rounded-full bg-[rgba(245,158,11,0.15)] flex items-center justify-center flex-shrink-0">
-                  <Lock className="w-[18px] h-[18px] text-[#f59e0b]" />
+                <div className="w-9 h-9 rounded-full bg-[rgba(239,68,68,0.15)] flex items-center justify-center flex-shrink-0">
+                  <UserMinus className="w-[18px] h-[18px] text-[#ef4444]" />
                 </div>
                 <div className="text-right">
-                  <div className="text-[14px] font-semibold">إغلاق المايك</div>
-                  <div className="text-[11px] text-[#5a6080] font-normal">إغلاق المايك وإخراج العضو منه</div>
+                  <div className="text-[14px] font-semibold">النزول من المايك</div>
+                  <div className="text-[11px] text-[#5a6080] font-normal">ترك مقعدك الصوتي</div>
                 </div>
               </button>
             )}
-
-            {/* Pull from mic (without locking) */}
-            <button
-              onClick={() => { onAction('pull-from-mic'); onClose(); }}
-              className="w-full flex items-center gap-3 px-3.5 py-3 rounded-xl text-[#ef4444] hover:bg-[#232843] active:bg-[#232843] transition-colors"
-            >
-              <div className="w-9 h-9 rounded-full bg-[rgba(239,68,68,0.15)] flex items-center justify-center flex-shrink-0">
-                <UserMinus className="w-[18px] h-[18px] text-[#ef4444]" />
-              </div>
-              <div className="text-right">
-                <div className="text-[14px] font-semibold">إنزال من المايك</div>
-                <div className="text-[11px] text-[#5a6080] font-normal">إخراج العضو من المنبر فوراً</div>
-              </div>
-            </button>
-
-            {/* Open the mic (unlock) - only if locked */}
-            {isSeatLocked && (
-              <button
-                onClick={() => { onAction('unlock-seat'); onClose(); }}
-                className="w-full flex items-center gap-3 px-3.5 py-3 rounded-xl text-[#22c55e] hover:bg-[#232843] active:bg-[#232843] transition-colors"
-              >
-                <div className="w-9 h-9 rounded-full bg-[rgba(34,197,94,0.15)] flex items-center justify-center flex-shrink-0">
-                  <Unlock className="w-[18px] h-[18px] text-[#22c55e]" />
-                </div>
-                <div className="text-right">
-                  <div className="text-[14px] font-semibold">فتح المايك</div>
-                  <div className="text-[11px] text-[#5a6080] font-normal">فتح المايك والسماح بالجلوس</div>
-                </div>
-              </button>
-            )}
-
-            {/* Temp kick from room */}
-            <button
-              onClick={() => { onAction('kick-temp'); onClose(); }}
-              className="w-full flex items-center gap-3 px-3.5 py-3 rounded-xl text-[#f97316] hover:bg-[#232843] active:bg-[#232843] transition-colors"
-            >
-              <div className="w-9 h-9 rounded-full bg-[rgba(249,115,22,0.15)] flex items-center justify-center flex-shrink-0">
-                <Timer className="w-[18px] h-[18px] text-[#f97316]" />
-              </div>
-              <div className="text-right">
-                <div className="text-[14px] font-semibold">طرد مؤقت من الروم</div>
-                <div className="text-[11px] text-[#5a6080] font-normal">مدة الطرد: 10 دقائق</div>
-              </div>
-            </button>
-
-            {/* Perm ban from room */}
-            <button
-              onClick={() => { onAction('kick-perm'); onClose(); }}
-              className="w-full flex items-center gap-3 px-3.5 py-3 rounded-xl text-[#ef4444] hover:bg-[#232843] active:bg-[#232843] transition-colors"
-            >
-              <div className="w-9 h-9 rounded-full bg-[rgba(239,68,68,0.15)] flex items-center justify-center flex-shrink-0">
-                <Ban className="w-[18px] h-[18px] text-[#ef4444]" />
-              </div>
-              <div className="text-right">
-                <div className="text-[14px] font-semibold">طرد نهائي من الروم</div>
-                <div className="text-[11px] text-[#5a6080] font-normal">حظر دائم من الغرفة</div>
-              </div>
-            </button>
           </>
         )}
 
@@ -1691,6 +1702,7 @@ function RoomInteriorView({
   const [profileStats, setProfileStats] = useState<{ giftsSent: number; giftsReceived: number; totalReceivedValue: number } | null>(null);
   const [isMicMuted, setIsMicMuted] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [weeklyGems, setWeeklyGems] = useState(0);
 
   /* ── UI state ── */
   const [profileSheet, setProfileSheet] = useState<VoiceRoomParticipant | null>(null);
@@ -1777,6 +1789,14 @@ function RoomInteriorView({
       const res = await fetch(`/api/voice-rooms/${roomId}?action=gifts`);
       const data = await res.json();
       if (data.success && data.gifts) setGifts(data.gifts);
+    } catch { /* ignore */ }
+  }, [roomId]);
+
+  const fetchWeeklyGems = useCallback(async () => {
+    try {
+      const res = await fetch(`/api/voice-rooms/${roomId}?action=weekly-gems`);
+      const data = await res.json();
+      if (data.success) setWeeklyGems(data.gems);
     } catch { /* ignore */ }
   }, [roomId]);
 
@@ -2160,6 +2180,14 @@ function RoomInteriorView({
         break;
       case 'kick-perm':
         await handleBan();
+        break;
+      case 'leave-seat':
+        // User voluntarily leaving their seat
+        try {
+          await fetch(`/api/voice-rooms/${roomId}?action=leave-seat`, { method: 'POST' });
+          await fetchParticipants();
+          await fetchMyParticipant();
+        } catch { /* ignore */ }
         break;
     }
   }, [micMenuSheet, handleRequestSeat, handleSetSeatStatus, handleKickFromMic, handleBan, fetchRoomDetails]);

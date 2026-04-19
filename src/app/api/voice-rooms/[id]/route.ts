@@ -12,6 +12,7 @@ import {
   getRoomTemplate, saveRoomTemplate, getUserGiftStats,
   inviteRoleToRoom, acceptRoleInvite, rejectRoleInvite,
   inviteToMic, acceptMicInvite, rejectMicInvite,
+  ROLE_HIERARCHY, RoomRole, getRoomWeeklyGems,
 } from '@/lib/admin-db';
 
 const JWT_SECRET = new TextEncoder().encode(process.env.JWT_SECRET || 'gg-platform-secret-key-2024');
@@ -93,6 +94,10 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       const stats = await getUserGiftStats(targetUserId);
       return NextResponse.json({ success: true, stats });
     }
+    if (action === 'weekly-gems') {
+      const gems = await getRoomWeeklyGems(id);
+      return NextResponse.json({ success: true, gems });
+    }
 
     return NextResponse.json({ error: 'طلب غير صالح' }, { status: 400 });
   } catch (e) {
@@ -144,6 +149,11 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
     if (action === 'set-seat-status') {
       const { seatIndex, status } = await request.json();
       if (seatIndex === undefined || !status) return NextResponse.json({ error: 'بيانات ناقصة' }, { status: 400 });
+      // Permission check: admin+ only
+      const actor = await getParticipant(id, userId);
+      if (!actor || ROLE_HIERARCHY[actor.role] < ROLE_HIERARCHY['admin' as RoomRole]) {
+        return NextResponse.json({ error: 'صلاحيات غير كافية' }, { status: 403 });
+      }
       const ok = await setSeatStatus(id, seatIndex, status, userId);
       if (!ok) return NextResponse.json({ error: 'فشل تغيير حالة المقعد' }, { status: 403 });
       return NextResponse.json({ success: true });
@@ -222,7 +232,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         id, userId, body.username || '', body.displayName || '',
         body.avatar || '', vipLevel, body.seatIndex !== undefined ? Number(body.seatIndex) : -1,
       );
-      return NextResponse.json({ success: result.success, autoAssigned: result.autoAssigned, seatIndex: result.seatIndex });
+      return NextResponse.json({ success: result.success, autoAssigned: result.autoAssigned, seatIndex: result.seatIndex, error: result.error });
     }
 
     if (action === 'leave-seat') {
@@ -233,6 +243,15 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     if (action === 'ban') {
       const { targetUserId, reason } = await request.json();
       if (!targetUserId) return NextResponse.json({ error: 'بيانات ناقصة' }, { status: 400 });
+      // Permission check: admin+ only
+      const actor = await getParticipant(id, userId);
+      if (!actor || ROLE_HIERARCHY[actor.role] < ROLE_HIERARCHY['admin' as RoomRole]) {
+        return NextResponse.json({ error: 'صلاحيات غير كافية' }, { status: 403 });
+      }
+      const target = await getParticipant(id, targetUserId);
+      if (target && ROLE_HIERARCHY[target.role] >= ROLE_HIERARCHY[actor.role]) {
+        return NextResponse.json({ error: 'لا يمكنك حظر هذا المستخدم' }, { status: 403 });
+      }
       const ok = await banUserFromRoom(id, targetUserId, userId, reason || '');
       if (!ok) return NextResponse.json({ error: 'فشل حظر المستخدم' }, { status: 403 });
       return NextResponse.json({ success: true });
@@ -241,6 +260,11 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     if (action === 'unban') {
       const { targetUserId } = await request.json();
       if (!targetUserId) return NextResponse.json({ error: 'بيانات ناقصة' }, { status: 400 });
+      // Permission check: admin+ only
+      const actor = await getParticipant(id, userId);
+      if (!actor || ROLE_HIERARCHY[actor.role] < ROLE_HIERARCHY['admin' as RoomRole]) {
+        return NextResponse.json({ error: 'صلاحيات غير كافية' }, { status: 403 });
+      }
       const ok = await unbanUserFromRoom(id, targetUserId);
       return NextResponse.json({ success: ok });
     }
@@ -248,14 +272,33 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     if (action === 'kick-from-mic') {
       const { targetUserId } = await request.json();
       if (!targetUserId) return NextResponse.json({ error: 'بيانات ناقصة' }, { status: 400 });
+      // Permission check: admin+ only (unless kicking self)
+      if (targetUserId !== userId) {
+        const actor = await getParticipant(id, userId);
+        if (!actor || ROLE_HIERARCHY[actor.role] < ROLE_HIERARCHY['admin' as RoomRole]) {
+          return NextResponse.json({ error: 'صلاحيات غير كافية' }, { status: 403 });
+        }
+        const target = await getParticipant(id, targetUserId);
+        if (target && ROLE_HIERARCHY[target.role] >= ROLE_HIERARCHY[actor.role]) {
+          return NextResponse.json({ error: 'لا يمكنك إنزال هذا المستخدم' }, { status: 403 });
+        }
+      }
       const ok = await kickFromMic(id, targetUserId, userId);
-      if (!ok) return NextResponse.json({ error: 'فشل طرده من المايك' }, { status: 403 });
       return NextResponse.json({ success: true });
     }
 
     if (action === 'kick-from-room') {
       const { targetUserId, durationMinutes } = await request.json();
       if (!targetUserId) return NextResponse.json({ error: 'بيانات ناقصة' }, { status: 400 });
+      // Permission check: admin+ only
+      const actor = await getParticipant(id, userId);
+      if (!actor || ROLE_HIERARCHY[actor.role] < ROLE_HIERARCHY['admin' as RoomRole]) {
+        return NextResponse.json({ error: 'صلاحيات غير كافية' }, { status: 403 });
+      }
+      const target = await getParticipant(id, targetUserId);
+      if (target && ROLE_HIERARCHY[target.role] >= ROLE_HIERARCHY[actor.role]) {
+        return NextResponse.json({ error: 'لا يمكنك طرد هذا المستخدم' }, { status: 403 });
+      }
       if (durationMinutes && durationMinutes > 0) {
         const ok = await kickFromRoomTimed(id, targetUserId, userId, durationMinutes);
         return NextResponse.json({ success: ok });
@@ -273,14 +316,24 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     if (action === 'freeze-seat') {
       const { targetUserId } = await request.json();
       if (!targetUserId) return NextResponse.json({ error: 'بيانات ناقصة' }, { status: 400 });
+      // Permission check: coowner+ only
+      const actor = await getParticipant(id, userId);
+      if (!actor || ROLE_HIERARCHY[actor.role] < ROLE_HIERARCHY['coowner' as RoomRole]) {
+        return NextResponse.json({ error: 'صلاحيات غير كافية - مالك أو نائب فقط' }, { status: 403 });
+      }
       const ok = await freezeSeat(id, targetUserId, userId);
-      if (!ok) return NextResponse.json({ error: 'فشل تجميد المايك - تحتاج صلاحية مالك/نائب' }, { status: 403 });
+      if (!ok) return NextResponse.json({ error: 'فشل تجميد المايك' }, { status: 403 });
       return NextResponse.json({ success: true });
     }
 
     if (action === 'unfreeze-seat') {
       const { targetUserId } = await request.json();
       if (!targetUserId) return NextResponse.json({ error: 'بيانات ناقصة' }, { status: 400 });
+      // Permission check: coowner+ only
+      const actor = await getParticipant(id, userId);
+      if (!actor || ROLE_HIERARCHY[actor.role] < ROLE_HIERARCHY['coowner' as RoomRole]) {
+        return NextResponse.json({ error: 'صلاحيات غير كافية' }, { status: 403 });
+      }
       const ok = await unfreezeSeat(id, targetUserId);
       return NextResponse.json({ success: ok });
     }
@@ -288,6 +341,11 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     if (action === 'assign-seat') {
       const { targetUserId, seatIndex } = await request.json();
       if (targetUserId === undefined || seatIndex === undefined) return NextResponse.json({ error: 'بيانات ناقصة' }, { status: 400 });
+      // Permission check: admin+ only
+      const actor = await getParticipant(id, userId);
+      if (!actor || ROLE_HIERARCHY[actor.role] < ROLE_HIERARCHY['admin' as RoomRole]) {
+        return NextResponse.json({ error: 'صلاحيات غير كافية' }, { status: 403 });
+      }
       const ok = await assignSeat(id, targetUserId, seatIndex, userId);
       if (!ok) return NextResponse.json({ error: 'فشل تعيين المقعد' }, { status: 403 });
       return NextResponse.json({ success: true });

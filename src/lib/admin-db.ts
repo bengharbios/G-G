@@ -2768,6 +2768,8 @@ export interface VoiceRoomParticipant {
   seatStatus: SeatStatus;
   vipLevel: number;
   joinedAt: string;
+  pendingRole?: string;
+  pendingMicInvite?: number;
 }
 
 export interface RoomBan {
@@ -3380,7 +3382,7 @@ export async function assignSeat(roomId: string, userId: string, seatIndex: numb
 }
 
 // 15. requestSeat
-export async function requestSeat(roomId: string, userId: string, username: string, displayName: string, avatar: string, vipLevel: number, requestedSeat: number = -1): Promise<{ success: boolean; autoAssigned?: boolean; seatIndex?: number }> {
+export async function requestSeat(roomId: string, userId: string, username: string, displayName: string, avatar: string, vipLevel: number, requestedSeat: number = -1): Promise<{ success: boolean; autoAssigned?: boolean; seatIndex?: number; error?: string }> {
   const c = getClient();
   await ensureAdminTables();
 
@@ -3421,7 +3423,10 @@ export async function requestSeat(roomId: string, userId: string, username: stri
   }
   if (!canSitDirectly && !guestMicEnabled && !isAutoMode) {
     // Visitor with guest mic disabled and auto mode off — can't sit
-    return { success: false };
+    if (memberMicEnabled) {
+      return { success: false, error: 'المايك للأعضاء فقط - اطلب العضوية من إدارة الغرفة' };
+    }
+    return { success: false, error: 'المايك مغلق حالياً - لا يمكن الصعود' };
   }
 
   if (isAutoMode || (canSitDirectly && memberMicEnabled) || (canSitDirectly && ['admin', 'coowner', 'owner'].includes(effectiveRole)) || (!canSitDirectly && (guestMicEnabled || isAutoMode))) {
@@ -3445,9 +3450,10 @@ export async function requestSeat(roomId: string, userId: string, username: stri
     if (targetSeat >= 0) {
       // If user is already on a different seat, free it up
       if (currentSeat >= 0) {
-        await c.execute({ sql: 'UPDATE VoiceRoomParticipant SET seatIndex = ?, seatStatus = ? WHERE roomId = ? AND userId = ?', args: [targetSeat, 'locked', roomId, userId] });
+        await c.execute({ sql: 'UPDATE VoiceRoomParticipant SET seatIndex = ?, seatStatus = ?, isMuted = 1 WHERE roomId = ? AND userId = ?', args: [targetSeat, 'locked', roomId, userId] });
       } else {
-        await c.execute({ sql: "UPDATE VoiceRoomParticipant SET seatIndex = ?, seatStatus = 'locked' WHERE roomId = ? AND userId = ?", args: [targetSeat, roomId, userId] });
+        // New to mic: default to muted (1) so mic doesn't appear active
+        await c.execute({ sql: "UPDATE VoiceRoomParticipant SET seatIndex = ?, seatStatus = 'locked', isMuted = 1 WHERE roomId = ? AND userId = ?", args: [targetSeat, roomId, userId] });
       }
       return { success: true, autoAssigned: true, seatIndex: targetSeat };
     }
@@ -3579,7 +3585,7 @@ export async function changeUserRole(roomId: string, targetUserId: string, newRo
     await c.execute({ sql: 'UPDATE VoiceRoomParticipant SET seatIndex = -1, seatStatus = "open" WHERE roomId = ? AND userId = ?', args: [roomId, targetUserId] });
   }
 
-  await c.execute({ sql: 'UPDATE VoiceRoomParticipant SET role = ? WHERE roomId = ? AND userId = ?', args: [newRole, roomId, targetUserId] });
+  await c.execute({ sql: 'UPDATE VoiceRoomParticipant SET role = ?, pendingRole = "" WHERE roomId = ? AND userId = ?', args: [newRole, roomId, targetUserId] });
   await logAction(roomId, actorId, actorName, 'change_role', targetUserId, targetName, `${targetRole} -> ${newRole}`);
   return true;
 }
@@ -3603,9 +3609,9 @@ export async function inviteRoleToRoom(roomId: string, targetUserId: string, new
   // Cannot promote above own level
   if (ROLE_HIERARCHY[newRole as RoomRole] >= ROLE_HIERARCHY[actorRole as RoomRole]) return false;
   
-  // For member role: directly set the role AND pendingRole (popup is informational)
+  // For member role: only set pendingRole (user must accept via dialog)
   if (newRole === 'member') {
-    await c.execute({ sql: 'UPDATE VoiceRoomParticipant SET role = ?, pendingRole = ? WHERE roomId = ? AND userId = ?', args: [newRole, newRole, roomId, targetUserId] });
+    await c.execute({ sql: 'UPDATE VoiceRoomParticipant SET pendingRole = ? WHERE roomId = ? AND userId = ?', args: [newRole, roomId, targetUserId] });
   } else {
     await c.execute({ sql: 'UPDATE VoiceRoomParticipant SET pendingRole = ? WHERE roomId = ? AND userId = ?', args: [newRole, roomId, targetUserId] });
   }
@@ -3915,6 +3921,8 @@ export async function getParticipant(roomId: string, userId: string): Promise<Vo
     seatStatus: (row.seatStatus as SeatStatus) || 'open',
     vipLevel: Number(row.vipLevel) || 0,
     joinedAt: row.joinedAt as string,
+    pendingRole: (row.pendingRole as string) || '',
+    pendingMicInvite: Number(row.pendingMicInvite) ?? -1,
   };
 }
 
@@ -4059,6 +4067,28 @@ export async function getUserGiftStats(userId: string, roomId?: string): Promise
     totalSentValue: Number(sentRow.total ?? 0),
     totalReceivedValue: Number(receivedRow.total ?? 0),
   };
+}
+
+// Get total gems spent in a room this week (since Monday 00:00)
+export async function getRoomWeeklyGems(roomId: string): Promise<number> {
+  const c = getClient();
+  await ensureAdminTables();
+  // Get the start of the current week (Monday)
+  const now = new Date();
+  const dayOfWeek = now.getDay();
+  const diff = dayOfWeek === 0 ? 6 : dayOfWeek - 1; // Monday = 0
+  const monday = new Date(now);
+  monday.setDate(now.getDate() - diff);
+  monday.setHours(0, 0, 0, 0);
+  const weekStart = monday.toISOString();
+
+  const result = await c.execute({
+    sql: `SELECT COALESCE(SUM(g.price), 0) as total
+          FROM GiftHistory gh JOIN Gift g ON g.id = gh.giftId
+          WHERE gh.roomId = ? AND gh.createdAt >= ?`,
+    args: [roomId, weekStart],
+  });
+  return Number((result.rows[0] as Record<string, unknown>)?.total ?? 0);
 }
 
 // ─── Room Background operations ──────────────────────────────────────
