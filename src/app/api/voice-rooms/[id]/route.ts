@@ -168,16 +168,9 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
     }
 
     if (action === 'accept-invite') {
-      try {
-        const { acceptRole } = await request.json();
-        console.log('[accept-invite] roomId:', id, 'userId:', userId, 'acceptRole:', acceptRole);
-        const ok = await acceptRoleInvite(id, userId, acceptRole as string);
-        console.log('[accept-invite] result:', ok);
-        return NextResponse.json({ success: ok });
-      } catch (inviteErr) {
-        console.error('[accept-invite] ERROR:', inviteErr);
-        return NextResponse.json({ success: false, error: String(inviteErr) }, { status: 500 });
-      }
+      // No need to read body — server reads pendingRole from DB
+      const ok = await acceptRoleInvite(id, userId);
+      return NextResponse.json({ success: ok });
     }
 
     if (action === 'reject-invite') {

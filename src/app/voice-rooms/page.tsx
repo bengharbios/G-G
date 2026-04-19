@@ -2228,7 +2228,7 @@ function RoomInteriorView({
       const res = await fetch(`/api/voice-rooms/${roomId}?action=accept-invite`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ acceptRole: pendingInvite }),
+        body: JSON.stringify({}),
       });
       const data = await res.json();
       if (data.success) {
@@ -2236,7 +2236,7 @@ function RoomInteriorView({
         setPendingInvite('');
         await Promise.all([fetchParticipants(), fetchMyParticipant()]);
       } else {
-        toast({ title: 'فشل قبول الدعوة', description: 'حاول مرة أخرى' });
+        toast({ title: 'فشل قبول الدعوة', description: data.error || 'حاول مرة أخرى' });
       }
     } catch {
       toast({ title: 'خطأ في الاتصال', description: 'تحقق من الإنترنت وحاول مرة أخرى' });

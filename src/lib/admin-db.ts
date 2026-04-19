@@ -3636,27 +3636,17 @@ export async function inviteRoleToRoom(roomId: string, targetUserId: string, new
   return true;
 }
 
-export async function acceptRoleInvite(roomId: string, userId: string, newRole: string): Promise<boolean> {
+export async function acceptRoleInvite(roomId: string, userId: string): Promise<boolean> {
   const c = getClient();
   await ensureAdminTables();
   
   const result = await c.execute({ sql: 'SELECT pendingRole FROM VoiceRoomParticipant WHERE roomId = ? AND userId = ?', args: [roomId, userId] });
-  console.log('[acceptRoleInvite] DB lookup:', roomId, userId, 'rows:', result.rows.length);
-  if (result.rows.length === 0) {
-    console.log('[acceptRoleInvite] No participant found');
-    return false;
-  }
+  if (result.rows.length === 0) return false;
   
-  const pendingRole = (result.rows[0].pendingRole as string) || '';
-  console.log('[acceptRoleInvite] pendingRole value:', JSON.stringify(pendingRole), 'type:', typeof pendingRole);
-  if (!pendingRole || pendingRole === '') {
-    console.log('[acceptRoleInvite] pendingRole is empty');
-    return false;
-  }
+  const pendingRole = String(result.rows[0].pendingRole || '').trim();
+  if (!pendingRole) return false;
   
-  const effectiveRole = pendingRole || newRole;
-  console.log('[acceptRoleInvite] Setting role to:', effectiveRole);
-  await c.execute({ sql: 'UPDATE VoiceRoomParticipant SET role = ?, pendingRole = "" WHERE roomId = ? AND userId = ?', args: [effectiveRole, roomId, userId] });
+  await c.execute({ sql: 'UPDATE VoiceRoomParticipant SET role = ?, pendingRole = "" WHERE roomId = ? AND userId = ?', args: [pendingRole, roomId, userId] });
   
   return true;
 }
