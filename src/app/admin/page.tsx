@@ -44,6 +44,7 @@ import {
   Frame,
   User,
   ImageIcon,
+  Upload,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -434,6 +435,7 @@ export default function AdminPage() {
     rarity: 'common' as string, price: 0, isFree: false, isDefault: false, isActive: true, sortOrder: 0,
   });
   const [bgFormLoading, setBgFormLoading] = useState(false);
+  const [bgUploading, setBgUploading] = useState(false);
 
   // ─── Toast helper ───────────────────────────────────────────────────
 
@@ -3496,13 +3498,72 @@ export default function AdminPage() {
                       <Input value={bgForm.description} onChange={e => setBgForm(p => ({ ...p, description: e.target.value }))}
                         className="bg-slate-800 border-slate-700 text-white" placeholder="وصف الخلفية..." />
                     </div>
+                    {/* File Upload */}
                     <div>
-                      <label className="text-xs text-slate-400 mb-1 block">رابط الصورة (الأساسية)</label>
+                      <label className="text-xs text-slate-400 mb-1 block">رفع صورة الخلفية</label>
+                      <div className="relative">
+                        <input
+                          type="file"
+                          accept="image/jpeg,image/png,image/webp,image/gif"
+                          onChange={async (e) => {
+                            const file = e.target.files?.[0];
+                            if (!file) return;
+                            if (file.size > 10 * 1024 * 1024) {
+                              showToast('حجم الملف كبير جداً. الحد الأقصى 10 ميجابايت', 'error');
+                              return;
+                            }
+                            setBgUploading(true);
+                            try {
+                              const formData = new FormData();
+                              formData.append('file', file);
+                              const res = await fetch('/api/admin/backgrounds/upload', { method: 'POST', body: formData });
+                              const data = await res.json();
+                              if (data.success) {
+                                setBgForm(p => ({
+                                  ...p,
+                                  imageUrl: data.imageUrl,
+                                  thumbnailUrl: data.thumbnailUrl || '',
+                                }));
+                                showToast('تم رفع الصورة بنجاح');
+                              } else {
+                                showToast(data.error || 'فشل في رفع الصورة', 'error');
+                              }
+                            } catch {
+                              showToast('فشل في رفع الصورة', 'error');
+                            }
+                            setBgUploading(false);
+                            e.target.value = '';
+                          }}
+                          className="hidden"
+                          id="bg-file-upload"
+                        />
+                        <label
+                          htmlFor="bg-file-upload"
+                          className="flex items-center justify-center gap-2 w-full h-24 border-2 border-dashed border-slate-700 rounded-lg cursor-pointer hover:border-violet-500/50 hover:bg-slate-800/50 transition-colors"
+                        >
+                          {bgUploading ? (
+                            <Loader2 className="w-5 h-5 animate-spin text-violet-400" />
+                          ) : bgForm.imageUrl ? (
+                            <>
+                              <img src={bgForm.thumbnailUrl || bgForm.imageUrl} alt="preview" className="w-16 h-20 object-cover rounded" />
+                              <div className="text-xs text-slate-400">اضغط لتغيير الصورة</div>
+                            </>
+                          ) : (
+                            <>
+                              <Upload className="w-5 h-5 text-slate-500" />
+                              <div className="text-xs text-slate-500">اضغط لرفع صورة (JPEG, PNG, WebP, GIF - حد 10MB)</div>
+                            </>
+                          )}
+                        </label>
+                      </div>
+                    </div>
+                    <div>
+                      <label className="text-xs text-slate-400 mb-1 block">رابط الصورة (يدوياً - اختياري)</label>
                       <Input value={bgForm.imageUrl} onChange={e => setBgForm(p => ({ ...p, imageUrl: e.target.value }))}
                         className="bg-slate-800 border-slate-700 text-white" placeholder="https://..." dir="ltr" />
                     </div>
                     <div>
-                      <label className="text-xs text-slate-400 mb-1 block">رابط الصورة المصغرة (اختياري)</label>
+                      <label className="text-xs text-slate-400 mb-1 block">رابط الصورة المصغرة (يدوياً - اختياري)</label>
                       <Input value={bgForm.thumbnailUrl} onChange={e => setBgForm(p => ({ ...p, thumbnailUrl: e.target.value }))}
                         className="bg-slate-800 border-slate-700 text-white" placeholder="https://..." dir="ltr" />
                     </div>
