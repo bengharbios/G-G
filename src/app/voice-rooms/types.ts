@@ -1,6 +1,6 @@
 /* ═══════════════════════════════════════════════════════════════════════
    VOICE ROOMS — Types, Interfaces, Constants, Helpers & Design Tokens
-   Exact TUILiveKit (Tencent) color/dimension/typography system
+   Color system matching Yalla Ludo voice room design
    ═══════════════════════════════════════════════════════════════════════ */
 
 import { Globe, Key, EyeOff } from 'lucide-react';
@@ -128,69 +128,92 @@ export interface MicMenuSheetState {
 // ─── TUILiveKit Exact Design Tokens ──────────────────────────────────────────
 
 export const TUI = {
-  // ── Brand / Primary Colors (from Flutter colors.dart) ──
+  // ── Primary Brand Colors (Yalla Ludo style) ──
   colors: {
-    B1: '#1C66E5',           // Primary Blue — buttons, links, selected
-    B1d: '#4791FF',          // Blue Light
-    B2: '#00E5E5',           // Teal
-    B2d: '#1AFFC9',          // Teal Light
-    C1: '#00C2A8',           // Green
-    C2: '#6C54E8',           // Purple
-    C3: '#FF643D',           // Orange
-    C4: '#F23C5B',           // Pink-Red
+    // ── Teal Green (lobby, settings, sheets) ──
+    teal: '#0D8A7A',              // Primary teal — headers, active tabs
+    tealDark: '#0A6B5E',          // Darker teal — gradients
+    tealLight: '#00C896',          // Bright teal — active states, buttons
+    tealMint: '#E0F7FA',           // Very light teal — settings cards bg
 
-    // ── Gray Scale (G1=darkest → G8=lightest) ──
-    G1: '#0F1014',           // Near Black — main backgrounds
-    G2: '#22262E',           // Dark Panel — drawer, list items, sheets
-    G3: '#4F586B',           // Muted text, dividers
+    // ── Room Interior (dark purple/blue) ──
+    roomBg: '#1a1f3a',            // Dark navy — room interior background
+    roomCard: '#2d3557',           // Medium navy — user info cards
+    roomBubble: '#3a4270',         // Light navy — chat bubbles
+    roomInput: '#252b45',          // Dark navy — input area
+
+    // ── Accent Colors ──
+    gold: '#FFD700',               // Gold — coins, VIP badges
+    goldDark: '#F59E0B',           // Dark gold — role badges
+    orange: '#FF9800',              // Orange — CTA buttons, toggles
+    orangeDark: '#FF643D',          // Dark orange — borders
+    red: '#FC5555',                // Red — error, destructive, notification badges
+    green: '#29CC6A',              // Green — success, online, active mic
+    blue: '#2196F3',                // Blue — info, membership badge
+    purple: '#7B61FF',             // Purple — premium, special
+    white: '#FFFFFF',              // White — primary text on dark
+
+    // ── Gray Scale ──
+    G1: '#0F1014',                 // Near Black
+    G2: '#1E293B',                 // Dark Panel
+    G3: '#4F586B',                 // Muted text, dividers
     G3Divider: 'rgba(79, 88, 107, 0.5)',
     G4: '#6B758A',
-    G5: '#8F9AB2',           // Secondary text, empty states
-    G6: '#B2BBD1',           // Tertiary text
-    G7: '#D5E0F2',           // Body text on dark bg
-    G8: '#F2F5FC',           // Background light, empty seat circle
+    G5: '#8F9AB2',                 // Secondary text
+    G6: '#B2BBD1',                 // Tertiary text
+    G7: '#D5E0F2',                 // Body text on dark bg
+    G8: '#F2F5FC',                 // Light bg
 
-    // ── Flowkit Semantic ──
-    red: '#FC5555',          // Error, destructive
-    green: '#29CC6A',        // Success
-    blue: '#0099FF',         // Info
-    white: '#FFFFFF',        // Primary text
-    purple: '#7B61FF',
-    charcoal: '#222222',
+    // ── Text on light bg ──
+    textDark: '#212121',           // Dark text on white/light cards
+    textGray: '#757575',           // Gray text on white/light cards
+    textMuted: '#9E9E9E',          // Muted text / placeholders
+
+    // ── Card / Surface ──
+    cardBg: '#FFFFFF',             // White cards in settings
+    cardBorder: '#E0E0E0',         // Light gray card border
+    cardShadow: '0 2px 8px rgba(0,0,0,0.1)',
 
     // ── Operational ──
-    bgOperate: '#1F2024',    // Background operate
-    bgInput: '#2B2C30',      // Input background
+    bgInput: '#2B2C30',
+    bgOperate: '#1F2024',
+    strokePrimary: '#3A3C42',
     sliderFilled: '#2B6AD6',
     sliderEmpty: '#48494F',
     textSuccess: '#38A673',
     textWarning: '#0FA968',
-    strokePrimary: '#3A3C42',
 
-    // ── Non-standard ──
+    // ── Transparencies ──
+    white20: 'rgba(255,255,255,0.2)',
+    white30: 'rgba(255,255,255,0.3)',
+    blue30: 'rgba(79, 88, 107, 0.3)',
+    black4D: 'rgba(15, 16, 20, 0.4)',
+    black80: 'rgba(0,0,0,0.8)',
+
+    // ── Seat ──
+    seatGray: '#2B2C30',
+    seatSelectedBorder: '#00C896',
+    emptySeatBg: 'rgba(242, 245, 252, 0.1)',
+
+    // ── Like ──
+    likeRed: '#FF3B30',
+    liveGreen: '#29CC6A',
+
+    // ── Backward compatibility aliases ──
+    B1: '#00C896',
+    B1d: '#4791FF',
+    B2: '#00C896',
+    B2d: '#1AFFC9',
+    C1: '#00C2A8',
+    C2: '#6C54E8',
+    C3: '#FF643D',
+    C4: '#F23C5B',
+    charcoal: '#222222',
     notRed: '#E5395C',
     notBlue: '#0157DF',
     notGrey: '#7C85A6',
     notWhite: '#D1D9EC',
     notBlack: '#181B21',
-
-    // ── Transparencies ──
-    white20: 'rgba(255,255,255,0.2)',
-    white30: 'rgba(255,255,255,0.3)',
-    blue30: 'rgba(79, 88, 107, 0.3)',    // Card backgrounds
-    black4D: 'rgba(15, 16, 20, 0.4)',     // Overlay / barrage bubble
-    black80: 'rgba(0,0,0,0.8)',           // Deep mask
-
-    // ── Seat ──
-    seatGray: '#2B2C30',
-    seatSelectedBorder: '#2B6AD6',
-    emptySeatBg: 'rgba(242, 245, 252, 0.1)',  // #F2F5FC at 10%
-
-    // ── Like ──
-    likeRed: '#FF3B30',
-
-    // ── Live badge ──
-    liveGreen: '#29CC6A',
   },
 
   // ── Radius (from business.scss + Flutter source) ──

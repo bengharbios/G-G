@@ -1,68 +1,74 @@
 'use client';
 
 /* ═══════════════════════════════════════════════════════════════════════
-   RoomListView — Voice Room Lobby (TUILiveKit LiveListView exact design)
+   RoomListView — Voice Room Lobby (Yalla Ludo–style design)
 
    Full-screen room list with:
-   - Sticky header (48px): back arrow, title, create button
-   - Search bar with icon
-   - Horizontal category tabs
-   - Room card list with join actions per room mode
-   - Empty state with CTA
-   - Create Room dialog trigger
-
-   Responsive: 44px touch targets, fluid card sizing, responsive search
+   - Teal-green gradient background + diamond pattern overlay
+   - Header: avatar+shield | 3 tabs (اكتشف / رائج / غرفي) | search
+   - "إنشاء غرفتي" create button
+   - Sub-tabs: مؤخراً / منضم / متابَع (pill-shaped)
+   - Scrollable room cards with image, name, host, participants, badge
+   - Fixed bottom nav (Events, Battle, Chat, Social) with badges
+   - Empty state with illustration + CTA
    ═══════════════════════════════════════════════════════════════════════ */
 
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import {
-  ArrowRight,
-  Plus,
   Search,
+  Plus,
   Users,
+  Swords,
+  MessageCircle,
+  Gift,
+  ChevronLeft,
+  Crown,
   Mic,
   Lock,
+  Eye,
+  Shield,
+  Headphones,
+  Star,
 } from 'lucide-react';
 import {
   TUI,
   type VoiceRoom,
   type AuthUser,
   type RoomMode,
-  getAvatarColor,
+  getAvatarColorFromPalette,
 } from '../types';
-import AudienceRow from './AudienceRow';
-import CreateRoomDialog from './dialogs/CreateRoomDialog';
 
 // ─── Props ────────────────────────────────────────────────────────────────────
 
-interface CreateRoomData {
-  name: string;
-  description: string;
-  micSeatCount: number;
-  roomMode: RoomMode;
-  roomPassword: string;
-  maxParticipants: number;
-  isAutoMode: boolean;
-  micTheme: string;
-}
-
 interface RoomListViewProps {
-  onJoinRoom: (room: VoiceRoom) => void;
-  onCreateRoom: (data: CreateRoomData) => void;
+  rooms: VoiceRoom[];
+  onRoomClick: (room: VoiceRoom) => void;
+  onCreateRoom: () => void;
   authUser: AuthUser | null;
+  loading: boolean;
 }
 
-// ─── Category Tabs ────────────────────────────────────────────────────────────
+// ─── Main Tabs ───────────────────────────────────────────────────────────────
 
-const CATEGORIES = [
-  { id: 'all', label: 'الكل' },
-  { id: 'music', label: 'غنائية' },
-  { id: 'education', label: 'تعليمية' },
-  { id: 'games', label: 'ألعاب' },
-  { id: 'general', label: 'عام' },
+const MAIN_TABS = [
+  { id: 'explore', label: 'اكتشف' },
+  { id: 'hot', label: 'رائج' },
+  { id: 'mine', label: 'غرفي' },
 ] as const;
 
-// ─── Gradient Themes for Room Cover Placeholders ─────────────────────────────
+type MainTab = (typeof MAIN_TABS)[number]['id'];
+
+// ─── Sub Tabs (visible on "غرفي" main tab) ───────────────────────────────────
+
+const SUB_TABS = [
+  { id: 'recent', label: 'مؤخراً' },
+  { id: 'joined', label: 'منضم' },
+  { id: 'following', label: 'متابَع' },
+] as const;
+
+type SubTab = (typeof SUB_TABS)[number]['id'];
+
+// ─── Room theme gradients ─────────────────────────────────────────────────────
 
 const THEME_GRADIENTS: Record<string, string> = {
   blue: 'linear-gradient(135deg, #1C66E5 0%, #6C54E8 100%)',
@@ -71,292 +77,366 @@ const THEME_GRADIENTS: Record<string, string> = {
   pink: 'linear-gradient(135deg, #F23C5B 0%, #7B61FF 100%)',
   teal: 'linear-gradient(135deg, #00E5E5 0%, #1C66E5 100%)',
   red: 'linear-gradient(135deg, #FC5555 0%, #FF643D 100%)',
+  gold: 'linear-gradient(135deg, #F59E0B 0%, #FFD700 100%)',
 };
 
 function getRoomGradient(theme: string): string {
-  return THEME_GRADIENTS[theme] || THEME_GRADIENTS.blue;
+  return THEME_GRADIENTS[theme] || THEME_GRADIENTS.teal;
+}
+
+// ─── Bottom Nav Items ─────────────────────────────────────────────────────────
+
+const BOTTOM_NAV = [
+  { id: 'events', label: 'فعاليات', icon: Headphones, badge: 3 },
+  { id: 'battle', label: 'تحدي', icon: Swords, badge: 0 },
+  { id: 'chat', label: 'محادثة', icon: MessageCircle, badge: 5 },
+  { id: 'social', label: 'اجتماعي', icon: Gift, badge: 12 },
+] as const;
+
+// ─── Diamond pattern SVG (inline for no external deps) ───────────────────────
+
+function DiamondPattern() {
+  return (
+    <svg
+      className="absolute inset-0 w-full h-full pointer-events-none"
+      xmlns="http://www.w3.org/2000/svg"
+      style={{ opacity: 0.04 }}
+    >
+      <defs>
+        <pattern id="diamondPattern" x="0" y="0" width="32" height="32" patternUnits="userSpaceOnUse">
+          <path d="M16 0 L32 16 L16 32 L0 16 Z" fill="white" />
+        </pattern>
+      </defs>
+      <rect width="100%" height="100%" fill="url(#diamondPattern)" />
+    </svg>
+  );
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
-export default function RoomListView({ onJoinRoom, onCreateRoom, authUser }: RoomListViewProps) {
-  // ── State ──
-  const [rooms, setRooms] = useState<VoiceRoom[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [activeCategory, setActiveCategory] = useState('all');
-  const [showCreateDialog, setShowCreateDialog] = useState(false);
-  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+export default function RoomListView({
+  rooms,
+  onRoomClick,
+  onCreateRoom,
+  authUser,
+  loading,
+}: RoomListViewProps) {
+  const [mainTab, setMainTab] = useState<MainTab>('explore');
+  const [subTab, setSubTab] = useState<SubTab>('recent');
+  const scrollRef = useRef<HTMLDivElement>(null);
 
-  // ── Fetch rooms ──
-  const fetchRooms = useCallback(async () => {
-    try {
-      const res = await fetch('/api/voice-rooms?action=list');
-      if (res.ok) {
-        const data = await res.json();
-        setRooms(Array.isArray(data.rooms) ? data.rooms : []);
-      }
-    } catch {
-      // silently fail — rooms will remain empty
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+  // ── Show sub-tabs only when on "غرفي" ──
+  const showSubTabs = mainTab === 'mine';
 
-  useEffect(() => {
-    fetchRooms();
-    pollRef.current = setInterval(fetchRooms, 5000);
-    return () => {
-      if (pollRef.current) clearInterval(pollRef.current);
-    };
-  }, [fetchRooms]);
-
-  // ── Filter rooms ──
-  const filteredRooms = rooms.filter((room) => {
-    const matchesSearch = !searchQuery.trim() ||
-      room.name.toLowerCase().includes(searchQuery.trim().toLowerCase()) ||
-      room.hostName.toLowerCase().includes(searchQuery.trim().toLowerCase());
-    return matchesSearch;
+  // ── Filter rooms by main tab ──
+  // For 'explore' show all, 'hot' show rooms with >10 participants, 'mine' show based on subTab
+  const displayRooms = rooms.filter((room) => {
+    if (mainTab === 'explore') return true;
+    if (mainTab === 'hot') return (room.participantCount || 0) > 10;
+    // 'mine' — all rooms (in a real app would filter by user history)
+    return true;
   });
 
-  // ── Handlers ──
-  const handleBack = () => {
-    window.location.href = '/';
-  };
+  // ── Avatar palette for user ──
+  const avatarPalette = authUser
+    ? getAvatarColorFromPalette(authUser.id)
+    : { bg: '#E0F7FA', text: '#0D8A7A' };
 
-  const handleCreate = (data: {
-    name: string;
-    description: string;
-    micSeatCount: number;
-    roomMode: RoomMode;
-    roomPassword: string;
-    maxParticipants: number;
-    isAutoMode: boolean;
-    roomImage?: string;
-  }) => {
-    onCreateRoom({
-      ...data,
-      micTheme: data.roomImage || 'blue',
-    });
-    setShowCreateDialog(false);
-  };
-
-  const handleJoin = (room: VoiceRoom) => {
-    onJoinRoom(room);
-  };
-
-  // ── Render ──
   return (
     <div
-      className="min-h-screen flex flex-col"
-      style={{ backgroundColor: TUI.colors.G1 }}
+      className="fixed inset-0 flex flex-col overflow-hidden"
       dir="rtl"
+      style={{
+        background: `linear-gradient(180deg, ${TUI.colors.teal} 0%, ${TUI.colors.tealDark} 40%, #074a42 100%)`,
+        fontFamily: "'Cairo', 'Segoe UI', sans-serif",
+      }}
     >
+      {/* ═══ Diamond Pattern Overlay ═══ */}
+      <DiamondPattern />
+
       {/* ══════════════════════════════════════════════════════════════
-          HEADER (sticky top, 48px)
+          HEADER — Avatar+Shield | Tabs | Search
           ══════════════════════════════════════════════════════════════ */}
       <header
-        className="sticky top-0 z-30 flex items-center justify-between px-4"
-        style={{
-          height: 48,
-          backgroundColor: TUI.colors.G1,
-          paddingTop: 'env(safe-area-inset-top, 0px)',
-        }}
+        className="relative z-10 flex flex-col"
+        style={{ paddingTop: 'env(safe-area-inset-top, 0px)' }}
       >
-        {/* Back — 44px touch target */}
-        <button
-          onClick={handleBack}
-          className="flex items-center justify-center w-11 h-11 -ml-1.5 rounded-full transition-colors hover:bg-white/10 touch-manipulation"
-          style={{ color: TUI.colors.white }}
-          aria-label="العودة"
-        >
-          <ArrowRight size={22} />
-        </button>
+        {/* ── Top Row: Avatar | Search ── */}
+        <div className="flex items-center justify-between px-4 pt-3 pb-2">
+          {/* User Avatar + Shield Badge */}
+          <div className="relative flex-shrink-0">
+            <div
+              className="flex items-center justify-center rounded-full overflow-hidden"
+              style={{
+                width: 42,
+                height: 42,
+                border: `2px solid ${TUI.colors.gold}`,
+              }}
+            >
+              {authUser?.avatar ? (
+                <img
+                  src={authUser.avatar}
+                  alt={authUser.displayName || ''}
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                <div
+                  className="w-full h-full flex items-center justify-center text-sm font-bold"
+                  style={{ backgroundColor: avatarPalette.bg, color: avatarPalette.text }}
+                >
+                  {(authUser?.displayName || 'م')[0]}
+                </div>
+              )}
+            </div>
+            {/* Shield / VIP badge */}
+            {authUser?.vipLevel && authUser.vipLevel > 0 ? (
+              <div
+                className="absolute -bottom-0.5 -left-0.5 flex items-center justify-center rounded-full"
+                style={{
+                  width: 18,
+                  height: 18,
+                  backgroundColor: TUI.colors.gold,
+                  border: `2px solid ${TUI.colors.teal}`,
+                }}
+              >
+                <Crown size={10} style={{ color: TUI.colors.tealDark }} />
+              </div>
+            ) : (
+              <div
+                className="absolute -bottom-0.5 -left-0.5 flex items-center justify-center rounded-full"
+                style={{
+                  width: 18,
+                  height: 18,
+                  backgroundColor: TUI.colors.tealLight,
+                  border: `2px solid ${TUI.colors.teal}`,
+                }}
+              >
+                <Shield size={9} style={{ color: TUI.colors.white }} />
+              </div>
+            )}
+          </div>
 
-        {/* Title */}
-        <h1
-          className="absolute left-1/2 -translate-x-1/2"
-          style={{
-            fontSize: 'clamp(18px, 5vw, 20px)',
-            fontWeight: 700,
-            color: TUI.colors.white,
-          }}
-        >
-          غرف الصوت
-        </h1>
+          {/* Search Icon */}
+          <button
+            className="flex items-center justify-center w-10 h-10 rounded-full transition-colors active:scale-95"
+            style={{
+              backgroundColor: 'rgba(255,255,255,0.15)',
+              color: TUI.colors.white,
+            }}
+            aria-label="بحث"
+          >
+            <Search size={20} />
+          </button>
+        </div>
 
-        {/* Create Room Button — 44px touch target */}
-        <button
-          onClick={() => setShowCreateDialog(true)}
-          className="flex items-center justify-center rounded-full transition-transform active:scale-95 hover:brightness-110 touch-manipulation"
-          style={{
-            width: 44,
-            height: 44,
-            backgroundColor: TUI.colors.B1,
-            color: TUI.colors.white,
-          }}
-          aria-label="إنشاء غرفة"
-        >
-          <Plus size={22} />
-        </button>
+        {/* ── Main Tabs: اكتشف | رائج | غرفي ── */}
+        <div className="flex items-center justify-center gap-1 px-4 pb-1">
+          {MAIN_TABS.map((tab) => {
+            const isActive = mainTab === tab.id;
+            return (
+              <button
+                key={tab.id}
+                onClick={() => setMainTab(tab.id)}
+                className="relative flex-shrink-0 px-4 py-2 transition-colors"
+                style={{
+                  fontSize: 'clamp(14px, 3.8vw, 16px)',
+                  fontWeight: isActive ? 700 : 500,
+                  color: isActive ? TUI.colors.white : 'rgba(255,255,255,0.6)',
+                  minHeight: 44,
+                }}
+              >
+                {tab.label}
+                {/* Active underline */}
+                {isActive && (
+                  <span
+                    className="absolute bottom-0 left-1/2 -translate-x-1/2 rounded-full"
+                    style={{
+                      width: 32,
+                      height: 3,
+                      backgroundColor: TUI.colors.tealLight,
+                    }}
+                  />
+                )}
+              </button>
+            );
+          })}
+        </div>
       </header>
 
       {/* ══════════════════════════════════════════════════════════════
-          SEARCH BAR
+          CREATE ROOM BUTTON
           ══════════════════════════════════════════════════════════════ */}
-      <div className="px-3 sm:px-4 mt-3 mb-2">
-        <div
-          className="flex items-center gap-2 px-3"
+      <div className="relative z-10 px-4 pt-2 pb-1">
+        <button
+          onClick={onCreateRoom}
+          className="flex items-center justify-center gap-2 w-full py-3 rounded-xl transition-all active:scale-[0.98]"
           style={{
-            height: 40,
-            backgroundColor: '#1F2024',
-            borderRadius: 8,
+            background: `linear-gradient(135deg, ${TUI.colors.tealLight} 0%, ${TUI.colors.teal} 100%)`,
+            color: TUI.colors.white,
+            fontSize: 'clamp(14px, 3.8vw, 16px)',
+            fontWeight: 700,
+            boxShadow: `0 4px 15px rgba(0, 200, 150, 0.3)`,
+            minHeight: 48,
           }}
         >
-          <Search size={16} style={{ color: TUI.colors.G5, flexShrink: 0 }} />
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="ابحث عن غرفة..."
-            className="flex-1 bg-transparent outline-none text-sm touch-manipulation"
-            style={{
-              color: TUI.colors.white,
-              caretColor: TUI.colors.B1,
-              fontSize: 'clamp(13px, 3.5vw, 14px)',
-            }}
-          />
-        </div>
+          <Plus size={20} strokeWidth={3} />
+          <span>إنشاء غرفتي</span>
+        </button>
       </div>
 
       {/* ══════════════════════════════════════════════════════════════
-          CATEGORY TABS
+          SUB-TABS (pill-shaped, shown on "غرفي" only)
+          ══════════════════════════════════════════════════════════════ */}
+      {showSubTabs && (
+        <div className="relative z-10 flex items-center justify-center gap-2 px-4 py-2">
+          {SUB_TABS.map((tab) => {
+            const isActive = subTab === tab.id;
+            return (
+              <button
+                key={tab.id}
+                onClick={() => setSubTab(tab.id)}
+                className="flex-shrink-0 px-5 py-1.5 rounded-full transition-all active:scale-95"
+                style={{
+                  fontSize: 'clamp(12px, 3.2vw, 13px)',
+                  fontWeight: isActive ? 600 : 400,
+                  backgroundColor: isActive
+                    ? TUI.colors.tealLight
+                    : 'rgba(255,255,255,0.12)',
+                  color: TUI.colors.white,
+                  minHeight: 36,
+                  boxShadow: isActive ? `0 2px 10px rgba(0, 200, 150, 0.25)` : 'none',
+                }}
+              >
+                {tab.label}
+              </button>
+            );
+          })}
+        </div>
+      )}
+
+      {/* ══════════════════════════════════════════════════════════════
+          ROOM LIST (scrollable area)
           ══════════════════════════════════════════════════════════════ */}
       <div
-        className="flex items-center gap-5 overflow-x-auto pb-2 px-3 sm:px-4"
-        style={{
-          scrollbarWidth: 'none',
-          msOverflowStyle: 'none',
-        }}
+        ref={scrollRef}
+        className="relative z-10 flex-1 overflow-y-auto px-3 pt-2"
+        style={{ paddingBottom: 80 }}
       >
-        {CATEGORIES.map((cat) => {
-          const isActive = activeCategory === cat.id;
-          return (
-            <button
-              key={cat.id}
-              onClick={() => setActiveCategory(cat.id)}
-              className="relative flex-shrink-0 py-1.5 transition-colors touch-manipulation"
-              style={{
-                fontSize: 'clamp(13px, 3.5vw, 14px)',
-                fontWeight: isActive ? 600 : 400,
-                color: isActive ? TUI.colors.white : TUI.colors.G5,
-                borderBottom: isActive
-                  ? `2px solid ${TUI.colors.B1}`
-                  : '2px solid transparent',
-                minHeight: 44,
-              }}
-            >
-              {cat.label}
-            </button>
-          );
-        })}
-      </div>
-
-      {/* ══════════════════════════════════════════════════════════════
-          ROOM LIST
-          ══════════════════════════════════════════════════════════════ */}
-      <div className="flex-1 px-3 sm:px-4 mt-2 pb-6 overflow-y-auto">
         {/* Loading State */}
         {loading && (
-          <div className="flex items-center justify-center py-20">
+          <div className="flex items-center justify-center py-24">
             <div
-              className="w-6 h-6 rounded-full border-2 border-t-transparent animate-spin"
-              style={{ borderColor: TUI.colors.G4, borderTopColor: 'transparent' }}
+              className="w-8 h-8 rounded-full border-3 border-t-transparent animate-spin"
+              style={{
+                borderColor: 'rgba(255,255,255,0.2)',
+                borderTopColor: TUI.colors.tealLight,
+                borderWidth: 3,
+              }}
             />
           </div>
         )}
 
         {/* Empty State */}
-        {!loading && filteredRooms.length === 0 && (
-          <div className="flex flex-col items-center justify-center py-20 gap-4">
-            <div
-              className="w-16 h-16 rounded-full flex items-center justify-center"
-              style={{ backgroundColor: TUI.colors.bgInput }}
-            >
-              <Mic size={28} style={{ color: TUI.colors.G5 }} />
-            </div>
-            <p style={{ fontSize: 14, color: TUI.colors.G5 }}>
-              لا توجد غرف صوتية حالياً
-            </p>
-            <button
-              onClick={() => setShowCreateDialog(true)}
-              className="flex items-center gap-2 px-5 py-2.5 rounded-full text-white font-medium transition-transform active:scale-95 touch-manipulation"
-              style={{ backgroundColor: TUI.colors.B1, fontSize: 14, minHeight: 44 }}
-            >
-              <Plus size={16} />
-              أنشئ غرفتك الأولى
-            </button>
-          </div>
+        {!loading && displayRooms.length === 0 && (
+          <EmptyState onCreateRoom={onCreateRoom} mainTab={mainTab} />
         )}
 
         {/* Room Cards */}
-        {!loading && filteredRooms.length > 0 && (
-          <div className="flex flex-col gap-2">
-            {filteredRooms.map((room) => (
-              <RoomCard
-                key={room.id}
-                room={room}
-                onJoin={handleJoin}
-              />
+        {!loading && displayRooms.length > 0 && (
+          <div className="flex flex-col gap-3">
+            {displayRooms.map((room) => (
+              <RoomCard key={room.id} room={room} onClick={() => onRoomClick(room)} />
             ))}
           </div>
         )}
       </div>
 
       {/* ══════════════════════════════════════════════════════════════
-          CREATE ROOM DIALOG
+          BOTTOM NAV BAR (fixed)
           ══════════════════════════════════════════════════════════════ */}
-      <CreateRoomDialog
-        isOpen={showCreateDialog}
-        onClose={() => setShowCreateDialog(false)}
-        onCreate={handleCreate}
-        authUser={authUser}
-      />
+      <nav
+        className="fixed bottom-0 left-0 right-0 z-20 flex items-center justify-around"
+        style={{
+          height: 64,
+          paddingBottom: 'env(safe-area-inset-bottom, 0px)',
+          background: 'linear-gradient(180deg, rgba(10,107,94,0.95) 0%, rgba(7,74,66,0.98) 100%)',
+          borderTop: `1px solid rgba(255,255,255,0.08)`,
+          backdropFilter: 'blur(12px)',
+        }}
+      >
+        {BOTTOM_NAV.map((item) => {
+          const Icon = item.icon;
+          const hasBadge = item.badge > 0;
+          return (
+            <button
+              key={item.id}
+              className="relative flex flex-col items-center justify-center gap-0.5 flex-1 transition-transform active:scale-95"
+              style={{ minHeight: 64 }}
+              aria-label={item.label}
+            >
+              <div className="relative">
+                <Icon size={22} style={{ color: 'rgba(255,255,255,0.7)' }} />
+                {hasBadge && (
+                  <span
+                    className="absolute -top-1.5 -right-2.5 flex items-center justify-center rounded-full text-white"
+                    style={{
+                      minWidth: 16,
+                      height: 16,
+                      padding: '0 4px',
+                      backgroundColor: TUI.colors.red,
+                      fontSize: 9,
+                      fontWeight: 700,
+                      lineHeight: '16px',
+                    }}
+                  >
+                    {item.badge > 99 ? '99+' : item.badge}
+                  </span>
+                )}
+              </div>
+              <span
+                style={{
+                  fontSize: 10,
+                  fontWeight: 500,
+                  color: 'rgba(255,255,255,0.5)',
+                }}
+              >
+                {item.label}
+              </span>
+            </button>
+          );
+        })}
+      </nav>
     </div>
   );
 }
 
-// ─── Room Card Sub-Component ──────────────────────────────────────────────────
+// ─── Room Card ────────────────────────────────────────────────────────────────
 
-function RoomCard({ room, onJoin }: { room: VoiceRoom; onJoin: (room: VoiceRoom) => void }) {
-  const isPublic = room.roomMode === 'public';
-  const isKey = room.roomMode === 'key';
-  const isPrivate = room.roomMode === 'private';
+function RoomCard({ room, onClick }: { room: VoiceRoom; onClick: () => void }) {
+  const modeConfig: Record<RoomMode, { icon: typeof Mic; label: string; color: string }> = {
+    public: { icon: Eye, label: 'عام', color: TUI.colors.tealLight },
+    key: { icon: Lock, label: 'بسر', color: TUI.colors.gold },
+    private: { icon: Star, label: 'خاص', color: TUI.colors.purple },
+  };
 
-  // Generate fake participants for AudienceRow display (from participantCount)
-  const fakeParticipants = Array.from({ length: Math.min(room.participantCount || 1, 8) }, (_, i) => ({
-    avatar: '',
-    userId: `p${i}`,
-  }));
+  const mode = modeConfig[room.roomMode] || modeConfig.public;
+  const ModeIcon = mode.icon;
 
   return (
     <div
-      className="flex items-center gap-3 p-3 sm:p-4 rounded-[12px] transition-all cursor-pointer touch-manipulation"
+      className="flex items-center gap-3 p-3 rounded-xl transition-all cursor-pointer active:scale-[0.98]"
       style={{
-        backgroundColor: TUI.colors.G2,
+        backgroundColor: 'rgba(255,255,255,0.1)',
+        backdropFilter: 'blur(8px)',
+        border: '1px solid rgba(255,255,255,0.08)',
+        minHeight: 80,
       }}
-      onClick={() => onJoin(room)}
-      onMouseEnter={(e) => {
-        (e.currentTarget as HTMLDivElement).style.filter = 'brightness(1.05)';
-      }}
-      onMouseLeave={(e) => {
-        (e.currentTarget as HTMLDivElement).style.filter = 'none';
-      }}
+      onClick={onClick}
     >
-      {/* ── Cover Image / Gradient (responsive) ── */}
+      {/* ── Room Cover ── */}
       <div
-        className="flex-shrink-0 rounded-[8px] overflow-hidden"
-        style={{ width: 'clamp(48px, 14vw, 60px)', height: 'clamp(48px, 14vw, 60px)' }}
+        className="flex-shrink-0 rounded-lg overflow-hidden relative"
+        style={{ width: 64, height: 64 }}
       >
         {room.roomImage ? (
           <img
@@ -369,18 +449,26 @@ function RoomCard({ room, onJoin }: { room: VoiceRoom; onJoin: (room: VoiceRoom)
             className="w-full h-full flex items-center justify-center"
             style={{ background: getRoomGradient(room.micTheme) }}
           >
-            <Mic size={20} style={{ color: 'rgba(255,255,255,0.7)' }} />
+            <Mic size={22} style={{ color: 'rgba(255,255,255,0.6)' }} />
           </div>
         )}
+        {/* Live indicator dot */}
+        <div
+          className="absolute top-1 right-1 w-2.5 h-2.5 rounded-full"
+          style={{
+            backgroundColor: TUI.colors.green,
+            boxShadow: `0 0 6px ${TUI.colors.green}`,
+          }}
+        />
       </div>
 
-      {/* ── Info ── */}
+      {/* ── Room Info ── */}
       <div className="flex-1 min-w-0 flex flex-col justify-center gap-1">
         {/* Room Name */}
         <p
           className="truncate"
           style={{
-            fontSize: 'clamp(14px, 4vw, 16px)',
+            fontSize: 'clamp(13px, 3.6vw, 15px)',
             fontWeight: 600,
             color: TUI.colors.white,
           }}
@@ -388,82 +476,140 @@ function RoomCard({ room, onJoin }: { room: VoiceRoom; onJoin: (room: VoiceRoom)
           {room.name}
         </p>
 
-        {/* Host Name */}
-        <p style={{ fontSize: 'clamp(11px, 3vw, 12px)', color: TUI.colors.G5 }}>
-          بواسطة {room.hostName}
-        </p>
+        {/* Host + Mode badge */}
+        <div className="flex items-center gap-2">
+          <span
+            className="truncate"
+            style={{
+              fontSize: 'clamp(11px, 2.8vw, 12px)',
+              color: 'rgba(255,255,255,0.55)',
+            }}
+          >
+            {room.hostName}
+          </span>
+          {/* Mode pill */}
+          <span
+            className="flex-shrink-0 inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full"
+            style={{
+              fontSize: 9,
+              fontWeight: 600,
+              color: mode.color,
+              backgroundColor: `${mode.color}20`,
+            }}
+          >
+            <ModeIcon size={9} />
+            {mode.label}
+          </span>
+        </div>
 
-        {/* Bottom row: participants + mics */}
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-1" style={{ fontSize: 'clamp(10px, 2.8vw, 11px)', color: TUI.colors.G5 }}>
-            <Users size={12} />
-            <span>{room.participantCount || 0}</span>
-          </div>
-          <div className="flex items-center gap-1" style={{ fontSize: 'clamp(10px, 2.8vw, 11px)', color: TUI.colors.G5 }}>
-            <Mic size={12} />
-            <span>{room.micSeatCount}</span>
-          </div>
-          <AudienceRow participants={fakeParticipants} max={3} />
+        {/* Participants */}
+        <div
+          className="flex items-center gap-1"
+          style={{
+            fontSize: 'clamp(10px, 2.6vw, 11px)',
+            color: 'rgba(255,255,255,0.45)',
+          }}
+        >
+          <Users size={12} />
+          <span>{room.participantCount || 0} / {room.maxParticipants || 200}</span>
         </div>
       </div>
 
-      {/* ── Join Button (44px min touch target) ── */}
-      <div className="flex-shrink-0 flex items-center">
-        {isPublic && (
-          <button
-            className="flex items-center justify-center rounded-[16px] text-white transition-transform active:scale-95 hover:brightness-110 touch-manipulation"
-            style={{
-              minWidth: 60,
-              height: 44,
-              minHeight: 44,
-              paddingHorizontal: 'clamp(12px, 3vw, 16px)',
-              backgroundColor: TUI.colors.B1,
-              fontSize: 'clamp(11px, 3vw, 12px)',
-              fontWeight: 700,
-            }}
-          >
-            انضمام
-          </button>
-        )}
-        {isKey && (
-          <button
-            className="flex items-center justify-center gap-1 rounded-[16px] transition-transform active:scale-95 hover:bg-white/5 touch-manipulation"
-            style={{
-              minWidth: 60,
-              height: 44,
-              minHeight: 44,
-              paddingHorizontal: 'clamp(12px, 3vw, 16px)',
-              backgroundColor: 'transparent',
-              border: `1px solid ${TUI.colors.G3}`,
-              color: TUI.colors.G7,
-              fontSize: 'clamp(11px, 3vw, 12px)',
-              fontWeight: 700,
-            }}
-          >
-            <Lock size={12} />
-            انضمام
-          </button>
-        )}
-        {isPrivate && (
-          <button
-            className="flex items-center justify-center rounded-[16px] cursor-not-allowed"
-            style={{
-              minWidth: 70,
-              height: 44,
-              minHeight: 44,
-              paddingHorizontal: 'clamp(12px, 3vw, 16px)',
-              backgroundColor: 'transparent',
-              border: `1px solid ${TUI.colors.G3}`,
-              color: TUI.colors.G3,
-              fontSize: 'clamp(11px, 3vw, 12px)',
-              fontWeight: 600,
-            }}
-            disabled
-          >
-            دعوة فقط
-          </button>
-        )}
+      {/* ── Join arrow ── */}
+      <div
+        className="flex-shrink-0 flex items-center justify-center w-8 h-8 rounded-full"
+        style={{ backgroundColor: 'rgba(255,255,255,0.1)' }}
+      >
+        <ChevronLeft size={16} style={{ color: 'rgba(255,255,255,0.5)' }} />
       </div>
+    </div>
+  );
+}
+
+// ─── Empty State ──────────────────────────────────────────────────────────────
+
+function EmptyState({
+  onCreateRoom,
+  mainTab,
+}: {
+  onCreateRoom: () => void;
+  mainTab: string;
+}) {
+  const isMine = mainTab === 'mine';
+
+  return (
+    <div className="flex flex-col items-center justify-center py-16 gap-4 px-6">
+      {/* Illustration: empty room icon */}
+      <div
+        className="relative flex items-center justify-center"
+        style={{
+          width: 120,
+          height: 120,
+        }}
+      >
+        {/* Outer ring */}
+        <div
+          className="absolute inset-0 rounded-full"
+          style={{
+            border: `2px dashed rgba(255,255,255,0.15)`,
+          }}
+        />
+        {/* Inner circle with icon */}
+        <div
+          className="flex items-center justify-center rounded-full"
+          style={{
+            width: 80,
+            height: 80,
+            backgroundColor: 'rgba(255,255,255,0.08)',
+          }}
+        >
+          {isMine ? (
+            <Mic size={36} style={{ color: 'rgba(255,255,255,0.3)' }} />
+          ) : (
+            <Headphones size={36} style={{ color: 'rgba(255,255,255,0.3)' }} />
+          )}
+        </div>
+      </div>
+
+      {/* Text */}
+      <p
+        className="text-center"
+        style={{
+          fontSize: 'clamp(14px, 3.8vw, 16px)',
+          fontWeight: 600,
+          color: 'rgba(255,255,255,0.6)',
+          lineHeight: 1.8,
+        }}
+      >
+        {isMine ? 'لم تزر أي غرفة مؤخراً' : 'لا توجد غرف صوتية حالياً'}
+      </p>
+
+      <p
+        className="text-center"
+        style={{
+          fontSize: 'clamp(12px, 3.2vw, 13px)',
+          color: 'rgba(255,255,255,0.35)',
+        }}
+      >
+        {isMine
+          ? 'ابدأ باستكشاف الغرف المتاحة وابقَ على اطلاع'
+          : 'كن أول من ينشئ غرفة وابدأ المحادثة'}
+      </p>
+
+      {/* CTA Button */}
+      <button
+        onClick={onCreateRoom}
+        className="flex items-center justify-center gap-2 px-8 py-3 rounded-xl text-white font-bold transition-all active:scale-95 mt-2"
+        style={{
+          backgroundColor: TUI.colors.orange,
+          fontSize: 'clamp(14px, 3.8vw, 16px)',
+          boxShadow: `0 4px 15px rgba(255, 152, 0, 0.35)`,
+          minHeight: 48,
+        }}
+      >
+        <Search size={18} />
+        {isMine ? 'ابحث عن غرف' : 'أنشئ غرفتك الأولى'}
+      </button>
     </div>
   );
 }
