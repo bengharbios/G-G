@@ -113,6 +113,9 @@ export default function RoomInteriorView({
   /* ── Like hold state ── */
   const [likeActive, setLikeActive] = useState(false);
 
+  /* ── Chat input visibility ── */
+  const [chatInputVisible, setChatInputVisible] = useState(false);
+
   /* ── End Live confirmation dialog (owner only) ── */
   const [showEndLiveDialog, setShowEndLiveDialog] = useState(false);
 
@@ -274,6 +277,8 @@ export default function RoomInteriorView({
           isMuted={vr.isRoomMuted}
           onSendChat={vr.handleSendChat}
           authUser={authUser}
+          inputVisible={chatInputVisible}
+          onRequestCloseInput={() => setChatInputVisible(false)}
         />
 
         {/* ════════════════════════════════════════════════════════════════════
@@ -304,6 +309,7 @@ export default function RoomInteriorView({
           onRequestSeat={() => vr.handleRequestSeat(-1)}
           onLeaveSeat={handleLeaveSeat}
           pendingSeatRequests={pendingSeatRequests}
+          onOpenChat={() => setChatInputVisible(true)}
         />
 
         {/* ════════════════════════════════════════════════════════════════════
@@ -396,6 +402,7 @@ export default function RoomInteriorView({
           onClose={() => setRoomInfoOpen(false)}
           room={vr.room}
           participantCount={vr.participants.length}
+          participants={vr.participants}
         />
 
         {/* ── Kick Duration Dialog ── */}

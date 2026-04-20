@@ -27,6 +27,7 @@ interface BottomBarProps {
   onRequestSeat: () => void;
   onLeaveSeat: () => void;
   pendingSeatRequests: number;
+  onOpenChat: () => void;
 }
 
 /* ── Label style for buttons ── */
@@ -55,46 +56,43 @@ export default function BottomBar({
   onRequestSeat,
   onLeaveSeat,
   pendingSeatRequests,
+  onOpenChat,
 }: BottomBarProps) {
   return (
     <>
       {/* ═══════════════════════════════════════════════════════════════════════
-          Audience on seat: Barrage input (LEFT side, separate from bottom bar)
+          Barrage input (LEFT side, separate from bottom bar) — visible for ALL users
           ═══════════════════════════════════════════════════════════════════════ */}
-      {!isOwner && isOnSeat && (
-        <div
-          className="fixed z-50 flex items-center cursor-pointer touch-manipulation"
+      <div
+        className="fixed z-50 flex items-center cursor-pointer touch-manipulation"
+        style={{
+          left: 'clamp(12px, 4vw, 15px)',
+          bottom: 'clamp(16px, 5vh, 36px)',
+          width: 'clamp(100px, 35vw, 130px)',
+          height: 'clamp(32px, 9vw, 36px)',
+          backgroundColor: 'rgba(255,255,255,0.1)',
+          border: '1px solid rgba(255,255,255,0.15)',
+          borderRadius: 18,
+          padding: '0 12px',
+          paddingBottom: 'env(safe-area-inset-bottom, 0px)',
+        }}
+        onClick={onOpenChat}
+      >
+        <MessageCircle
+          size={14}
+          style={{ color: TUI.colors.G5, marginRight: 6 }}
+        />
+        <span
+          className="truncate flex-1"
           style={{
-            left: 'clamp(12px, 4vw, 15px)',
-            bottom: 'clamp(16px, 5vh, 36px)',
-            width: 'clamp(100px, 35vw, 130px)',
-            height: 'clamp(32px, 9vw, 36px)',
-            backgroundColor: 'rgba(255,255,255,0.1)',
-            border: '1px solid rgba(255,255,255,0.15)',
-            borderRadius: 18,
-            padding: '0 12px',
-            paddingBottom: 'env(safe-area-inset-bottom, 0px)',
-          }}
-          onClick={() => {
-            /* Opens chat input — placeholder for now */
+            fontSize: 'clamp(11px, 2.8vw, 12px)',
+            color: TUI.colors.G5,
+            pointerEvents: 'none',
           }}
         >
-          <MessageCircle
-            size={14}
-            style={{ color: TUI.colors.G5, marginRight: 6 }}
-          />
-          <span
-            className="truncate flex-1"
-            style={{
-              fontSize: 'clamp(11px, 2.8vw, 12px)',
-              color: TUI.colors.G5,
-              pointerEvents: 'none',
-            }}
-          >
-            قل شيئاً...
-          </span>
-        </div>
-      )}
+          قل شيئاً...
+        </span>
+      </div>
 
       {/* ═══════════════════════════════════════════════════════════════════════
           Audience on seat: Mute mic button (LEFT side, separate from bottom bar)

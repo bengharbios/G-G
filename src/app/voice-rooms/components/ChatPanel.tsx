@@ -21,6 +21,8 @@ interface ChatPanelProps {
   isMuted: boolean;
   onSendChat: (text: string) => void;
   authUser: AuthUser | null;
+  inputVisible?: boolean;
+  onRequestCloseInput?: () => void;
 }
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -44,13 +46,19 @@ const KEYFRAMES = `
 `;
 
 // ─── Component ────────────────────────────────────────────────────────────────
-export default function ChatPanel({ messages, isMuted, onSendChat, authUser }: ChatPanelProps) {
+export default function ChatPanel({ messages, isMuted, onSendChat, authUser, inputVisible, onRequestCloseInput }: ChatPanelProps) {
   const [inputText, setInputText] = useState('');
-  const [showInput, setShowInput] = useState(false);
   // tick triggers re-render every second for opacity decay
   const [, setTick] = useState(0);
   const endRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  // ── Auto-focus input when it appears ──
+  useEffect(() => {
+    if (inputVisible) {
+      inputRef.current?.focus();
+    }
+  }, [inputVisible]);
 
   // ── Inject keyframes once ──
   useEffect(() => {
@@ -218,8 +226,8 @@ export default function ChatPanel({ messages, isMuted, onSendChat, authUser }: C
         <div ref={endRef} className="h-px w-full flex-shrink-0" />
       </div>
 
-      {/* ── Chat Input Bar (appears on focus) ── */}
-      {showInput && (
+      {/* ── Chat Input Bar (appears when inputVisible is true) ── */}
+      {inputVisible && (
         <div
           className="pointer-events-auto mt-1"
           style={{
@@ -257,10 +265,9 @@ export default function ChatPanel({ messages, isMuted, onSendChat, authUser }: C
               value={inputText}
               onChange={(e) => setInputText(e.target.value)}
               onKeyDown={handleKeyDown}
-              onFocus={() => setShowInput(true)}
               onBlur={() => {
                 setTimeout(() => {
-                  if (!inputText.trim()) setShowInput(false);
+                  if (!inputText.trim()) onRequestCloseInput?.();
                 }, 200);
               }}
               placeholder={
