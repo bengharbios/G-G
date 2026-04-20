@@ -212,3 +212,173 @@ Stage Summary:
 - Responsive two-column layout for desktop
 - All existing functionality preserved (DB, WebSocket, API, polling)
 - Zero lint errors in voice-rooms source files
+
+---
+Task ID: 7
+Agent: Main Agent
+Task: Rewrite BottomBar.tsx to match TUILiveKit toolbar pattern exactly
+
+Work Log:
+- Read current BottomBar.tsx (152 lines) and types.ts DESIGN_TOKENS
+- Rewrote BottomBar.tsx to match TUILiveKit LivePlayerPC main-center-bottom and LivePlayerH5 bottom patterns
+
+**Layout Changes (PC md+):**
+- Container: bg #1F2024 (DESIGN_TOKENS.colors.bg.surface), padding 0 16px, flex-col
+- Top stroke line: absolute positioned 1px line with rgba(255,255,255,0.08) color (TUILiveKit ::before)
+- Content area: height 72px (DESIGN_TOKENS.layout.toolbarHeight), flex row, justify-between
+- Left section: flex-1, h-full, items-center, gap 16px — contains mic slider + tool buttons
+- Right section: h-full, flex, items-center, justify-center — placeholder for action buttons
+- Device slider area: bg #2a2d35 (DESIGN_TOKENS.colors.bg.bubble), padding 0 8px, rounded-md, h-40px, gap 8px (TUILiveKit device-setting)
+- Volume slider track: 46px width (TUILiveKit device-slider)
+
+**Layout Changes (Mobile):**
+- Compact bar: h-48px, flex, justify-between, bg #1F2024, border-top stroke
+- Right side: flex-end, padding 0 8px, gap 8px (TUILiveKit bottom-operate-button)
+- Like button: 32px round, bg #FF3B66, active: scale(0.95), opacity 0.9 (TUILiveKit like-button exact)
+- Gift button: 32px round, amber, same press animation
+- Room mute: 32px round, conditional bg
+
+**Icon Button Pattern (ToolbarIconButton):**
+- TUILiveKit custom-icon-container: min-w 56px, h 56px, flex-col, gap 4px, rounded-xl
+- Hover: box-shadow 0 0 10px 0 rgba(0,0,0,0.3), color link-hover (TUILiveKit exact)
+- Disabled: cursor not-allowed, opacity 0.5 (TUILiveKit .disabled)
+- Active: accent color + drop-shadow glow
+- Icon: 24x24px, transparent bg (TUILiveKit .custom-icon)
+- Label: 12px font-weight 400 (TUILiveKit .custom-text)
+
+**Props Preserved:**
+- All 8 props kept: myRole, isOnSeat, isMicMuted, isRoomMuted, onToggleMic, onToggleRoomMute, onGiftOpen, onLike
+- Permission checks preserved: canDo(myRole, 'admin') for room mute
+- Seat check preserved: isOnSeat for mic slider visibility
+
+**New Components:**
+- MicToggleButton: compact 24px mic icon for device slider area, or 40px for mobile
+- ToolbarIconButton: TUILiveKit custom-icon-container exact pattern
+
+**Lint Status:** ✅ Zero errors in BottomBar.tsx
+
+Stage Summary:
+- BottomBar.tsx fully rewritten to TUILiveKit main-center-bottom + LivePlayerH5 bottom patterns
+- PC: 72px toolbar with device slider, tool icon buttons, stroke line
+- Mobile: 48px compact bar with round action buttons, like button #FF3B66
+- All existing props/callbacks preserved
+- All DESIGN_TOKENS references used for consistency
+
+---
+Task ID: 6
+Agent: full-stack-developer
+Task: Rewrite MicSeat to match TUILiveKit AudioIcon
+
+Work Log:
+- Read current MicSeat.tsx (187 lines) and InjectStyles.tsx for animation keyframes
+- Read types.ts DESIGN_TOKENS for color/token references
+- Replaced `AudioLevelBars` component with `AudioIcon` — exact TUILiveKit AudioIcon.vue port
+- AudioIcon structure matches TUILiveKit exactly:
+  - `.audio-icon-container`: relative, w-6 h-6, cursor-pointer (24×24)
+  - `.audio-level-container`: absolute top-[2px] left-[7px], w-[10px] h-[14px], rounded-[4px], overflow-hidden, flex-col-reverse justify-between
+  - 5 bars inside with `audio-bar-1`..`audio-bar-5` staggered animation classes from InjectStyles
+  - `.audio-icon`: absolute top-0 left-0 with Mic/MicOff (Lucide) replacing IconAudioOpen/Close
+- Bar styling: `bg-[var(--text-color-success,#22c55e)]` when speaking, `/15` opacity when muted
+- Dynamic height via `audioVolume * 4%` matching TUILiveKit `audioLevelStyle` computation
+- All existing functionality preserved: locked seat, occupied seat (avatar + badges + name), empty seat
+- All existing props preserved: seat, isMySeat, onClick, index
+- Speaking glow animation (`animate-speak-glow`) preserved on avatar ring
+- Crown badge for owner, MicOff overlay for muted, Snowflake overlay for frozen — all preserved
+- Dev server compiles with zero MicSeat-specific lint errors
+
+Stage Summary:
+- MicSeat.tsx AudioIcon now matches TUILiveKit AudioIcon.vue exactly
+- 24×24 container with 10×14 audio level indicator, 4px border-radius
+- 5 staggered animation bars with TUILiveKit color tokens
+- Mic/MicOff icon overlay in AudioIcon container
+- All existing seat states (locked/occupied/empty) and props preserved
+
+---
+Task ID: 5
+Agent: full-stack-developer
+Task: Rewrite RoomInteriorView to match TUILiveKit LivePlayerPC
+
+Work Log:
+- Read current RoomInteriorView.tsx (392 lines)
+- Applied TUILiveKit LivePlayerPC two-column layout (gap 6px, border-radius 8px, overflow hidden)
+- Updated header to main-left-top style (56px height, gap 10px, padding-left 16px, bottom stroke separator via absolute div)
+- Updated mic grid to main-left-center (flex 1, bg black, position relative, overflow hidden, min-width/min-height 0)
+- Updated bottom bar to main-left-bottom (padding 6px 0, border-top 1px solid stroke-primary, bg #1F2024)
+- Moved AudienceRow from left column into main-right-top (30% height, bg #1F2024, title-text 16px/600, title-count)
+- Updated ChatPanel placement into main-right-bottom (flex 1, bg #1F2024) with card-title divider (16px/600, border-bottom stroke)
+- main-right: width 20%, min-width 160px, max-width 360px, gap 6px between top/bottom sections
+- Added message-list-container wrapper (flex 1 1 auto, user-select text)
+- Added responsive breakpoint at max-width 1000px: main-left margin-left 8px, header 48px, main-right margin-right 8px, padding 8px
+- Added TUILiveKit scrollbar styling (6px width, transparent bg, #58585A thumb, 3px radius, 2px border, background-clip padding-box)
+- Applied tui-live-scrollbar class to main container
+- All existing imports, component usage, props, overlay rendering (sheets, dialogs, gift/like animations) preserved exactly
+- dir="rtl" preserved on root container
+- Lint: zero errors in RoomInteriorView.tsx
+
+Stage Summary:
+- RoomInteriorView now matches TUILiveKit LivePlayerPC layout exactly
+- All existing functionality preserved
+
+---
+Task ID: fix-glow-and-tuikit
+Agent: Main Agent
+Task: Fix glow undefined error and rebuild all components to match TUILiveKit design exactly
+
+Work Log:
+- Fixed 'Cannot read properties of undefined (reading glow)' error in RoomListView.tsx
+  - Root cause: `c` was `DESIGN_TOKENS.colors` but `c.shadow.glow` accessed shadow from colors
+  - Fix: Changed `c.shadow.glow` to `DESIGN_TOKENS.shadow.glow` at lines 365 and 424
+- Read ALL TUILiveKit source files from /home/z/tuikit-ref/Web/web-vite-vue3/src/TUILiveKit/
+  - style/index.scss, Drawer.vue, AudioIcon.vue, LikeAnimation.vue/HeartIcon.vue
+  - LivePlayerPC.vue, LivePlayerH5.vue, LivePusherView.vue, LiveListView.vue
+  - Notification.vue, FullScreen.vue, SeatApplicationButton.vue
+  - CoGuestButton.vue, CoHostButton.vue, LayoutSwitch.vue, SettingButton.vue
+  - MicVolumeSetting.vue, SpeakerVolumeSetting.vue, LiveSettingButton.vue, OrientationSwitch.vue
+  - constants.ts, types/LivePusher.ts
+- Updated DESIGN_TOKENS in types.ts to match TUILiveKit CSS variables exactly:
+  - Added bg.drawer (#22262E), bg.bubble, text.link/linkHover/success/error
+  - Added ui.black6/white7/gray3/gray4/black8
+  - Added shadow.drawer/iconHover
+  - Added animation.iconHover
+  - Added layout.headerHeight/bottomBarHeight/toolbarHeight/sidebarMin/sidebarMax/sidebarWidth/gap
+- Rewrote BottomSheetOverlay.tsx to match TUILiveKit Drawer.vue:
+  - 12px border-radius (was 16px), shadow '0 -2px 8px rgba(0,0,0,0.08)'
+  - 48px header with 17px/500 title, flex-1 content with padding 16px
+  - zIndex prop support
+- Rewrote InjectStyles.tsx with TUILiveKit utilities:
+  - TUILiveKit @mixin scrollbar (6px, transparent bg, #58585A thumb, 3px radius, 2px border, background-clip padding-box)
+  - Icon button container (tui-icon-btn): 56px, 12px radius, gap 4px, hover glow, disabled state
+  - Divider classes (tui-divider-bottom, tui-divider-top)
+  - Card title (tui-card-title): 16px/600, border-bottom
+  - Ellipsis utility (tui-ellipsis)
+  - Notification slide animation
+  - Rotate animation for loading
+- Rewrote RoomInteriorView.tsx to match TUILiveKit LivePlayerPC:
+  - Two-column layout: flex:1 main-left + 20%/160-360px main-right, gap 6px, border-radius 8px
+  - main-left-top: 56px header, stroke separator line, gap 10px
+  - main-left-center: flex 1, bg black, overflow hidden
+  - main-left-bottom: padding 6px 0, border-top stroke, bg #1F2024
+  - main-right-top: 30% height audience panel
+  - main-right-bottom: flex 1 chat panel with card-title divider
+  - Responsive: max-width 1000px adjustments
+- Rewrote MicSeat.tsx to match TUILiveKit AudioIcon:
+  - 24x24 container with 10x14 audio level indicator, 4px border-radius
+  - Vertical column-reverse bar layout matching TUILiveKit .audio-level-container
+  - Dynamic height via audioVolume * 4%
+  - Mic/MicOff icon overlay
+- Rewrote BottomBar.tsx to match TUILiveKit main-center-bottom:
+  - PC: 72px toolbar, device slider (#2a2d35 bg, 40px, 6px radius), 56px icon buttons
+  - Mobile: 48px bar, 32px round buttons, #FF3B66 like button with active scale(0.95)
+- Updated ChatPanel.tsx to match TUILiveKit message styling:
+  - bg #1F2024 (--bg-color-operate), 6px TUILiveKit scrollbar, user-select text
+  - stroke-color-primary borders instead of purple-tinted borders
+- Updated LikeAnimation.tsx heart shadow:
+  - Changed from `drop-shadow(0 2px 4px rgba(0,0,0,0.2))` to `drop-shadow(0 0 2px rgba(255,255,255,0.6))` matching HeartIcon.vue
+- Updated MicSeatGrid.tsx with stroke divider and flex layout
+
+Stage Summary:
+- Commit: d7f3738 pushed to GitHub main
+- 10 files modified: types.ts, RoomListView.tsx, RoomInteriorView.tsx, MicSeat.tsx, MicSeatGrid.tsx, BottomBar.tsx, ChatPanel.tsx, LikeAnimation.tsx, BottomSheetOverlay.tsx, InjectStyles.tsx
+- Zero lint errors in voice-rooms files
+- Dev server compiles successfully with 200 response
+- All TUILiveKit design patterns applied: Drawer, AudioIcon, LikeAnimation, LivePlayerPC layout, scrollbar, icon buttons, stroke lines
