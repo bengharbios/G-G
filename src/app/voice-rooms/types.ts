@@ -1,6 +1,8 @@
 /* ═══════════════════════════════════════════════════════════════════════
-   VOICE ROOMS — Shared Types, Interfaces, Constants, and Helpers
+   VOICE ROOMS — Shared Types, Interfaces, Constants, Helpers & Design Tokens
    ═══════════════════════════════════════════════════════════════════════ */
+
+import { Globe, Key, EyeOff } from 'lucide-react';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -84,6 +86,88 @@ export interface MicMenuSheetState {
   mySeatIndex: number;
 }
 
+// ─── Design Tokens (TUILiveKit-inspired) ─────────────────────────────────────
+
+export const DESIGN_TOKENS = {
+  colors: {
+    bg: {
+      primary: '#0a0e1a',      // Deep dark base
+      secondary: '#111827',    // Card/panel background
+      tertiary: '#1a1f35',     // Elevated surfaces
+      surface: '#1F2024',      // Panel/overlay background (TUILiveKit exact)
+      overlay: 'rgba(0,0,0,0.4)', // Mask overlay
+    },
+    text: {
+      primary: 'rgba(255,255,255,0.90)',   // Main text
+      secondary: 'rgba(255,255,255,0.60)',  // Muted text
+      tertiary: 'rgba(255,255,255,0.35)',   // Disabled/placeholder
+    },
+    accent: {
+      primary: '#6c63ff',    // Brand purple-blue
+      success: '#22c55e',    // Green
+      warning: '#f59e0b',    // Amber
+      error: '#ef4444',      // Red
+      info: '#3b82f6',       // Blue
+      like: '#FF3B66',       // Like button (from TUILiveKit H5)
+      live: '#059669',       // Live dot green
+    },
+    stroke: {
+      primary: 'rgba(255,255,255,0.08)',  // Dividers/borders
+      secondary: 'rgba(255,255,255,0.15)', // Hover borders
+      module: '#48494F',                   // Notification border (TUILiveKit exact)
+    },
+    slider: {
+      empty: 'rgba(255,255,255,0.15)',
+    },
+  },
+  radius: {
+    sm: '4px',    // Audio bars, small elements
+    md: '8px',    // Cards, inputs
+    lg: '12px',   // Sheets, option cards, buttons
+    xl: '16px',   // Notifications, panel cards
+    pill: '25px', // Pill-shaped tags
+  },
+  shadow: {
+    sm: '0 2px 4px rgba(0,0,0,0.2)',
+    md: '0 4px 12px rgba(0,0,0,0.3)',
+    lg: '0 8px 18px rgba(0,0,0,0.4)',
+    glow: '0 0 20px rgba(108,99,255,0.15)',
+    notification: '0 8px 18px 0 rgba(0,0,0,0.06), 0 2px 6px 0 rgba(0,0,0,0.06)',
+  },
+  spacing: {
+    xs: '4px', sm: '8px', md: '16px', lg: '24px', xl: '32px',
+  },
+  typography: {
+    xs: '11px', sm: '12px', md: '14px', lg: '16px', xl: '18px', '2xl': '22px', '3xl': '24px',
+  },
+  animation: {
+    fast: '200ms ease',
+    normal: '300ms cubic-bezier(.4,0,.2,1)',
+    spring: '300ms cubic-bezier(.175,.885,.32,1.275)',
+    slow: '500ms ease',
+  },
+} as const;
+
+// ─── Heart / Like Colors (TUILiveKit LikeAnimation) ──────────────────────────
+
+export const HEART_COLORS = [
+  '#FF3B30', '#AF52DE', '#FF9500', '#FFCC00', '#34C759',
+  '#007AFF', '#8E8E93', '#32ADE6', '#A2845E',
+];
+
+// ─── Avatar Palette (TUILiveKit-inspired) ────────────────────────────────────
+
+export const AVATAR_PALETTE = [
+  { bg: '#eff6ff', text: '#2563eb' },
+  { bg: '#f0fdfa', text: '#0d9488' },
+  { bg: '#fffbeb', text: '#d97706' },
+  { bg: '#fff1f2', text: '#f43f5e' },
+  { bg: '#f0f9ff', text: '#0284c7' },
+  { bg: '#f1f5e9', text: '#475569' },
+  { bg: '#ecfdf5', text: '#059669' },
+  { bg: '#fff7ed', text: '#ea580c' },
+];
+
 // ─── Constants ───────────────────────────────────────────────────────────────
 
 export const ROLE_LEVELS: Record<RoomRole, number> = {
@@ -139,12 +223,11 @@ export const ROOM_MODE_OPTIONS: { value: RoomMode; label: string; icon: typeof G
   { value: 'private', label: 'خاص', icon: EyeOff, desc: 'دعوات فقط' },
 ];
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-import { Globe, Key, EyeOff } from 'lucide-react';
-
 export const AVATAR_COLORS = ['#1e3a7a', '#3a1e6a', '#1a4040', '#3a2010', '#4a1e3a', '#1e4a3a', '#3a3a1e', '#2a1e4a'];
 
 export const CHAT_SENDER_COLORS = ['#6c63ff', '#f59e0b', '#22c55e', '#f97316'];
+
+export const HEART_COLORS = ['#FF3B30', '#AF52DE', '#FF9500', '#FFCC00', '#34C759', '#007AFF', '#8E8E93', '#32ADE6', '#A2845E'];
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -156,6 +239,12 @@ export function getAvatarColor(userId: string): string {
   let hash = 0;
   for (let i = 0; i < userId.length; i++) hash = userId.charCodeAt(i) + ((hash << 5) - hash);
   return AVATAR_COLORS[Math.abs(hash) % AVATAR_COLORS.length];
+}
+
+export function getAvatarColorFromPalette(userId: string): { bg: string; text: string } {
+  let hash = 0;
+  for (let i = 0; i < userId.length; i++) hash = userId.charCodeAt(i) + ((hash << 5) - hash);
+  return AVATAR_PALETTE[Math.abs(hash) % AVATAR_PALETTE.length];
 }
 
 export function getSenderColor(userId: string): string {

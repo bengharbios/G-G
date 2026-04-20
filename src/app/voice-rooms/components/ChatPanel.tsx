@@ -1,138 +1,434 @@
 'use client';
 
-import { useRef, useEffect } from 'react';
-import { motion } from 'framer-motion';
-import { Send } from 'lucide-react';
-import type { ChatMessage, VoiceRoomParticipant, RoomRole } from '../types';
+import { useRef, useEffect, useState, useCallback } from 'react';
+import { AnimatePresence, motion } from 'framer-motion';
+import { Send, MicOff, Gift, Crown } from 'lucide-react';
+import type { ChatMessage, AuthUser } from '../types';
 import { getAvatarColor, getSenderColor } from '../types';
+
+/* ═══════════════════════════════════════════════════════════════════════
+   ChatPanel — TUILiveKit Business Player Chat Panel Design
+   RTL Arabic interface with smart auto-scroll, entrance animations,
+   host badges, gift styling, and accessible input area.
+   ═══════════════════════════════════════════════════════════════════════ */
+
+interface ChatPanelProps {
+  messages: ChatMessage[];
+  onSendMessage: (text: string) => void;
+  isRoomMuted: boolean;
+  authUser: AuthUser | null;
+  isOnSeat: boolean;
+  hostId?: string;
+}
+
+// ─── Animation Variants ────────────────────────────────────────────────────
+
+const messageVariants = {
+  hidden: { opacity: 0, y: 8 },
+  visible: { opacity: 1, y: 0 },
+  exit: { opacity: 0, y: -4 },
+};
+
+const giftVariants = {
+  hidden: { opacity: 0, scale: 0.8, y: 10 },
+  visible: { opacity: 1, scale: 1, y: 0 },
+  exit: { opacity: 0, scale: 0.9 },
+};
+
+// ─── Component ─────────────────────────────────────────────────────────────
 
 export default function ChatPanel({
   messages,
-  chatInput,
-  setChatInput,
-  onSendChat,
+  onSendMessage,
   isRoomMuted,
   authUser,
-  participants,
-  roomId,
-  onProfileClick,
-}: {
-  messages: ChatMessage[];
-  chatInput: string;
-  setChatInput: (val: string) => void;
-  onSendChat: () => void;
-  isRoomMuted: boolean;
-  authUser: { id: string; displayName: string; avatar: string } | null;
-  participants: VoiceRoomParticipant[];
-  roomId: string;
-  onProfileClick: (p: VoiceRoomParticipant) => void;
-}) {
-  const chatEndRef = useRef<HTMLDivElement>(null);
+  isOnSeat,
+  hostId,
+}: ChatPanelProps) {
+  const [input, setInput] = useState('');
+  const [isFocused, setIsFocused] = useState(false);
+
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const bottomSentinelRef = useRef<HTMLDivElement>(null);
+  const isAtBottomRef = useRef(true);
+  const shouldScrollRef = useRef(false);
+
+  /* ── Smart auto-scroll via IntersectionObserver ── */
+  useEffect(() => {
+    const sentinel = bottomSentinelRef.current;
+    const scrollContainer = scrollRef.current;
+    if (!sentinel || !scrollContainer) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        // Update our ref tracking whether the sentinel (bottom) is visible
+        const entry = entries[0];
+        isAtBottomRef.current = entry.isIntersecting;
+      },
+      { root: scrollContainer, threshold: 0.1 },
+    );
+
+    observer.observe(sentinel);
+    return () => observer.disconnect();
+  }, []);
+
+  /* ── Auto-scroll on new messages (only if user is at bottom) ── */
+  useEffect(() => {
+    if (messages.length === 0) return;
+    shouldScrollRef.current = isAtBottomRef.current;
+  }, [messages.length]);
 
   useEffect(() => {
-    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    if (shouldScrollRef.current) {
+      // Use requestAnimationFrame for smooth scroll after render
+      requestAnimationFrame(() => {
+        bottomSentinelRef.current?.scrollIntoView({ behavior: 'smooth' });
+      });
+    }
   }, [messages]);
 
-  const handleProfileClickFromMsg = (msg: ChatMessage) => {
-    const p = participants.find(p => p.userId === msg.userId);
-    if (p) {
-      onProfileClick(p);
-    } else {
-      onProfileClick({
-        id: '', roomId, userId: msg.userId, username: '',
-        displayName: msg.displayName, avatar: msg.avatar || '',
-        isMuted: false, micFrozen: false, role: 'visitor' as RoomRole,
-        seatIndex: -1, seatStatus: 'open' as RoomRole, vipLevel: 0,
-        joinedAt: new Date().toISOString(),
-      });
+  /* ── Scroll to bottom on initial mount ── */
+  useEffect(() => {
+    requestAnimationFrame(() => {
+      bottomSentinelRef.current?.scrollIntoView({ behavior: 'instant' as ScrollBehavior });
+    });
+  }, []);
+
+  /* ── Send handler ── */
+  const handleSend = useCallback(() => {
+    const trimmed = input.trim();
+    if (!trimmed) return;
+    onSendMessage(trimmed);
+    setInput('');
+  }, [input, onSendMessage]);
+
+  const handleKeyDown = useCallback(
+    (e: React.KeyboardEvent<HTMLInputElement>) => {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        handleSend();
+      }
+    },
+    [handleSend],
+  );
+
+  /* ── Determine disabled state ── */
+  const isDisabled = !authUser || isRoomMuted || !isOnSeat;
+  const canSend = !isDisabled && input.trim().length > 0;
+
+  /* ── Placeholder logic ── */
+  const placeholder = !authUser
+    ? 'سجل دخولك للمشاركة في المحادثة'
+    : isRoomMuted
+      ? 'الغرفة مكتومة'
+      : !isOnSeat
+        ? 'اجلس على المايك للمشاركة'
+        : 'اكتب رسالة...';
+
+  /* ── Render helpers ── */
+  const isSelf = (msg: ChatMessage) => !!authUser && msg.userId === authUser.id;
+  const isHost = (msg: ChatMessage) => !!hostId && msg.userId === hostId;
+
+  const formatMessageTime = (time: string): string => {
+    if (!time) return '';
+    try {
+      const d = new Date(time);
+      return d.toLocaleTimeString('ar-SA', { hour: '2-digit', minute: '2-digit' });
+    } catch {
+      return '';
     }
   };
 
   return (
     <>
-      {/* Chat messages */}
-      <section className="flex-1 overflow-y-auto px-3 py-2.5 scrollbar-hide" style={{ minHeight: 0 }}>
-        <div className="flex flex-col gap-1.5">
+      {/* ═══ MESSAGE LIST ═══ */}
+      <section
+        ref={scrollRef}
+        className="tuilivekit-scroll flex-1 overflow-y-auto"
+        style={{
+          backgroundColor: '#111a27',
+          padding: '12px 12px 16px',
+          minHeight: 0,
+        }}
+      >
+        <div className="flex flex-col" style={{ gap: '4px' }}>
+          {/* Empty state */}
           {messages.length === 0 && (
-            <p className="text-center text-[10px] text-[#5a6080] py-4">ابدأ المحادثة...</p>
+            <div className="flex items-center justify-center py-8">
+              <span className="text-xs" style={{ color: 'rgba(255,255,255,0.3)' }}>
+                ابدأ المحادثة...
+              </span>
+            </div>
           )}
 
-          {messages.map((msg) => (
-            <div key={msg.id}>
-              {msg.isGift ? (
-                <motion.div
-                  initial={{ opacity: 0, scale: 0.8, y: 8 }}
-                  animate={{ opacity: 1, scale: 1, y: 0 }}
-                  transition={{ duration: 0.4, ease: 'easeOut' }}
-                  className="self-center flex justify-center"
-                >
-                  <div className="bg-[rgba(245,158,11,0.1)] border border-[rgba(245,158,11,0.2)] rounded-full px-3.5 py-1 text-[10.5px] text-[#f59e0b] flex items-center gap-1.5">
-                    {msg.giftEmoji && <span className="text-[16px]">{msg.giftEmoji}</span>}
-                    <span>{msg.text}</span>
-                  </div>
-                </motion.div>
-              ) : msg.isSystem ? (
-                <p className="text-center text-[10px] text-[#5a6080] py-0.5 italic animate-fade-up">{msg.text}</p>
-              ) : (
-                <div className="flex items-start gap-1.5 animate-fade-up">
-                  <button
-                    onClick={() => handleProfileClickFromMsg(msg)}
-                    className="flex-shrink-0 mt-0.5 active:scale-95 transition-transform"
+          <AnimatePresence mode="popLayout" initial={false}>
+            {messages.map((msg) => {
+              /* ── System message ── */
+              if (msg.isSystem) {
+                return (
+                  <motion.div
+                    key={msg.id}
+                    variants={messageVariants}
+                    initial="hidden"
+                    animate="visible"
+                    exit="exit"
+                    transition={{ duration: 0.3, ease: 'easeOut' }}
+                    className="flex justify-center"
+                  >
+                    <span
+                      className="text-center px-3 py-0.5 rounded-full"
+                      style={{
+                        fontSize: '11px',
+                        color: 'rgba(255,255,255,0.35)',
+                        background: 'rgba(255,255,255,0.04)',
+                      }}
+                    >
+                      {msg.text}
+                    </span>
+                  </motion.div>
+                );
+              }
+
+              /* ── Gift message ── */
+              if (msg.isGift) {
+                return (
+                  <motion.div
+                    key={msg.id}
+                    variants={giftVariants}
+                    initial="hidden"
+                    animate="visible"
+                    exit="exit"
+                    transition={{ duration: 0.4, ease: [0.175, 0.885, 0.32, 1.275] }}
+                    className="flex justify-center"
                   >
                     <div
-                      className="w-6 h-6 rounded-full flex items-center justify-center overflow-hidden"
-                      style={{ background: getAvatarColor(msg.userId) }}
+                      className="flex items-center gap-1.5 rounded-full px-3 py-1"
+                      style={{
+                        background: 'rgba(245,158,11,0.1)',
+                        border: '1px solid rgba(245,158,11,0.2)',
+                      }}
+                    >
+                      {msg.giftEmoji && (
+                        <span className="text-base leading-none">{msg.giftEmoji}</span>
+                      )}
+                      <span className="text-xs font-medium" style={{ color: '#f59e0b' }}>
+                        {msg.text}
+                      </span>
+                    </div>
+                  </motion.div>
+                );
+              }
+
+              /* ── Regular chat message ── */
+              const self = isSelf(msg);
+              const host = isHost(msg);
+              const senderColor = getSenderColor(msg.userId);
+              const avatarBg = getAvatarColor(msg.userId);
+              const timeStr = formatMessageTime(msg.time);
+
+              return (
+                <motion.div
+                  key={msg.id}
+                  variants={messageVariants}
+                  initial="hidden"
+                  animate="visible"
+                  exit="exit"
+                  transition={{ duration: 0.3, ease: 'easeOut' }}
+                  className="flex items-start gap-2"
+                  style={{
+                    borderRadius: '10px',
+                    padding: self ? '6px 8px' : '4px 8px',
+                    background: self ? 'rgba(108,99,255,0.15)' : 'transparent',
+                    maxWidth: '100%',
+                  }}
+                >
+                  {/* Avatar — right side in RTL (first in DOM) */}
+                  <div
+                    className="flex-shrink-0 mt-0.5"
+                    style={{ width: '28px', height: '28px' }}
+                  >
+                    <div
+                      className="w-full h-full rounded-full flex items-center justify-center overflow-hidden"
+                      style={{ background: avatarBg }}
                     >
                       {msg.avatar ? (
-                        <img src={msg.avatar} alt="" className="w-full h-full rounded-full object-cover" />
+                        <img
+                          src={msg.avatar}
+                          alt={msg.displayName}
+                          className="w-full h-full rounded-full object-cover"
+                          loading="lazy"
+                        />
                       ) : (
-                        <span className="text-[9px] font-bold text-white">{msg.displayName.charAt(0)}</span>
+                        <span
+                          className="font-bold text-white leading-none"
+                          style={{ fontSize: '11px' }}
+                        >
+                          {msg.displayName.charAt(0)}
+                        </span>
                       )}
                     </div>
-                  </button>
-                  <div className="bg-[#1c2035] border border-[rgba(255,255,255,0.07)] rounded-[12px_4px_12px_12px] px-2.5 py-1.5 max-w-[75%]">
-                    <button
-                      onClick={() => handleProfileClickFromMsg(msg)}
-                      className="text-[10px] font-bold mb-0.5 text-right w-full"
-                      style={{ color: getSenderColor(msg.userId) }}
-                    >
-                      {msg.displayName}
-                    </button>
-                    <div className="text-[12px] text-[#9ca3c4] leading-relaxed break-words">{msg.text}</div>
                   </div>
-                </div>
-              )}
-            </div>
-          ))}
 
-          <div ref={chatEndRef} />
+                  {/* Message content */}
+                  <div className="flex-1 min-w-0">
+                    {/* Name row + optional host badge */}
+                    <div className="flex items-center gap-1.5" style={{ marginBottom: '2px' }}>
+                      <span
+                        className="font-bold leading-tight truncate"
+                        style={{ fontSize: '12px', color: senderColor }}
+                      >
+                        {msg.displayName}
+                      </span>
+                      {host && (
+                        <span
+                          className="inline-flex items-center gap-0.5 flex-shrink-0"
+                          style={{
+                            fontSize: '9px',
+                            fontWeight: 600,
+                            color: '#f59e0b',
+                            background: 'rgba(245,158,11,0.12)',
+                            padding: '1px 5px',
+                            borderRadius: '4px',
+                            lineHeight: '14px',
+                          }}
+                        >
+                          <Crown className="w-2.5 h-2.5" style={{ marginRight: '1px' }} />
+                          المالك
+                        </span>
+                      )}
+                      {timeStr && (
+                        <span
+                          className="flex-shrink-0"
+                          style={{ fontSize: '10px', color: 'rgba(255,255,255,0.25)' }}
+                        >
+                          {timeStr}
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Text bubble */}
+                    <p
+                      className="break-words leading-relaxed"
+                      style={{
+                        fontSize: '13px',
+                        color: 'rgba(255,255,255,0.85)',
+                        margin: 0,
+                      }}
+                    >
+                      {msg.text}
+                    </p>
+                  </div>
+                </motion.div>
+              );
+            })}
+          </AnimatePresence>
+
+          {/* Bottom sentinel for IntersectionObserver */}
+          <div ref={bottomSentinelRef} className="h-px w-full flex-shrink-0" />
         </div>
       </section>
 
-      {/* Chat input */}
-      <footer className="bg-transparent border-t border-[rgba(108,99,255,0.18)] px-3 py-2.5 pb-5 flex-shrink-0">
-        <div className="flex items-center gap-2">
-          <div className="flex-1 bg-[#1c2035] border border-[rgba(255,255,255,0.07)] rounded-full flex items-center px-3.5 h-[38px] gap-1.5">
+      {/* ═══ INPUT AREA ═══ */}
+      <footer
+        className="flex-shrink-0"
+        style={{
+          padding: '8px 12px',
+          paddingBottom: '16px',
+          borderTop: '1px solid rgba(108,99,255,0.12)',
+          background: '#111a27',
+        }}
+      >
+        <div
+          className="flex items-center gap-2"
+          style={{ minHeight: '40px' }}
+        >
+          {/* Input wrapper */}
+          <div
+            className="flex-1 flex items-center gap-2 transition-shadow duration-200"
+            style={{
+              height: '32px',
+              minHeight: '32px',
+              background: 'rgba(255,255,255,0.06)',
+              borderRadius: '16px',
+              padding: '0 4px 0 12px',
+              border: '1px solid rgba(255,255,255,0.08)',
+              boxShadow: isFocused
+                ? '0 0 0 2px rgba(108,99,255,0.3), 0 0 12px rgba(108,99,255,0.08)'
+                : 'none',
+            }}
+          >
             <input
               type="text"
-              value={chatInput}
-              onChange={(e) => setChatInput(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && onSendChat()}
-              placeholder={!authUser ? 'سجل دخولك للمشاركة في المحادثة' : isRoomMuted ? 'المحادثة مكتومة' : 'اكتب رسالة...'}
-              disabled={isRoomMuted || !authUser}
-              className="flex-1 bg-transparent border-none outline-none text-[13px] text-[#f0f0f8] placeholder:text-[#5a6080] disabled:opacity-50"
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyDown={handleKeyDown}
+              onFocus={() => setIsFocused(true)}
+              onBlur={() => setIsFocused(false)}
+              placeholder={placeholder}
+              disabled={isDisabled}
               dir="rtl"
+              className="flex-1 bg-transparent border-none outline-none text-white placeholder:text-[rgba(255,255,255,0.3)] disabled:opacity-40 disabled:cursor-not-allowed"
+              style={{
+                fontSize: '13px',
+                height: '100%',
+                lineHeight: '32px',
+              }}
             />
-            <button
-              onClick={onSendChat}
-              disabled={!chatInput.trim() || isRoomMuted || !authUser}
-              className="w-[26px] h-[26px] rounded-full bg-[#6c63ff] flex items-center justify-center flex-shrink-0 disabled:opacity-30 transition-opacity"
-            >
-              <Send className="w-3 h-3 text-white" />
-            </button>
           </div>
+
+          {/* Send / Muted indicator button */}
+          {isRoomMuted ? (
+            <div
+              className="flex items-center justify-center flex-shrink-0"
+              style={{
+                width: '32px',
+                height: '32px',
+                borderRadius: '50%',
+                background: 'rgba(239,68,68,0.12)',
+              }}
+            >
+              <MicOff className="w-4 h-4" style={{ color: '#ef4444' }} />
+            </div>
+          ) : (
+            <button
+              onClick={handleSend}
+              disabled={!canSend}
+              className="flex items-center justify-center flex-shrink-0 transition-all duration-200 active:scale-90 disabled:opacity-25 disabled:cursor-not-allowed"
+              style={{
+                width: '32px',
+                height: '32px',
+                borderRadius: '50%',
+                background: canSend ? '#6c63ff' : 'rgba(255,255,255,0.08)',
+                boxShadow: canSend ? '0 2px 8px rgba(108,99,255,0.35)' : 'none',
+              }}
+              aria-label="إرسال"
+            >
+              <Send className="w-4 h-4 text-white" style={{ transform: 'rotate(180deg)' }} />
+            </button>
+          )}
         </div>
       </footer>
+
+      {/* ═══ TUILiveKit Scrollbar Styles ═══ */}
+      <style>{`
+        .tuilivekit-scroll {
+          scrollbar-width: thin;
+          scrollbar-color: rgba(255,255,255,0.12) transparent;
+        }
+        .tuilivekit-scroll::-webkit-scrollbar {
+          width: 4px;
+        }
+        .tuilivekit-scroll::-webkit-scrollbar-track {
+          background: transparent;
+        }
+        .tuilivekit-scroll::-webkit-scrollbar-thumb {
+          background: rgba(255,255,255,0.12);
+          border-radius: 2px;
+        }
+        .tuilivekit-scroll::-webkit-scrollbar-thumb:hover {
+          background: rgba(255,255,255,0.22);
+        }
+      `}</style>
     </>
   );
 }

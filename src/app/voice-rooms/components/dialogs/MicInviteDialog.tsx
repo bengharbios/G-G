@@ -2,6 +2,28 @@
 
 import { motion, AnimatePresence } from 'framer-motion';
 
+const dialogOverlay = {
+  hidden: { opacity: 0 },
+  visible: { opacity: 1 },
+  exit: { opacity: 0 },
+};
+
+const dialogPanel = {
+  hidden: { opacity: 0, scale: 0.92, y: 20 },
+  visible: {
+    opacity: 1,
+    scale: 1,
+    y: 0,
+    transition: { type: 'spring', damping: 28, stiffness: 320 },
+  },
+  exit: {
+    opacity: 0,
+    scale: 0.92,
+    y: 20,
+    transition: { duration: 0.2 },
+  },
+};
+
 export default function MicInviteDialog({
   isOpen, onClose, onAccept, onReject, seatIndex,
 }: {
@@ -16,41 +38,71 @@ export default function MicInviteDialog({
       {isOpen && (
         <>
           <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/60 z-[100]"
+            key="mic-invite-overlay"
+            variants={dialogOverlay}
+            initial="hidden"
+            animate="visible"
+            exit="exit"
+            className="fixed inset-0 z-[100]"
+            style={{ background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(20px)' }}
             onClick={onClose}
           />
           <motion.div
-            initial={{ opacity: 0, scale: 0.9, y: 20 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.9, y: 20 }}
-            transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-            className="fixed z-[110] left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[300px] bg-[#181c2e] border border-[rgba(34,197,94,0.3)] rounded-2xl p-5 shadow-2xl"
+            key="mic-invite-panel"
+            variants={dialogPanel}
+            initial="hidden"
+            animate="visible"
+            exit="exit"
+            className="fixed z-[110] left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[calc(100%-48px)] max-w-[340px]"
+            style={{
+              background: '#1F2024',
+              border: '1px solid #48494F',
+              borderRadius: '16px',
+              boxShadow: '0 8px 18px 0 rgba(0,0,0,0.06), 0 2px 6px 0 rgba(0,0,0,0.06), 0 0 40px rgba(0,0,0,0.3)',
+            }}
             dir="rtl"
           >
-            <div className="flex justify-center mb-3">
-              <div className="w-14 h-14 rounded-full bg-gradient-to-br from-[#22c55e] to-[#16a34a] flex items-center justify-center">
+            {/* Icon */}
+            <div className="flex justify-center pt-6 pb-3">
+              <div
+                className="w-14 h-14 rounded-full flex items-center justify-center"
+                style={{ background: 'linear-gradient(135deg, #22c55e, #16a34a)', boxShadow: '0 4px 16px rgba(34,197,94,0.3)' }}
+              >
                 <span className="text-2xl">🎙</span>
               </div>
             </div>
-            <div className="text-center mb-4">
-              <div className="text-[16px] font-bold text-[#f0f0f8] mb-1">دعوة للمايك!</div>
-              <div className="text-[12px] text-[#9ca3c4]">تمت دعوتك للصعود على <span className="text-[#22c55e] font-bold">المايك {seatIndex + 1}</span></div>
+
+            {/* Title */}
+            <div className="text-center px-6 pb-5">
+              <div className="text-[17px] font-bold text-white mb-1.5">دعوة للمايك!</div>
+              <div className="text-[13px]" style={{ color: 'rgba(255,255,255,0.5)' }}>
+                تمت دعوتك للصعود على{' '}
+                <span className="font-bold" style={{ color: '#22c55e' }}>المايك {seatIndex + 1}</span>
+              </div>
             </div>
-            <div className="flex gap-2">
-              <button
-                onClick={onAccept}
-                className="flex-1 py-2.5 rounded-xl bg-gradient-to-l from-[#22c55e] to-[#16a34a] text-white text-[13px] font-bold active:scale-[0.97] transition-transform"
-              >
-                قبول
-              </button>
+
+            {/* Footer */}
+            <div className="flex gap-3 px-5 pb-5">
               <button
                 onClick={onReject}
-                className="flex-1 py-2.5 rounded-xl bg-[#1c2035] border border-[rgba(255,255,255,0.07)] text-[#9ca3c4] text-[13px] font-semibold hover:bg-[#232843] active:scale-[0.97] transition-transform"
+                className="flex-1 h-10 rounded-xl text-[13px] font-semibold transition-all duration-200 active:scale-[0.97]"
+                style={{
+                  background: 'transparent',
+                  color: 'rgba(255,255,255,0.6)',
+                  border: '1px solid rgba(255,255,255,0.1)',
+                }}
               >
                 رفض
+              </button>
+              <button
+                onClick={onAccept}
+                className="flex-1 h-10 rounded-xl text-[13px] font-bold text-white transition-all duration-200 active:scale-[0.97]"
+                style={{
+                  background: 'linear-gradient(135deg, #22c55e, #16a34a)',
+                  boxShadow: '0 4px 16px rgba(34,197,94,0.25)',
+                }}
+              >
+                قبول
               </button>
             </div>
           </motion.div>

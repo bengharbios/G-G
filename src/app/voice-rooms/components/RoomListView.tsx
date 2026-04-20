@@ -1,18 +1,17 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { motion } from 'framer-motion';
-import { Loader2, Volume2, Users } from 'lucide-react';
-import SiteHeader from '@/components/shared/SiteHeader';
-import SiteBottomNav from '@/components/shared/SiteBottomNav';
+import { useState, useEffect, useMemo } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import {
+  Plus, Search, Users, Lock, EyeOff, Crown, Radio, Hash, Mic, Volume2,
+} from 'lucide-react';
 import CreateRoomDialog from './dialogs/CreateRoomDialog';
+import { DESIGN_TOKENS } from '../types';
 import type { VoiceRoom, AuthUser, RoomMode } from '../types';
 
-export default function RoomListView({
-  onJoinRoom,
-  onCreateRoom,
-  authUser,
-}: {
+// ─── Props ────────────────────────────────────────────────────────────────────
+
+interface RoomListViewProps {
   onJoinRoom: (room: VoiceRoom) => void;
   onCreateRoom: (data: {
     name: string; description: string; micSeatCount: number;
@@ -20,14 +19,74 @@ export default function RoomListView({
     isAutoMode: boolean; micTheme: string;
   }) => void;
   authUser: AuthUser | null;
-}) {
+}
+
+// ─── Filter pill definitions ─────────────────────────────────────────────────
+
+const FILTER_PILLS: { key: RoomMode | 'all'; label: string; icon: typeof Radio }[] = [
+  { key: 'all', label: 'الكل', icon: Hash },
+  { key: 'public', label: 'العامة', icon: Radio },
+  { key: 'key', label: 'بكلمة سر', icon: Lock },
+  { key: 'private', label: 'الخاصة', icon: EyeOff },
+];
+
+// ─── Mode badge config ───────────────────────────────────────────────────────
+
+const MODE_BADGE: Record<RoomMode, { bg: string; text: string; border: string; label: string }> = {
+  public: {
+    bg: 'rgba(34,197,94,0.15)',
+    text: DESIGN_TOKENS.colors.accent.success,
+    border: 'rgba(34,197,94,0.35)',
+    label: 'عام',
+  },
+  key: {
+    bg: 'rgba(245,158,11,0.15)',
+    text: DESIGN_TOKENS.colors.accent.warning,
+    border: 'rgba(245,158,11,0.35)',
+    label: 'بكلمة سر',
+  },
+  private: {
+    bg: 'rgba(108,99,255,0.15)',
+    text: '#a78bfa',
+    border: 'rgba(108,99,255,0.35)',
+    label: 'خاص',
+  },
+};
+
+// ─── Animations ──────────────────────────────────────────────────────────────
+
+const cardVariants = {
+  hidden: { opacity: 0, y: 18, scale: 0.97 },
+  visible: (i: number) => ({
+    opacity: 1,
+    y: 0,
+    scale: 1,
+    transition: {
+      delay: i * 0.06,
+      duration: 0.35,
+      ease: [0.25, 0.46, 0.45, 0.94],
+    },
+  }),
+};
+
+const listVariants = {
+  hidden: {},
+  visible: { transition: { staggerChildren: 0.06 } },
+};
+
+// ─── Component ────────────────────────────────────────────────────────────────
+
+export default function RoomListView({ onJoinRoom, onCreateRoom, authUser }: RoomListViewProps) {
   const [rooms, setRooms] = useState<VoiceRoom[]>([]);
   const [myRoom, setMyRoom] = useState<VoiceRoom | null>(null);
   const [loading, setLoading] = useState(true);
   const [showCreate, setShowCreate] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [activeFilter, setActiveFilter] = useState<RoomMode | 'all'>('all');
 
   const hasRoom = !!myRoom;
 
+  // ── Fetch rooms ──
   useEffect(() => {
     let cancelled = false;
     const load = async () => {
@@ -45,162 +104,481 @@ export default function RoomListView({
     return () => { cancelled = true; };
   }, []);
 
-  const modeLabel: Record<RoomMode, string> = {
-    public: 'عام', key: '🔒', private: '✨ خاص',
-  };
+  // ── Filtered rooms ──
+  const filteredRooms = useMemo(() => {
+    return rooms.filter((r) => {
+      const matchesFilter = activeFilter === 'all' || r.roomMode === activeFilter;
+      const matchesSearch = searchQuery.trim() === ''
+        || r.name.includes(searchQuery.trim())
+        || (r.hostName || '').includes(searchQuery.trim())
+        || (r.description || '').includes(searchQuery.trim());
+      return matchesFilter && matchesSearch;
+    });
+  }, [rooms, activeFilter, searchQuery]);
 
-  const modeColor: Record<RoomMode, string> = {
-    public: 'bg-[rgba(34,197,94,0.2)] text-[#22c55e] border-[rgba(34,197,94,0.4)]',
-    key: 'bg-[rgba(245,158,11,0.2)] text-[#f59e0b] border-[rgba(245,158,11,0.4)]',
-    private: 'bg-[rgba(108,99,255,0.2)] text-[#a78bfa] border-[rgba(108,99,255,0.4)]',
-  };
+  // ── Color tokens shortcut ──
+  const c = DESIGN_TOKENS.colors;
 
   return (
-    <div className="min-h-screen bg-slate-950" dir="rtl">
-      {/* Shared Header */}
-      <SiteHeader
-        authUser={authUser}
-        onProfileClick={() => { window.location.href = '/profile'; }}
-        extraContent={
-          !hasRoom ? (
-            <button
-              onClick={() => setShowCreate(true)}
-              className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-gradient-to-l from-amber-500 to-red-500 text-white text-sm font-medium"
+    <div
+      className="min-h-screen flex flex-col"
+      dir="rtl"
+      style={{ backgroundColor: c.bg.primary }}
+    >
+      {/* ═══════ HEADER ═══════ */}
+      <header
+        className="fixed top-0 inset-x-0 z-50 flex items-center justify-between px-4"
+        style={{
+          height: '48px',
+          backgroundColor: c.bg.secondary,
+          borderBottom: `1px solid ${c.stroke.primary}`,
+        }}
+      >
+        {/* Right side (RTL) — Title */}
+        <div className="flex items-center gap-2">
+          <div
+            className="flex items-center justify-center rounded-lg"
+            style={{
+              width: '32px',
+              height: '32px',
+              background: `linear-gradient(135deg, ${c.accent.primary}, #a78bfa)`,
+            }}
+          >
+            <Radio className="w-4 h-4 text-white" />
+          </div>
+          <h1
+            className="font-bold tracking-tight"
+            style={{
+              fontSize: DESIGN_TOKENS.typography.lg,
+              color: c.text.primary,
+            }}
+          >
+            غرف صوتية
+          </h1>
+        </div>
+
+        {/* Left side — User info */}
+        {authUser && (
+          <button className="flex items-center gap-2 group">
+            <span
+              className="text-sm font-medium group-hover:opacity-80 transition-opacity"
+              style={{ color: c.text.secondary }}
             >
-              <span>+</span>
-              <span className="hidden sm:inline">إنشاء</span>
-            </button>
-          ) : undefined
-        }
-      />
+              {authUser.displayName}
+            </span>
+            <div className="relative">
+              {authUser.avatar ? (
+                <img
+                  src={authUser.avatar}
+                  alt={authUser.displayName}
+                  className="w-8 h-8 rounded-full object-cover ring-2 ring-transparent group-hover:ring-[rgba(108,99,255,0.4)] transition-all"
+                />
+              ) : (
+                <div
+                  className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold text-white"
+                  style={{ backgroundColor: c.accent.primary }}
+                >
+                  {(authUser.displayName || '?').charAt(0)}
+                </div>
+              )}
+            </div>
+          </button>
+        )}
+      </header>
 
       {/* Spacer for fixed header */}
-      <div className="h-14 sm:h-16" />
+      <div style={{ height: '48px' }} />
 
-      {/* Room Grid */}
-      <div className="p-4">
-        {loading ? (
-          <div className="flex items-center justify-center py-20">
-            <Loader2 className="w-8 h-8 text-[#6c63ff] animate-spin" />
-          </div>
-        ) : rooms.length === 0 && !hasRoom ? (
-          <div className="flex flex-col items-center justify-center py-20 text-center">
-            <div className="w-16 h-16 rounded-full bg-[#1c2035] flex items-center justify-center mb-4">
-              <Volume2 className="w-8 h-8 text-[#5a6080]" />
-            </div>
-            <p className="text-[#9ca3c4] text-sm mb-1">لا توجد غرف صوتية</p>
-            <p className="text-[#5a6080] text-xs mb-4">كن أول من ينشئ غرفة!</p>
-            <button onClick={() => setShowCreate(true)} className="px-6 py-2.5 rounded-xl bg-[#6c63ff] text-white text-sm font-medium hover:bg-[#6c63ff]/80 transition-colors">
-              إنشاء غرفة جديدة
-            </button>
-          </div>
-        ) : (
-          <div className="space-y-4">
-            {/* My room - pinned */}
-            {hasRoom && (
-              <div className="mb-2">
-                <div className="text-[10px] text-[#5a6080] font-semibold mb-2 px-1">غرفتي</div>
-                <motion.button
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  onClick={() => onJoinRoom(myRoom!)}
-                  className="w-full bg-[#141726] border-2 border-[rgba(245,158,11,0.3)] rounded-2xl overflow-hidden text-right hover:border-[rgba(245,158,11,0.5)] transition-all group"
-                >
-                  <div className="h-28 relative overflow-hidden">
-                    {myRoom.roomImage ? (
-                      <img src={myRoom.roomImage} alt="" className="w-full h-full object-cover" />
-                    ) : (
-                      <div className="w-full h-full bg-gradient-to-l from-[#6c63ff]/30 to-[#a78bfa]/10" />
-                    )}
-                    <div className="absolute inset-0 bg-gradient-to-t from-[#141726] via-transparent to-transparent" />
-                    <div className="absolute top-2.5 right-2.5 flex items-center gap-1.5">
-                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-[rgba(34,197,94,0.2)] text-[#22c55e] border border-[rgba(34,197,94,0.4)]">
-                        <span className="inline-block w-1.5 h-1.5 rounded-full bg-[#22c55e] animate-live-pulse ml-1" />
-                        مباشر
-                      </span>
-                    </div>
-                    <div className="absolute bottom-2.5 left-2.5">
-                      <div className="flex items-center gap-1 bg-[rgba(245,158,11,0.15)] rounded-full px-2 py-0.5">
-                        <span className="text-[9px] font-bold text-[#f59e0b]">LV</span>
-                        <span className="text-[9px] font-bold text-[#f0f0f8]">{myRoom.roomLevel || 1}</span>
-                      </div>
-                    </div>
-                    <div className="absolute bottom-2.5 right-2.5 flex items-center gap-1 text-[#c0c0d0] text-[10px]">
-                      <Users className="w-3 h-3" />
-                      <span>{myRoom.participantCount || 0}</span>
-                    </div>
-                  </div>
-                  <div className="px-4 py-3">
-                    <div className="flex items-center justify-between mb-1">
-                      <h3 className="text-[15px] font-bold text-[#f0f0f8] truncate group-hover:text-[#f59e0b] transition-colors">
-                        {myRoom.name}
-                      </h3>
-                      <span className="text-[10px] font-mono text-[#5a6080]">#{myRoom.hostId?.substring(0, 8)}</span>
-                    </div>
-                    <p className="text-[11px] text-[#5a6080] truncate">{myRoom.description || 'بدون وصف'}</p>
-                  </div>
-                </motion.button>
-              </div>
-            )}
+      {/* ═══════ SEARCH / FILTER BAR ═══════ */}
+      <div
+        className="sticky top-[48px] z-40 px-4 py-3"
+        style={{
+          backgroundColor: c.bg.primary,
+          borderBottom: `1px solid ${c.stroke.primary}`,
+        }}
+      >
+        {/* Search input */}
+        <div className="relative mb-3">
+          <Search
+            className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none"
+            style={{ width: '16px', height: '16px', color: c.text.tertiary }}
+          />
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="ابحث عن غرفة..."
+            className="w-full pr-10 pl-4 py-2 rounded-lg text-sm outline-none transition-all focus:ring-2 focus:ring-[rgba(108,99,255,0.4)]"
+            style={{
+              backgroundColor: c.bg.tertiary,
+              border: `1px solid ${c.stroke.primary}`,
+              color: c.text.primary,
+            }}
+          />
+        </div>
 
-            {/* Other rooms */}
-            {rooms.length > 0 && (
-              <div>
-                {!hasRoom && rooms.length > 0 && <div className="text-[10px] text-[#5a6080] font-semibold mb-2 px-1">الغرف العامة</div>}
-                <div className="grid grid-cols-2 gap-3">
-                  {rooms.map((room, i) => (
-                    <motion.button
-                      key={room.id}
-                      initial={{ opacity: 0, y: 20 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: i * 0.05 }}
-                      onClick={() => onJoinRoom(room)}
-                      className="bg-[#141726] border border-[rgba(255,255,255,0.07)] rounded-2xl overflow-hidden text-right hover:border-[rgba(108,99,255,0.3)] transition-all group"
-                    >
-                      {room.roomImage ? (
-                        <div className="h-20 overflow-hidden">
-                          <img src={room.roomImage} alt="" className="w-full h-full object-cover" />
-                          <div className="relative inset-0 bg-gradient-to-t from-[#141726] to-transparent" />
-                        </div>
-                      ) : null}
-                      <div className={`${room.roomImage ? 'px-3 pt-2.5 pb-3' : 'p-4'}`}>
-                        <div className="flex items-center justify-between mb-1.5">
-                          <span className={`text-[10px] px-2 py-0.5 rounded-full border ${modeColor[room.roomMode || 'public']}`}>
-                            {modeLabel[room.roomMode || 'public']}
-                          </span>
-                          <div className="flex items-center gap-1 text-[#5a6080] text-[10px]">
-                            <Users className="w-3 h-3" />
-                            <span>{room.participantCount || 0}</span>
-                          </div>
-                        </div>
-                        <h3 className="text-sm font-bold text-[#f0f0f8] truncate mb-1 group-hover:text-[#a78bfa] transition-colors">
-                          {room.name}
-                        </h3>
-                        <p className="text-[11px] text-[#5a6080] truncate">{room.description || 'بدون وصف'}</p>
-                        <div className="flex items-center gap-1.5 mt-1.5">
-                          <div className="w-5 h-5 rounded-full bg-[#6c63ff] flex items-center justify-center">
-                            <span className="text-[8px] font-bold text-white">{(room.hostName || '?').charAt(0)}</span>
-                          </div>
-                          <span className="text-[10px] text-[#5a6080]">{room.hostName || 'مجهول'}</span>
-                        </div>
-                      </div>
-                    </motion.button>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
-        )}
+        {/* Filter pills */}
+        <div className="flex items-center gap-2 overflow-x-auto scrollbar-hide">
+          {FILTER_PILLS.map((pill) => {
+            const Icon = pill.icon;
+            const isActive = activeFilter === pill.key;
+            return (
+              <button
+                key={pill.key}
+                onClick={() => setActiveFilter(pill.key)}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-all"
+                style={{
+                  backgroundColor: isActive ? c.accent.primary : c.bg.tertiary,
+                  color: isActive ? '#ffffff' : c.text.secondary,
+                  border: `1px solid ${isActive ? 'transparent' : c.stroke.primary}`,
+                }}
+              >
+                <Icon className="w-3 h-3" />
+                {pill.label}
+              </button>
+            );
+          })}
+        </div>
       </div>
 
+      {/* ═══════ CONTENT ═══════ */}
+      <main className="flex-1 px-4 py-4 pb-24">
+
+        {/* ── My pinned room ── */}
+        {hasRoom && (
+          <div className="mb-4">
+            <p
+              className="text-[10px] font-semibold mb-2 px-1"
+              style={{ color: c.text.tertiary }}
+            >
+              غرفتي
+            </p>
+            <motion.button
+              initial={{ opacity: 0, y: 14 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.3 }}
+              onClick={() => onJoinRoom(myRoom!)}
+              className="w-full rounded-xl overflow-hidden text-right transition-all"
+              style={{
+                backgroundColor: c.bg.secondary,
+                border: `2px solid ${c.stroke.primary}`,
+              }}
+            >
+              {/* Cover */}
+              <div className="relative h-36 overflow-hidden">
+                {myRoom.roomImage ? (
+                  <img src={myRoom.roomImage} alt="" className="w-full h-full object-cover" />
+                ) : (
+                  <div
+                    className="w-full h-full"
+                    style={{
+                      background: `linear-gradient(135deg, rgba(108,99,255,0.3), rgba(167,139,250,0.1))`,
+                    }}
+                  />
+                )}
+                <div className="absolute inset-0" style={{ background: 'linear-gradient(to top, #111827, transparent 60%)' }} />
+
+                {/* Live badge */}
+                <div className="absolute top-2.5 right-2.5 flex items-center gap-1.5">
+                  <span
+                    className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium"
+                    style={{
+                      backgroundColor: 'rgba(34,197,94,0.15)',
+                      color: c.accent.success,
+                      border: `1px solid rgba(34,197,94,0.35)`,
+                    }}
+                  >
+                    <span
+                      className="inline-block w-1.5 h-1.5 rounded-full animate-live-pulse"
+                      style={{ backgroundColor: c.accent.live }}
+                    />
+                    مباشر
+                  </span>
+                </div>
+
+                {/* Level badge */}
+                <div className="absolute bottom-2.5 left-2.5">
+                  <div
+                    className="flex items-center gap-1 rounded-full px-2 py-0.5"
+                    style={{ backgroundColor: 'rgba(245,158,11,0.15)' }}
+                  >
+                    <Crown className="w-3 h-3" style={{ color: c.accent.warning }} />
+                    <span className="text-[9px] font-bold" style={{ color: c.accent.warning }}>
+                      LV {myRoom.roomLevel || 1}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Participant count */}
+                <div
+                  className="absolute bottom-2.5 right-2.5 flex items-center gap-1 text-[10px]"
+                  style={{ color: c.text.secondary }}
+                >
+                  <Users className="w-3 h-3" />
+                  <span>{myRoom.participantCount || 0}</span>
+                </div>
+              </div>
+
+              {/* Info */}
+              <div className="px-4 py-3">
+                <h3
+                  className="text-[15px] font-bold truncate mb-0.5 transition-colors"
+                  style={{ color: c.text.primary }}
+                >
+                  {myRoom.name}
+                </h3>
+                <p className="text-xs truncate" style={{ color: c.text.tertiary }}>
+                  {myRoom.description || 'بدون وصف'}
+                </p>
+              </div>
+            </motion.button>
+          </div>
+        )}
+
+        {/* ── Loading ── */}
+        {loading ? (
+          <div className="flex items-center justify-center py-24">
+            <div className="w-8 h-8 border-2 border-t-transparent rounded-full animate-spin" style={{ borderColor: c.accent.primary, borderTopColor: 'transparent' }} />
+          </div>
+        ) : rooms.length === 0 && !hasRoom ? (
+          /* ── Empty state ── */
+          <div className="flex flex-col items-center justify-center py-24 text-center">
+            <div
+              className="w-20 h-20 rounded-2xl flex items-center justify-center mb-5"
+              style={{ backgroundColor: c.bg.tertiary }}
+            >
+              <Volume2 className="w-10 h-10" style={{ color: c.text.tertiary }} />
+            </div>
+            <p className="text-base font-semibold mb-1" style={{ color: c.text.secondary }}>
+              لا توجد غرف حالياً
+            </p>
+            <p className="text-sm mb-5" style={{ color: c.text.tertiary }}>
+              كن أول من ينشئ غرفة صوتية!
+            </p>
+            <motion.button
+              whileHover={{ scale: 1.04 }}
+              whileTap={{ scale: 0.97 }}
+              onClick={() => setShowCreate(true)}
+              className="flex items-center gap-2 px-6 py-2.5 rounded-xl text-sm font-semibold text-white transition-all"
+              style={{
+                backgroundColor: c.accent.primary,
+                boxShadow: c.shadow.glow,
+              }}
+            >
+              <Plus className="w-4 h-4" />
+              إنشاء غرفة جديدة
+            </motion.button>
+          </div>
+        ) : filteredRooms.length === 0 ? (
+          /* ── No matching results ── */
+          <div className="flex flex-col items-center justify-center py-24 text-center">
+            <Search className="w-10 h-10 mb-4" style={{ color: c.text.tertiary }} />
+            <p className="text-sm" style={{ color: c.text.tertiary }}>
+              لا توجد نتائج مطابقة
+            </p>
+          </div>
+        ) : (
+          /* ── Room grid ── */
+          <>
+            {!hasRoom && (
+              <p
+                className="text-[10px] font-semibold mb-3 px-1"
+                style={{ color: c.text.tertiary }}
+              >
+                الغرف المتاحة
+              </p>
+            )}
+            <motion.div
+              className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3"
+              variants={listVariants}
+              initial="hidden"
+              animate="visible"
+            >
+              {filteredRooms.map((room, i) => (
+                <RoomCard
+                  key={room.id}
+                  room={room}
+                  index={i}
+                  onJoin={onJoinRoom}
+                />
+              ))}
+            </motion.div>
+          </>
+        )}
+      </main>
+
+      {/* ═══════ CREATE ROOM FAB ═══════ */}
+      {!loading && (
+        <motion.button
+          initial={{ scale: 0, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          transition={{ type: 'spring', stiffness: 260, damping: 20, delay: 0.3 }}
+          whileHover={{ scale: 1.1 }}
+          whileTap={{ scale: 0.92 }}
+          onClick={() => setShowCreate(true)}
+          className="fixed bottom-6 left-6 z-50 flex items-center justify-center rounded-full text-white shadow-lg transition-shadow"
+          style={{
+            width: '56px',
+            height: '56px',
+            backgroundColor: c.accent.primary,
+            boxShadow: `0 4px 24px rgba(108,99,255,0.45), ${c.shadow.glow}`,
+          }}
+          aria-label="إنشاء غرفة جديدة"
+        >
+          <Plus className="w-6 h-6" strokeWidth={2.5} />
+        </motion.button>
+      )}
+
+      {/* ═══════ DIALOGS ═══════ */}
       <CreateRoomDialog
         isOpen={showCreate}
         onClose={() => setShowCreate(false)}
         onCreate={onCreateRoom}
       />
-
-      {/* Shared Bottom Navigation */}
-      <SiteBottomNav activeTab="council" />
     </div>
+  );
+}
+
+// ─── Room Card Sub-component ──────────────────────────────────────────────────
+
+function RoomCard({
+  room,
+  index,
+  onJoin,
+}: {
+  room: VoiceRoom;
+  index: number;
+  onJoin: (room: VoiceRoom) => void;
+}) {
+  const c = DESIGN_TOKENS.colors;
+  const badge = MODE_BADGE[room.roomMode || 'public'];
+
+  return (
+    <motion.button
+      custom={index}
+      variants={cardVariants}
+      whileHover={{ scale: 1.02, y: -2 }}
+      transition={{ type: 'spring', stiffness: 300, damping: 25 }}
+      onClick={() => onJoin(room)}
+      className="w-full rounded-xl overflow-hidden text-right group"
+      style={{
+        backgroundColor: c.bg.secondary,
+        border: `1px solid ${c.stroke.primary}`,
+        transition: `border-color ${DESIGN_TOKENS.animation.normal}, box-shadow ${DESIGN_TOKENS.animation.normal}`,
+      }}
+      onMouseEnter={(e) => {
+        e.currentTarget.style.borderColor = c.stroke.secondary;
+        e.currentTarget.style.boxShadow = c.shadow.md;
+      }}
+      onMouseLeave={(e) => {
+        e.currentTarget.style.borderColor = c.stroke.primary;
+        e.currentTarget.style.boxShadow = 'none';
+      }}
+    >
+      {/* ── Cover area (16:9) ── */}
+      <div className="relative w-full overflow-hidden" style={{ aspectRatio: '16/9' }}>
+        {room.roomImage ? (
+          <img
+            src={room.roomImage}
+            alt=""
+            className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+          />
+        ) : (
+          <div
+            className="w-full h-full flex items-center justify-center"
+            style={{
+              background: `linear-gradient(135deg, ${c.bg.tertiary}, ${c.bg.secondary})`,
+            }}
+          >
+            <Mic className="w-8 h-8" style={{ color: c.text.tertiary }} />
+          </div>
+        )}
+
+        {/* Gradient overlay */}
+        <div
+          className="absolute inset-0"
+          style={{
+            background: 'linear-gradient(to top, rgba(17,24,39,0.95) 0%, rgba(17,24,39,0.4) 50%, transparent 100%)',
+          }}
+        />
+
+        {/* Live indicator dot */}
+        <div className="absolute top-2 right-2">
+          <div className="flex items-center gap-1 px-1.5 py-0.5 rounded-full" style={{ backgroundColor: 'rgba(0,0,0,0.45)' }}>
+            <span
+              className="block w-2 h-2 rounded-full animate-live-pulse"
+              style={{ backgroundColor: c.accent.live }}
+            />
+            <span className="text-[9px] font-semibold text-white">LIVE</span>
+          </div>
+        </div>
+
+        {/* Participant count — top-left */}
+        <div className="absolute top-2 left-2">
+          <div
+            className="flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] text-white"
+            style={{ backgroundColor: 'rgba(0,0,0,0.45)' }}
+          >
+            <Users className="w-3 h-3" />
+            <span className="font-medium">{room.participantCount || 0}</span>
+          </div>
+        </div>
+
+        {/* Room name — overlay bottom */}
+        <div className="absolute bottom-2 right-2 left-2">
+          <h3
+            className="text-[13px] font-semibold text-white truncate leading-tight"
+            title={room.name}
+          >
+            {room.name}
+          </h3>
+        </div>
+      </div>
+
+      {/* ── Card body ── */}
+      <div className="px-3 py-2.5 space-y-2">
+        {/* Host row */}
+        <div className="flex items-center gap-1.5">
+          {room.hostId ? (
+            <div
+              className="w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 text-[9px] font-bold text-white"
+              style={{ backgroundColor: c.accent.primary }}
+            >
+              {(room.hostName || '?').charAt(0)}
+            </div>
+          ) : (
+            <div
+              className="w-6 h-6 rounded-full flex-shrink-0"
+              style={{ backgroundColor: c.bg.tertiary }}
+            />
+          )}
+          <span
+            className="text-[11px] truncate"
+            style={{ color: c.text.secondary }}
+          >
+            {room.hostName || 'مجهول'}
+          </span>
+        </div>
+
+        {/* Bottom row: mode badge + mic count */}
+        <div className="flex items-center justify-between">
+          <span
+            className="inline-flex items-center gap-0.5 px-2 py-0.5 rounded-full text-[9px] font-medium"
+            style={{
+              backgroundColor: badge.bg,
+              color: badge.text,
+              border: `1px solid ${badge.border}`,
+            }}
+          >
+            {badge.label}
+          </span>
+
+          <div className="flex items-center gap-0.5 text-[10px]" style={{ color: c.text.tertiary }}>
+            <Mic className="w-3 h-3" />
+            <span>{room.micSeatCount}</span>
+          </div>
+        </div>
+      </div>
+    </motion.button>
   );
 }

@@ -157,3 +157,58 @@ Stage Summary:
 - 3 critical bugs fixed (guest join, password dialog, invitation flow)
 - Stable polling with useRef pattern maintained
 - Clean import paths verified across all files
+---
+Task ID: 4
+Agent: Main Agent
+Task: Complete TUILiveKit design rebuild - study, redesign, and integrate
+
+Work Log:
+- Phase 1: Cloned and studied TUILiveKit reference repo (/home/z/tuikit-ref/Web/web-vite-vue3/)
+- Analyzed all Vue components: LiveListView, LivePlayerPC, LivePlayerH5, LivePusher, AudioIcon, Drawer, LikeAnimation, etc.
+- Extracted complete design system: colors, typography, spacing, radius, shadows, animations
+- Cataloged all SVG icons and their usage patterns
+- Phase 2: Complete UI rebuild of all 22+ voice room files
+
+**Files Rebuilt with TUILiveKit Design:**
+
+1. **types.ts** — Added DESIGN_TOKENS (colors, radius, shadows, spacing, typography, animation), HEART_COLORS (9 colors from LikeAnimation), AVATAR_PALETTE (8 light/dark pairs), getAvatarColorFromPalette()
+2. **shared/BottomSheetOverlay.tsx** — TUILiveKit Drawer: #22262E bg, 12px radius, 48px header, framer-motion slide-up animation, backdrop blur
+3. **shared/InjectStyles.tsx** — 5 keyframe animations (livePulse, speakGlow, fadeUp, slideInRight, likeFloat), TUILiveKit custom scrollbar (.tuilivekit-scroll), audio bar animations
+4. **MicSeat.tsx** — TUILiveKit AudioIcon-inspired: 5-bar audio level indicator, green glow for speaking, locked/empty/occupied states, Crown badge for owner, MicOff for muted
+5. **MicSeatGrid.tsx** — Responsive 3→5 column grid, TUILiveKit LayoutSwitch pattern
+6. **LikeAnimation.tsx** — NEW: requestAnimationFrame-based floating hearts, quadratic Bezier S-curve paths, 9 colors, 36px hearts, iOS-style animation (3s duration, 500ms scale-in)
+7. **RoomListView.tsx** — TUILiveKit LiveListView: fixed header (48px #111827), search/filter bar, responsive 2→5 column room cards, gradient overlays, pulsing LIVE dot, Create Room FAB with glow
+8. **ChatPanel.tsx** — TUILiveKit Business Chat: #111a27 bg, 28px avatars, smart auto-scroll via IntersectionObserver, host badge, gift message golden styling, pill-shaped input with focus glow
+9. **GiftAnimations.tsx** — NEW: Canvas-based particle system with 5 effects (particles, fireworks, hearts, stars, confetti), premium overlay (price ≥ 5200), DPR-aware rendering
+10. **AudienceRow.tsx** — Scrollable overlapping avatars, gems pill, +N badge
+11. **BottomBar.tsx** — TUILiveKit toolbar: 56px bar, mic/like/gift/volume buttons, hover glow
+12. **RoomInteriorView.tsx** — TUILiveKit LivePlayerPC/H5: responsive two-column (md+), stacked mobile, header with LIVE badge, all overlays
+13. **MicMenuSheet.tsx** — TUILiveKit Drawer: action rows with icons, divider groups
+14. **ProfileSheet.tsx** — 72px avatar, stats row, role management with TUILiveKit option cards
+15. **GiftSheet.tsx** — Category pills, 4-col gift grid, quantity selector, gradient send button
+16. **SettingsSheet.tsx** — Toggle switches, mic count pills, room mode cards (TUILiveKit LayoutSwitch)
+17. **CreateRoomDialog.tsx** — TUILiveKit ConnectionTypeDialog: #1F2024 bg, #48494F border, 16px radius, blur backdrop, 2-col room mode cards
+18. **PasswordDialog.tsx** — Eye toggle, centered input, spring animation
+19. **MembershipDialog.tsx** — Accept/Reject with spring enter/exit
+20. **MicInviteDialog.tsx** — Mic invitation card
+21. **KickDurationDialog.tsx** — Duration cards with radio indicator, danger confirm
+22. **page.tsx** — Entry point with InjectStyles, async room restore
+
+**Design System Applied:**
+- Colors: #0a0e1a (base), #111827 (cards), #22262E (sheets), #1F2024 (dialogs), #3a3a3a (options), #6c63ff (accent), #2B6AD6 (active)
+- Radius: 4px (bars), 8px (cards), 12px (sheets/buttons), 16px (dialogs), 25px (pills)
+- Shadows: TUILiveKit notification shadow, glow effects, hover elevation
+- Animations: 200ms ease (fast), 300ms cubic-bezier (normal), spring, 1.5s livePulse
+- Typography: 11-24px scale
+- Scrollbar: 6px, #253550 thumb (dark), #c8ccd4 (light)
+
+**Lint Status:** ✅ Zero errors in voice-rooms files (only 1 warning for custom font)
+
+Stage Summary:
+- Complete TUILiveKit-inspired design system implemented across all 22+ files
+- Canvas-based particle effects for gifts (5 effect types)
+- requestAnimationFrame floating hearts animation
+- TUILiveKit drawer/sheet/dialog patterns throughout
+- Responsive two-column layout for desktop
+- All existing functionality preserved (DB, WebSocket, API, polling)
+- Zero lint errors in voice-rooms source files
