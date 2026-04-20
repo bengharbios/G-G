@@ -362,7 +362,7 @@ export default function RoomListView({ onJoinRoom, onCreateRoom, authUser }: Roo
               className="flex items-center gap-2 px-6 py-2.5 rounded-xl text-sm font-semibold text-white transition-all"
               style={{
                 backgroundColor: c.accent.primary,
-                boxShadow: c.shadow.glow,
+                boxShadow: DESIGN_TOKENS.shadow.glow,
               }}
             >
               <Plus className="w-4 h-4" />
@@ -421,7 +421,7 @@ export default function RoomListView({ onJoinRoom, onCreateRoom, authUser }: Roo
             width: '56px',
             height: '56px',
             backgroundColor: c.accent.primary,
-            boxShadow: `0 4px 24px rgba(108,99,255,0.45), ${c.shadow.glow}`,
+            boxShadow: `0 4px 24px rgba(108,99,255,0.45), ${DESIGN_TOKENS.shadow.glow}`,
           }}
           aria-label="إنشاء غرفة جديدة"
         >

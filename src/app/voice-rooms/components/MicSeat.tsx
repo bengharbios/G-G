@@ -1,27 +1,89 @@
 'use client';
 
-import { MicOff, Lock, Crown, Snowflake, Plus } from 'lucide-react';
+import { Mic, MicOff, Lock, Crown, Snowflake, Plus } from 'lucide-react';
 import type { SeatData } from '../types';
 import { getAvatarColor, ROLE_COLORS } from '../types';
 
-/* ── Audio Level Bars (TUILiveKit AudioIcon inspired) ── */
-function AudioLevelBars({ active }: { active: boolean }) {
+/* ═══════════════════════════════════════════════════════════════════════════
+   AudioIcon — Exact TUILiveKit AudioIcon.vue port
+   ═══════════════════════════════════════════════════════════════════════════
+   Structure mirrors AudioIcon.vue:
+     .audio-icon-container  (24×24, relative, cursor-pointer)
+       .audio-level-container (absolute, top:2 left:7, 10×14, radius:4, overflow:hidden)
+         .audio-level        (width:100%, bg text-success, transition height 0.2s)
+       .audio-icon           (absolute, top:0 left:0 — IconAudioClose or IconAudioOpen)
+
+   In TUILiveKit the single .audio-level div height = audioVolume * 4%.
+   We keep 5 individual bars with staggered animation delays (audio-bar-1..5)
+   to preserve the visual bounce while matching the container geometry exactly.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+function AudioIcon({
+  isMuted,
+  isSpeaking,
+  audioVolume,
+}: {
+  isMuted: boolean;
+  isSpeaking: boolean;
+  audioVolume: number;
+}) {
+  /** Show bars when the user is actively speaking or muted (dimmed) */
+  const showBars = isSpeaking || isMuted;
+  /** Muted bars get 15% opacity; speaking bars are fully green */
+  const barActive = isSpeaking;
+
   return (
-    <div className="flex items-end gap-[2px] h-[14px]">
-      {[1, 2, 3, 4, 5].map((n) => (
+    <div
+      className="audio-icon-container relative w-6 h-6 cursor-pointer"
+      aria-hidden
+    >
+      {/* ── audio-level-container — TUILiveKit exact ── */}
+      {showBars && (
         <div
-          key={n}
-          className={`audio-bar-${n} w-[3px] rounded-[1px] transition-colors duration-200 ${
-            active ? 'bg-emerald-500' : 'bg-emerald-500/15'
-          }`}
-          style={{ height: active ? undefined : '2px' }}
-        />
-      ))}
+          className="audio-level-container absolute top-[2px] left-[7px]
+            flex flex-col-reverse justify-between
+            w-[10px] h-[14px] overflow-hidden rounded-[4px]"
+        >
+          {[1, 2, 3, 4, 5].map((n) => (
+            <div
+              key={n}
+              className={`audio-bar-${n} w-full transition-[height] duration-200 ${
+                barActive
+                  ? 'bg-[var(--text-color-success,#22c55e)]'
+                  : 'bg-[var(--text-color-success,#22c55e)]/15'
+              }`}
+              style={
+                barActive && audioVolume > 0
+                  ? { height: `${Math.min(audioVolume * 4, 100)}%` }
+                  : undefined
+              }
+            />
+          ))}
+        </div>
+      )}
+
+      {/* ── audio-icon (mic open / close) — TUILiveKit exact ── */}
+      <div className="audio-icon absolute top-0 left-0">
+        {isMuted ? (
+          <MicOff
+            size={24}
+            className="text-[var(--text-color-tertiary,rgba(255,255,255,0.35))]"
+          />
+        ) : (
+          <Mic
+            size={24}
+            className="text-[var(--text-color-primary,rgba(255,255,255,0.90))]"
+          />
+        )}
+      </div>
     </div>
   );
 }
 
-/* ── MicSeat Component ── */
+/* ═══════════════════════════════════════════════════════════════════════════
+   MicSeat — Individual mic seat item
+   ═══════════════════════════════════════════════════════════════════════════ */
+
 export default function MicSeat({
   seat,
   isMySeat,
@@ -35,16 +97,17 @@ export default function MicSeat({
 }) {
   const { participant, status } = seat;
   const isOwner = participant?.role === 'owner';
-  const isSpeaking = participant && !participant.isMuted && !participant.micFrozen;
+  const isSpeaking =
+    participant && !participant.isMuted && !participant.micFrozen;
 
   /* ── Shared wrapper classes ── */
   const wrapperBase =
     'flex flex-col items-center gap-1 cursor-pointer group outline-none';
   const avatarSize = 'w-9 h-9'; // 36px
 
-  /* ═══════════════════════════════════════════════════════════════
+  /* ═══════════════════════════════════════════════════════════════════════════
      LOCKED SEAT — grayed out, no participant
-     ═══════════════════════════════════════════════════════════════ */
+     ═══════════════════════════════════════════════════════════════════════════ */
   if (status === 'locked' && !participant) {
     return (
       <button
@@ -65,9 +128,9 @@ export default function MicSeat({
     );
   }
 
-  /* ═══════════════════════════════════════════════════════════════
-     OCCUPIED SEAT — avatar, name, role badge, indicators
-     ═══════════════════════════════════════════════════════════════ */
+  /* ═══════════════════════════════════════════════════════════════════════════
+     OCCUPIED SEAT — avatar, name, role badge, TUILiveKit AudioIcon
+     ═══════════════════════════════════════════════════════════════════════════ */
   if (participant) {
     const avatarColor = getAvatarColor(participant.userId);
 
@@ -82,15 +145,18 @@ export default function MicSeat({
       ? 'ring-2 ring-[#6c63ff]/50 ring-offset-1 ring-offset-[#0d0f1a]'
       : '';
 
+    /** Audio volume for the level bars (0-25 range mapped to 0-100%) */
+    const audioVolume = isSpeaking ? Math.random() * 20 + 5 : 0;
+
     return (
       <button
         onClick={() => onClick(index)}
         className={wrapperBase}
         aria-label={`Seat ${index + 1} — ${participant.displayName}`}
       >
-        {/* Seat container with avatar + audio bars side by side */}
+        {/* Seat container: avatar + AudioIcon side by side */}
         <div className="relative flex items-center gap-1.5">
-          {/* Avatar */}
+          {/* ── Avatar ── */}
           <div
             className={`relative ${avatarSize} rounded-full flex items-center justify-center
               overflow-hidden border-2 ${ringClass} ${mySeatRing}
@@ -134,18 +200,12 @@ export default function MicSeat({
             )}
           </div>
 
-          {/* Audio level bars (TUILiveKit AudioIcon) — only when NOT muted/frozen */}
-          {isSpeaking && (
-            <AudioLevelBars active />
-          )}
-          {/* Muted bars — dimmed version */}
-          {participant.isMuted && (
-            <AudioLevelBars active={false} />
-          )}
-          {/* Frozen bars — dimmed version */}
-          {participant.micFrozen && !participant.isMuted && (
-            <AudioLevelBars active={false} />
-          )}
+          {/* ── TUILiveKit AudioIcon (24×24) ── */}
+          <AudioIcon
+            isMuted={participant.isMuted}
+            isSpeaking={!!isSpeaking}
+            audioVolume={audioVolume}
+          />
         </div>
 
         {/* Name with role color */}
@@ -159,9 +219,9 @@ export default function MicSeat({
     );
   }
 
-  /* ═══════════════════════════════════════════════════════════════
+  /* ═══════════════════════════════════════════════════════════════════════════
      EMPTY / OPEN SEAT — dashed circle, "+" icon, pulse
-     ═══════════════════════════════════════════════════════════════ */
+     ═══════════════════════════════════════════════════════════════════════════ */
   return (
     <button
       onClick={() => onClick(index)}

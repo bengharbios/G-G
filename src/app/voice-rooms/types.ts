@@ -86,65 +86,90 @@ export interface MicMenuSheetState {
   mySeatIndex: number;
 }
 
-// ─── Design Tokens (TUILiveKit-inspired) ─────────────────────────────────────
+// ─── Design Tokens (Exact TUILiveKit CSS Variables) ─────────────────────────────
 
 export const DESIGN_TOKENS = {
   colors: {
     bg: {
-      primary: '#0a0e1a',      // Deep dark base
-      secondary: '#111827',    // Card/panel background
-      tertiary: '#1a1f35',     // Elevated surfaces
-      surface: '#1F2024',      // Panel/overlay background (TUILiveKit exact)
-      overlay: 'rgba(0,0,0,0.4)', // Mask overlay
+      primary: '#0a0e1a',              // Deep dark base
+      secondary: '#111827',            // Card/panel background
+      tertiary: '#1a1f35',             // Elevated surfaces
+      surface: '#1F2024',              // Panel/overlay background (--bg-color-operate)
+      overlay: 'rgba(0,0,0,0.4)',      // Mask overlay (--bg-color-mask)
+      drawer: '#22262E',              // Drawer/BottomSheet background (exact TUILiveKit)
+      bubble: 'var(--bg-color-bubble-reciprocal, #2a2d35)', // Device slider bg
     },
     text: {
-      primary: 'rgba(255,255,255,0.90)',   // Main text
-      secondary: 'rgba(255,255,255,0.60)',  // Muted text
-      tertiary: 'rgba(255,255,255,0.35)',   // Disabled/placeholder
+      primary: 'var(--text-color-primary, rgba(255,255,255,0.90))',
+      secondary: 'var(--text-color-secondary, rgba(255,255,255,0.60))',
+      tertiary: 'var(--text-color-tertiary, rgba(255,255,255,0.35))',
+      link: 'var(--text-color-link, #2B6AD6)',
+      linkHover: 'var(--text-color-link-hover, #4B8AE6)',
+      success: 'var(--text-color-success, #22c55e)',
+      error: 'var(--text-color-error, #ef4444)',
     },
     accent: {
-      primary: '#6c63ff',    // Brand purple-blue
-      success: '#22c55e',    // Green
-      warning: '#f59e0b',    // Amber
-      error: '#ef4444',      // Red
-      info: '#3b82f6',       // Blue
-      like: '#FF3B66',       // Like button (from TUILiveKit H5)
-      live: '#059669',       // Live dot green
+      primary: '#6c63ff',              // Brand purple-blue
+      success: '#22c55e',              // Green
+      warning: '#f59e0b',              // Amber
+      error: '#ef4444',                // Red
+      info: '#3b82f6',                 // Blue
+      like: '#FF3B66',                 // Like button (TUILiveKit H5 exact)
+      live: '#059669',                 // Live dot green
     },
     stroke: {
-      primary: 'rgba(255,255,255,0.08)',  // Dividers/borders
-      secondary: 'rgba(255,255,255,0.15)', // Hover borders
-      module: '#48494F',                   // Notification border (TUILiveKit exact)
+      primary: 'var(--stroke-color-primary, rgba(255,255,255,0.08))',
+      secondary: 'rgba(255,255,255,0.15)',
+      module: 'var(--stroke-color-module, #48494F)',
     },
     slider: {
-      empty: 'rgba(255,255,255,0.15)',
+      empty: 'var(--slider-color-empty, rgba(255,255,255,0.15))',
+    },
+    ui: {
+      black6: 'var(--uikit-color-black-6, rgba(0,0,0,0.6))',
+      white7: 'var(--uikit-color-white-7, rgba(255,255,255,0.7))',
+      gray3: 'var(--uikit-color-gray-3, #58585A)',
+      gray4: 'var(--uikit-color-gray-4, #3a3a3c)',
+      black8: 'var(---Black-8, rgba(0,0,0,0.08))',
     },
   },
   radius: {
-    sm: '4px',    // Audio bars, small elements
-    md: '8px',    // Cards, inputs
-    lg: '12px',   // Sheets, option cards, buttons
-    xl: '16px',   // Notifications, panel cards
-    pill: '25px', // Pill-shaped tags
+    sm: '4px',     // Audio bars
+    md: '8px',     // Cards, inputs, live-player border-radius
+    lg: '12px',    // Sheets, option cards, buttons, drawer border-radius
+    xl: '16px',    // Notifications
+    pill: '25px',  // Pill-shaped tags
   },
   shadow: {
     sm: '0 2px 4px rgba(0,0,0,0.2)',
     md: '0 4px 12px rgba(0,0,0,0.3)',
     lg: '0 8px 18px rgba(0,0,0,0.4)',
     glow: '0 0 20px rgba(108,99,255,0.15)',
+    drawer: '0 -2px 8px rgba(0,0,0,0.08)',        // TUILiveKit Drawer shadow
     notification: '0 8px 18px 0 rgba(0,0,0,0.06), 0 2px 6px 0 rgba(0,0,0,0.06)',
+    iconHover: '0 0 10px 0 rgba(0,0,0,0.3)',       // TUILiveKit icon hover
   },
   spacing: {
     xs: '4px', sm: '8px', md: '16px', lg: '24px', xl: '32px',
   },
   typography: {
-    xs: '11px', sm: '12px', md: '14px', lg: '16px', xl: '18px', '2xl': '22px', '3xl': '24px',
+    xs: '11px', sm: '12px', md: '14px', lg: '16px', xl: '17px', '2xl': '22px', '3xl': '24px',
   },
   animation: {
     fast: '200ms ease',
-    normal: '300ms cubic-bezier(.4,0,.2,1)',
+    normal: '300ms cubic-bezier(.4,0,.2,1)',    // TUILiveKit Drawer transition
     spring: '300ms cubic-bezier(.175,.885,.32,1.275)',
     slow: '500ms ease',
+    iconHover: 'transform 0.2s ease-in-out',    // TUILiveKit arrow icon
+  },
+  layout: {
+    headerHeight: '48px',   // Drawer header, top bars
+    bottomBarHeight: '56px', // H5 bottom bar
+    toolbarHeight: '72px',  // PC toolbar
+    sidebarMin: '160px',     // PC sidebar min
+    sidebarMax: '360px',     // PC sidebar max
+    sidebarWidth: '20%',     // PC sidebar width
+    gap: '6px',             // PC panel gap
   },
 } as const;
 

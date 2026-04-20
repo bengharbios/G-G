@@ -60,7 +60,7 @@ function randomColor(): string {
 function heartSvgMarkup(color: string): string {
   const d =
     'M44 72 C18 50, 8 38, 8 28 C8 16, 18 8, 30 8 C38 8, 43 13, 44 16 C45 13, 50 8, 58 8 C70 8, 80 16, 80 28 C80 38, 70 50, 44 72 Z';
-  return `<svg width="${HEART_SIZE}" height="${HEART_SIZE}" viewBox="0 0 88 88" style="filter:drop-shadow(0 2px 4px rgba(0,0,0,0.2))">`
+  return `<svg width="${HEART_SIZE}" height="${HEART_SIZE}" viewBox="0 0 88 88" style="filter:drop-shadow(0 0 2px rgba(255, 255, 255, 0.6))">`
     + `<path d="${d}" fill="${color}" fill-opacity="0.5"/>`
     + `<path d="${d}" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>`
     + `</svg>`;

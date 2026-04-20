@@ -146,9 +146,10 @@ export default function ChatPanel({
         ref={scrollRef}
         className="tuilivekit-scroll flex-1 overflow-y-auto"
         style={{
-          backgroundColor: '#111a27',
+          backgroundColor: '#1F2024',
           padding: '12px 12px 16px',
           minHeight: 0,
+          userSelect: 'text',
         }}
       >
         <div className="flex flex-col" style={{ gap: '4px' }}>
@@ -334,8 +335,8 @@ export default function ChatPanel({
         style={{
           padding: '8px 12px',
           paddingBottom: '16px',
-          borderTop: '1px solid rgba(108,99,255,0.12)',
-          background: '#111a27',
+          borderTop: '1px solid rgba(255,255,255,0.08)',
+          background: '#1F2024',
         }}
       >
         <div
@@ -411,22 +412,26 @@ export default function ChatPanel({
 
       {/* ═══ TUILiveKit Scrollbar Styles ═══ */}
       <style>{`
+        /* TUILiveKit @mixin scrollbar exact */
         .tuilivekit-scroll {
           scrollbar-width: thin;
-          scrollbar-color: rgba(255,255,255,0.12) transparent;
+          scrollbar-color: #58585A transparent;
         }
         .tuilivekit-scroll::-webkit-scrollbar {
-          width: 4px;
+          width: 6px;
+          background: transparent;
         }
         .tuilivekit-scroll::-webkit-scrollbar-track {
           background: transparent;
         }
         .tuilivekit-scroll::-webkit-scrollbar-thumb {
-          background: rgba(255,255,255,0.12);
-          border-radius: 2px;
+          background: #58585A;
+          border-radius: 3px;
+          border: 2px solid transparent;
+          background-clip: padding-box;
         }
         .tuilivekit-scroll::-webkit-scrollbar-thumb:hover {
-          background: rgba(255,255,255,0.22);
+          background: #58585A;
         }
       `}</style>
     </>

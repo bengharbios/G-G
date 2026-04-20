@@ -1,13 +1,23 @@
 'use client';
 
 import { motion, AnimatePresence } from 'framer-motion';
-import { X } from 'lucide-react';
+
+/**
+ * BottomSheetOverlay — Exact React port of TUILiveKit Drawer.vue
+ *
+ * .drawer-mask:  fixed inset-0, bg rgba(0,0,0,0.4), z-index prop, flex align-end
+ * .drawer-panel: fixed bottom-0, bg #22262E, radius 12px, w-full,
+ *                transition transform 0.3s cubic-bezier(.4,0,.2,1)
+ * .drawer-header: 48px height, 17px font-weight 500, color #fff
+ * .drawer-content: flex-1, overflow-y auto, padding 16px, color #fff
+ */
 
 interface BottomSheetOverlayProps {
   isOpen: boolean;
   onClose: () => void;
   title?: string;
   height?: string;
+  zIndex?: number;
   children: React.ReactNode;
 }
 
@@ -41,81 +51,78 @@ export default function BottomSheetOverlay({
   onClose,
   title,
   height = '60%',
+  zIndex = 1000,
   children,
 }: BottomSheetOverlayProps) {
   return (
     <AnimatePresence>
       {isOpen && (
         <>
-          {/* Full-screen mask */}
+          {/* ── .drawer-mask ── */}
           <motion.div
-            key="bottom-sheet-overlay"
+            key="drawer-mask"
             variants={overlayVariants}
             initial="hidden"
             animate="visible"
             exit="hidden"
             transition={{ duration: 0.3, ease: [0.4, 0, 0.2, 1] }}
-            className="fixed inset-0 z-[80]"
-            style={{ background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)' }}
+            className="fixed inset-0 flex items-end justify-center"
+            style={{
+              background: 'rgba(0, 0, 0, 0.4)',
+              zIndex,
+            }}
             onClick={onClose}
             aria-hidden="true"
           />
 
-          {/* Sliding panel — TUILiveKit Drawer style */}
+          {/* ── .drawer-panel ── */}
           <motion.div
-            key="bottom-sheet-panel"
+            key="drawer-panel"
             variants={panelVariants}
             initial="hidden"
             animate="visible"
             exit="exit"
-            className="fixed bottom-0 left-0 right-0 z-[90] flex flex-col"
+            className="fixed bottom-0 left-0 right-0 flex flex-col box-border"
             style={{
               height,
               background: '#22262E',
-              borderTopLeftRadius: '16px',
-              borderTopRightRadius: '16px',
-              boxShadow: '0 -4px 24px rgba(0,0,0,0.25)',
+              borderTopLeftRadius: '12px',
+              borderTopRightRadius: '12px',
+              boxShadow: '0 -2px 8px rgba(0,0,0,0.08)',
+              maxWidth: '100vw',
+              zIndex: zIndex + 1,
+              padding: 0,
             }}
             onClick={(e) => e.stopPropagation()}
             role="dialog"
             aria-modal="true"
             dir="rtl"
           >
-            {/* Drag handle indicator */}
-            <div className="flex justify-center pt-2 pb-1">
-              <div
-                className="w-9 h-1 rounded-full"
-                style={{ background: 'rgba(255,255,255,0.2)' }}
-              />
-            </div>
-
-            {/* Header — 48px, centered title */}
+            {/* ── .drawer-header (48px) ── */}
             {title && (
               <div
-                className="relative flex items-center justify-center shrink-0"
-                style={{ height: 48 }}
+                className="flex items-center shrink-0 box-border relative"
+                style={{
+                  height: 48,
+                  borderTopLeftRadius: '12px',
+                  borderTopRightRadius: '12px',
+                }}
               >
                 <h2
-                  className="text-center select-none"
+                  className="flex-1 text-center truncate select-none leading-[48px]"
                   style={{
                     fontSize: 17,
                     fontWeight: 500,
                     color: '#fff',
+                    marginRight: 48, // space for back button
                   }}
                 >
                   {title}
                 </h2>
-                <button
-                  onClick={onClose}
-                  className="absolute left-4 top-1/2 -translate-y-1/2 flex items-center justify-center rounded-full w-8 h-8 transition-all duration-200 hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/40"
-                  aria-label="إغلاق"
-                >
-                  <X size={20} color="rgba(255,255,255,0.7)" />
-                </button>
               </div>
             )}
 
-            {/* Scrollable content area */}
+            {/* ── .drawer-content ── */}
             <div
               className="flex-1 overflow-y-auto"
               style={{
