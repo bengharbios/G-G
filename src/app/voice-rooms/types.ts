@@ -227,8 +227,6 @@ export const AVATAR_COLORS = ['#1e3a7a', '#3a1e6a', '#1a4040', '#3a2010', '#4a1e
 
 export const CHAT_SENDER_COLORS = ['#6c63ff', '#f59e0b', '#22c55e', '#f97316'];
 
-export const HEART_COLORS = ['#FF3B30', '#AF52DE', '#FF9500', '#FFCC00', '#34C759', '#007AFF', '#8E8E93', '#32ADE6', '#A2845E'];
-
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
 export function canDo(myRole: RoomRole, requiredRole: RoomRole): boolean {
