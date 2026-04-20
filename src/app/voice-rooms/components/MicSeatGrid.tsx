@@ -1,7 +1,6 @@
 'use client';
 
 import type { SeatData } from '../types';
-import { TUI } from '../types';
 import MicSeat from './MicSeat';
 
 /* ═══════════════════════════════════════════════════════════════════════
@@ -25,29 +24,6 @@ interface MicSeatGridProps {
   onSeatClick: (seatIndex: number) => void;
 }
 
-/**
- * Returns the number of seats per row based on TUILiveKit's SeatGridLayout algorithm.
- * The Flutter source uses a switch on seat count to determine columns.
- */
-function getColumnsForSeatCount(count: number): number {
-  switch (count) {
-    case 3:
-    case 6:
-    case 9:
-      return 3;
-    case 4:
-    case 8:
-      return 4;
-    case 5:
-      return 3; // 3 + 2
-    case 7:
-      return 4; // 4 + 3
-    default:
-      // For other counts, flex-wrap handles it naturally
-      return count <= 5 ? 3 : count <= 8 ? 4 : 5;
-  }
-}
-
 export default function MicSeatGrid({
   seats,
   currentUserId,
@@ -55,17 +31,6 @@ export default function MicSeatGrid({
   isOwner,
   onSeatClick,
 }: MicSeatGridProps) {
-  const totalSeats = seats.length;
-
-  // Determine if we need a fixed grid or flex-wrap layout
-  // For counts that have a specific layout (3-9 seats), use grid
-  // For others, use flex-wrap
-  const columns = getColumnsForSeatCount(totalSeats);
-  const useGridLayout = totalSeats <= 9 && [3, 4, 5, 6, 7, 8, 9].includes(totalSeats);
-
-  // Responsive seat container size (matches MicSeat's clamp)
-  const seatSize = 'clamp(40px, 12vw, 50px)';
-
   return (
     <div
       className="w-full mx-auto px-3 sm:px-4"
@@ -80,9 +45,6 @@ export default function MicSeatGrid({
         className="flex flex-wrap justify-center"
         style={{
           gap: 'clamp(6px, 2vw, 10px)',
-          maxWidth: useGridLayout
-            ? `calc(${columns} * (clamp(40px, 12vw, 50px) + 60px + clamp(6px, 2vw, 10px)))`
-            : undefined,
         }}
       >
         {seats.map((seat) => {

@@ -6,15 +6,27 @@ import { HEART_COLORS } from '../types';
 /* ═══════════════════════════════════════════════════════════════════════
    LikeAnimation — TUILiveKit Exact Heart Animation
 
+   Uses actual heart PNGs from TUILiveKit Flutter assets (gift_heart0-8.png).
    Floating hearts that rise from bottom with physics-based motion.
    Each heart has random size, color, offset, rotation, and wobble.
    ═══════════════════════════════════════════════════════════════════════ */
+
+// Pre-load TUILiveKit heart images
+const HEART_IMAGES = Array.from({ length: 9 }, (_, i) => `/gifts/gift_heart${i}.png`);
+
+// Preload images on module load
+if (typeof window !== 'undefined') {
+  HEART_IMAGES.forEach((src) => {
+    const img = new Image();
+    img.src = src;
+  });
+}
 
 interface Heart {
   id: number;
   x: number;
   size: number;
-  color: string;
+  heartIndex: number; // which heart image to use (0-8)
   rotation: number;
   wobbleAmp: number;
   wobbleFreq: number;
@@ -28,14 +40,13 @@ export default function LikeAnimation({ active }: { active: boolean }) {
   const [hearts, setHearts] = useState<Heart[]>([]);
   const containerRef = useRef<HTMLDivElement>(null);
   const spawnTimer = useRef<ReturnType<typeof setInterval> | null>(null);
-  const animFrame = useRef<number>(0);
 
   const spawnHeart = useCallback(() => {
     const h: Heart = {
       id: heartId++,
       x: 40 + Math.random() * 20,
-      size: 16 + Math.random() * 10,
-      color: HEART_COLORS[Math.floor(Math.random() * HEART_COLORS.length)],
+      size: 16 + Math.random() * 12,
+      heartIndex: Math.floor(Math.random() * HEART_IMAGES.length),
       rotation: -15 + Math.random() * 30,
       wobbleAmp: 5 + Math.random() * 10,
       wobbleFreq: 2 + Math.random() * 3,
@@ -84,12 +95,13 @@ export default function LikeAnimation({ active }: { active: boolean }) {
         const translateX = Math.sin(progress * h.wobbleFreq * Math.PI) * h.wobbleAmp;
 
         return (
-          <svg
+          <img
             key={h.id}
+            src={HEART_IMAGES[h.heartIndex]}
+            alt=""
             width={h.size}
             height={h.size}
-            viewBox="0 0 24 24"
-            fill={h.color}
+            draggable={false}
             style={{
               position: 'absolute',
               left: `${h.x + translateX}px`,
@@ -99,9 +111,7 @@ export default function LikeAnimation({ active }: { active: boolean }) {
               filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.3))',
               transition: 'none',
             }}
-          >
-            <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
-          </svg>
+          />
         );
       })}
     </div>

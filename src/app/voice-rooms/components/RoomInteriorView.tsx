@@ -246,7 +246,7 @@ export default function RoomInteriorView({
           className="absolute inset-0"
           style={{
             background:
-              'linear-gradient(to bottom, rgba(15,16,20,0.3) 0%, rgba(15,16,20,0.7) 50%, rgba(15,16,20,0.95) 100%)',
+              'linear-gradient(to bottom, rgba(15,16,20,1) 0%, rgba(15,16,20,0.5) 50%, rgba(15,16,20,1) 100%)',
           }}
         />
 

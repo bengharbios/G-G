@@ -178,7 +178,7 @@ export const TUI = {
     white20: 'rgba(255,255,255,0.2)',
     white30: 'rgba(255,255,255,0.3)',
     blue30: 'rgba(79, 88, 107, 0.3)',    // Card backgrounds
-    black4D: 'rgba(15, 16, 20, 0.3)',     // Overlay
+    black4D: 'rgba(15, 16, 20, 0.4)',     // Overlay / barrage bubble
     black80: 'rgba(0,0,0,0.8)',           // Deep mask
 
     // ── Seat ──

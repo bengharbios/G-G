@@ -127,16 +127,16 @@ export default function VoiceRoomsPage() {
   /* ── Public entry: when clicking a room card ── */
   const handleRoomClick = useCallback(
     (room: VoiceRoom) => {
-      // Owner skips password dialog for their own key-mode room
-      if (room.roomMode === 'key' && room.hostId !== authUser?.id) {
+      // Owner always bypasses password — server-side will handle it
+      if (room.hostId === authUser?.id) {
+        handleJoinRoom(room);
+        return;
+      }
+      // Non-owner: show password dialog for key-mode rooms
+      if (room.roomMode === 'key') {
         setPendingPasswordRoom(room);
       } else {
-        // For owner joining their own key room, auto-join with the room password
-        if (room.roomMode === 'key' && room.hostId === authUser?.id && room.roomPassword) {
-          handleJoinRoom(room, room.roomPassword);
-        } else {
-          handleJoinRoom(room);
-        }
+        handleJoinRoom(room);
       }
     },
     [handleJoinRoom, authUser?.id],

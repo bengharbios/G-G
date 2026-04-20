@@ -151,7 +151,7 @@ export default function TopBar({
           height: 44,
           minWidth: 44,
           minHeight: 44,
-          backgroundColor: 'rgba(0,0,0,0.3)',
+          backgroundColor: 'transparent',
         }}
         aria-label={isOwner ? 'End live' : 'Leave room'}
       >

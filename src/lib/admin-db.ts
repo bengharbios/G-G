@@ -3109,21 +3109,24 @@ export async function joinVoiceRoom(roomId: string, userId: string, username: st
   // Cleanup ghost participants (visitors inactive for 30+ minutes)
   await cleanupGhostParticipants(roomId);
 
-  // Check room mode
-  const roomResult = await c.execute({ sql: 'SELECT roomMode, roomPassword FROM VoiceRoom WHERE id = ?', args: [roomId] });
+  // Check room mode and host identity together
+  const roomResult = await c.execute({ sql: 'SELECT roomMode, roomPassword, hostId FROM VoiceRoom WHERE id = ?', args: [roomId] });
   if (roomResult.rows.length === 0) return { success: false, error: 'الغرفة غير موجودة' };
   const room = roomResult.rows[0];
   const mode = room.roomMode as string;
+  const isHost = room.hostId === userId;
 
-  if (mode === 'private') return { success: false, error: 'الغرفة خاصة - دعوة فقط' };
-  if (mode === 'key') {
+  if (mode === 'private') {
+    // Owner can always enter their own private room
+    if (!isHost) return { success: false, error: 'الغرفة خاصة - دعوة فقط' };
+  }
+  if (mode === 'key' && !isHost) {
+    // Owner bypasses password check; visitors must provide correct password
     if (!password || password !== room.roomPassword) return { success: false, error: 'كلمة المرور غير صحيحة' };
   }
 
   // Get VIP level and host info to determine role
   const vipLevel = await getUserVipLevel(userId);
-  const hostResult = await c.execute({ sql: 'SELECT hostId FROM VoiceRoom WHERE id = ?', args: [roomId] });
-  const isHost = hostResult.rows.length > 0 && hostResult.rows[0].hostId === userId;
   const joinRole = isHost ? 'owner' : 'visitor';
   const joinSeat = isHost ? 0 : -1;
   const joinStatus = isHost ? 'locked' : 'open';
