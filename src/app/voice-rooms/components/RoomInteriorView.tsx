@@ -485,16 +485,20 @@ export default function RoomInteriorView({
           participant={vr.profileSheet}
           currentUserId={vr.currentUserId}
           myRole={vr.myRole}
+          hostId={vr.room.hostId}
           stats={vr.profileStats ? {
             daysActive: 0,
             giftsSent: vr.profileStats.giftsSent,
             giftsReceived: vr.profileStats.giftsReceived,
+            totalReceivedValue: vr.profileStats.totalReceivedValue ?? 0,
           } : undefined}
           onKickTemp={vr.handleProfileKickTemp}
           onBan={vr.handleProfileBan}
           onChangeRole={vr.handleChangeRole}
           onRemoveRole={vr.handleRemoveRole}
           onInviteToMic={vr.handleInviteToMic}
+          onGiftClick={() => { vr.setProfileSheet(null); setTimeout(() => vr.setGiftSheetOpen(true), 300); }}
+          authUserId={authUser?.id}
         />
 
         {/* ── Mic Menu Sheet ── */}
@@ -530,6 +534,8 @@ export default function RoomInteriorView({
           room={vr.room}
           participantCount={vr.participants.length}
           participants={vr.participants}
+          weeklyGems={vr.weeklyGems}
+          topGifts={vr.topGifts}
         />
 
         {/* ── Kick Duration Dialog ── */}
