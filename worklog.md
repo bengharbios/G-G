@@ -113,3 +113,22 @@ Stage Summary:
 - Barrage input pill-shaped, separately positioned
 - Message bubble alpha corrected to 40%
 - All changes pass lint with 0 errors
+
+---
+Task ID: 5
+Agent: Main Agent
+Task: Restore 3-tab RoomInfoSheet and full ProfileSheet matching old design
+
+Work Log:
+- Analyzed old design from commit 1061df1 — found RoomInfoSheet had 3 tabs (معلومات + الأعضاء + اللحظات)
+- Found old ProfileBottomSheet had: 56px avatar, stats row, role management, admin actions, action buttons
+- Rewrote RoomInfoSheet with framer-motion animated tabs, room banner, host card, stats grid, member list, top gifts
+- Rewrote ProfileSheet with large avatar, stats row, role management (grant/change/remove), kick/ban, invite/gift/frame/close
+- Updated RoomInteriorView to pass weeklyGems, topGifts to RoomInfoSheet and hostId, totalReceivedValue, onGiftClick, authUserId to ProfileSheet
+- Fixed lint error: moved Card component outside render function
+
+Stage Summary:
+- RoomInfoSheet restored with 3 tabs matching old design (معلومات + الأعضاء + اللحظات)
+- ProfileSheet restored with full old design (stats, role management, admin actions, action buttons)
+- Zero new lint errors in voice-rooms files
+- Pushed as commit 23814de to origin/main
