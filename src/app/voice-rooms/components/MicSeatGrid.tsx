@@ -1,55 +1,88 @@
 'use client';
 
-import type { SeatData } from '../types';
+import { Mic } from 'lucide-react';
+import type { SeatData, RoomRole } from '../types';
+import { TUI } from '../types';
 import MicSeat from './MicSeat';
 
 /* ═══════════════════════════════════════════════════════════════════════
-   MicSeatGrid — Seat grid layout matching TUILiveKit SeatGridLayout
+   MicSeatGrid — Old-style 5-column grid with section header
 
-   Layout rules (from Flutter VoiceRoomRootWidget):
-     • 3, 6, 9 seats  → 3 per row
-     • 4, 8 seats     → 4 per row
-     • 5 seats        → 3 first row, 2 second row
-     • 7 seats        → 4 first row, 3 second row
-     • Otherwise      → flex wrap naturally
-
-   Responsive: fluid padding, clamp maxHeight/gap, no overflow at 320px
+   Layout: section with border-b, flex-shrink-0
+   Header: "المنابر الصوتية" label + "N مايك" badge
+   Grid: CSS grid, 5 columns, responsive gap
    ═══════════════════════════════════════════════════════════════════════ */
 
 interface MicSeatGridProps {
   seats: SeatData[];
   currentUserId: string;
-  speakingUserIds: Set<string>;
-  isOwner: boolean;
+  myRole: RoomRole;
+  hostId: string;
   onSeatClick: (seatIndex: number) => void;
 }
 
 export default function MicSeatGrid({
   seats,
   currentUserId,
-  speakingUserIds,
-  isOwner,
+  myRole,
+  hostId,
   onSeatClick,
 }: MicSeatGridProps) {
+  const isOwner = myRole === 'owner';
+  const activeSeatCount = seats.filter(s => s.participant !== null).length;
+
   return (
-    <div
-      className="w-full mx-auto px-3 sm:px-4"
+    <section
+      className="w-full flex-shrink-0"
       style={{
-        paddingTop: 'clamp(8px, 2vw, 12px)',
-        paddingBottom: 'clamp(4px, 1.5vw, 8px)',
-        maxHeight: 'clamp(180px, 35vh, 245px)',
-        maxWidth: 'calc(100vw - 16px)',
+        padding: '12px 12px 8px',
+        borderBottom: `1px solid ${TUI.colors.G3Divider}`,
       }}
     >
+      {/* ── Section Header ── */}
       <div
-        className="flex flex-wrap justify-center"
+        className="flex items-center mb-2.5"
+        style={{ gap: 8 }}
+      >
+        <div className="flex items-center" style={{ gap: 6 }}>
+          <Mic size={14} style={{ color: TUI.colors.G5 }} />
+          <span
+            style={{
+              fontSize: 13,
+              fontWeight: 600,
+              color: TUI.colors.G7,
+            }}
+          >
+            المنابر الصوتية
+          </span>
+        </div>
+
+        {/* Seat count badge */}
+        <span
+          className="flex items-center justify-center rounded-full"
+          style={{
+            minWidth: 20,
+            height: 18,
+            padding: '0 6px',
+            backgroundColor: 'rgba(255,255,255,0.08)',
+            fontSize: 11,
+            fontWeight: 500,
+            color: TUI.colors.G6,
+          }}
+        >
+          {activeSeatCount} مايك
+        </span>
+      </div>
+
+      {/* ── 5-Column Grid ── */}
+      <div
+        className="grid w-full justify-items-center"
         style={{
-          gap: 'clamp(6px, 2vw, 10px)',
+          gridTemplateColumns: 'repeat(5, 1fr)',
+          gap: '6px 6px',
         }}
       >
         {seats.map((seat) => {
-          const isSpeaking =
-            seat.participant !== null && speakingUserIds.has(seat.participant.userId);
           const isSeatOwner =
             seat.participant !== null && seat.participant.userId === currentUserId && isOwner;
 
@@ -58,12 +91,12 @@ export default function MicSeatGrid({
               key={seat.seatIndex}
               seatData={seat}
               isOwner={isSeatOwner}
-              isSpeaking={isSpeaking}
+              isSpeaking={false}
               onClick={() => onSeatClick(seat.seatIndex)}
             />
           );
         })}
       </div>
-    </div>
+    </section>
   );
 }

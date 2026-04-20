@@ -1,248 +1,194 @@
 'use client';
 
-import { Settings2, Users, Gift, Heart, Mic, MicOff, Loader2, MessageCircle } from 'lucide-react';
+import { useCallback, useRef } from 'react';
+import { Volume2, VolumeX, Mic, MicOff, Gift, ArrowLeft, Send } from 'lucide-react';
 import { TUI } from '../types';
+import type { AuthUser, RoomRole } from '../types';
 
 /* ═══════════════════════════════════════════════════════════════════════
-   BottomBar — TUILiveKit bottom_menu_widget.dart exact replica
+   BottomBar — Old-style full-width footer bar
 
-   Position: fixed right-aligned (NOT full-width), transparent bg
-   Owner: Settings + Seat Management — icon(28px) + label(10px, G6)
-   Audience: Gift + Like + Link Mic — icon(28px) + label(10px, G6)
-   Audience on seat: barrage input + mute mic as separate positioned elements on LEFT side
-
-   Responsive: safe-area-inset-bottom, 44px min touch targets, clamp sizing
+   Layout: fixed bottom, full-width, border-t
+   Items: Mute room (admin+) | Mic toggle (on seat) | Chat input (flex-1) | Gift button
+   The chat input is ALWAYS visible as a text field.
    ═══════════════════════════════════════════════════════════════════════ */
 
 interface BottomBarProps {
-  isOwner: boolean;
+  myRole: RoomRole;
   isOnSeat: boolean;
-  isMuted: boolean;
-  isApplyingSeat: boolean;
-  onOpenSeatManagement: () => void;
-  onOpenSettings: () => void;
-  onOpenGift: () => void;
-  onLike: () => void;
+  isMicMuted: boolean;
+  isRoomMuted: boolean;
+  authUser: AuthUser | null;
+  chatInput: string;
+  setChatInput: (val: string) => void;
+  onSendChat: () => void;
   onToggleMic: () => void;
-  onRequestSeat: () => void;
-  onLeaveSeat: () => void;
-  pendingSeatRequests: number;
-  onOpenChat: () => void;
+  onToggleRoomMute: () => void;
+  onGiftOpen: () => void;
 }
 
-/* ── Label style for buttons ── */
-const labelStyle: React.CSSProperties = {
-  fontSize: 10,
-  color: TUI.colors.G6,
-  lineHeight: 1,
-};
-
-const labelStyleActive: React.CSSProperties = {
-  fontSize: 10,
-  color: TUI.colors.white,
-  lineHeight: 1,
-};
-
 export default function BottomBar({
-  isOwner,
+  myRole,
   isOnSeat,
-  isMuted,
-  isApplyingSeat,
-  onOpenSeatManagement,
-  onOpenSettings,
-  onOpenGift,
-  onLike,
+  isMicMuted,
+  isRoomMuted,
+  authUser,
+  chatInput,
+  setChatInput,
+  onSendChat,
   onToggleMic,
-  onRequestSeat,
-  onLeaveSeat,
-  pendingSeatRequests,
-  onOpenChat,
+  onToggleRoomMute,
+  onGiftOpen,
 }: BottomBarProps) {
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const isAdmin = myRole === 'owner' || myRole === 'coowner' || myRole === 'admin';
+
+  const handleKeyDown = useCallback(
+    (e: React.KeyboardEvent<HTMLInputElement>) => {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        onSendChat();
+      }
+    },
+    [onSendChat],
+  );
+
+  const handleSend = useCallback(() => {
+    onSendChat();
+    inputRef.current?.focus();
+  }, [onSendChat]);
+
+  const isDisabled = isRoomMuted || !authUser;
+
   return (
-    <>
-      {/* ═══════════════════════════════════════════════════════════════════════
-          Barrage input (LEFT side, separate from bottom bar) — visible for ALL users
-          ═══════════════════════════════════════════════════════════════════════ */}
-      <div
-        className="fixed z-50 flex items-center cursor-pointer touch-manipulation"
-        style={{
-          left: 'clamp(12px, 4vw, 15px)',
-          bottom: 'clamp(16px, 5vh, 36px)',
-          width: 'clamp(100px, 35vw, 130px)',
-          height: 'clamp(32px, 9vw, 36px)',
-          backgroundColor: 'rgba(255,255,255,0.1)',
-          border: '1px solid rgba(255,255,255,0.15)',
-          borderRadius: 18,
-          padding: '0 12px',
-          paddingBottom: 'env(safe-area-inset-bottom, 0px)',
-        }}
-        onClick={onOpenChat}
-      >
-        <MessageCircle
-          size={14}
-          style={{ color: TUI.colors.G5, marginRight: 6 }}
-        />
-        <span
-          className="truncate flex-1"
-          style={{
-            fontSize: 'clamp(11px, 2.8vw, 12px)',
-            color: TUI.colors.G5,
-            pointerEvents: 'none',
-          }}
-        >
-          قل شيئاً...
-        </span>
-      </div>
+    <footer
+      className="flex-shrink-0 w-full"
+      style={{
+        borderTop: `1px solid ${TUI.colors.G3Divider}`,
+        padding: '8px 12px',
+        paddingBottom: 'max(8px, env(safe-area-inset-bottom, 8px))',
+        backgroundColor: TUI.colors.G1,
+      }}
+    >
+      <div className="flex items-center w-full" style={{ gap: 8 }}>
+        {/* ── Mute Room button (admin+ only) ── */}
+        {isAdmin && (
+          <button
+            onClick={onToggleRoomMute}
+            className="rounded-full flex items-center justify-center flex-shrink-0 cursor-pointer touch-manipulation"
+            style={{
+              width: 38,
+              height: 38,
+              minWidth: 44,
+              minHeight: 44,
+              backgroundColor: isRoomMuted ? 'rgba(252, 85, 85, 0.15)' : 'rgba(255,255,255,0.08)',
+              transition: TUI.anim.fast,
+            }}
+            aria-label={isRoomMuted ? 'Unmute room' : 'Mute room'}
+          >
+            {isRoomMuted ? (
+              <VolumeX size={18} style={{ color: TUI.colors.red }} />
+            ) : (
+              <Volume2 size={18} style={{ color: TUI.colors.G7 }} />
+            )}
+          </button>
+        )}
 
-      {/* ═══════════════════════════════════════════════════════════════════════
-          Audience on seat: Mute mic button (LEFT side, separate from bottom bar)
-          ═══════════════════════════════════════════════════════════════════════ */}
-      {!isOwner && isOnSeat && (
-        <button
-          onClick={onToggleMic}
-          className="fixed z-50 rounded-full flex items-center justify-center cursor-pointer touch-manipulation"
+        {/* ── Mic toggle (only when on seat) ── */}
+        {isOnSeat && (
+          <button
+            onClick={onToggleMic}
+            className="rounded-full flex items-center justify-center flex-shrink-0 cursor-pointer touch-manipulation"
+            style={{
+              width: 38,
+              height: 38,
+              minWidth: 44,
+              minHeight: 44,
+              backgroundColor: isMicMuted ? 'rgba(252, 85, 85, 0.15)' : 'rgba(255,255,255,0.08)',
+              transition: TUI.anim.fast,
+            }}
+            aria-label={isMicMuted ? 'Unmute mic' : 'Mute mic'}
+          >
+            {isMicMuted ? (
+              <MicOff size={18} style={{ color: TUI.colors.red }} />
+            ) : (
+              <Mic size={18} style={{ color: TUI.colors.G7 }} />
+            )}
+          </button>
+        )}
+
+        {/* ── Chat Input (always visible, flex-1) ── */}
+        <div
+          className="flex items-center flex-1 min-w-0"
           style={{
-            left: 'clamp(120px, 40vw, 153px)',
-            bottom: 'clamp(16px, 5vh, 36px)',
-            width: 32,
-            height: 32,
-            minWidth: 44,
-            minHeight: 44,
-            backgroundColor: 'transparent',
-            transition: TUI.anim.fast,
+            height: 38,
+            backgroundColor: TUI.colors.bgInput,
+            borderRadius: '9999px',
+            padding: '0 12px',
           }}
-          aria-label={isMuted ? 'Unmute' : 'Mute'}
         >
-          {isMuted ? (
-            <MicOff size={18} style={{ color: TUI.colors.red }} />
-          ) : (
-            <Mic size={18} style={{ color: TUI.colors.white }} />
+          <input
+            ref={inputRef}
+            type="text"
+            value={chatInput}
+            onChange={(e) => setChatInput(e.target.value)}
+            onKeyDown={handleKeyDown}
+            placeholder={
+              isRoomMuted
+                ? 'الغرفة مكتومة'
+                : !authUser
+                  ? 'سجل دخولك للمشاركة'
+                  : 'اكتب رسالة...'
+            }
+            disabled={isDisabled}
+            maxLength={200}
+            dir="rtl"
+            className="flex-1 min-w-0 bg-transparent outline-none"
+            style={{
+              fontSize: 13,
+              color: TUI.colors.white,
+              caretColor: TUI.colors.B1,
+            }}
+          />
+
+          {/* ── Send button ── */}
+          {chatInput.trim() && !isDisabled && (
+            <button
+              onClick={handleSend}
+              className="flex items-center justify-center flex-shrink-0 cursor-pointer touch-manipulation"
+              style={{
+                width: 28,
+                height: 28,
+                color: TUI.colors.B1,
+                transition: TUI.anim.fast,
+              }}
+              aria-label="إرسال"
+            >
+              <Send size={14} />
+            </button>
           )}
-        </button>
-      )}
+        </div>
 
-      {/* ═══════════════════════════════════════════════════════════════════════
-          Right-aligned action buttons (main bottom bar)
-          ═══════════════════════════════════════════════════════════════════════ */}
-      <div
-        className="fixed z-50 flex items-center"
-        style={{
-          right: 'clamp(12px, 4vw, 27px)',
-          bottom: 'clamp(16px, 5vh, 36px)',
-          paddingBottom: 'env(safe-area-inset-bottom, 0px)',
-          gap: 'clamp(8px, 3vw, 16px)',
-        }}
-      >
-        {isOwner ? (
-          /* ══════════════════════════════════════════════════════════════
-             OWNER LAYOUT — Settings + Seat Management
-             icon(28px) + label(10px, G6), transparent bg
-             ══════════════════════════════════════════════════════════════ */
-          <div className="flex items-center" style={{ gap: 'clamp(8px, 3vw, 16px)' }}>
-            {/* Settings button */}
-            <div
-              className="flex flex-col items-center gap-1 cursor-pointer touch-manipulation"
-              onClick={onOpenSettings}
-              style={{ minHeight: 44 }}
-            >
-              <Settings2 size={28} style={{ color: TUI.colors.white }} />
-              <span style={labelStyle}>الإعدادات</span>
-            </div>
-
-            {/* Seat Management button */}
-            <div
-              className="relative flex flex-col items-center gap-1 cursor-pointer touch-manipulation"
-              onClick={onOpenSeatManagement}
-              style={{ minHeight: 44 }}
-            >
-              <Users size={28} style={{ color: TUI.colors.white }} />
-              {/* Red badge for pending seat requests */}
-              {pendingSeatRequests > 0 && (
-                <span
-                  className="absolute -top-1 -left-1 rounded-full flex items-center justify-center"
-                  style={{
-                    width: TUI.dim.badgeSize,
-                    height: TUI.dim.badgeSize,
-                    backgroundColor: TUI.colors.red,
-                    fontSize: TUI.dim.badgeFontSize,
-                    color: TUI.colors.white,
-                    fontWeight: 600,
-                    lineHeight: 1,
-                    minWidth: TUI.dim.badgeSize,
-                    padding: '0 4px',
-                  }}
-                >
-                  {pendingSeatRequests}
-                </span>
-              )}
-              <span style={labelStyle}>إدارة المقاعد</span>
-            </div>
-          </div>
-        ) : (
-          /* ══════════════════════════════════════════════════════════════
-             AUDIENCE LAYOUT — Gift + Like + Link Mic
-             icon(28px) + label(10px, G6), transparent bg
-             ══════════════════════════════════════════════════════════════ */
-          <div className="flex items-center" style={{ gap: 'clamp(8px, 3vw, 16px)' }}>
-            {/* Gift button */}
-            <div
-              className="flex flex-col items-center gap-1 cursor-pointer touch-manipulation"
-              onClick={onOpenGift}
-              style={{ minHeight: 44 }}
-            >
-              <Gift size={28} style={{ color: TUI.colors.white }} />
-              <span style={labelStyle}>هدية</span>
-            </div>
-
-            {/* Like button — TUILiveKit red heart */}
-            <div
-              className="flex flex-col items-center gap-1 cursor-pointer touch-manipulation"
-              onClick={onLike}
-              style={{ minHeight: 44 }}
-            >
-              <Heart size={28} fill={TUI.colors.white} style={{ color: TUI.colors.white }} />
-              <span style={labelStyle}>إعجاب</span>
-            </div>
-
-            {/* Link Mic button — dynamic states */}
-            <div
-              className="flex flex-col items-center justify-center cursor-pointer touch-manipulation"
-              style={{ minHeight: 44 }}
-              onClick={
-                isOnSeat
-                  ? onLeaveSeat
-                  : isApplyingSeat
-                    ? onLeaveSeat /* cancel application */
-                    : onRequestSeat
-              }
-            >
-              {isApplyingSeat ? (
-                /* ── Applying state: spinning loader ── */
-                <>
-                  <Loader2
-                    size={28}
-                    style={{ color: TUI.colors.white }}
-                    className="animate-spin"
-                  />
-                  <span style={labelStyle}>إلغاء</span>
-                </>
-              ) : isOnSeat ? (
-                /* ── On seat state: MicOff icon + "إنهاء" ── */
-                <>
-                  <MicOff size={28} style={{ color: TUI.colors.green }} />
-                  <span style={labelStyleActive}>إنهاء</span>
-                </>
-              ) : (
-                /* ── Not on seat, not applying: mic icon + "صالة" ── */
-                <>
-                  <Mic size={28} style={{ color: TUI.colors.white }} />
-                  <span style={labelStyle}>صالة</span>
-                </>
-              )}
-            </div>
-          </div>
+        {/* ── Gift button (auth user only) ── */}
+        {authUser && (
+          <button
+            onClick={onGiftOpen}
+            className="rounded-full flex items-center justify-center flex-shrink-0 cursor-pointer touch-manipulation"
+            style={{
+              width: 38,
+              height: 38,
+              minWidth: 44,
+              minHeight: 44,
+              background: 'linear-gradient(135deg, #f59e0b 0%, #ef4444 100%)',
+              transition: TUI.anim.fast,
+            }}
+            aria-label="إرسال هدية"
+          >
+            <Gift size={18} fill={TUI.colors.white} style={{ color: TUI.colors.white }} />
+          </button>
         )}
       </div>
-    </>
+    </footer>
   );
 }
