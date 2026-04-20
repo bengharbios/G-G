@@ -1,66 +1,105 @@
 'use client';
 
-import MicSeat from './MicSeat';
 import type { SeatData } from '../types';
+import { TUI } from '../types';
+import MicSeat from './MicSeat';
+
+/* ═══════════════════════════════════════════════════════════════════════
+   MicSeatGrid — Seat grid layout matching TUILiveKit SeatGridLayout
+
+   Layout rules (from Flutter VoiceRoomRootWidget):
+     • 3, 6, 9 seats  → 3 per row
+     • 4, 8 seats     → 4 per row
+     • 5 seats        → 3 first row, 2 second row
+     • 7 seats        → 4 first row, 3 second row
+     • Otherwise      → flex wrap naturally
+   ═══════════════════════════════════════════════════════════════════════ */
+
+interface MicSeatGridProps {
+  seats: SeatData[];
+  currentUserId: string;
+  speakingUserIds: Set<string>;
+  isOwner: boolean;
+  onSeatClick: (seatIndex: number) => void;
+}
 
 /**
- * MicSeatGrid — Voice seat grid container
- * TUILiveKit uses a grid layout within the main-left-center area.
- * Background is dark (black) with the seats displayed in a responsive grid.
+ * Returns the number of seats per row based on TUILiveKit's SeatGridLayout algorithm.
+ * The Flutter source uses a switch on seat count to determine columns.
  */
+function getColumnsForSeatCount(count: number): number {
+  switch (count) {
+    case 3:
+    case 6:
+    case 9:
+      return 3;
+    case 4:
+    case 8:
+      return 4;
+    case 5:
+      return 3; // 3 + 2
+    case 7:
+      return 4; // 4 + 3
+    default:
+      // For other counts, flex-wrap handles it naturally
+      return count <= 5 ? 3 : count <= 8 ? 4 : 5;
+  }
+}
 
 export default function MicSeatGrid({
   seats,
   currentUserId,
+  speakingUserIds,
+  isOwner,
   onSeatClick,
-}: {
-  seats: SeatData[];
-  currentUserId: string;
-  onSeatClick: (seatIndex: number) => void;
-}) {
+}: MicSeatGridProps) {
+  const totalSeats = seats.length;
+
+  // Determine if we need a fixed grid or flex-wrap layout
+  // For counts that have a specific layout (3-9 seats), use grid
+  // For others, use flex-wrap
+  const columns = getColumnsForSeatCount(totalSeats);
+  const useGridLayout = totalSeats <= 9 && [3, 4, 5, 6, 7, 8, 9].includes(totalSeats);
+
   return (
-    <section className="flex-1 flex flex-col min-h-0 overflow-hidden">
-      {/* Header */}
+    <div
+      className="w-full mx-auto"
+      style={{
+        paddingTop: 12,
+        paddingBottom: 8,
+        paddingLeft: 16,
+        paddingRight: 16,
+        maxHeight: TUI.dim.seatGridHeight,
+      }}
+    >
       <div
-        className="flex items-center justify-between px-4 py-2 flex-shrink-0"
+        className="flex flex-wrap justify-center"
         style={{
-          borderBottom: '1px solid rgba(255,255,255,0.08)',
+          gap: TUI.dim.seatRowSpacing,
+          ...(useGridLayout
+            ? {
+                maxWidth: columns * (TUI.dim.seatContainerSize + 20 + TUI.dim.seatRowSpacing),
+              }
+            : {}),
         }}
       >
-        <span style={{ fontSize: '11px', color: 'rgba(255,255,255,0.35)' }}>
-          المنابر الصوتية
-        </span>
-        <span
-          className="rounded-full px-2 py-0.5"
-          style={{
-            fontSize: '10px',
-            background: 'rgba(108,99,255,0.15)',
-            color: '#a78bfa',
-            border: '1px solid rgba(108,99,255,0.3)',
-          }}
-        >
-          {seats.length} مايك
-        </span>
-      </div>
+        {seats.map((seat) => {
+          const isSpeaking =
+            seat.participant !== null && speakingUserIds.has(seat.participant.userId);
+          const isSeatOwner =
+            seat.participant !== null && seat.participant.userId === currentUserId && isOwner;
 
-      {/* Grid — responsive layout matching TUILiveKit seat view */}
-      <div
-        className="flex-1 overflow-y-auto p-3"
-        style={{ userSelect: 'none' }}
-      >
-        <div className="grid grid-cols-3 sm:grid-cols-5 gap-2">
-          {seats.map((seat) => (
-            <div key={seat.seatIndex} className="flex items-center justify-center">
-              <MicSeat
-                seat={seat}
-                isMySeat={seat.participant?.userId === currentUserId}
-                onClick={onSeatClick}
-                index={seat.seatIndex}
-              />
-            </div>
-          ))}
-        </div>
+          return (
+            <MicSeat
+              key={seat.seatIndex}
+              seatData={seat}
+              isOwner={isSeatOwner}
+              isSpeaking={isSpeaking}
+              onClick={() => onSeatClick(seat.seatIndex)}
+            />
+          );
+        })}
       </div>
-    </section>
+    </div>
   );
 }

@@ -1,246 +1,222 @@
 'use client';
 
-import { Mic, MicOff, Lock, Crown, Snowflake, Plus } from 'lucide-react';
+import { motion } from 'framer-motion';
+import { Mic, Lock, Crown, MicOff } from 'lucide-react';
 import type { SeatData } from '../types';
-import { getAvatarColor, ROLE_COLORS } from '../types';
+import { TUI, getAvatarColorFromPalette } from '../types';
 
-/* ═══════════════════════════════════════════════════════════════════════════
-   AudioIcon — Exact TUILiveKit AudioIcon.vue port
-   ═══════════════════════════════════════════════════════════════════════════
-   Structure mirrors AudioIcon.vue:
-     .audio-icon-container  (24×24, relative, cursor-pointer)
-       .audio-level-container (absolute, top:2 left:7, 10×14, radius:4, overflow:hidden)
-         .audio-level        (width:100%, bg text-success, transition height 0.2s)
-       .audio-icon           (absolute, top:0 left:0 — IconAudioClose or IconAudioOpen)
+/* ═══════════════════════════════════════════════════════════════════════
+   MicSeat — Single voice seat matching TUILiveKit VoiceRoomRootWidget
 
-   In TUILiveKit the single .audio-level div height = audioVolume * 4%.
-   We keep 5 individual bars with staggered animation delays (audio-bar-1..5)
-   to preserve the visual bounce while matching the container geometry exactly.
-   ═══════════════════════════════════════════════════════════════════════════ */
+   States:
+     • Empty (open)       — faint circle + mic icon
+     • Locked             — faint circle + lock icon
+     • Occupied           — avatar + optional badges
+       – Speaking         — animated ripple ring (#29CC6A)
+       – Muted            — red MicOff badge (bottom-right)
+       – Owner            — crown badge (top-right)
+   ═══════════════════════════════════════════════════════════════════════ */
 
-function AudioIcon({
-  isMuted,
-  isSpeaking,
-  audioVolume,
-}: {
-  isMuted: boolean;
+interface MicSeatProps {
+  seatData: SeatData;
+  isOwner: boolean;
   isSpeaking: boolean;
-  audioVolume: number;
-}) {
-  /** Show bars when the user is actively speaking or muted (dimmed) */
-  const showBars = isSpeaking || isMuted;
-  /** Muted bars get 15% opacity; speaking bars are fully green */
-  const barActive = isSpeaking;
-
-  return (
-    <div
-      className="audio-icon-container relative w-6 h-6 cursor-pointer"
-      aria-hidden
-    >
-      {/* ── audio-level-container — TUILiveKit exact ── */}
-      {showBars && (
-        <div
-          className="audio-level-container absolute top-[2px] left-[7px]
-            flex flex-col-reverse justify-between
-            w-[10px] h-[14px] overflow-hidden rounded-[4px]"
-        >
-          {[1, 2, 3, 4, 5].map((n) => (
-            <div
-              key={n}
-              className={`audio-bar-${n} w-full transition-[height] duration-200 ${
-                barActive
-                  ? 'bg-[var(--text-color-success,#22c55e)]'
-                  : 'bg-[var(--text-color-success,#22c55e)]/15'
-              }`}
-              style={
-                barActive && audioVolume > 0
-                  ? { height: `${Math.min(audioVolume * 4, 100)}%` }
-                  : undefined
-              }
-            />
-          ))}
-        </div>
-      )}
-
-      {/* ── audio-icon (mic open / close) — TUILiveKit exact ── */}
-      <div className="audio-icon absolute top-0 left-0">
-        {isMuted ? (
-          <MicOff
-            size={24}
-            className="text-[var(--text-color-tertiary,rgba(255,255,255,0.35))]"
-          />
-        ) : (
-          <Mic
-            size={24}
-            className="text-[var(--text-color-primary,rgba(255,255,255,0.90))]"
-          />
-        )}
-      </div>
-    </div>
-  );
+  onClick: () => void;
 }
 
-/* ═══════════════════════════════════════════════════════════════════════════
-   MicSeat — Individual mic seat item
-   ═══════════════════════════════════════════════════════════════════════════ */
+/** Truncate string to maxLen chars with ellipsis */
+function truncate(str: string, maxLen: number): string {
+  return str.length > maxLen ? str.slice(0, maxLen) + '\u2026' : str;
+}
 
 export default function MicSeat({
-  seat,
-  isMySeat,
+  seatData,
+  isOwner,
+  isSpeaking,
   onClick,
-  index,
-}: {
-  seat: SeatData;
-  isMySeat: boolean;
-  onClick: (seatIndex: number) => void;
-  index: number;
-}) {
-  const { participant, status } = seat;
-  const isOwner = participant?.role === 'owner';
-  const isSpeaking =
-    participant && !participant.isMuted && !participant.micFrozen;
+}: MicSeatProps) {
+  const { seatIndex, participant, status } = seatData;
+  const isLocked = status === 'locked';
+  const isEmpty = !participant && !isLocked;
+  const isOccupied = !!participant;
+  const isMySeat = isOwner;
 
-  /* ── Shared wrapper classes ── */
-  const wrapperBase =
-    'flex flex-col items-center gap-1 cursor-pointer group outline-none';
-  const avatarSize = 'w-9 h-9'; // 36px
+  // Determine if the user on this seat is the owner (for crown badge)
+  const isSeatOwner = isOccupied && participant?.role === 'owner';
 
-  /* ═══════════════════════════════════════════════════════════════════════════
-     LOCKED SEAT — grayed out, no participant
-     ═══════════════════════════════════════════════════════════════════════════ */
-  if (status === 'locked' && !participant) {
-    return (
-      <button
-        onClick={() => onClick(index)}
-        className={wrapperBase}
-        aria-label={`Seat ${index + 1} locked`}
+  // Determine if muted
+  const isMuted = isOccupied && (participant?.isMuted || participant?.micFrozen);
+
+  // Avatar palette color for fallback
+  const palette = isOccupied ? getAvatarColorFromPalette(participant.userId) : null;
+
+  return (
+    <button
+      onClick={onClick}
+      className="relative flex flex-col items-center gap-1.5 group outline-none"
+      aria-label={isOccupied ? `Seat ${seatIndex + 1}: ${participant.displayName}` : `Seat ${seatIndex + 1}: empty`}
+    >
+      {/* ── Seat Circle (50×50) ── */}
+      <div
+        className="relative rounded-full flex items-center justify-center transition-transform duration-150 ease-out group-hover:scale-105"
+        style={{
+          width: TUI.dim.seatContainerSize,
+          height: TUI.dim.seatContainerSize,
+          backgroundColor: isEmpty || isLocked ? TUI.colors.emptySeatBg : 'transparent',
+          border: isMySeat ? `2px solid ${TUI.colors.seatSelectedBorder}` : '2px solid transparent',
+        }}
       >
-        <div
-          className={`relative rounded-xl w-14 h-14 flex items-center justify-center
-            bg-[#111318]/80 border-2 border-[rgba(255,255,255,0.06)]
-            opacity-60 transition-all duration-200 ease-[ease]
-            group-hover:scale-105 group-hover:shadow-lg group-hover:shadow-black/20`}
+        {/* ── Speaking Ripple Animation ── */}
+        {isOccupied && isSpeaking && (
+          <>
+            {/* Primary ripple */}
+            <motion.div
+              className="absolute inset-0 rounded-full pointer-events-none"
+              style={{ border: `2px solid ${TUI.colors.green}` }}
+              animate={{
+                scale: [1, 1.8],
+                opacity: [0.6, 0],
+              }}
+              transition={{
+                duration: 1.2,
+                repeat: Infinity,
+                ease: 'easeOut',
+              }}
+            />
+            {/* Secondary ripple (staggered) */}
+            <motion.div
+              className="absolute inset-0 rounded-full pointer-events-none"
+              style={{ border: `2px solid ${TUI.colors.green}` }}
+              animate={{
+                scale: [1, 1.8],
+                opacity: [0.6, 0],
+              }}
+              transition={{
+                duration: 1.2,
+                repeat: Infinity,
+                ease: 'easeOut',
+                delay: 0.6,
+              }}
+            />
+          </>
+        )}
+
+        {/* ── Seat Number Badge (top-left pill) ── */}
+        <span
+          className="absolute -top-0.5 -left-0.5 flex items-center justify-center rounded-full z-10 pointer-events-none select-none"
+          style={{
+            minWidth: 16,
+            height: 14,
+            padding: '0 4px',
+            backgroundColor: 'rgba(0,0,0,0.5)',
+            fontSize: 10,
+            lineHeight: '14px',
+            color: '#fff',
+            fontWeight: 500,
+          }}
         >
-          <Lock className="w-4 h-4 text-[#555]" />
-        </div>
-        <span className="text-[9px] text-[#5a6080] tabular-nums">{index + 1}</span>
-      </button>
-    );
-  }
+          {seatIndex + 1}
+        </span>
 
-  /* ═══════════════════════════════════════════════════════════════════════════
-     OCCUPIED SEAT — avatar, name, role badge, TUILiveKit AudioIcon
-     ═══════════════════════════════════════════════════════════════════════════ */
-  if (participant) {
-    const avatarColor = getAvatarColor(participant.userId);
-
-    /* Ring classes based on state */
-    let ringClass = 'border-[rgba(255,255,255,0.12)]';
-    if (isSpeaking) ringClass = 'border-emerald-500 animate-speak-glow';
-    if (isOwner) ringClass = 'border-amber-500 shadow-[0_0_0_2px_rgba(245,158,11,0.2)]';
-    if (participant.isMuted) ringClass = 'border-[rgba(255,255,255,0.08)]';
-
-    /* My seat highlight */
-    const mySeatRing = isMySeat
-      ? 'ring-2 ring-[#6c63ff]/50 ring-offset-1 ring-offset-[#0d0f1a]'
-      : '';
-
-    /** Audio volume for the level bars (0-25 range mapped to 0-100%) */
-    const audioVolume = isSpeaking ? Math.random() * 20 + 5 : 0;
-
-    return (
-      <button
-        onClick={() => onClick(index)}
-        className={wrapperBase}
-        aria-label={`Seat ${index + 1} — ${participant.displayName}`}
-      >
-        {/* Seat container: avatar + AudioIcon side by side */}
-        <div className="relative flex items-center gap-1.5">
-          {/* ── Avatar ── */}
-          <div
-            className={`relative ${avatarSize} rounded-full flex items-center justify-center
-              overflow-hidden border-2 ${ringClass} ${mySeatRing}
-              transition-all duration-200 ease-[ease]
-              group-hover:scale-110 group-hover:shadow-lg group-hover:shadow-black/30`}
-            style={{ background: avatarColor }}
-          >
-            {participant.avatar ? (
-              <img
-                src={participant.avatar}
-                alt={participant.displayName}
-                className="w-full h-full rounded-full object-cover"
+        {/* ── Empty / Locked State ── */}
+        {(isEmpty || isLocked) && (
+          <>
+            {isLocked ? (
+              <Lock
+                size={TUI.dim.seatIconSize}
+                style={{ color: TUI.colors.G5 }}
+                strokeWidth={1.5}
               />
             ) : (
-              <span className="text-[11px] font-bold text-white select-none">
-                {participant.displayName.charAt(0)}
+              <Mic
+                size={TUI.dim.seatIconSize}
+                style={{ color: TUI.colors.G5 }}
+                strokeWidth={1.5}
+              />
+            )}
+          </>
+        )}
+
+        {/* ── Occupied State — Avatar ── */}
+        {isOccupied && (
+          <>
+            {/* Avatar circle (40px) */}
+            <div
+              className="relative flex items-center justify-center rounded-full overflow-hidden"
+              style={{
+                width: 40,
+                height: 40,
+                border: `2px solid ${isSpeaking ? TUI.colors.green : 'transparent'}`,
+              }}
+            >
+              {participant.avatar ? (
+                <img
+                  src={participant.avatar}
+                  alt={participant.displayName}
+                  className="w-full h-full object-cover"
+                  draggable={false}
+                />
+              ) : (
+                <span
+                  className="flex items-center justify-center rounded-full select-none"
+                  style={{
+                    width: 40,
+                    height: 40,
+                    backgroundColor: palette?.bg || '#eff6ff',
+                    color: palette?.text || '#2563eb',
+                    fontSize: 16,
+                    fontWeight: 600,
+                  }}
+                >
+                  {participant.displayName.charAt(0).toUpperCase()}
+                </span>
+              )}
+            </div>
+
+            {/* ── Muted Badge (bottom-right, red) ── */}
+            {isMuted && (
+              <span
+                className="absolute -bottom-0.5 -right-0.5 flex items-center justify-center rounded-full z-10"
+                style={{
+                  width: 16,
+                  height: 16,
+                  backgroundColor: TUI.colors.red,
+                }}
+              >
+                <MicOff size={9} color="#fff" strokeWidth={2.5} />
               </span>
             )}
 
-            {/* ── Overlay badges ── */}
-
-            {/* Crown badge (top-right) for owner */}
-            {isOwner && (
-              <div className="absolute -top-1 -right-1 w-[18px] h-[18px] rounded-full bg-amber-500 border-2 border-[#141726] flex items-center justify-center z-10">
-                <Crown className="w-[10px] h-[10px] text-white fill-white" />
-              </div>
+            {/* ── Owner Crown Badge (top-right) ── */}
+            {isSeatOwner && (
+              <span
+                className="absolute -top-0.5 -right-0.5 flex items-center justify-center z-10"
+                style={{
+                  width: 16,
+                  height: 16,
+                }}
+              >
+                <Crown size={14} fill="#f59e0b" stroke="#f59e0b" strokeWidth={1} />
+              </span>
             )}
-
-            {/* Muted mic overlay — red tint */}
-            {participant.isMuted && (
-              <div className="absolute inset-0 rounded-full bg-red-500/30 flex items-center justify-center backdrop-blur-[1px]">
-                <MicOff className="w-3.5 h-3.5 text-red-400" />
-              </div>
-            )}
-
-            {/* Frozen mic overlay — ice icon */}
-            {participant.micFrozen && !participant.isMuted && (
-              <div className="absolute inset-0 rounded-full bg-sky-500/20 flex items-center justify-center backdrop-blur-[1px]">
-                <Snowflake className="w-3.5 h-3.5 text-sky-400" />
-              </div>
-            )}
-          </div>
-
-          {/* ── TUILiveKit AudioIcon (24×24) ── */}
-          <AudioIcon
-            isMuted={participant.isMuted}
-            isSpeaking={!!isSpeaking}
-            audioVolume={audioVolume}
-          />
-        </div>
-
-        {/* Name with role color */}
-        <span
-          className="text-[9.5px] text-center max-w-[58px] truncate leading-tight transition-colors duration-200"
-          style={{ color: ROLE_COLORS[participant.role] }}
-        >
-          {participant.displayName}
-        </span>
-      </button>
-    );
-  }
-
-  /* ═══════════════════════════════════════════════════════════════════════════
-     EMPTY / OPEN SEAT — dashed circle, "+" icon, pulse
-     ═══════════════════════════════════════════════════════════════════════════ */
-  return (
-    <button
-      onClick={() => onClick(index)}
-      className={wrapperBase}
-      aria-label={`Seat ${index + 1} — empty, click to sit`}
-    >
-      <div
-        className={`relative rounded-xl w-14 h-14 flex items-center justify-center
-          border-2 border-dashed border-[rgba(255,255,255,0.1)]
-          bg-[#1a2540]/60
-          transition-all duration-200 ease-[ease]
-          group-hover:scale-105 group-hover:border-[rgba(108,99,255,0.4)]
-          group-hover:bg-[rgba(108,99,255,0.06)]
-          group-hover:shadow-lg group-hover:shadow-[rgba(108,99,255,0.1)]
-          animate-empty-pulse`}
-      >
-        <Plus className="w-5 h-5 text-[rgba(255,255,255,0.2)] transition-colors duration-200 group-hover:text-[#6c63ff]/70" />
+          </>
+        )}
       </div>
-      <span className="text-[9px] text-[#5a6080] tabular-nums">{index + 1}</span>
+
+      {/* ── User Name Below Seat ── */}
+      <span
+        className="max-w-[60px] text-center leading-tight select-none"
+        style={{
+          fontSize: 12,
+          color: TUI.colors.G6,
+          overflow: 'hidden',
+          textOverflow: 'ellipsis',
+          whiteSpace: 'nowrap',
+        }}
+        title={isOccupied ? participant.displayName : ''}
+      >
+        {isOccupied ? truncate(participant.displayName, 6) : '\u00A0'}
+      </span>
     </button>
   );
 }

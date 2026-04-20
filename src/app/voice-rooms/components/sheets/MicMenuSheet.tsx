@@ -1,214 +1,316 @@
 'use client';
 
-import { Mic, Users, Lock, UserMinus, Unlock, Timer, Ban } from 'lucide-react';
+import {
+  User,
+  ArrowUpCircle,
+  ArrowLeftRight,
+  Lock,
+  Unlock,
+  XCircle,
+  MicOff,
+  UserMinus,
+  Ban,
+  LogOut,
+} from 'lucide-react';
 import BottomSheetOverlay from '../shared/BottomSheetOverlay';
-import type { VoiceRoomParticipant, RoomRole } from '../../types';
-import { canDo } from '../../types';
+import {
+  TUI,
+  ROLE_LABELS,
+  ROLE_COLORS,
+  ROLE_LEVELS,
+  canDo,
+  type MicMenuSheetState,
+  type RoomRole,
+  type VoiceRoomParticipant,
+} from '../../types';
 
-interface MenuItemData {
-  action: string;
+interface MicMenuSheetProps {
+  isOpen: boolean;
+  onClose: () => void;
+  state: MicMenuSheetState;
+  myRole: RoomRole;
+  isAutoMode: boolean;
+  onAction: (action: string) => void;
+}
+
+interface MenuItem {
+  id: string;
+  label: string;
   icon: React.ReactNode;
-  title: string;
-  subtitle: string;
   color: string;
-  iconBg: string;
-  destructive?: boolean;
+  dividerAfter?: boolean;
 }
 
 export default function MicMenuSheet({
-  isOpen, onClose, seatIndex, participant, isSeatLocked, onAction, currentUserId, myRole, mySeatIndex,
-}: {
-  isOpen: boolean;
-  onClose: () => void;
-  seatIndex: number;
-  participant: VoiceRoomParticipant | null;
-  isSeatLocked: boolean;
-  onAction: (action: string) => void;
-  currentUserId: string;
-  myRole: RoomRole;
-  mySeatIndex: number;
-}) {
+  isOpen,
+  onClose,
+  state,
+  myRole,
+  isAutoMode,
+  onAction,
+}: MicMenuSheetProps) {
+  const { seatIndex, participant, mySeatIndex } = state;
   const isAdmin = canDo(myRole, 'admin');
-  const isOnMic = participant?.userId === currentUserId;
-  const isAlreadyOnSeat = mySeatIndex >= 0 && mySeatIndex !== seatIndex;
+  const isOwner = canDo(myRole, 'coowner');
+  const isOnMySeat = seatIndex === mySeatIndex;
+  const isOccupied = !!participant;
+  const isLocked = !isOccupied; // we detect locked from parent; empty but unlocked = open
 
-  // Build menu items
-  const menuItems: MenuItemData[] = [];
+  const buildMenu = (): MenuItem[] => {
+    const items: MenuItem[] = [];
 
-  if (participant) {
-    // View profile — always available
-    menuItems.push({
-      action: 'view-profile',
-      icon: <Users className="w-[18px] h-[18px]" />,
-      title: 'عرض البروفايل',
-      subtitle: 'مشاهدة ملف المستخدم الشخصي',
-      color: '#6c63ff',
-      iconBg: 'rgba(108,99,255,0.12)',
-    });
+    if (isOnMySeat) {
+      /* ── My own seat ── */
+      items.push({
+        id: 'profile',
+        label: 'الملف الشخصي',
+        icon: <User size={22} />,
+        color: TUI.colors.G7,
+      });
 
-    if (isAdmin) {
-      // Close mic (lock + pull)
-      if (!isSeatLocked) {
-        menuItems.push({
-          action: 'close-seat',
-          icon: <Lock className="w-[18px] h-[18px]" />,
-          title: 'إغلاق المايك',
-          subtitle: 'إغلاق المايك وإخراج العضو منه',
-          color: '#f59e0b',
-          iconBg: 'rgba(245,158,11,0.12)',
+      items.push({
+        id: 'leave-seat',
+        label: 'مغادرة المقعد',
+        icon: <LogOut size={22} />,
+        color: TUI.colors.red,
+        dividerAfter: true,
+      });
+    } else if (isOccupied && participant) {
+      /* ── Someone else's seat ── */
+      const participantLevel = ROLE_LEVELS[participant.role] || 0;
+      const myLevel = ROLE_LEVELS[myRole] || 0;
+
+      // Profile (always visible)
+      items.push({
+        id: 'profile',
+        label: 'الملف الشخصي',
+        icon: <User size={22} />,
+        color: TUI.colors.G7,
+      });
+
+      if (isAdmin && myLevel > participantLevel) {
+        // Mute/Unmute
+        items.push({
+          id: participant.isMuted ? 'unmute' : 'mute',
+          label: participant.isMuted ? 'إلغاء الكتم' : 'كتم',
+          icon: participant.isMuted ? (
+            <Unlock size={22} />
+          ) : (
+            <MicOff size={22} />
+          ),
+          color: participant.isMuted ? TUI.colors.green : TUI.colors.G7,
+        });
+
+        // Kick off mic
+        items.push({
+          id: 'close-seat',
+          label: 'إغلاق المقعد',
+          icon: <XCircle size={22} />,
+          color: TUI.colors.red,
+          dividerAfter: true,
+        });
+
+        // Kick temp
+        items.push({
+          id: 'kick-temp',
+          label: 'طرد مؤقت',
+          icon: <UserMinus size={22} />,
+          color: TUI.colors.red,
+        });
+
+        // Ban
+        items.push({
+          id: 'kick-permanent',
+          label: 'طرد نهائي',
+          icon: <Ban size={22} />,
+          color: TUI.colors.red,
         });
       }
-      // Pull from mic
-      menuItems.push({
-        action: 'pull-from-mic',
-        icon: <UserMinus className="w-[18px] h-[18px]" />,
-        title: 'إنزال من المايك',
-        subtitle: 'إخراج العضو من المنبر فوراً',
-        color: '#ef4444',
-        iconBg: 'rgba(239,68,68,0.12)',
-        destructive: true,
-      });
-      // Open mic (unlock)
-      if (isSeatLocked) {
-        menuItems.push({
-          action: 'unlock-seat',
-          icon: <Unlock className="w-[18px] h-[18px]" />,
-          title: 'فتح المايك',
-          subtitle: 'فتح المايك والسماح بالجلوس',
-          color: '#22c55e',
-          iconBg: 'rgba(34,197,94,0.12)',
-        });
-      }
-      // Temp kick
-      menuItems.push({
-        action: 'kick-temp',
-        icon: <Timer className="w-[18px] h-[18px]" />,
-        title: 'طرد مؤقت من الروم',
-        subtitle: 'مدة الطرد: 10 دقائق',
-        color: '#f97316',
-        iconBg: 'rgba(249,115,22,0.12)',
-      });
-      // Perm ban
-      menuItems.push({
-        action: 'kick-perm',
-        icon: <Ban className="w-[18px] h-[18px]" />,
-        title: 'طرد نهائي من الروم',
-        subtitle: 'حظر دائم من الغرفة',
-        color: '#ef4444',
-        iconBg: 'rgba(239,68,68,0.12)',
-        destructive: true,
-      });
-    }
-
-    // Own seat actions
-    if (isOnMic) {
-      menuItems.push({
-        action: 'leave-seat',
-        icon: <UserMinus className="w-[18px] h-[18px]" />,
-        title: 'النزول من المايك',
-        subtitle: 'ترك مقعدك الصوتي',
-        color: '#ef4444',
-        iconBg: 'rgba(239,68,68,0.12)',
-        destructive: true,
-      });
-    }
-  } else {
-    // Seat is EMPTY
-    if (isAlreadyOnSeat) {
-      menuItems.push({
-        action: 'change-mic',
-        icon: <Mic className="w-[18px] h-[18px]" />,
-        title: 'تغيير المايك',
-        subtitle: `الانتقال من المايك ${mySeatIndex + 1} إلى المايك ${seatIndex + 1}`,
-        color: '#6c63ff',
-        iconBg: 'rgba(108,99,255,0.12)',
-      });
     } else {
-      menuItems.push({
-        action: 'take-seat',
-        icon: <Mic className="w-[18px] h-[18px]" />,
-        title: 'صعود للمايك',
-        subtitle: 'الجلوس على هذا المقعد الصوتي',
-        color: '#22c55e',
-        iconBg: 'rgba(34,197,94,0.12)',
+      /* ── Empty seat ── */
+      // Profile area (empty)
+      items.push({
+        id: 'profile',
+        label: 'الملف الشخصي',
+        icon: <User size={22} />,
+        color: TUI.colors.G7,
+        dividerAfter: true,
       });
+
+      if (isAdmin) {
+        // Take seat
+        if (mySeatIndex < 0) {
+          items.push({
+            id: 'take-seat',
+            label: 'صعود',
+            icon: <ArrowUpCircle size={22} />,
+            color: TUI.colors.B1,
+          });
+        }
+
+        // Change mic (if already on another seat)
+        if (mySeatIndex >= 0) {
+          items.push({
+            id: 'change-mic',
+            label: 'نقل',
+            icon: <ArrowLeftRight size={22} />,
+            color: TUI.colors.B1,
+          });
+        }
+
+        // Lock/Unlock
+        items.push({
+          id: 'toggle-lock',
+          label: 'قفل',
+          icon: <Lock size={22} />,
+          color: TUI.colors.G7,
+        });
+
+        // Invite someone
+        items.push({
+          id: 'invite',
+          label: 'دعوة',
+          icon: <User size={22} />,
+          color: TUI.colors.B1,
+        });
+      }
     }
 
-    if (!isSeatLocked && isAdmin) {
-      menuItems.push({
-        action: 'lock-seat',
-        icon: <Lock className="w-[18px] h-[18px]" />,
-        title: 'إغلاق المايك',
-        subtitle: 'منع أي شخص من الجلوس هنا',
-        color: '#f59e0b',
-        iconBg: 'rgba(245,158,11,0.12)',
-      });
-    }
+    return items;
+  };
 
-    if (isSeatLocked && isAdmin) {
-      menuItems.push({
-        action: 'unlock-seat',
-        icon: <Unlock className="w-[18px] h-[18px]" />,
-        title: 'فتح المايك',
-        subtitle: 'السماح للأعضاء بالجلوس',
-        color: '#22c55e',
-        iconBg: 'rgba(34,197,94,0.12)',
-      });
-    }
-  }
+  const menuItems = buildMenu();
 
-  // Find divider positions (before destructive items, before own seat actions)
-  const getDividerBefore = (index: number) => {
-    const item = menuItems[index];
-    if (!item) return false;
-    // Divider before "pull-from-mic" if preceded by non-destructive
-    if (item.action === 'pull-from-mic') return index > 0;
-    // Divider before "leave-seat" if preceded by admin actions
-    if (item.action === 'leave-seat') return index > 0;
-    // Divider before destructive items when participant exists
-    if (item.action === 'kick-temp' && index > 1) return true;
-    return false;
+  const handleAction = (actionId: string) => {
+    onAction(actionId);
+    onClose();
+  };
+
+  const renderAvatar = () => {
+    if (isOccupied && participant) {
+      return (
+        <div
+          className="shrink-0 overflow-hidden"
+          style={{
+            width: 36,
+            height: 36,
+            borderRadius: TUI.radius.circle,
+            backgroundColor: TUI.colors.bgInput,
+          }}
+        >
+          {participant.avatar ? (
+            <img
+              src={participant.avatar}
+              alt={participant.displayName}
+              className="w-full h-full object-cover"
+            />
+          ) : (
+            <div className="w-full h-full flex items-center justify-center">
+              <span style={{ fontSize: 16, color: TUI.colors.G6 }}>
+                {participant.displayName?.charAt(0) || '?'}
+              </span>
+            </div>
+          )}
+        </div>
+      );
+    }
+    return (
+      <div
+        className="shrink-0 flex items-center justify-center"
+        style={{
+          width: 36,
+          height: 36,
+          borderRadius: TUI.radius.circle,
+          backgroundColor: TUI.colors.bgInput,
+        }}
+      >
+        <span style={{ fontSize: 14, color: TUI.colors.G5 }}>
+          {seatIndex + 1}
+        </span>
+      </div>
+    );
   };
 
   return (
     <BottomSheetOverlay
       isOpen={isOpen}
       onClose={onClose}
-      title={participant
-        ? `المايك ${seatIndex + 1} — ${participant.displayName}`
-        : `المايك ${seatIndex + 1}`}
+      height="auto"
+      showClose
     >
-      <div className="space-y-1 pb-4">
-        {menuItems.map((item, idx) => (
-          <div key={item.action}>
-            {getDividerBefore(idx) && (
-              <div className="my-2 mx-2 border-t" style={{ borderColor: 'rgba(255,255,255,0.08)' }} />
-            )}
-            <button
-              onClick={() => { onAction(item.action); onClose(); }}
-              className="w-full flex items-center gap-3 px-3 py-3 rounded-xl transition-all duration-200 hover:bg-[#3a3a3a] active:bg-[#4a4a4a] group"
+      {/* Participant header */}
+      <div className="flex items-center gap-3 mb-1 pb-3" style={{ borderBottom: `1px solid ${TUI.colors.G3Divider}` }}>
+        {renderAvatar()}
+        <div className="flex-1 min-w-0">
+          <span
+            className="block truncate"
+            style={{
+              fontSize: TUI.font.title16.size,
+              fontWeight: 600,
+              color: TUI.colors.white,
+            }}
+          >
+            {isOccupied && participant ? participant.displayName : `مقعد ${seatIndex + 1}`}
+          </span>
+          {isOccupied && participant && (
+            <span
               style={{
-                background: 'transparent',
+                fontSize: TUI.font.captionG5.size,
+                color: ROLE_COLORS[participant.role],
               }}
             >
-              <div
-                className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 transition-all duration-200"
-                style={{ background: item.iconBg, color: item.color }}
-              >
+              {ROLE_LABELS[participant.role]}
+            </span>
+          )}
+          {!isOccupied && (
+            <span style={{ fontSize: TUI.font.captionG5.size, color: TUI.colors.G5 }}>
+              فارغ
+            </span>
+          )}
+        </div>
+      </div>
+
+      {/* Menu Items */}
+      <div className="mt-1">
+        {menuItems.map((item, idx) => (
+          <div key={item.id}>
+            <button
+              onClick={() => handleAction(item.id)}
+              className="flex items-center gap-3 w-full py-0 transition-colors"
+              style={{
+                height: TUI.dim.itemHeight,
+                padding: '0 4px',
+                backgroundColor: 'transparent',
+                border: 'none',
+                cursor: 'pointer',
+              }}
+            >
+              {/* Icon */}
+              <div className="flex items-center justify-center" style={{ color: item.color }}>
                 {item.icon}
               </div>
-              <div className="text-right flex-1 min-w-0">
-                <div
-                  className="text-[14px] font-semibold leading-tight"
-                  style={{ color: item.destructive ? '#ef4444' : 'rgba(255,255,255,0.9)' }}
-                >
-                  {item.title}
-                </div>
-                <div className="text-[11px] mt-0.5" style={{ color: 'rgba(255,255,255,0.4)' }}>
-                  {item.subtitle}
-                </div>
-              </div>
+              {/* Label */}
+              <span
+                className="flex-1 text-right"
+                style={{
+                  fontSize: TUI.font.body14.size,
+                  fontWeight: 500,
+                  color: item.color,
+                }}
+              >
+                {item.label}
+              </span>
             </button>
+
+            {/* Divider */}
+            {item.dividerAfter && idx < menuItems.length - 1 && (
+              <div
+                style={{
+                  height: 1,
+                  backgroundColor: TUI.colors.G3Divider,
+                }}
+              />
+            )}
           </div>
         ))}
       </div>

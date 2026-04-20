@@ -1,197 +1,213 @@
 'use client';
 
-/**
- * InjectStyles — Global CSS injection matching TUILiveKit styles
- *
- * Includes:
- * - Cairo font
- * - TUILiveKit scrollbar (@mixin scrollbar from index.scss)
- * - Speaking / live animations
- * - Audio level bar bounce (TUILiveKit AudioIcon)
- * - Empty seat pulse
- * - Seat hover glow
- * - Notification slide-in animation
- */
+import { TUI } from '../../types';
 
 export default function InjectStyles() {
   return (
-    <>
-      <link
-        href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700&display=swap"
-        rel="stylesheet"
-      />
-      <style>{`
-        .voice-room-root { font-family: 'Cairo', sans-serif; }
+    <style>{`
+      /* ── Cairo Font (Google Fonts) ── */
+      @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700&display=swap');
 
-        /* ═══ TUILiveKit Scrollbar (exact from @mixin scrollbar) ═══ */
-        .tui-scrollbar::-webkit-scrollbar {
-          width: 6px;
-          background: transparent;
-        }
-        .tui-scrollbar::-webkit-scrollbar-track {
-          background: transparent;
-        }
-        .tui-scrollbar::-webkit-scrollbar-thumb {
-          background: var(--uikit-color-gray-3, #58585A);
-          border-radius: 3px;
-          border: 2px solid transparent;
-          background-clip: padding-box;
-        }
-        .tui-scrollbar::-webkit-scrollbar-thumb:hover {
-          background: var(--uikit-color-gray-3, #58585A);
-        }
+      /* ── Base Reset ── */
+      html, body {
+        overflow: hidden;
+        background: ${TUI.colors.G1};
+        color: ${TUI.colors.G7};
+        font-family: 'Cairo', sans-serif;
+      }
 
-        /* ═══ Speaking / live animations ═══ */
-        @keyframes speakRing {
-          0%, 100% { box-shadow: 0 0 0 3px rgba(34,197,94,0.2); }
-          50% { box-shadow: 0 0 0 6px rgba(34,197,94,0.08); }
+      /* ── Keyframe: floatUp (gift message floats up and fades) ── */
+      @keyframes floatUp {
+        0% {
+          transform: translateY(100%);
+          opacity: 0;
         }
-        @keyframes speakGlow {
-          0%, 100% { box-shadow: 0 0 4px 2px rgba(34,197,94,0.25); }
-          50% { box-shadow: 0 0 8px 3px rgba(34,197,94,0.5); }
+        10% {
+          opacity: 1;
         }
-        @keyframes livePulse {
-          0%, 100% { opacity: 1; }
-          50% { opacity: 0.4; }
+        90% {
+          opacity: 1;
         }
-        @keyframes fadeUp {
-          from { opacity: 0; transform: translateY(6px); }
-          to { opacity: 1; transform: translateY(0); }
+        100% {
+          transform: translateY(-10vh);
+          opacity: 0;
         }
+      }
 
-        /* ═══ Audio level bar bounce (TUILiveKit AudioIcon .audio-level) ═══ */
-        .audio-level-bar {
-          width: 100%;
-          background-color: var(--text-color-success, #22c55e);
-          transition: height 0.2s;
+      /* ── Keyframe: slideUp (sheet content rises into view) ── */
+      @keyframes slideUp {
+        from {
+          transform: translateY(100%);
         }
+        to {
+          transform: translateY(0);
+        }
+      }
 
-        /* ═══ Audio bar animations with staggered delays ═══ */
-        @keyframes audioBar1 {
-          0%, 100% { height: 2px; }
-          50% { height: 6px; }
+      /* ── Keyframe: ripple (tap / interaction ripple) ── */
+      @keyframes ripple {
+        0% {
+          transform: scale(1);
+          opacity: 0.6;
         }
-        @keyframes audioBar2 {
-          0%, 100% { height: 4px; }
-          50% { height: 10px; }
+        100% {
+          transform: scale(1.8);
+          opacity: 0;
         }
-        @keyframes audioBar3 {
-          0%, 100% { height: 6px; }
-          50% { height: 14px; }
-        }
-        @keyframes audioBar4 {
-          0%, 100% { height: 4px; }
-          50% { height: 11px; }
-        }
-        @keyframes audioBar5 {
-          0%, 100% { height: 2px; }
-          50% { height: 7px; }
-        }
-        .audio-bar-1 { animation: audioBar1 0.6s ease-in-out infinite; }
-        .audio-bar-2 { animation: audioBar2 0.6s ease-in-out infinite 0.08s; }
-        .audio-bar-3 { animation: audioBar3 0.6s ease-in-out infinite 0.16s; }
-        .audio-bar-4 { animation: audioBar4 0.6s ease-in-out infinite 0.24s; }
-        .audio-bar-5 { animation: audioBar5 0.6s ease-in-out infinite 0.32s; }
+      }
 
-        /* ═══ Empty seat pulse ═══ */
-        @keyframes emptyPulse {
-          0%, 100% { opacity: 0.4; transform: scale(1); }
-          50% { opacity: 0.7; transform: scale(1.04); }
+      /* ── Keyframe: pulse (gentle breathing pulse) ── */
+      @keyframes pulse {
+        0%, 100% {
+          transform: scale(1);
         }
+        50% {
+          transform: scale(1.05);
+        }
+      }
 
-        /* ═══ Seat hover glow ═══ */
-        @keyframes hoverGlow {
-          0%, 100% { box-shadow: 0 0 0 0 rgba(108,99,255,0); }
-          50% { box-shadow: 0 0 12px 2px rgba(108,99,255,0.15); }
+      /* ── Keyframe: fadeSlideIn (notification / toast slides in from right) ── */
+      @keyframes fadeSlideIn {
+        from {
+          opacity: 0;
+          transform: translateX(20px);
         }
+        to {
+          opacity: 1;
+          transform: translateX(0);
+        }
+      }
 
-        /* ═══ TUILiveKit Notification animation ═══ */
-        @keyframes notificationSlideIn {
-          from { transform: translateX(100%); opacity: 0; }
-          to { transform: translateX(0); opacity: 1; }
-        }
-        @keyframes notificationSlideOut {
-          from { transform: translateX(0); opacity: 1; }
-          to { transform: translateX(100%); opacity: 0; }
-        }
+      /* ── Custom Scrollbar (Dark Theme — thin, subtle) ── */
+      ::-webkit-scrollbar {
+        width: 6px;
+        height: 6px;
+      }
 
-        /* ═══ Loading spinner (TUILiveKit) ═══ */
-        @keyframes rotate {
-          from { transform: rotate(0deg); }
-          to { transform: rotate(360deg); }
-        }
+      ::-webkit-scrollbar-track {
+        background: rgba(255, 255, 255, 0.05);
+        border-radius: 3px;
+      }
 
-        /* ═══ Icon hover animation (TUILiveKit arrow-icon) ═══ */
-        .tui-icon-hover {
-          transition: transform 0.2s ease-in-out;
-        }
-        .tui-icon-hover:hover {
-          color: var(--text-color-link-hover, #4B8AE6);
-        }
+      ::-webkit-scrollbar-thumb {
+        background: rgba(255, 255, 255, 0.15);
+        border-radius: 3px;
+        border: 2px solid transparent;
+        background-clip: padding-box;
+      }
 
-        /* ═══ TUILiveKit icon button container (custom-icon-container) ═══ */
-        .tui-icon-btn {
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          justify-content: center;
-          gap: 4px;
-          min-width: 56px;
-          width: auto;
-          height: 56px;
-          cursor: pointer;
-          color: var(--text-color-primary, rgba(255,255,255,0.90));
-          border-radius: 12px;
-          position: relative;
-          transition: all 0.2s ease;
-        }
-        .tui-icon-btn:hover {
-          box-shadow: 0 0 10px 0 rgba(0,0,0,0.3);
-          color: var(--text-color-link-hover, #4B8AE6);
-        }
-        .tui-icon-btn.disabled {
-          cursor: not-allowed;
-          opacity: 0.5;
-          color: var(--text-color-tertiary, rgba(255,255,255,0.35));
-        }
+      ::-webkit-scrollbar-thumb:hover {
+        background: rgba(255, 255, 255, 0.25);
+        background-clip: padding-box;
+      }
 
-        /* ═══ TUILiveKit divider (dividing-line mixin) ═══ */
-        .tui-divider-bottom {
-          padding-bottom: 16px;
-          border-bottom: 1px solid var(--stroke-color-primary, rgba(255,255,255,0.08));
-        }
-        .tui-divider-top {
-          padding-top: 16px;
-          border-top: 1px solid var(--stroke-color-primary, rgba(255,255,255,0.08));
-        }
+      /* ── TUILiveKit Utility: Drawer Scrollbar (inside sheets) ── */
+      .tuilivekit-scroll::-webkit-scrollbar {
+        width: 6px;
+        background: transparent;
+      }
 
-        /* ═══ Card title (TUILiveKit card-title) ═══ */
-        .tui-card-title {
-          font-size: 16px;
-          font-weight: 600;
-          padding-bottom: 16px;
-          border-bottom: 1px solid var(--stroke-color-primary, rgba(255,255,255,0.08));
+      .tuilivekit-scroll::-webkit-scrollbar-track {
+        background: transparent;
+      }
+
+      .tuilivekit-scroll::-webkit-scrollbar-thumb {
+        background: #58585A;
+        border-radius: 3px;
+        border: 2px solid transparent;
+        background-clip: padding-box;
+      }
+
+      /* ── TUILiveKit: Icon Button Hover Glow ── */
+      .tui-icon-btn {
+        min-width: 56px;
+        height: 56px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 4px;
+        border-radius: ${TUI.radius.lg};
+        transition: all ${TUI.anim.normal};
+        cursor: pointer;
+        user-select: none;
+      }
+
+      .tui-icon-btn:hover {
+        box-shadow: ${TUI.shadow.iconHover};
+      }
+
+      .tui-icon-btn.disabled {
+        cursor: not-allowed;
+        opacity: 0.5;
+        pointer-events: none;
+      }
+
+      /* ── TUILiveKit: Card Title with Bottom Stroke ── */
+      .tui-card-title {
+        font-size: 16px;
+        font-weight: 600;
+        color: #FFFFFF;
+        padding: 14px 0;
+        border-bottom: 1px solid ${TUI.colors.strokePrimary};
+        margin-bottom: 12px;
+      }
+
+      /* ── TUILiveKit: Divider Utilities ── */
+      .tui-divider-bottom {
+        border-bottom: 1px solid ${TUI.colors.strokePrimary};
+      }
+
+      .tui-divider-top {
+        border-top: 1px solid ${TUI.colors.strokePrimary};
+      }
+
+      /* ── Ellipsis Utility ── */
+      .tui-ellipsis {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      /* ── TUILiveKit: Audio Bar Animations ── */
+      .audio-bar-1 { animation: audioBarAnim 0.6s ease-in-out infinite alternate; }
+      .audio-bar-2 { animation: audioBarAnim 0.6s ease-in-out 0.1s infinite alternate; }
+      .audio-bar-3 { animation: audioBarAnim 0.6s ease-in-out 0.2s infinite alternate; }
+      .audio-bar-4 { animation: audioBarAnim 0.6s ease-in-out 0.3s infinite alternate; }
+      .audio-bar-5 { animation: audioBarAnim 0.6s ease-in-out 0.4s infinite alternate; }
+
+      @keyframes audioBarAnim {
+        from { transform: scaleY(1); }
+        to { transform: scaleY(1.6); }
+      }
+
+      /* ── TUILiveKit: Speak Glow (ring around speaking avatar) ── */
+      @keyframes speakGlow {
+        0%, 100% { box-shadow: 0 0 0 0 rgba(41, 204, 106, 0.4); }
+        50% { box-shadow: 0 0 0 6px rgba(41, 204, 106, 0); }
+      }
+
+      .animate-speak-glow {
+        animation: speakGlow 1.5s ease-in-out infinite;
+      }
+
+      /* ── Notification Slide In ── */
+      @keyframes notificationSlideIn {
+        from {
+          opacity: 0;
+          transform: translateX(100%);
         }
-
-        /* ═══ Ellipsis (TUILiveKit @mixin ellipsis) ═══ */
-        .tui-ellipsis {
-          overflow: hidden;
-          text-overflow: ellipsis;
-          white-space: nowrap;
+        to {
+          opacity: 1;
+          transform: translateX(0);
         }
+      }
 
-        /* ═══ Utility classes ═══ */
-        .animate-speak-ring { animation: speakRing 1s infinite; }
-        .animate-speak-glow { animation: speakGlow 2s ease-in-out infinite; }
-        .animate-live-pulse { animation: livePulse 1.8s infinite; }
-        .animate-fade-up { animation: fadeUp 0.3s ease; }
-        .animate-empty-pulse { animation: emptyPulse 2.5s ease-in-out infinite; }
-        .animate-hover-glow { animation: hoverGlow 1.5s ease-in-out infinite; }
-        .animate-rotate { animation: rotate 1s linear infinite; }
-
-        .scrollbar-hide::-webkit-scrollbar { display: none; }
-        .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
-      `}</style>
-    </>
+      /* ── Rotate Animation (loading spinners) ── */
+      @keyframes rotate {
+        from { transform: rotate(0deg); }
+        to { transform: rotate(360deg); }
+      }
+    `}</style>
   );
 }

@@ -1,273 +1,109 @@
 'use client';
 
-import React, {
-  forwardRef,
-  useImperativeHandle,
-  useRef,
-  useCallback,
-  useEffect,
-} from 'react';
+import { useEffect, useRef, useCallback, useState } from 'react';
 import { HEART_COLORS } from '../types';
 
 /* ═══════════════════════════════════════════════════════════════════════
-   LikeAnimation — Floating hearts inspired by TUILiveKit LikeAnimation.vue
+   LikeAnimation — TUILiveKit Exact Heart Animation
+
+   Floating hearts that rise from bottom with physics-based motion.
+   Each heart has random size, color, offset, rotation, and wobble.
    ═══════════════════════════════════════════════════════════════════════ */
 
-// ─── Animation Constants ─────────────────────────────────────────────────────
-const CONTAINER_WIDTH = 200;
-const CONTAINER_HEIGHT = 350;
-const HEART_SIZE = 36;
-const TOTAL_DURATION = 3000;       // Total lifetime of each heart (ms)
-const SCALE_IN_DURATION = 500;     // Scale-up phase (ms)
-const PATH_START = 500;            // When path animation begins (ms)
-const PATH_DURATION = 2500;        // Path animation length (ms)
-const SPAWN_INTERVAL = 100;        // Stagger delay between hearts (ms)
-
-// ─── Types ────────────────────────────────────────────────────────────────────
-
-interface HeartPath {
-  cp1x: number; cp1y: number;  // First Bézier control point
-  midX: number; midY: number;  // Junction between two segments
-  cp2x: number; cp2y: number;  // Second Bézier control point
-  endX: number; endY: number;   // Final destination
-}
-
-interface HeartInstance {
-  el: HTMLDivElement;
+interface Heart {
+  id: number;
+  x: number;
+  size: number;
+  color: string;
+  rotation: number;
+  wobbleAmp: number;
+  wobbleFreq: number;
   startTime: number;
-  startX: number;
-  startY: number;
-  path: HeartPath;
+  duration: number;
 }
 
-export interface LikeAnimationRef {
-  /** Spawn `count` hearts with 100 ms stagger */
-  play: (count?: number) => void;
-  /** Remove all active hearts and cancel pending spawns */
-  clear: () => void;
+let heartId = 0;
+
+export default function LikeAnimation({ active }: { active: boolean }) {
+  const [hearts, setHearts] = useState<Heart[]>([]);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const spawnTimer = useRef<ReturnType<typeof setInterval> | null>(null);
+  const animFrame = useRef<number>(0);
+
+  const spawnHeart = useCallback(() => {
+    const h: Heart = {
+      id: heartId++,
+      x: 40 + Math.random() * 20,
+      size: 16 + Math.random() * 10,
+      color: HEART_COLORS[Math.floor(Math.random() * HEART_COLORS.length)],
+      rotation: -15 + Math.random() * 30,
+      wobbleAmp: 5 + Math.random() * 10,
+      wobbleFreq: 2 + Math.random() * 3,
+      startTime: Date.now(),
+      duration: 1800 + Math.random() * 1200,
+    };
+    setHearts(prev => [...prev.slice(-14), h]);
+  }, []);
+
+  useEffect(() => {
+    if (active) {
+      spawnHeart();
+      spawnTimer.current = setInterval(spawnHeart, 120 + Math.random() * 80);
+    } else {
+      if (spawnTimer.current) {
+        clearInterval(spawnTimer.current);
+        spawnTimer.current = null;
+      }
+    }
+    return () => {
+      if (spawnTimer.current) clearInterval(spawnTimer.current);
+    };
+  }, [active, spawnHeart]);
+
+  // Cleanup old hearts
+  useEffect(() => {
+    if (hearts.length === 0) return;
+    const timer = setInterval(() => {
+      const now = Date.now();
+      setHearts(prev => prev.filter(h => now - h.startTime < h.duration + 200));
+    }, 500);
+    return () => clearInterval(timer);
+  }, [hearts.length]);
+
+  return (
+    <div
+      ref={containerRef}
+      className="fixed left-4 bottom-24 pointer-events-none z-30"
+      style={{ width: '80px', height: '200px' }}
+    >
+      {hearts.map(h => {
+        const elapsed = Date.now() - h.startTime;
+        const progress = Math.min(elapsed / h.duration, 1);
+        const opacity = progress < 0.1 ? progress * 10 : progress > 0.7 ? (1 - progress) / 0.3 : 1;
+        const translateY = progress * -200;
+        const translateX = Math.sin(progress * h.wobbleFreq * Math.PI) * h.wobbleAmp;
+
+        return (
+          <svg
+            key={h.id}
+            width={h.size}
+            height={h.size}
+            viewBox="0 0 24 24"
+            fill={h.color}
+            style={{
+              position: 'absolute',
+              left: `${h.x + translateX}px`,
+              bottom: '0px',
+              opacity: Math.max(0, opacity),
+              transform: `translateY(${translateY}px) rotate(${h.rotation}deg)`,
+              filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.3))',
+              transition: 'none',
+            }}
+          >
+            <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
+          </svg>
+        );
+      })}
+    </div>
+  );
 }
-
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-
-function randomColor(): string {
-  return HEART_COLORS[Math.floor(Math.random() * HEART_COLORS.length)];
-}
-
-/**
- * Build an SVG heart string with the given fill colour.
- * Renders the double-layer heart from TUILiveKit HeartIcon.vue at HEART_SIZE.
- */
-function heartSvgMarkup(color: string): string {
-  const d =
-    'M44 72 C18 50, 8 38, 8 28 C8 16, 18 8, 30 8 C38 8, 43 13, 44 16 C45 13, 50 8, 58 8 C70 8, 80 16, 80 28 C80 38, 70 50, 44 72 Z';
-  return `<svg width="${HEART_SIZE}" height="${HEART_SIZE}" viewBox="0 0 88 88" style="filter:drop-shadow(0 0 2px rgba(255, 255, 255, 0.6))">`
-    + `<path d="${d}" fill="${color}" fill-opacity="0.5"/>`
-    + `<path d="${d}" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>`
-    + `</svg>`;
-}
-
-/**
- * Two-segment quadratic Bézier interpolation.
- *
- * t ∈ [0, 0.5]  → first  segment: P0 → CP1 → MID
- * t ∈ [0.5, 1]  → second segment: MID → CP2 → P1
- */
-function quadBezier2(
-  t: number,
-  p0: number, cp1: number, mid: number, cp2: number, p1: number,
-): number {
-  if (t <= 0.5) {
-    const u = t * 2;          // normalise to [0, 1]
-    const inv = 1 - u;
-    return inv * inv * p0 + 2 * inv * u * cp1 + u * u * mid;
-  }
-  const u = (t - 0.5) * 2;   // normalise to [0, 1]
-  const inv = 1 - u;
-  return inv * inv * mid + 2 * inv * u * cp2 + u * u * p1;
-}
-
-/**
- * Generate a randomised S-curve path for a heart starting at `startX`.
- * Both segments always push the heart upward while swaying laterally.
- */
-function buildPath(startX: number): HeartPath {
-  const sway1 = (Math.random() - 0.5) * 90;
-  const swayMid = (Math.random() - 0.5) * 60;
-  const sway2 = (Math.random() - 0.5) * 90;
-  const endDrift = (Math.random() - 0.5) * 50;
-
-  const startY = CONTAINER_HEIGHT;
-
-  return {
-    cp1x: startX + sway1,
-    cp1y: startY - (CONTAINER_HEIGHT * 0.33),
-    midX: startX + swayMid,
-    midY: startY - (CONTAINER_HEIGHT * 0.5),
-    cp2x: startX + sway2,
-    cp2y: startY - (CONTAINER_HEIGHT * 0.67),
-    endX: startX + endDrift,
-    endY: -HEART_SIZE,
-  };
-}
-
-// ─── Component ────────────────────────────────────────────────────────────────
-
-const LikeAnimation = forwardRef<LikeAnimationRef>(
-  function LikeAnimation(_props, ref) {
-    const containerRef = useRef<HTMLDivElement>(null);
-    const heartsRef = useRef<HeartInstance[]>([]);
-    const rafRef = useRef<number>(0);
-    const timersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
-
-    // ── Animation loop (ref-based to avoid self-referential useCallback) ───
-    // We use a stable ref so the recursive rAF can always reference the latest fn.
-    const tickFnRef = useRef<() => void>(() => {});
-
-    useEffect(() => {
-      tickFnRef.current = () => {
-        const now = performance.now();
-        const removeIndices: number[] = [];
-
-        for (let i = 0; i < heartsRef.current.length; i++) {
-          const h = heartsRef.current[i];
-          const elapsed = now - h.startTime;
-
-          // Heart has expired
-          if (elapsed >= TOTAL_DURATION) {
-            removeIndices.push(i);
-            continue;
-          }
-
-          // ── Scale: 0 → 1 during first 500 ms ──
-          const scale = Math.min(elapsed / SCALE_IN_DURATION, 1);
-
-          // ── Opacity: linear 1 → 0 over TOTAL_DURATION ──
-          const opacity = Math.max(1 - elapsed / TOTAL_DURATION, 0);
-
-          // ── Position along Bézier path ──
-          let x = h.startX;
-          let y = h.startY;
-
-          if (elapsed >= PATH_START) {
-            const pathProgress = Math.min((elapsed - PATH_START) / PATH_DURATION, 1);
-
-            x = quadBezier2(
-              pathProgress,
-              h.startX, h.path.cp1x, h.path.midX, h.path.cp2x, h.path.endX,
-            );
-            y = quadBezier2(
-              pathProgress,
-              h.startY, h.path.cp1y, h.path.midY, h.path.cp2y, h.path.endY,
-            );
-          }
-
-          h.el.style.transform = `translate(${x}px, ${y}px) scale(${scale})`;
-          h.el.style.opacity = String(opacity);
-        }
-
-        // Remove expired hearts (reverse order to keep indices valid)
-        for (let i = removeIndices.length - 1; i >= 0; i--) {
-          const idx = removeIndices[i];
-          heartsRef.current[idx].el.remove();
-          heartsRef.current.splice(idx, 1);
-        }
-
-        // Continue if there are still active hearts
-        if (heartsRef.current.length > 0) {
-          rafRef.current = requestAnimationFrame(tickFnRef.current);
-        }
-      };
-    }, []);
-
-    const ensureTicking = useCallback(() => {
-      cancelAnimationFrame(rafRef.current);
-      rafRef.current = requestAnimationFrame(tickFnRef.current);
-    }, []);
-
-    // ── Spawn a single heart into the DOM ──────────────────────────────────
-    const spawnHeart = useCallback(() => {
-      const container = containerRef.current;
-      if (!container) return;
-
-      const el = document.createElement('div');
-      el.style.cssText = [
-        'position:absolute',
-        'left:0',
-        'top:0',
-        `width:${HEART_SIZE}px`,
-        `height:${HEART_SIZE}px`,
-        'will-change:transform,opacity',
-        'pointer-events:none',
-      ].join(';');
-
-      el.innerHTML = heartSvgMarkup(randomColor());
-      container.appendChild(el);
-
-      const startX = Math.random() * (CONTAINER_WIDTH - HEART_SIZE);
-      const startY = CONTAINER_HEIGHT;
-
-      const heart: HeartInstance = {
-        el,
-        startTime: performance.now(),
-        startX,
-        startY,
-        path: buildPath(startX),
-      };
-
-      heartsRef.current.push(heart);
-      ensureTicking();
-    }, [ensureTicking]);
-
-    // ── Imperative API ─────────────────────────────────────────────────────
-    useImperativeHandle(ref, () => ({
-      play(count: number = 1) {
-        for (let i = 0; i < count; i++) {
-          const timer = setTimeout(spawnHeart, i * SPAWN_INTERVAL);
-          timersRef.current.push(timer);
-        }
-      },
-
-      clear() {
-        // Cancel pending spawn timers
-        timersRef.current.forEach(clearTimeout);
-        timersRef.current = [];
-
-        // Stop animation loop
-        cancelAnimationFrame(rafRef.current);
-
-        // Remove all heart DOM nodes
-        heartsRef.current.forEach((h) => h.el.remove());
-        heartsRef.current = [];
-      },
-    }), [spawnHeart]);
-
-    // ── Cleanup on unmount ─────────────────────────────────────────────────
-    useEffect(() => {
-      return () => {
-        cancelAnimationFrame(rafRef.current);
-        timersRef.current.forEach(clearTimeout);
-        heartsRef.current.forEach((h) => h.el.remove());
-      };
-    }, []);
-
-    // ── Render ─────────────────────────────────────────────────────────────
-    return (
-      <div
-        ref={containerRef}
-        aria-hidden
-        style={{
-          position: 'fixed',
-          right: 0,
-          bottom: 60,
-          width: CONTAINER_WIDTH,
-          height: CONTAINER_HEIGHT,
-          pointerEvents: 'none',
-          zIndex: 100,
-          overflow: 'hidden',
-        }}
-      />
-    );
-  },
-);
-
-export default LikeAnimation;

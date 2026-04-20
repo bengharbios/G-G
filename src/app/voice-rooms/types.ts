@@ -1,5 +1,6 @@
 /* ═══════════════════════════════════════════════════════════════════════
-   VOICE ROOMS — Shared Types, Interfaces, Constants, Helpers & Design Tokens
+   VOICE ROOMS — Types, Interfaces, Constants, Helpers & Design Tokens
+   Exact TUILiveKit (Tencent) color/dimension/typography system
    ═══════════════════════════════════════════════════════════════════════ */
 
 import { Globe, Key, EyeOff } from 'lucide-react';
@@ -19,34 +20,70 @@ export type SeatStatus = 'open' | 'locked' | 'request' | 'reserved';
 export type RoomMode = 'public' | 'key' | 'private';
 
 export interface VoiceRoom {
-  id: string; name: string; description: string; hostId: string; hostName: string;
-  maxParticipants: number; isPrivate: boolean; micSeatCount: number;
-  roomMode: RoomMode; roomPassword: string;
-  roomLevel: number; micTheme: string; bgmEnabled: boolean; chatMuted: boolean;
-  announcement: string; giftSplit: number; isAutoMode: boolean;
+  id: string;
+  name: string;
+  description: string;
+  hostId: string;
+  hostName: string;
+  maxParticipants: number;
+  isPrivate: boolean;
+  micSeatCount: number;
+  roomMode: RoomMode;
+  roomPassword: string;
+  roomLevel: number;
+  micTheme: string;
+  bgmEnabled: boolean;
+  chatMuted: boolean;
+  announcement: string;
+  giftSplit: number;
+  isAutoMode: boolean;
   lockedSeats: number[];
-  participantCount?: number; createdAt: string;
+  participantCount?: number;
+  createdAt: string;
   roomImage?: string;
 }
 
 export interface VoiceRoomParticipant {
-  id: string; roomId: string; userId: string; username: string; displayName: string;
-  avatar: string; isMuted: boolean; micFrozen: boolean; role: RoomRole;
-  seatIndex: number; seatStatus: SeatStatus; vipLevel: number; joinedAt: string;
+  id: string;
+  roomId: string;
+  userId: string;
+  username: string;
+  displayName: string;
+  avatar: string;
+  isMuted: boolean;
+  micFrozen: boolean;
+  role: RoomRole;
+  seatIndex: number;
+  seatStatus: SeatStatus;
+  vipLevel: number;
+  joinedAt: string;
   pendingRole?: string;
   pendingMicInvite?: number;
 }
 
 export interface Gift {
-  id: string; name: string; nameAr: string; emoji: string; price: number;
-  category?: string; animation?: 'none' | 'particles' | 'fireworks' | 'hearts' | 'stars' | 'confetti';
+  id: string;
+  name: string;
+  nameAr: string;
+  emoji: string;
+  price: number;
+  category?: string;
+  animation?: 'none' | 'particles' | 'fireworks' | 'hearts' | 'stars' | 'confetti';
 }
 
 export interface RoomTemplate {
-  id: string; userId: string; name: string; description: string;
-  micSeatCount: number; roomMode: string; roomPassword: string;
-  maxParticipants: number; isAutoMode: boolean; micTheme: string;
-  allowedRoles: string[]; updatedAt: string;
+  id: string;
+  userId: string;
+  name: string;
+  description: string;
+  micSeatCount: number;
+  roomMode: string;
+  roomPassword: string;
+  maxParticipants: number;
+  isAutoMode: boolean;
+  micTheme: string;
+  allowedRoles: string[];
+  updatedAt: string;
 }
 
 export interface ChatMessage {
@@ -86,90 +123,169 @@ export interface MicMenuSheetState {
   mySeatIndex: number;
 }
 
-// ─── Design Tokens (Exact TUILiveKit CSS Variables) ─────────────────────────────
+// ─── TUILiveKit Exact Design Tokens ──────────────────────────────────────────
 
-export const DESIGN_TOKENS = {
+export const TUI = {
+  // ── Brand / Primary Colors (from Flutter colors.dart) ──
   colors: {
-    bg: {
-      primary: '#0a0e1a',              // Deep dark base
-      secondary: '#111827',            // Card/panel background
-      tertiary: '#1a1f35',             // Elevated surfaces
-      surface: '#1F2024',              // Panel/overlay background (--bg-color-operate)
-      overlay: 'rgba(0,0,0,0.4)',      // Mask overlay (--bg-color-mask)
-      drawer: '#22262E',              // Drawer/BottomSheet background (exact TUILiveKit)
-      bubble: 'var(--bg-color-bubble-reciprocal, #2a2d35)', // Device slider bg
-    },
-    text: {
-      primary: 'var(--text-color-primary, rgba(255,255,255,0.90))',
-      secondary: 'var(--text-color-secondary, rgba(255,255,255,0.60))',
-      tertiary: 'var(--text-color-tertiary, rgba(255,255,255,0.35))',
-      link: 'var(--text-color-link, #2B6AD6)',
-      linkHover: 'var(--text-color-link-hover, #4B8AE6)',
-      success: 'var(--text-color-success, #22c55e)',
-      error: 'var(--text-color-error, #ef4444)',
-    },
-    accent: {
-      primary: '#6c63ff',              // Brand purple-blue
-      success: '#22c55e',              // Green
-      warning: '#f59e0b',              // Amber
-      error: '#ef4444',                // Red
-      info: '#3b82f6',                 // Blue
-      like: '#FF3B66',                 // Like button (TUILiveKit H5 exact)
-      live: '#059669',                 // Live dot green
-    },
-    stroke: {
-      primary: 'var(--stroke-color-primary, rgba(255,255,255,0.08))',
-      secondary: 'rgba(255,255,255,0.15)',
-      module: 'var(--stroke-color-module, #48494F)',
-    },
-    slider: {
-      empty: 'var(--slider-color-empty, rgba(255,255,255,0.15))',
-    },
-    ui: {
-      black6: 'var(--uikit-color-black-6, rgba(0,0,0,0.6))',
-      white7: 'var(--uikit-color-white-7, rgba(255,255,255,0.7))',
-      gray3: 'var(--uikit-color-gray-3, #58585A)',
-      gray4: 'var(--uikit-color-gray-4, #3a3a3c)',
-      black8: 'var(---Black-8, rgba(0,0,0,0.08))',
-    },
+    B1: '#1C66E5',           // Primary Blue — buttons, links, selected
+    B1d: '#4791FF',          // Blue Light
+    B2: '#00E5E5',           // Teal
+    B2d: '#1AFFC9',          // Teal Light
+    C1: '#00C2A8',           // Green
+    C2: '#6C54E8',           // Purple
+    C3: '#FF643D',           // Orange
+    C4: '#F23C5B',           // Pink-Red
+
+    // ── Gray Scale (G1=darkest → G8=lightest) ──
+    G1: '#0F1014',           // Near Black — main backgrounds
+    G2: '#22262E',           // Dark Panel — drawer, list items, sheets
+    G3: '#4F586B',           // Muted text, dividers
+    G3Divider: 'rgba(79, 88, 107, 0.5)',
+    G4: '#6B758A',
+    G5: '#8F9AB2',           // Secondary text, empty states
+    G6: '#B2BBD1',           // Tertiary text
+    G7: '#D5E0F2',           // Body text on dark bg
+    G8: '#F2F5FC',           // Background light, empty seat circle
+
+    // ── Flowkit Semantic ──
+    red: '#FC5555',          // Error, destructive
+    green: '#29CC6A',        // Success
+    blue: '#0099FF',         // Info
+    white: '#FFFFFF',        // Primary text
+    purple: '#7B61FF',
+    charcoal: '#222222',
+
+    // ── Operational ──
+    bgOperate: '#1F2024',    // Background operate
+    bgInput: '#2B2C30',      // Input background
+    sliderFilled: '#2B6AD6',
+    sliderEmpty: '#48494F',
+    textSuccess: '#38A673',
+    textWarning: '#0FA968',
+    strokePrimary: '#3A3C42',
+
+    // ── Non-standard ──
+    notRed: '#E5395C',
+    notBlue: '#0157DF',
+    notGrey: '#7C85A6',
+    notWhite: '#D1D9EC',
+    notBlack: '#181B21',
+
+    // ── Transparencies ──
+    white20: 'rgba(255,255,255,0.2)',
+    white30: 'rgba(255,255,255,0.3)',
+    blue30: 'rgba(79, 88, 107, 0.3)',    // Card backgrounds
+    black4D: 'rgba(15, 16, 20, 0.3)',     // Overlay
+    black80: 'rgba(0,0,0,0.8)',           // Deep mask
+
+    // ── Seat ──
+    seatGray: '#2B2C30',
+    seatSelectedBorder: '#2B6AD6',
+    emptySeatBg: 'rgba(242, 245, 252, 0.1)',  // #F2F5FC at 10%
+
+    // ── Like ──
+    likeRed: '#FF3B30',
+
+    // ── Live badge ──
+    liveGreen: '#29CC6A',
   },
+
+  // ── Radius (from business.scss + Flutter source) ──
   radius: {
-    sm: '4px',     // Audio bars
-    md: '8px',     // Cards, inputs, live-player border-radius
-    lg: '12px',    // Sheets, option cards, buttons, drawer border-radius
-    xl: '16px',    // Notifications
-    pill: '25px',  // Pill-shaped tags
+    sm: '4px',        // Audio bars, small elements
+    md: '8px',        // Cards, inputs, live-player
+    lg: '12px',       // Sheets, option cards, buttons
+    xl: '15px',       // Sheet top corners (TUILiveKit Drawer)
+    '2xl': '16px',    // Notifications
+    pill: '20px',     // Pill-shaped tags, follow button
+    circle: '50%',    // Avatars, seat circles
   },
+
+  // ── Typography (from Flutter usage) ──
+  font: {
+    title20: { size: '20px', weight: 600, color: '#FFFFFF' },     // Page titles
+    title16: { size: '16px', weight: 600, color: '#FFFFFF' },     // Panel titles, menu items
+    body16:  { size: '16px', weight: 400, color: '#D5E0F2' },     // User names, list text (G7)
+    body14:  { size: '14px', weight: 400, color: '#D5E0F2' },     // Secondary labels (G7)
+    caption12: { size: '12px', weight: 400, color: '#FFFFFF' },   // Button labels, badges
+    captionG6: { size: '12px', weight: 400, color: '#B2BBD1' },   // Icon labels below buttons
+    captionG5: { size: '12px', weight: 400, color: '#8F9AB2' },   // Empty state text
+    actionRed: { size: '12px', weight: 500, color: '#FC5555' },   // Hang-up button
+    actionBlue: { size: '12px', weight: 500, color: '#1C66E5' },  // Accept/reject buttons
+  },
+
+  // ── Dimensions (from screen_adapter.dart — 375×812 base) ──
+  dim: {
+    // Top Widget
+    topBarHeight: 40,
+    topBarTop: 54,
+    topBarLR: 12,
+    closeButtonSize: 20,
+
+    // Seat Grid
+    seatGridTop: 122,
+    seatGridHeight: 245,
+    seatContainerSize: 50,
+    seatIconSize: 28,
+    seatRowSpacing: 10,
+
+    // Bottom Menu
+    bottomBarBottom: 36,
+    bottomBarRight: 27,
+    ownerBtnW: 72,
+    ownerBtnH: 46,
+    audienceBtnW: 152,
+    audienceBtnH: 46,
+    btnIconSize: 28,
+    btnSpacing: 16,
+    badgeSize: 20,
+    badgeFontSize: 12,
+
+    // Barrage / Chat
+    barrageLeft: 16,
+    barrageBottom: 84,
+    barrageWidth: 305,
+    barrageHeight: 224,
+    barrageInputW: 130,
+    barrageInputH: 36,
+    barrageInputBottom: 36,
+    barrageInputLeft: 15,
+
+    // Mute Mic
+    muteMicSize: 32,
+    muteMicBottom: 38,
+    muteMicLeft: 153,
+
+    // Audience List
+    audienceMaxW: 107,
+    audienceAvatarSize: 24,
+
+    // Panels / Sheets
+    panelRadiusTop: 15,
+    settingsHeight: 350,
+    seatMgmtHeight: 724,
+    userMgmtHeight: 179,
+    itemHeight: 60,
+    avatarSize: 40,
+    panelPaddingH: 24,
+  },
+
+  // ── Shadows ──
   shadow: {
-    sm: '0 2px 4px rgba(0,0,0,0.2)',
-    md: '0 4px 12px rgba(0,0,0,0.3)',
-    lg: '0 8px 18px rgba(0,0,0,0.4)',
-    glow: '0 0 20px rgba(108,99,255,0.15)',
-    drawer: '0 -2px 8px rgba(0,0,0,0.08)',        // TUILiveKit Drawer shadow
+    drawer: '0 -2px 8px rgba(0,0,0,0.08)',
+    card: '0 4px 12px rgba(0,0,0,0.3)',
+    iconHover: '0 0 10px 0 rgba(0,0,0,0.3)',
     notification: '0 8px 18px 0 rgba(0,0,0,0.06), 0 2px 6px 0 rgba(0,0,0,0.06)',
-    iconHover: '0 0 10px 0 rgba(0,0,0,0.3)',       // TUILiveKit icon hover
   },
-  spacing: {
-    xs: '4px', sm: '8px', md: '16px', lg: '24px', xl: '32px',
-  },
-  typography: {
-    xs: '11px', sm: '12px', md: '14px', lg: '16px', xl: '17px', '2xl': '22px', '3xl': '24px',
-  },
-  animation: {
+
+  // ── Animation ──
+  anim: {
     fast: '200ms ease',
-    normal: '300ms cubic-bezier(.4,0,.2,1)',    // TUILiveKit Drawer transition
+    normal: '300ms cubic-bezier(.4,0,.2,1)',
+    drawer: '300ms cubic-bezier(.4,0,.2,1)',
     spring: '300ms cubic-bezier(.175,.885,.32,1.275)',
     slow: '500ms ease',
-    iconHover: 'transform 0.2s ease-in-out',    // TUILiveKit arrow icon
-  },
-  layout: {
-    headerHeight: '48px',   // Drawer header, top bars
-    bottomBarHeight: '56px', // H5 bottom bar
-    toolbarHeight: '72px',  // PC toolbar
-    sidebarMin: '160px',     // PC sidebar min
-    sidebarMax: '360px',     // PC sidebar max
-    sidebarWidth: '20%',     // PC sidebar width
-    gap: '6px',             // PC panel gap
   },
 } as const;
 
@@ -180,7 +296,7 @@ export const HEART_COLORS = [
   '#007AFF', '#8E8E93', '#32ADE6', '#A2845E',
 ];
 
-// ─── Avatar Palette (TUILiveKit-inspired) ────────────────────────────────────
+// ─── Avatar Palette ──────────────────────────────────────────────────────────
 
 export const AVATAR_PALETTE = [
   { bg: '#eff6ff', text: '#2563eb' },
@@ -191,6 +307,14 @@ export const AVATAR_PALETTE = [
   { bg: '#f1f5e9', text: '#475569' },
   { bg: '#ecfdf5', text: '#059669' },
   { bg: '#fff7ed', text: '#ea580c' },
+];
+
+// ─── Default Background Images (TUILiveKit CDN) ─────────────────────────────
+
+export const DEFAULT_BG_URLS = [
+  'https://liteav-test-1252463788.cos.ap-guangzhou.myqcloud.com/voice_room/voice_room_background1.png',
+  'https://liteav-test-1252463788.cos.ap-guangzhou.myqcloud.com/voice_room/voice_room_background2.png',
+  'https://liteav-test-1252463788.cos.ap-guangzhou.myqcloud.com/voice_room/voice_room_background3.png',
 ];
 
 // ─── Constants ───────────────────────────────────────────────────────────────
@@ -213,10 +337,10 @@ export const ROLE_COLORS: Record<RoomRole, string> = {
 
 export const ROLE_PILL_BG: Record<RoomRole, string> = {
   owner: 'bg-[rgba(245,158,11,0.15)] text-[#f59e0b]',
-  coowner: 'bg-[rgba(108,99,255,0.15)] text-[#a78bfa]',
-  admin: 'bg-[rgba(245,158,11,0.15)] text-[#f59e0b]',
-  member: 'bg-[rgba(108,99,255,0.15)] text-[#a78bfa]',
-  visitor: 'bg-[rgba(108,99,255,0.15)] text-[#a78bfa]',
+  coowner: 'bg-[rgba(124,133,166,0.15)] text-[#D1D9EC]',
+  admin: 'bg-[rgba(1,87,223,0.15)] text-[#4791FF]',
+  member: 'bg-[rgba(124,133,166,0.15)] text-[#D1D9EC]',
+  visitor: 'bg-[rgba(124,133,166,0.15)] text-[#D1D9EC]',
 };
 
 export const GIFT_CATEGORIES = [
@@ -249,8 +373,7 @@ export const ROOM_MODE_OPTIONS: { value: RoomMode; label: string; icon: typeof G
 ];
 
 export const AVATAR_COLORS = ['#1e3a7a', '#3a1e6a', '#1a4040', '#3a2010', '#4a1e3a', '#1e4a3a', '#3a3a1e', '#2a1e4a'];
-
-export const CHAT_SENDER_COLORS = ['#6c63ff', '#f59e0b', '#22c55e', '#f97316'];
+export const CHAT_SENDER_COLORS = ['#6C54E8', '#f59e0b', '#29CC6A', '#FF643D'];
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 

@@ -1,273 +1,356 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
-import { Loader2, ImageIcon } from 'lucide-react';
+import { useState } from 'react';
+import {
+  ImageIcon,
+  Mic,
+  MicOff,
+  Users,
+  Lock,
+  Globe,
+  Key,
+  EyeOff,
+  Edit3,
+  Check,
+} from 'lucide-react';
 import BottomSheetOverlay from '../shared/BottomSheetOverlay';
-import type { VoiceRoom, RoomMode } from '../../types';
-import { MIC_OPTIONS } from '../../types';
+import {
+  TUI,
+  DEFAULT_BG_URLS,
+  MIC_OPTIONS,
+  ROOM_MODE_OPTIONS,
+  type VoiceRoom,
+} from '../../types';
 
-export default function SettingsSheet({
-  isOpen, onClose, room, onUpdate,
-}: {
+interface SettingsSheetProps {
   isOpen: boolean;
   onClose: () => void;
   room: VoiceRoom;
-  onUpdate: (data: Record<string, unknown>) => void;
-}) {
-  const [micCount, setMicCount] = useState(room.micSeatCount);
-  const [guestMic, setGuestMic] = useState(false);
-  const [memberMic, setMemberMic] = useState(true);
-  const [roomType, setRoomType] = useState<RoomMode>(room.roomMode);
-  const [kickDuration] = useState(10);
-  const [saving, setSaving] = useState(false);
-  const [availableBgs, setAvailableBgs] = useState<Array<{ id: string; imageUrl: string; thumbnailUrl: string; nameAr: string; rarity: string; price: number; owned: boolean }>>([]);
-  const [selectedBg, setSelectedBg] = useState(room.roomImage || '');
-  const [bgLoading, setBgLoading] = useState(false);
-  const hasLoadedBgs = useRef(false);
+  onUpdate: (data: Partial<VoiceRoom>) => void;
+}
 
-  const roomTypes: { value: RoomMode; label: string; icon: string }[] = [
-    { value: 'public', label: 'عامة', icon: '🔓' },
-    { value: 'private', label: 'خاصة', icon: '🔒' },
-    { value: 'key', label: 'مقيّدة', icon: '🔑' },
-  ];
+export default function SettingsSheet({
+  isOpen,
+  onClose,
+  room,
+  onUpdate,
+}: SettingsSheetProps) {
+  const [selectedBg, setSelectedBg] = useState<string | null>(room.roomImage || null);
+  const [isMuted, setIsMuted] = useState(room.chatMuted);
+  const [editingName, setEditingName] = useState(false);
+  const [nameInput, setNameInput] = useState(room.name);
+  const [selectedMode, setSelectedMode] = useState(room.roomMode);
+  const [selectedMicCount, setSelectedMicCount] = useState(room.micSeatCount);
+  const [isAutoMode, setIsAutoMode] = useState(room.isAutoMode);
 
-  const handleSave = async () => {
-    setSaving(true);
-    await onUpdate({
-      micSeatCount: micCount,
-      roomMode: roomType,
-      isAutoMode: guestMic ? 1 : 0,
-      guestMicEnabled: guestMic,
-      memberMicEnabled: memberMic,
-      roomImage: selectedBg,
-    });
-    setSaving(false);
-    onClose();
+  const handleSaveName = () => {
+    if (nameInput.trim() && nameInput !== room.name) {
+      onUpdate({ name: nameInput.trim() });
+    }
+    setEditingName(false);
   };
 
-  // Sync state with room props when room changes (not via effect)
-  const lastSyncedRoomId = useRef(room.id);
-  if (room.id !== lastSyncedRoomId.current) {
-    lastSyncedRoomId.current = room.id;
-    setMicCount(room.micSeatCount);
-    setRoomType(room.roomMode);
-    setSelectedBg(room.roomImage || '');
-    hasLoadedBgs.current = false;
-  }
+  const handleBgSelect = (url: string) => {
+    setSelectedBg(url);
+    onUpdate({ roomImage: url });
+  };
 
-  useEffect(() => {
-    if (!isOpen || hasLoadedBgs.current) return;
-    hasLoadedBgs.current = true;
-    let cancelled = false;
-    (async () => {
-      try {
-        setBgLoading(true);
-        const res = await fetch('/api/room-backgrounds');
-        const data = await res.json();
-        if (!cancelled && data.success && data.backgrounds) {
-          setAvailableBgs(data.backgrounds.map((b: Record<string, unknown>) => ({
-            id: (b.background as Record<string, unknown>).id as string,
-            imageUrl: (b.background as Record<string, unknown>).imageUrl as string,
-            thumbnailUrl: (b.background as Record<string, unknown>).thumbnailUrl as string,
-            nameAr: (b.background as Record<string, unknown>).nameAr as string,
-            rarity: (b.background as Record<string, unknown>).rarity as string,
-            price: (b.background as Record<string, unknown>).price as number,
-            owned: b.owned as boolean,
-          })));
-        }
-      } catch { /* ignore */ }
-      finally { if (!cancelled) setBgLoading(false); }
-    })();
-    return () => { cancelled = true; };
-  }, [isOpen]);
+  const handleToggleMute = () => {
+    const next = !isMuted;
+    setIsMuted(next);
+    onUpdate({ chatMuted: next });
+  };
+
+  const handleModeSelect = (mode: typeof room.roomMode) => {
+    setSelectedMode(mode);
+    onUpdate({ roomMode: mode });
+  };
+
+  const handleMicCountSelect = (count: number) => {
+    setSelectedMicCount(count);
+    onUpdate({ micSeatCount: count });
+  };
+
+  const handleToggleAutoMode = () => {
+    const next = !isAutoMode;
+    setIsAutoMode(next);
+    onUpdate({ isAutoMode: next });
+  };
+
+  /* ── Settings items (horizontal scroll, matching Flutter settings_panel) ── */
+  const settingsItems = [
+    {
+      id: 'background',
+      icon: <ImageIcon size={30} color={TUI.colors.G7} />,
+      label: 'الخلفية',
+    },
+    {
+      id: 'mute',
+      icon: isMuted ? (
+        <MicOff size={30} color={TUI.colors.red} />
+      ) : (
+        <Mic size={30} color={TUI.colors.green} />
+      ),
+      label: isMuted ? 'الغاء الكتم' : 'كتم الغرفة',
+    },
+    {
+      id: 'name',
+      icon: <Edit3 size={30} color={TUI.colors.G7} />,
+      label: 'اسم الغرفة',
+    },
+  ];
 
   return (
-    <BottomSheetOverlay isOpen={isOpen} onClose={onClose} title="إعدادات الغرفة">
-      <div className="max-h-[78vh] flex flex-col pb-4">
-        <div className="flex-1 overflow-y-auto space-y-4" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
-
-          {/* Section: Mic count */}
-          <div>
-            <div className="text-[11px] font-semibold mb-2 px-0.5" style={{ color: 'rgba(255,255,255,0.4)' }}>عدد المايكات</div>
-            <div className="flex items-center justify-between rounded-xl px-3.5 py-3" style={{ background: '#3a3a3a' }}>
-              <div className="flex items-center gap-2.5">
-                <span className="text-base">🎙</span>
-                <span className="text-[13px] font-semibold text-white">المقاعد الصوتية</span>
-              </div>
-              <div className="flex gap-1.5">
-                {MIC_OPTIONS.map(n => (
-                  <button
-                    key={n}
-                    onClick={() => setMicCount(n)}
-                    className="px-3 py-1 rounded-lg text-[12px] font-bold transition-all duration-200"
-                    style={{
-                      background: micCount === n ? '#2B6AD6' : '#22262E',
-                      color: micCount === n ? '#fff' : 'rgba(255,255,255,0.6)',
-                      border: `2px solid ${micCount === n ? '#2B6AD6' : 'rgba(255,255,255,0.06)'}`,
-                    }}
-                  >
-                    {n}
-                  </button>
-                ))}
-              </div>
-            </div>
-          </div>
-
-          {/* Section: Mic permissions — Toggle switches */}
-          <div>
-            <div className="text-[11px] font-semibold mb-2 px-0.5" style={{ color: 'rgba(255,255,255,0.4)' }}>صلاحيات الصعود للمايك</div>
-            <div className="space-y-1.5">
-              <button
-                onClick={() => setGuestMic(!guestMic)}
-                className="w-full flex items-center justify-between rounded-xl px-3.5 py-3 transition-all duration-200 hover:bg-[#4a4a4a]"
-                style={{ background: '#3a3a3a' }}
-              >
-                <div className="flex items-center gap-2.5">
-                  <span className="text-base">👤</span>
-                  <span className="text-[13px] font-semibold text-white">الزوار يصعدون للمايك</span>
-                </div>
-                <div
-                  className="w-10 h-[22px] rounded-full transition-all duration-200 relative flex-shrink-0"
-                  style={{ background: guestMic ? '#22c55e' : 'rgba(255,255,255,0.15)' }}
-                >
-                  <div
-                    className="w-[18px] h-[18px] rounded-full bg-white absolute top-[2px] transition-all duration-200"
-                    style={{ [guestMic ? 'left' : 'right']: '2px' }}
-                  />
-                </div>
-              </button>
-              <button
-                onClick={() => setMemberMic(!memberMic)}
-                className="w-full flex items-center justify-between rounded-xl px-3.5 py-3 transition-all duration-200 hover:bg-[#4a4a4a]"
-                style={{ background: '#3a3a3a' }}
-              >
-                <div className="flex items-center gap-2.5">
-                  <span className="text-base">⭐</span>
-                  <span className="text-[13px] font-semibold text-white">الأعضاء يصعدون مباشرة</span>
-                </div>
-                <div
-                  className="w-10 h-[22px] rounded-full transition-all duration-200 relative flex-shrink-0"
-                  style={{ background: memberMic ? '#22c55e' : 'rgba(255,255,255,0.15)' }}
-                >
-                  <div
-                    className="w-[18px] h-[18px] rounded-full bg-white absolute top-[2px] transition-all duration-200"
-                    style={{ [memberMic ? 'left' : 'right']: '2px' }}
-                  />
-                </div>
-              </button>
-            </div>
-          </div>
-
-          {/* Section: Room Background */}
-          <div>
-            <div className="text-[11px] font-semibold mb-2 px-0.5" style={{ color: 'rgba(255,255,255,0.4)' }}>موضوع الغرفة (الخلفية)</div>
-            {bgLoading ? (
-              <div className="flex items-center justify-center py-8">
-                <Loader2 className="w-5 h-5 animate-spin text-[#6c63ff]" />
-              </div>
-            ) : availableBgs.length > 0 ? (
-              <div className="grid grid-cols-4 gap-2">
-                <button
-                  onClick={() => setSelectedBg('')}
-                  className="relative rounded-xl overflow-hidden transition-all duration-200 aspect-[3/4]"
-                  style={{
-                    border: `2px solid ${selectedBg === '' ? '#2B6AD6' : 'transparent'}`,
-                  }}
-                >
-                  <div className="w-full h-full flex items-center justify-center" style={{ background: '#22262E' }}>
-                    <span className="text-[10px]" style={{ color: 'rgba(255,255,255,0.4)' }}>بدون</span>
-                  </div>
-                  {selectedBg === '' && (
-                    <div className="absolute top-1 left-1 w-4 h-4 rounded-full flex items-center justify-center" style={{ background: '#2B6AD6' }}>
-                      <span className="text-[8px] text-white">✓</span>
-                    </div>
-                  )}
-                </button>
-                {availableBgs.map((bg) => (
-                  <button
-                    key={bg.id}
-                    onClick={() => bg.owned ? setSelectedBg(bg.imageUrl) : undefined}
-                    className="relative rounded-xl overflow-hidden transition-all duration-200 aspect-[3/4]"
-                    style={{
-                      border: `2px solid ${selectedBg === bg.imageUrl ? '#2B6AD6' : 'transparent'}`,
-                      opacity: bg.owned ? 1 : 0.5,
-                    }}
-                  >
-                    {(bg.thumbnailUrl || bg.imageUrl) ? (
-                      <img src={bg.thumbnailUrl || bg.imageUrl} alt={bg.nameAr} className="w-full h-full object-cover" />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center" style={{ background: '#3a3a3a' }}>
-                        <ImageIcon className="w-4 h-4" style={{ color: 'rgba(255,255,255,0.3)' }} />
-                      </div>
-                    )}
-                    {!bg.owned && (
-                      <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
-                        <span className="text-[9px] text-[#f59e0b] font-bold">{bg.price} 💎</span>
-                      </div>
-                    )}
-                    {selectedBg === bg.imageUrl && (
-                      <div className="absolute top-1 left-1 w-4 h-4 rounded-full flex items-center justify-center" style={{ background: '#2B6AD6' }}>
-                        <span className="text-[8px] text-white">✓</span>
-                      </div>
-                    )}
-                  </button>
-                ))}
-              </div>
-            ) : (
-              <div className="rounded-xl px-3.5 py-4 text-center" style={{ background: '#3a3a3a' }}>
-                <span className="text-[12px]" style={{ color: 'rgba(255,255,255,0.4)' }}>لا توجد خلفيات متاحة حالياً</span>
-              </div>
-            )}
-          </div>
-
-          {/* Section: Room Mode — TUILiveKit LayoutSwitch style cards */}
-          <div>
-            <div className="text-[11px] font-semibold mb-2 px-0.5" style={{ color: 'rgba(255,255,255,0.4)' }}>خصوصية الغرفة</div>
-            <div className="grid grid-cols-3 gap-2">
-              {roomTypes.map((rt) => (
-                <button
-                  key={rt.value}
-                  onClick={() => setRoomType(rt.value)}
-                  className="flex flex-col items-center gap-1.5 py-3 rounded-xl transition-all duration-200 active:scale-[0.97]"
-                  style={{
-                    background: roomType === rt.value ? '#243047' : '#3a3a3a',
-                    border: `2px solid ${roomType === rt.value ? '#2B6AD6' : 'transparent'}`,
-                  }}
-                >
-                  <span className="text-xl">{rt.icon}</span>
-                  <span
-                    className="text-[11px] font-semibold"
-                    style={{ color: roomType === rt.value ? '#fff' : 'rgba(255,255,255,0.6)' }}
-                  >
-                    {rt.label}
-                  </span>
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Kick duration display */}
-          <div className="flex items-center justify-between rounded-xl px-3.5 py-3" style={{ background: '#3a3a3a' }}>
-            <div className="flex items-center gap-2.5">
-              <span className="text-base">⏱</span>
-              <span className="text-[13px] font-semibold text-white">مدة الطرد المؤقت</span>
-            </div>
-            <span className="text-[12px]" style={{ color: 'rgba(255,255,255,0.5)' }}>{kickDuration} دقائق</span>
-          </div>
-
-          {/* Save button */}
+    <BottomSheetOverlay
+      isOpen={isOpen}
+      onClose={onClose}
+      height={350}
+      title="الإعدادات"
+    >
+      {/* Horizontal Settings Items */}
+      <div
+        className="flex gap-[22px] mb-4 overflow-x-auto pb-2 scrollbar-hide"
+        style={{ direction: 'rtl' }}
+      >
+        {settingsItems.map((item) => (
           <button
-            onClick={handleSave}
-            disabled={saving}
-            className="w-full h-11 rounded-xl font-bold text-[14px] text-white flex items-center justify-center gap-2 transition-all duration-200 disabled:opacity-50 active:scale-[0.98]"
+            key={item.id}
+            onClick={() => {
+              if (item.id === 'mute') handleToggleMute();
+              if (item.id === 'name') setEditingName(true);
+            }}
+            className="flex flex-col items-center gap-2 shrink-0"
+          >
+            {/* Icon container: 56px, rounded-[10px], bg blue30, p-2 */}
+            <div
+              className="flex items-center justify-center"
+              style={{
+                width: 56,
+                height: 56,
+                borderRadius: TUI.radius.xl,
+                backgroundColor: TUI.colors.blue30,
+                padding: 2,
+              }}
+            >
+              {item.icon}
+            </div>
+            {/* Label */}
+            <span style={{ fontSize: TUI.font.captionG6.size, color: TUI.colors.G6 }}>
+              {item.label}
+            </span>
+          </button>
+        ))}
+      </div>
+
+      {/* ── Background Image Picker ── */}
+      <div className="mb-4">
+        <p
+          className="mb-2"
+          style={{
+            fontSize: TUI.font.captionG6.size,
+            color: TUI.colors.G6,
+            fontWeight: 500,
+          }}
+        >
+          اختر الخلفية
+        </p>
+        <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
+          {/* No background option */}
+          <button
+            onClick={() => handleBgSelect('')}
+            className="shrink-0 w-16 h-16 rounded-lg flex items-center justify-center transition-all"
             style={{
-              background: 'linear-gradient(135deg, #6c63ff, #a78bfa)',
-              boxShadow: '0 4px 16px rgba(108,99,255,0.25)',
+              borderRadius: TUI.radius.lg,
+              border: selectedBg === null || selectedBg === ''
+                ? `2px solid ${TUI.colors.sliderFilled}`
+                : '2px solid transparent',
+              backgroundColor: TUI.colors.bgInput,
             }}
           >
-            {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : 'حفظ الإعدادات'}
+            <ImageIcon size={20} color={TUI.colors.G5} />
+          </button>
+          {DEFAULT_BG_URLS.map((url, idx) => (
+            <button
+              key={idx}
+              onClick={() => handleBgSelect(url)}
+              className="shrink-0 w-16 h-16 rounded-lg overflow-hidden transition-all"
+              style={{
+                borderRadius: TUI.radius.lg,
+                border: selectedBg === url
+                  ? `2px solid ${TUI.colors.sliderFilled}`
+                  : '2px solid transparent',
+              }}
+            >
+              <img
+                src={url}
+                alt={`bg-${idx}`}
+                className="w-full h-full object-cover"
+                loading="lazy"
+              />
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* ── Room Name Editor ── */}
+      {editingName && (
+        <div className="mb-4 flex items-center gap-2">
+          <input
+            value={nameInput}
+            onChange={(e) => setNameInput(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && handleSaveName()}
+            className="flex-1 outline-none"
+            style={{
+              height: 36,
+              padding: '0 12px',
+              backgroundColor: TUI.colors.bgInput,
+              borderRadius: TUI.radius.md,
+              color: TUI.colors.white,
+              fontSize: TUI.font.body14.size,
+              border: `1px solid ${TUI.colors.strokePrimary}`,
+            }}
+            maxLength={30}
+            autoFocus
+          />
+          <button
+            onClick={handleSaveName}
+            className="flex items-center justify-center"
+            style={{
+              width: 36,
+              height: 36,
+              borderRadius: TUI.radius.md,
+              backgroundColor: TUI.colors.B1,
+              border: 'none',
+            }}
+          >
+            <Check size={18} color={TUI.colors.white} />
           </button>
         </div>
+      )}
+
+      {/* ── Room Mode ── */}
+      <div className="mb-4">
+        <p
+          className="mb-2"
+          style={{
+            fontSize: TUI.font.captionG6.size,
+            color: TUI.colors.G6,
+            fontWeight: 500,
+          }}
+        >
+          نوع الغرفة
+        </p>
+        <div className="grid grid-cols-3 gap-2">
+          {ROOM_MODE_OPTIONS.map((mode) => {
+            const Icon = mode.icon;
+            const isActive = selectedMode === mode.value;
+            return (
+              <button
+                key={mode.value}
+                onClick={() => handleModeSelect(mode.value)}
+                className="flex flex-col items-center gap-1.5 py-3 transition-all"
+                style={{
+                  borderRadius: TUI.radius.lg,
+                  backgroundColor: isActive
+                    ? 'rgba(28, 102, 229, 0.12)'
+                    : TUI.colors.bgInput,
+                  border: isActive
+                    ? `1px solid ${TUI.colors.B1}`
+                    : '1px solid transparent',
+                }}
+              >
+                <Icon
+                  size={22}
+                  color={isActive ? TUI.colors.B1d : TUI.colors.G5}
+                />
+                <span
+                  style={{
+                    fontSize: TUI.font.captionG6.size,
+                    color: isActive ? TUI.colors.white : TUI.colors.G6,
+                    fontWeight: isActive ? 500 : 400,
+                  }}
+                >
+                  {mode.label}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* ── Mic Count ── */}
+      <div className="mb-4">
+        <p
+          className="mb-2"
+          style={{
+            fontSize: TUI.font.captionG6.size,
+            color: TUI.colors.G6,
+            fontWeight: 500,
+          }}
+        >
+          عدد المقاعد
+        </p>
+        <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
+          {MIC_OPTIONS.map((count) => {
+            const isActive = selectedMicCount === count;
+            return (
+              <button
+                key={count}
+                onClick={() => handleMicCountSelect(count)}
+                className="shrink-0 px-4 py-2 rounded-full transition-all"
+                style={{
+                  fontSize: TUI.font.caption12.size,
+                  fontWeight: isActive ? 600 : 400,
+                  color: isActive ? TUI.colors.white : TUI.colors.G6,
+                  backgroundColor: isActive
+                    ? TUI.colors.B1
+                    : TUI.colors.bgInput,
+                  borderRadius: TUI.radius.pill,
+                  border: 'none',
+                }}
+              >
+                {count}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* ── Auto Mode Toggle ── */}
+      <div className="flex items-center justify-between">
+        <span
+          style={{
+            fontSize: TUI.font.captionG6.size,
+            color: TUI.colors.G6,
+            fontWeight: 500,
+          }}
+        >
+          الجلوس الحر (بدون موافقة)
+        </span>
+        {/* Toggle switch */}
+        <button
+          onClick={handleToggleAutoMode}
+          className="relative shrink-0 transition-colors"
+          style={{
+            width: 44,
+            height: 24,
+            borderRadius: 12,
+            backgroundColor: isAutoMode ? TUI.colors.B1 : TUI.colors.sliderEmpty,
+            border: 'none',
+            cursor: 'pointer',
+          }}
+        >
+          <span
+            className="absolute top-[2px] transition-all"
+            style={{
+              width: 20,
+              height: 20,
+              borderRadius: TUI.radius.circle,
+              backgroundColor: TUI.colors.white,
+              left: isAutoMode ? 22 : 2,
+            }}
+          />
+        </button>
       </div>
     </BottomSheetOverlay>
   );
