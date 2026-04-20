@@ -10,6 +10,8 @@
    - Room card list with join actions per room mode
    - Empty state with CTA
    - Create Room dialog trigger
+
+   Responsive: 44px touch targets, fluid card sizing, responsive search
    ═══════════════════════════════════════════════════════════════════════ */
 
 import { useState, useEffect, useRef, useCallback } from 'react';
@@ -158,12 +160,13 @@ export default function RoomListView({ onJoinRoom, onCreateRoom, authUser }: Roo
         style={{
           height: 48,
           backgroundColor: TUI.colors.G1,
+          paddingTop: 'env(safe-area-inset-top, 0px)',
         }}
       >
-        {/* Back */}
+        {/* Back — 44px touch target */}
         <button
           onClick={handleBack}
-          className="flex items-center justify-center w-8 h-8 rounded-full transition-colors hover:bg-white/10"
+          className="flex items-center justify-center w-11 h-11 -ml-1.5 rounded-full transition-colors hover:bg-white/10 touch-manipulation"
           style={{ color: TUI.colors.white }}
           aria-label="العودة"
         >
@@ -174,7 +177,7 @@ export default function RoomListView({ onJoinRoom, onCreateRoom, authUser }: Roo
         <h1
           className="absolute left-1/2 -translate-x-1/2"
           style={{
-            fontSize: 20,
+            fontSize: 'clamp(18px, 5vw, 20px)',
             fontWeight: 700,
             color: TUI.colors.white,
           }}
@@ -182,13 +185,13 @@ export default function RoomListView({ onJoinRoom, onCreateRoom, authUser }: Roo
           غرف الصوت
         </h1>
 
-        {/* Create Room Button */}
+        {/* Create Room Button — 44px touch target */}
         <button
           onClick={() => setShowCreateDialog(true)}
-          className="flex items-center justify-center rounded-full transition-transform active:scale-95 hover:brightness-110"
+          className="flex items-center justify-center rounded-full transition-transform active:scale-95 hover:brightness-110 touch-manipulation"
           style={{
-            width: 40,
-            height: 40,
+            width: 44,
+            height: 44,
             backgroundColor: TUI.colors.B1,
             color: TUI.colors.white,
           }}
@@ -201,7 +204,7 @@ export default function RoomListView({ onJoinRoom, onCreateRoom, authUser }: Roo
       {/* ══════════════════════════════════════════════════════════════
           SEARCH BAR
           ══════════════════════════════════════════════════════════════ */}
-      <div className="px-4 mt-3 mb-2">
+      <div className="px-3 sm:px-4 mt-3 mb-2">
         <div
           className="flex items-center gap-2 px-3"
           style={{
@@ -216,10 +219,11 @@ export default function RoomListView({ onJoinRoom, onCreateRoom, authUser }: Roo
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="ابحث عن غرفة..."
-            className="flex-1 bg-transparent outline-none text-sm"
+            className="flex-1 bg-transparent outline-none text-sm touch-manipulation"
             style={{
               color: TUI.colors.white,
               caretColor: TUI.colors.B1,
+              fontSize: 'clamp(13px, 3.5vw, 14px)',
             }}
           />
         </div>
@@ -229,7 +233,7 @@ export default function RoomListView({ onJoinRoom, onCreateRoom, authUser }: Roo
           CATEGORY TABS
           ══════════════════════════════════════════════════════════════ */}
       <div
-        className="flex items-center gap-5 overflow-x-auto pb-2 px-4"
+        className="flex items-center gap-5 overflow-x-auto pb-2 px-3 sm:px-4"
         style={{
           scrollbarWidth: 'none',
           msOverflowStyle: 'none',
@@ -241,14 +245,15 @@ export default function RoomListView({ onJoinRoom, onCreateRoom, authUser }: Roo
             <button
               key={cat.id}
               onClick={() => setActiveCategory(cat.id)}
-              className="relative flex-shrink-0 py-1.5 transition-colors"
+              className="relative flex-shrink-0 py-1.5 transition-colors touch-manipulation"
               style={{
-                fontSize: 14,
+                fontSize: 'clamp(13px, 3.5vw, 14px)',
                 fontWeight: isActive ? 600 : 400,
                 color: isActive ? TUI.colors.white : TUI.colors.G5,
                 borderBottom: isActive
                   ? `2px solid ${TUI.colors.B1}`
                   : '2px solid transparent',
+                minHeight: 44,
               }}
             >
               {cat.label}
@@ -260,7 +265,7 @@ export default function RoomListView({ onJoinRoom, onCreateRoom, authUser }: Roo
       {/* ══════════════════════════════════════════════════════════════
           ROOM LIST
           ══════════════════════════════════════════════════════════════ */}
-      <div className="flex-1 px-4 mt-2 pb-6 overflow-y-auto">
+      <div className="flex-1 px-3 sm:px-4 mt-2 pb-6 overflow-y-auto">
         {/* Loading State */}
         {loading && (
           <div className="flex items-center justify-center py-20">
@@ -285,8 +290,8 @@ export default function RoomListView({ onJoinRoom, onCreateRoom, authUser }: Roo
             </p>
             <button
               onClick={() => setShowCreateDialog(true)}
-              className="flex items-center gap-2 px-5 py-2.5 rounded-full text-white font-medium transition-transform active:scale-95"
-              style={{ backgroundColor: TUI.colors.B1, fontSize: 14 }}
+              className="flex items-center gap-2 px-5 py-2.5 rounded-full text-white font-medium transition-transform active:scale-95 touch-manipulation"
+              style={{ backgroundColor: TUI.colors.B1, fontSize: 14, minHeight: 44 }}
             >
               <Plus size={16} />
               أنشئ غرفتك الأولى
@@ -336,7 +341,7 @@ function RoomCard({ room, onJoin }: { room: VoiceRoom; onJoin: (room: VoiceRoom)
 
   return (
     <div
-      className="flex items-center gap-3 p-4 rounded-[12px] transition-all cursor-pointer"
+      className="flex items-center gap-3 p-3 sm:p-4 rounded-[12px] transition-all cursor-pointer touch-manipulation"
       style={{
         backgroundColor: TUI.colors.G2,
       }}
@@ -348,10 +353,10 @@ function RoomCard({ room, onJoin }: { room: VoiceRoom; onJoin: (room: VoiceRoom)
         (e.currentTarget as HTMLDivElement).style.filter = 'none';
       }}
     >
-      {/* ── Cover Image / Gradient ── */}
+      {/* ── Cover Image / Gradient (responsive) ── */}
       <div
         className="flex-shrink-0 rounded-[8px] overflow-hidden"
-        style={{ width: 60, height: 60 }}
+        style={{ width: 'clamp(48px, 14vw, 60px)', height: 'clamp(48px, 14vw, 60px)' }}
       >
         {room.roomImage ? (
           <img
@@ -364,7 +369,7 @@ function RoomCard({ room, onJoin }: { room: VoiceRoom; onJoin: (room: VoiceRoom)
             className="w-full h-full flex items-center justify-center"
             style={{ background: getRoomGradient(room.micTheme) }}
           >
-            <Mic size={24} style={{ color: 'rgba(255,255,255,0.7)' }} />
+            <Mic size={20} style={{ color: 'rgba(255,255,255,0.7)' }} />
           </div>
         )}
       </div>
@@ -375,7 +380,7 @@ function RoomCard({ room, onJoin }: { room: VoiceRoom; onJoin: (room: VoiceRoom)
         <p
           className="truncate"
           style={{
-            fontSize: 16,
+            fontSize: 'clamp(14px, 4vw, 16px)',
             fontWeight: 600,
             color: TUI.colors.white,
           }}
@@ -384,17 +389,17 @@ function RoomCard({ room, onJoin }: { room: VoiceRoom; onJoin: (room: VoiceRoom)
         </p>
 
         {/* Host Name */}
-        <p style={{ fontSize: 12, color: TUI.colors.G5 }}>
+        <p style={{ fontSize: 'clamp(11px, 3vw, 12px)', color: TUI.colors.G5 }}>
           بواسطة {room.hostName}
         </p>
 
         {/* Bottom row: participants + mics */}
         <div className="flex items-center gap-3">
-          <div className="flex items-center gap-1" style={{ fontSize: 11, color: TUI.colors.G5 }}>
+          <div className="flex items-center gap-1" style={{ fontSize: 'clamp(10px, 2.8vw, 11px)', color: TUI.colors.G5 }}>
             <Users size={12} />
             <span>{room.participantCount || 0}</span>
           </div>
-          <div className="flex items-center gap-1" style={{ fontSize: 11, color: TUI.colors.G5 }}>
+          <div className="flex items-center gap-1" style={{ fontSize: 'clamp(10px, 2.8vw, 11px)', color: TUI.colors.G5 }}>
             <Mic size={12} />
             <span>{room.micSeatCount}</span>
           </div>
@@ -402,16 +407,18 @@ function RoomCard({ room, onJoin }: { room: VoiceRoom; onJoin: (room: VoiceRoom)
         </div>
       </div>
 
-      {/* ── Join Button ── */}
-      <div className="flex-shrink-0">
+      {/* ── Join Button (44px min touch target) ── */}
+      <div className="flex-shrink-0 flex items-center">
         {isPublic && (
           <button
-            className="flex items-center justify-center rounded-[16px] text-white transition-transform active:scale-95 hover:brightness-110"
+            className="flex items-center justify-center rounded-[16px] text-white transition-transform active:scale-95 hover:brightness-110 touch-manipulation"
             style={{
-              width: 60,
-              height: 32,
+              minWidth: 60,
+              height: 44,
+              minHeight: 44,
+              paddingHorizontal: 'clamp(12px, 3vw, 16px)',
               backgroundColor: TUI.colors.B1,
-              fontSize: 12,
+              fontSize: 'clamp(11px, 3vw, 12px)',
               fontWeight: 700,
             }}
           >
@@ -420,16 +427,16 @@ function RoomCard({ room, onJoin }: { room: VoiceRoom; onJoin: (room: VoiceRoom)
         )}
         {isKey && (
           <button
-            className="flex items-center justify-center gap-1 rounded-[16px] transition-transform active:scale-95 hover:bg-white/5"
+            className="flex items-center justify-center gap-1 rounded-[16px] transition-transform active:scale-95 hover:bg-white/5 touch-manipulation"
             style={{
-              width: 'auto',
-              height: 32,
-              paddingLeft: 12,
-              paddingRight: 12,
+              minWidth: 60,
+              height: 44,
+              minHeight: 44,
+              paddingHorizontal: 'clamp(12px, 3vw, 16px)',
               backgroundColor: 'transparent',
               border: `1px solid ${TUI.colors.G3}`,
               color: TUI.colors.G7,
-              fontSize: 12,
+              fontSize: 'clamp(11px, 3vw, 12px)',
               fontWeight: 700,
             }}
           >
@@ -441,12 +448,14 @@ function RoomCard({ room, onJoin }: { room: VoiceRoom; onJoin: (room: VoiceRoom)
           <button
             className="flex items-center justify-center rounded-[16px] cursor-not-allowed"
             style={{
-              width: 80,
-              height: 32,
+              minWidth: 70,
+              height: 44,
+              minHeight: 44,
+              paddingHorizontal: 'clamp(12px, 3vw, 16px)',
               backgroundColor: 'transparent',
               border: `1px solid ${TUI.colors.G3}`,
               color: TUI.colors.G3,
-              fontSize: 12,
+              fontSize: 'clamp(11px, 3vw, 12px)',
               fontWeight: 600,
             }}
             disabled

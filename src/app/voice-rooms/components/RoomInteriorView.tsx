@@ -255,7 +255,7 @@ export default function RoomInteriorView({
             ════════════════════════════════════════════════════════════════════ */}
         <div
           className="absolute left-0 right-0 z-10"
-          style={{ top: TUI.dim.seatGridTop }}
+          style={{ top: 'clamp(90px, 14vh, 122px)' }}
         >
           <MicSeatGrid
             seats={vr.seats}

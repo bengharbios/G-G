@@ -3,6 +3,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+
+const TUI_COLORS_G1 = '#0F1014';
 import InjectStyles from './components/shared/InjectStyles';
 import RoomListView from './components/RoomListView';
 import RoomInteriorView from './components/RoomInteriorView';
@@ -125,13 +127,19 @@ export default function VoiceRoomsPage() {
   /* ── Public entry: when clicking a room card ── */
   const handleRoomClick = useCallback(
     (room: VoiceRoom) => {
-      if (room.roomMode === 'key') {
+      // Owner skips password dialog for their own key-mode room
+      if (room.roomMode === 'key' && room.hostId !== authUser?.id) {
         setPendingPasswordRoom(room);
       } else {
-        handleJoinRoom(room);
+        // For owner joining their own key room, auto-join with the room password
+        if (room.roomMode === 'key' && room.hostId === authUser?.id && room.roomPassword) {
+          handleJoinRoom(room, room.roomPassword);
+        } else {
+          handleJoinRoom(room);
+        }
       }
     },
-    [handleJoinRoom],
+    [handleJoinRoom, authUser?.id],
   );
 
   /* ── Password dialog callback ── */
@@ -216,7 +224,7 @@ export default function VoiceRoomsPage() {
     return (
       <div
         className="min-h-screen flex items-center justify-center"
-        style={{ backgroundColor: '#0a0e1a' }}
+        style={{ backgroundColor: TUI_COLORS_G1 }}
         dir="rtl"
       >
         <Loader2 className="w-10 h-10 text-[#6c63ff] animate-spin" />

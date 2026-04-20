@@ -11,6 +11,8 @@ import type { VoiceRoomParticipant } from '../types';
    Left: room name + ID (tappable → onRoomInfo)
    Center-Right: scrollable audience avatars (max 107px, 24px each)
    Right: Close button (X for owner, arrow-left for audience)
+
+   Responsive: safe-area-inset-top, clamp room name, hide avatars <360px
    ═══════════════════════════════════════════════════════════════════════ */
 
 interface TopBarProps {
@@ -41,27 +43,28 @@ export default function TopBar({
     <div
       className="fixed flex items-center justify-between"
       style={{
-        top: `${TUI.dim.topBarTop}px`,
-        left: `${TUI.dim.topBarLR}px`,
-        right: `${TUI.dim.topBarLR}px`,
-        height: `${TUI.dim.topBarHeight}px`,
+        top: 'max(env(safe-area-inset-top, 0px), clamp(44px, 8vh, 54px))',
+        left: 'clamp(8px, 3vw, 12px)',
+        right: 'clamp(8px, 3vw, 12px)',
+        height: 'clamp(36px, 6vh, 40px)',
         zIndex: 50,
       }}
     >
       {/* ── Left: Room info (tappable) ── */}
       <button
         onClick={onRoomInfo}
-        className="flex flex-col justify-center min-w-0 flex-1 mr-2 cursor-pointer"
+        className="flex flex-col justify-center min-w-0 flex-1 mr-2 cursor-pointer touch-manipulation"
+        style={{ minHeight: 44 }}
         aria-label="Room info"
       >
-        {/* Room name */}
+        {/* Room name — responsive max-width */}
         <span
           className="truncate font-bold leading-tight"
           style={{
-            fontSize: TUI.font.title16.size,
+            fontSize: 'clamp(14px, 4vw, 16px)',
             fontWeight: 600,
             color: TUI.colors.white,
-            maxWidth: 200,
+            maxWidth: 'clamp(100px, 40vw, 200px)',
           }}
         >
           {roomName}
@@ -71,7 +74,7 @@ export default function TopBar({
         <span
           className="leading-tight mt-0.5"
           style={{
-            fontSize: TUI.font.captionG5.size,
+            fontSize: 'clamp(10px, 2.8vw, 12px)',
             color: TUI.colors.G5,
           }}
         >
@@ -79,11 +82,11 @@ export default function TopBar({
         </span>
       </button>
 
-      {/* ── Center-Right: Audience avatars row ── */}
+      {/* ── Center-Right: Audience avatars row (hidden on very small screens) ── */}
       <div
-        className="flex items-center overflow-hidden flex-shrink-0"
+        className="items-center overflow-hidden flex-shrink-0 max-[359px]:hidden flex"
         style={{
-          maxWidth: TUI.dim.audienceMaxW,
+          maxWidth: 'clamp(60px, 25vw, 107px)',
           gap: 4,
         }}
       >
@@ -92,8 +95,8 @@ export default function TopBar({
             key={p.userId}
             className="rounded-full flex-shrink-0 overflow-hidden flex items-center justify-center"
             style={{
-              width: TUI.dim.audienceAvatarSize,
-              height: TUI.dim.audienceAvatarSize,
+              width: 'clamp(20px, 6vw, 24px)',
+              height: 'clamp(20px, 6vw, 24px)',
               backgroundColor: p.avatar
                 ? 'transparent'
                 : getAvatarColor(p.userId),
@@ -110,7 +113,7 @@ export default function TopBar({
               <span
                 className="font-medium"
                 style={{
-                  fontSize: 10,
+                  fontSize: 'clamp(8px, 2vw, 10px)',
                   color: TUI.colors.white,
                   lineHeight: 1,
                 }}
@@ -126,10 +129,10 @@ export default function TopBar({
           <div
             className="flex-shrink-0 rounded-full flex items-center justify-center"
             style={{
-              width: TUI.dim.badgeSize,
-              height: TUI.dim.badgeSize,
+              width: 'clamp(16px, 5vw, 20px)',
+              height: 'clamp(16px, 5vw, 20px)',
               backgroundColor: 'rgba(0,0,0,0.5)',
-              fontSize: TUI.dim.badgeFontSize,
+              fontSize: 'clamp(9px, 2.5vw, 12px)',
               color: TUI.colors.white,
               fontWeight: 500,
             }}
@@ -139,13 +142,15 @@ export default function TopBar({
         )}
       </div>
 
-      {/* ── Right: Close / Exit button ── */}
+      {/* ── Right: Close / Exit button (44px touch target, 20px visual) ── */}
       <button
         onClick={onClose}
-        className="flex-shrink-0 rounded-full flex items-center justify-center ml-3 cursor-pointer"
+        className="flex-shrink-0 rounded-full flex items-center justify-center ml-3 cursor-pointer touch-manipulation"
         style={{
-          width: TUI.dim.closeButtonSize,
-          height: TUI.dim.closeButtonSize,
+          width: 44,
+          height: 44,
+          minWidth: 44,
+          minHeight: 44,
           backgroundColor: 'rgba(0,0,0,0.3)',
         }}
         aria-label={isOwner ? 'End live' : 'Leave room'}

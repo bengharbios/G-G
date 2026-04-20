@@ -9,8 +9,11 @@ import { TUI, getSenderColor } from '../types';
    ChatPanel — TUILiveKit Barrage Display Widget
    Exact port of barrage_display_widget.dart / Business Chat
 
-   Position: fixed left:16px bottom:84px, 305×224
+   Position: fixed left:16px bottom:84px, responsive width/height
    Transparent bg, auto-scroll, fadeSlideIn, 20s opacity decay
+
+   Responsive: clamp width (200–305px), clamp height (150–224px),
+   responsive font sizes
    ═══════════════════════════════════════════════════════════════════════ */
 
 interface ChatPanelProps {
@@ -114,10 +117,10 @@ export default function ChatPanel({ messages, isMuted, onSendChat, authUser }: C
     <div
       className="fixed z-30 flex flex-col pointer-events-none"
       style={{
-        left: TUI.dim.barrageLeft,
-        bottom: TUI.dim.barrageBottom,
-        width: TUI.dim.barrageWidth,
-        height: TUI.dim.barrageHeight,
+        left: 'clamp(12px, 4vw, 16px)',
+        bottom: 'clamp(70px, 12vh, 84px)',
+        width: 'clamp(200px, 80vw, 305px)',
+        height: 'clamp(150px, 30vh, 224px)',
       }}
     >
       {/* ── Message List (transparent bg, bottom-aligned, fade mask at top) ── */}
@@ -147,7 +150,7 @@ export default function ChatPanel({ messages, isMuted, onSendChat, authUser }: C
                 <div
                   className="w-full text-center py-0.5 px-2"
                   style={{
-                    fontSize: 12,
+                    fontSize: 'clamp(10px, 2.8vw, 12px)',
                     color: TUI.colors.G5,
                     lineHeight: '18px',
                   }}
@@ -159,7 +162,7 @@ export default function ChatPanel({ messages, isMuted, onSendChat, authUser }: C
                 <div
                   className="w-full"
                   style={{
-                    padding: '6px 10px',
+                    padding: 'clamp(4px, 1.2vw, 6px) clamp(6px, 2vw, 10px)',
                     maxWidth: '100%',
                     background: TUI.colors.black4D,
                     borderRadius: TUI.radius.sm,
@@ -167,7 +170,7 @@ export default function ChatPanel({ messages, isMuted, onSendChat, authUser }: C
                     flexWrap: 'wrap',
                     alignItems: 'center',
                     lineHeight: '18px',
-                    fontSize: 12,
+                    fontSize: 'clamp(10px, 2.8vw, 12px)',
                   }}
                 >
                   {/* Username (colored + bold) */}
@@ -220,8 +223,8 @@ export default function ChatPanel({ messages, isMuted, onSendChat, authUser }: C
         <div
           className="pointer-events-auto mt-1"
           style={{
-            width: TUI.dim.barrageWidth,
-            height: TUI.dim.barrageInputH,
+            width: 'clamp(200px, 80vw, 305px)',
+            height: 'clamp(32px, 9vw, 36px)',
           }}
         >
           <div
@@ -235,9 +238,10 @@ export default function ChatPanel({ messages, isMuted, onSendChat, authUser }: C
             <button
               onClick={handleSend}
               disabled={!inputText.trim() || isMuted}
-              className="flex items-center justify-center flex-shrink-0 h-full transition-opacity duration-150"
+              className="flex items-center justify-center flex-shrink-0 h-full transition-opacity duration-150 touch-manipulation"
               style={{
-                width: 36,
+                width: 'clamp(32px, 8vw, 36px)',
+                minWidth: 32,
                 opacity: inputText.trim() && !isMuted ? 1 : 0.4,
                 color: TUI.colors.white,
               }}
@@ -271,7 +275,7 @@ export default function ChatPanel({ messages, isMuted, onSendChat, authUser }: C
               dir="rtl"
               className="flex-1 h-full bg-transparent outline-none"
               style={{
-                fontSize: 13,
+                fontSize: 'clamp(12px, 3vw, 13px)',
                 color: TUI.colors.white,
                 caretColor: TUI.colors.B1,
                 paddingLeft: 8,

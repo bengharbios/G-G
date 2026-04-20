@@ -13,6 +13,8 @@ import MicSeat from './MicSeat';
      • 5 seats        → 3 first row, 2 second row
      • 7 seats        → 4 first row, 3 second row
      • Otherwise      → flex wrap naturally
+
+   Responsive: fluid padding, clamp maxHeight/gap, no overflow at 320px
    ═══════════════════════════════════════════════════════════════════════ */
 
 interface MicSeatGridProps {
@@ -61,26 +63,26 @@ export default function MicSeatGrid({
   const columns = getColumnsForSeatCount(totalSeats);
   const useGridLayout = totalSeats <= 9 && [3, 4, 5, 6, 7, 8, 9].includes(totalSeats);
 
+  // Responsive seat container size (matches MicSeat's clamp)
+  const seatSize = 'clamp(40px, 12vw, 50px)';
+
   return (
     <div
-      className="w-full mx-auto"
+      className="w-full mx-auto px-3 sm:px-4"
       style={{
-        paddingTop: 12,
-        paddingBottom: 8,
-        paddingLeft: 16,
-        paddingRight: 16,
-        maxHeight: TUI.dim.seatGridHeight,
+        paddingTop: 'clamp(8px, 2vw, 12px)',
+        paddingBottom: 'clamp(4px, 1.5vw, 8px)',
+        maxHeight: 'clamp(180px, 35vh, 245px)',
+        maxWidth: 'calc(100vw - 16px)',
       }}
     >
       <div
         className="flex flex-wrap justify-center"
         style={{
-          gap: TUI.dim.seatRowSpacing,
-          ...(useGridLayout
-            ? {
-                maxWidth: columns * (TUI.dim.seatContainerSize + 20 + TUI.dim.seatRowSpacing),
-              }
-            : {}),
+          gap: 'clamp(6px, 2vw, 10px)',
+          maxWidth: useGridLayout
+            ? `calc(${columns} * (clamp(40px, 12vw, 50px) + 60px + clamp(6px, 2vw, 10px)))`
+            : undefined,
         }}
       >
         {seats.map((seat) => {

@@ -68,6 +68,8 @@ export interface Gift {
   emoji: string;
   price: number;
   category?: string;
+  giftImageUrl?: string;
+  animationResourceUrl?: string;
   animation?: 'none' | 'particles' | 'fireworks' | 'hearts' | 'stars' | 'confetti';
 }
 
@@ -349,19 +351,103 @@ export const GIFT_CATEGORIES = [
   { id: 'special', name: 'مميزة', icon: '✨' },
 ];
 
+// ─── Gift Asset URLs (TUILiveKit Source) ────────────────────────────────────
+// Gift item icons in TUILiveKit are server-managed via GiftStore.refreshUsableGifts().
+// They are NOT bundled or publicly hosted on CDN — they require Tencent RTC Gift API auth.
+// Below: raw GitHub URLs for bundled assets + fallback emoji-rendered PNGs.
+// See: https://github.com/Tencent-RTC/TUILiveKit/tree/main/Flutter/live_uikit_gift/assets
+
+const TUI_GIFT_ASSETS_BASE =
+  'https://raw.githubusercontent.com/Tencent-RTC/TUILiveKit/main/Flutter/live_uikit_gift/assets/images';
+
+const TUI_LIVEKIT_ASSETS_BASE =
+  'https://raw.githubusercontent.com/Tencent-RTC/TUILiveKit/main/Flutter/livekit/assets/images';
+
+const TUI_SVGA_BASE =
+  'https://raw.githubusercontent.com/Tencent-RTC/TUILiveKit/main/Flutter/live_uikit_gift/assets/svga';
+
+const TUI_SVGA_CAR = `${TUI_SVGA_BASE}/car.svga`;
+const TUI_SVGA_CAT = `${TUI_SVGA_BASE}/cat.svga`;
+const TUI_SVGA_SPORTS_CAR = `${TUI_SVGA_BASE}/sports_car.svga`;
+
+/** Shared TUILiveKit CDN / asset URLs for gift-related resources */
+export const GIFT_ASSETS: { [key: string]: string | string[] | ((emoji: string) => string) } = {
+  // ── Gift UI Icons (from TUILiveKit repo) ──
+  giftButtonIcon: `${TUI_LIVEKIT_ASSETS_BASE}/live_function_gift.png`,
+  likeButtonIcon: `${TUI_LIVEKIT_ASSETS_BASE}/live_function_like.png`,
+  giftSendIcon: `${TUI_GIFT_ASSETS_BASE}/gift_send_icon.png`,
+  likeSendIcon: `${TUI_GIFT_ASSETS_BASE}/like_send_icon.png`,
+  giftIcon: `${TUI_GIFT_ASSETS_BASE}/gift_send_icon.png`,
+  giftDefaultAvatar: `${TUI_GIFT_ASSETS_BASE}/gift_default_avatar.png`,
+
+  // ── Heart Like Animation (9 frames, bundled in TUILiveKit) ──
+  heartFrames: Array.from({ length: 9 }, (_, i) => `${TUI_GIFT_ASSETS_BASE}/gift_heart${i}.png`),
+
+  // ── SVGA Gift Animations (bundled examples from TUILiveKit) ──
+  svgaCar: TUI_SVGA_CAR,
+  svgaCat: TUI_SVGA_CAT,
+  svgaSportsCar: TUI_SVGA_SPORTS_CAR,
+
+  // ── Tencent CDN (public, confirmed working) ──
+  cdnAvatarDefault: 'https://liteav.sdk.qcloud.com/app/res/picture/voiceroom/avatar/user_avatar1.png',
+  cdnBackground1: 'https://liteav-test-1252463788.cos.ap-guangzhou.myqcloud.com/voice_room/voice_room_background1.png',
+  cdnBackground2: 'https://liteav-test-1252463788.cos.ap-guangzhou.myqcloud.com/voice_room/voice_room_background2.png',
+  cdnBackground3: 'https://liteav-test-1252463788.cos.ap-guangzhou.myqcloud.com/voice_room/voice_room_background3.png',
+
+  // ── Emoji-to-PNG helper (uses GitHub's emoji CDN) ──
+  emojiPng: (emoji: string) => {
+    const codePoints: string[] = [];
+    for (let i = 0; i < emoji.length; i++) {
+      const cp = emoji.codePointAt(i);
+      if (cp !== undefined) codePoints.push(cp.toString(16));
+    }
+    return `https://github.githubassets.com/images/icons/emoji/unicode/${codePoints.join('-')}.png?v=8`;
+  },
+};
+
 export const DEFAULT_GIFTS: Gift[] = [
-  { id: 'g1', name: 'Rose', nameAr: 'ورد', emoji: '🌹', price: 3, category: 'popular', animation: 'hearts' },
-  { id: 'g2', name: 'Star', nameAr: 'نجمة', emoji: '⭐', price: 9, category: 'popular', animation: 'stars' },
-  { id: 'g3', name: 'Heart', nameAr: 'قلب', emoji: '💖', price: 19, category: 'popular', animation: 'hearts' },
-  { id: 'g4', name: 'Fire', nameAr: 'نار', emoji: '🔥', price: 49, category: 'popular', animation: 'particles' },
-  { id: 'g5', name: 'GiftBox', nameAr: 'هدية', emoji: '🎁', price: 99, category: 'luxury', animation: 'fireworks' },
-  { id: 'g6', name: 'Crown', nameAr: 'تاج', emoji: '👑', price: 199, category: 'luxury', animation: 'stars' },
-  { id: 'g7', name: 'Rose99', nameAr: 'بوكيه ورد', emoji: '💐', price: 520, category: 'luxury', animation: 'hearts' },
-  { id: 'g8', name: 'Rocket', nameAr: 'صاروخ', emoji: '🚀', price: 1314, category: 'luxury', animation: 'fireworks' },
-  { id: 'g9', name: 'Diamond', nameAr: 'ماسة', emoji: '💎', price: 2999, category: 'special', animation: 'confetti' },
-  { id: 'g10', name: 'Trophy', nameAr: 'كأس', emoji: '🏆', price: 5200, category: 'special', animation: 'fireworks' },
-  { id: 'g11', name: 'GoldStar', nameAr: 'نجم ذهبي', emoji: '🌟', price: 10000, category: 'special', animation: 'confetti' },
-  { id: 'g12', name: 'Castle', nameAr: 'قلعة', emoji: '🏰', price: 52000, category: 'special', animation: 'fireworks' },
+  // ── Popular ──
+  {
+    id: 'g1', name: 'Rose', nameAr: 'ورد', emoji: '🌹', price: 3, category: 'popular', animation: 'hearts',
+  },
+  {
+    id: 'g2', name: 'Star', nameAr: 'نجمة', emoji: '⭐', price: 9, category: 'popular', animation: 'stars',
+  },
+  {
+    id: 'g3', name: 'Heart', nameAr: 'قلب', emoji: '💖', price: 19, category: 'popular', animation: 'hearts',
+  },
+  {
+    id: 'g4', name: 'Fire', nameAr: 'نار', emoji: '🔥', price: 49, category: 'popular', animation: 'particles',
+  },
+  // ── Luxury ──
+  {
+    id: 'g5', name: 'GiftBox', nameAr: 'هدية', emoji: '🎁', price: 99, category: 'luxury', animation: 'fireworks',
+  },
+  {
+    id: 'g6', name: 'Crown', nameAr: 'تاج', emoji: '👑', price: 199, category: 'luxury', animation: 'stars',
+  },
+  {
+    id: 'g7', name: 'Rose99', nameAr: 'بوكيه ورد', emoji: '💐', price: 520, category: 'luxury', animation: 'hearts',
+  },
+  {
+    id: 'g8', name: 'Rocket', nameAr: 'صاروخ', emoji: '🚀', price: 1314, category: 'luxury',
+    animation: 'fireworks', animationResourceUrl: TUI_SVGA_CAR,
+  },
+  // ── Special ──
+  {
+    id: 'g9', name: 'Diamond', nameAr: 'ماسة', emoji: '💎', price: 2999, category: 'special', animation: 'confetti',
+  },
+  {
+    id: 'g10', name: 'Trophy', nameAr: 'كأس', emoji: '🏆', price: 5200, category: 'special', animation: 'fireworks',
+  },
+  {
+    id: 'g11', name: 'GoldStar', nameAr: 'نجم ذهبي', emoji: '🌟', price: 10000, category: 'special',
+    animation: 'confetti', animationResourceUrl: TUI_SVGA_SPORTS_CAR,
+  },
+  {
+    id: 'g12', name: 'Castle', nameAr: 'قلعة', emoji: '🏰', price: 52000, category: 'special',
+    animation: 'fireworks', animationResourceUrl: TUI_SVGA_CAT,
+  },
 ];
 
 export const MIC_OPTIONS = [5, 10, 15, 20];

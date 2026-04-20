@@ -15,6 +15,8 @@ import { TUI, getAvatarColorFromPalette } from '../types';
        – Speaking         — animated ripple ring (#29CC6A)
        – Muted            — red MicOff badge (bottom-right)
        – Owner            — crown badge (top-right)
+
+   Responsive: clamp() for seat, avatar, icon, name — works on 320px+
    ═══════════════════════════════════════════════════════════════════════ */
 
 interface MicSeatProps {
@@ -53,15 +55,16 @@ export default function MicSeat({
   return (
     <button
       onClick={onClick}
-      className="relative flex flex-col items-center gap-1.5 group outline-none"
+      className="relative flex flex-col items-center group outline-none touch-manipulation"
+      style={{ gap: 'clamp(4px, 1.5vw, 6px)' }}
       aria-label={isOccupied ? `Seat ${seatIndex + 1}: ${participant.displayName}` : `Seat ${seatIndex + 1}: empty`}
     >
-      {/* ── Seat Circle (50×50) ── */}
+      {/* ── Seat Circle (responsive: 40–50px) ── */}
       <div
         className="relative rounded-full flex items-center justify-center transition-transform duration-150 ease-out group-hover:scale-105"
         style={{
-          width: TUI.dim.seatContainerSize,
-          height: TUI.dim.seatContainerSize,
+          width: 'clamp(40px, 12vw, 50px)',
+          height: 'clamp(40px, 12vw, 50px)',
           backgroundColor: isEmpty || isLocked ? TUI.colors.emptySeatBg : 'transparent',
           border: isMySeat ? `2px solid ${TUI.colors.seatSelectedBorder}` : '2px solid transparent',
         }}
@@ -101,16 +104,16 @@ export default function MicSeat({
           </>
         )}
 
-        {/* ── Seat Number Badge (top-left pill) ── */}
+        {/* ── Seat Number Badge (top-left pill) — responsive ── */}
         <span
           className="absolute -top-0.5 -left-0.5 flex items-center justify-center rounded-full z-10 pointer-events-none select-none"
           style={{
-            minWidth: 16,
-            height: 14,
-            padding: '0 4px',
+            minWidth: 'clamp(14px, 3.5vw, 16px)',
+            height: 'clamp(12px, 3vw, 14px)',
+            padding: '0 3px',
             backgroundColor: 'rgba(0,0,0,0.5)',
-            fontSize: 10,
-            lineHeight: '14px',
+            fontSize: 'clamp(8px, 2.2vw, 10px)',
+            lineHeight: 'clamp(12px, 3vw, 14px)',
             color: '#fff',
             fontWeight: 500,
           }}
@@ -123,13 +126,13 @@ export default function MicSeat({
           <>
             {isLocked ? (
               <Lock
-                size={TUI.dim.seatIconSize}
+                size="clamp(20px, 6vw, 28px)"
                 style={{ color: TUI.colors.G5 }}
                 strokeWidth={1.5}
               />
             ) : (
               <Mic
-                size={TUI.dim.seatIconSize}
+                size="clamp(20px, 6vw, 28px)"
                 style={{ color: TUI.colors.G5 }}
                 strokeWidth={1.5}
               />
@@ -140,12 +143,12 @@ export default function MicSeat({
         {/* ── Occupied State — Avatar ── */}
         {isOccupied && (
           <>
-            {/* Avatar circle (40px) */}
+            {/* Avatar circle (responsive: 32–40px) */}
             <div
               className="relative flex items-center justify-center rounded-full overflow-hidden"
               style={{
-                width: 40,
-                height: 40,
+                width: 'clamp(32px, 10vw, 40px)',
+                height: 'clamp(32px, 10vw, 40px)',
                 border: `2px solid ${isSpeaking ? TUI.colors.green : 'transparent'}`,
               }}
             >
@@ -160,11 +163,11 @@ export default function MicSeat({
                 <span
                   className="flex items-center justify-center rounded-full select-none"
                   style={{
-                    width: 40,
-                    height: 40,
+                    width: 'clamp(32px, 10vw, 40px)',
+                    height: 'clamp(32px, 10vw, 40px)',
                     backgroundColor: palette?.bg || '#eff6ff',
                     color: palette?.text || '#2563eb',
-                    fontSize: 16,
+                    fontSize: 'clamp(14px, 4vw, 16px)',
                     fontWeight: 600,
                   }}
                 >
@@ -178,8 +181,8 @@ export default function MicSeat({
               <span
                 className="absolute -bottom-0.5 -right-0.5 flex items-center justify-center rounded-full z-10"
                 style={{
-                  width: 16,
-                  height: 16,
+                  width: 'clamp(14px, 3.5vw, 16px)',
+                  height: 'clamp(14px, 3.5vw, 16px)',
                   backgroundColor: TUI.colors.red,
                 }}
               >
@@ -192,8 +195,8 @@ export default function MicSeat({
               <span
                 className="absolute -top-0.5 -right-0.5 flex items-center justify-center z-10"
                 style={{
-                  width: 16,
-                  height: 16,
+                  width: 'clamp(14px, 3.5vw, 16px)',
+                  height: 'clamp(14px, 3.5vw, 16px)',
                 }}
               >
                 <Crown size={14} fill="#f59e0b" stroke="#f59e0b" strokeWidth={1} />
@@ -203,11 +206,12 @@ export default function MicSeat({
         )}
       </div>
 
-      {/* ── User Name Below Seat ── */}
+      {/* ── User Name Below Seat (responsive max-width) ── */}
       <span
-        className="max-w-[60px] text-center leading-tight select-none"
+        className="text-center leading-tight select-none"
         style={{
-          fontSize: 12,
+          maxWidth: 'clamp(45px, 12vw, 60px)',
+          fontSize: 'clamp(10px, 2.8vw, 12px)',
           color: TUI.colors.G6,
           overflow: 'hidden',
           textOverflow: 'ellipsis',

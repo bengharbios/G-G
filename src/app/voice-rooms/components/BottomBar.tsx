@@ -10,6 +10,8 @@ import { TUI } from '../types';
    Owner: Settings + Seat Management (with red badge)
    Audience: Gift + Like (red) + Link Mic (dynamic states)
    Audience on seat: Barrage input + Mute mic toggle
+
+   Responsive: safe-area-inset-bottom, 44px min touch targets, clamp sizing
    ═══════════════════════════════════════════════════════════════════════ */
 
 interface BottomBarProps {
@@ -27,7 +29,7 @@ interface BottomBarProps {
   pendingSeatRequests: number;
 }
 
-/* ── Shared round button wrapper (28px icon circle) ── */
+/* ── Shared round button wrapper with 44px min touch target ── */
 function RoundBtn({
   icon,
   bg,
@@ -35,6 +37,7 @@ function RoundBtn({
   badge,
   onClick,
   className = '',
+  iconSize = 18,
 }: {
   icon: React.ReactNode;
   bg: string;
@@ -42,14 +45,17 @@ function RoundBtn({
   badge?: number;
   onClick?: () => void;
   className?: string;
+  iconSize?: number;
 }) {
   return (
     <button
       onClick={onClick}
-      className={`relative flex-shrink-0 rounded-full flex items-center justify-center cursor-pointer ${className}`}
+      className={`relative flex-shrink-0 rounded-full flex items-center justify-center cursor-pointer touch-manipulation ${className}`}
       style={{
-        width: TUI.dim.btnIconSize,
-        height: TUI.dim.btnIconSize,
+        width: 'clamp(40px, 11vw, 44px)',
+        height: 'clamp(40px, 11vw, 44px)',
+        minWidth: 40,
+        minHeight: 40,
         backgroundColor: bg,
         transition: TUI.anim.fast,
       }}
@@ -96,135 +102,145 @@ export default function BottomBar({
     <div
       className="fixed flex items-end justify-end"
       style={{
-        right: `${TUI.dim.bottomBarRight}px`,
-        bottom: `${TUI.dim.bottomBarBottom}px`,
+        right: 'clamp(12px, 4vw, 27px)',
+        bottom: 'clamp(16px, 5vh, 36px)',
         zIndex: 50,
+        paddingBottom: 'env(safe-area-inset-bottom, 0px)',
       }}
     >
-      {isOwner ? (
-        /* ══════════════════════════════════════════════════════════════
-           OWNER LAYOUT — 2 buttons right-aligned
-           ══════════════════════════════════════════════════════════════ */
-        <div className="flex items-center" style={{ gap: TUI.dim.btnSpacing }}>
-          {/* Settings button */}
-          <RoundBtn
-            icon={<Settings2 size={18} style={{ color: TUI.colors.white }} />}
-            bg="rgba(255,255,255,0.15)"
-            iconColor={TUI.colors.white}
-            onClick={onOpenSettings}
-          />
-
-          {/* Seat Management button */}
-          <RoundBtn
-            icon={<Users size={18} style={{ color: TUI.colors.white }} />}
-            bg="rgba(255,255,255,0.15)"
-            iconColor={TUI.colors.white}
-            badge={pendingSeatRequests}
-            onClick={onOpenSeatManagement}
-          />
-        </div>
-      ) : (
-        /* ══════════════════════════════════════════════════════════════
-           AUDIENCE LAYOUT — 3 buttons right-aligned + barrage + mute
-           ══════════════════════════════════════════════════════════════ */
-        <div className="flex items-center" style={{ gap: TUI.dim.btnSpacing }}>
-          {/* Gift button */}
-          <div
-            className="flex flex-col items-center gap-1"
-            style={{ height: TUI.dim.audienceBtnH }}
-          >
+      {/* Wrap in a max-width container to prevent overflow */}
+      <div className="flex items-end max-w-[calc(100vw-32px)]" style={{ gap: 'clamp(8px, 3vw, 16px)' }}>
+        {isOwner ? (
+          /* ══════════════════════════════════════════════════════════════
+             OWNER LAYOUT — 2 buttons right-aligned
+             ══════════════════════════════════════════════════════════════ */
+          <div className="flex items-center" style={{ gap: 'clamp(10px, 3vw, 16px)' }}>
+            {/* Settings button */}
             <RoundBtn
-              icon={<Gift size={16} style={{ color: TUI.colors.white }} />}
+              icon={<Settings2 size={18} style={{ color: TUI.colors.white }} />}
               bg="rgba(255,255,255,0.15)"
               iconColor={TUI.colors.white}
-              onClick={onOpenGift}
+              onClick={onOpenSettings}
             />
-          </div>
 
-          {/* Like button — TUILiveKit red heart */}
-          <div
-            className="flex flex-col items-center gap-1"
-            style={{ height: TUI.dim.audienceBtnH }}
-          >
+            {/* Seat Management button */}
             <RoundBtn
-              icon={<Heart size={16} fill={TUI.colors.white} style={{ color: TUI.colors.white }} />}
-              bg={TUI.colors.likeRed}
+              icon={<Users size={18} style={{ color: TUI.colors.white }} />}
+              bg="rgba(255,255,255,0.15)"
               iconColor={TUI.colors.white}
-              onClick={onLike}
+              badge={pendingSeatRequests}
+              onClick={onOpenSeatManagement}
             />
           </div>
+        ) : (
+          /* ══════════════════════════════════════════════════════════════
+             AUDIENCE LAYOUT — 3 buttons right-aligned + barrage + mute
+             ══════════════════════════════════════════════════════════════ */
+          <div className="flex items-center" style={{ gap: 'clamp(8px, 3vw, 16px)' }}>
+            {/* Gift button */}
+            <div
+              className="flex flex-col items-center gap-1 touch-manipulation"
+              style={{ minHeight: 44 }}
+            >
+              <RoundBtn
+                icon={<Gift size={16} style={{ color: TUI.colors.white }} />}
+                bg="rgba(255,255,255,0.15)"
+                iconColor={TUI.colors.white}
+                onClick={onOpenGift}
+              />
+            </div>
 
-          {/* Link Mic button — dynamic states */}
-          <div
-            className="flex flex-col items-center justify-center gap-0.5 cursor-pointer"
-            style={{ height: TUI.dim.audienceBtnH }}
-            onClick={
-              isOnSeat
-                ? onLeaveSeat
-                : isApplyingSeat
-                  ? onLeaveSeat /* cancel application */
-                  : onRequestSeat
-            }
-          >
-            {isApplyingSeat ? (
-              /* ── Applying state: spinning loader ── */
-              <>
-                <div
-                  className="rounded-full flex items-center justify-center"
-                  style={{
-                    width: TUI.dim.btnIconSize,
-                    height: TUI.dim.btnIconSize,
-                    backgroundColor: 'rgba(255,255,255,0.15)',
-                  }}
-                >
-                  <Loader2
-                    size={18}
-                    style={{ color: TUI.colors.white }}
-                    className="animate-spin"
-                  />
-                </div>
-                <span style={{ fontSize: TUI.font.captionG6.size, color: TUI.colors.G6 }}>
-                  إلغاء
-                </span>
-              </>
-            ) : isOnSeat ? (
-              /* ── On seat state: green bg + MicOff + "إنهاء" ── */
-              <>
-                <div
-                  className="rounded-full flex items-center justify-center"
-                  style={{
-                    width: TUI.dim.btnIconSize,
-                    height: TUI.dim.btnIconSize,
-                    backgroundColor: TUI.colors.green,
-                  }}
-                >
-                  <MicOff size={18} style={{ color: TUI.colors.white }} />
-                </div>
-                <span style={{ fontSize: TUI.font.captionG6.size, color: TUI.colors.white }}>
-                  إنهاء
-                </span>
-              </>
-            ) : (
-              /* ── Not on seat, not applying: mic icon + "صالة" ── */
-              <>
-                <div
-                  className="rounded-full flex items-center justify-center"
-                  style={{
-                    width: TUI.dim.btnIconSize,
-                    height: TUI.dim.btnIconSize,
-                    backgroundColor: 'rgba(255,255,255,0.15)',
-                  }}
-                >
-                  <Mic size={18} style={{ color: TUI.colors.white }} />
-                </div>
-                <span style={{ fontSize: TUI.font.captionG6.size, color: TUI.colors.G6 }}>
-                  صالة
-                </span>
-              </>
-            )}
+            {/* Like button — TUILiveKit red heart */}
+            <div
+              className="flex flex-col items-center gap-1 touch-manipulation"
+              style={{ minHeight: 44 }}
+            >
+              <RoundBtn
+                icon={<Heart size={16} fill={TUI.colors.white} style={{ color: TUI.colors.white }} />}
+                bg={TUI.colors.likeRed}
+                iconColor={TUI.colors.white}
+                onClick={onLike}
+              />
+            </div>
+
+            {/* Link Mic button — dynamic states */}
+            <div
+              className="flex flex-col items-center justify-center gap-0.5 cursor-pointer touch-manipulation"
+              style={{ minHeight: 44 }}
+              onClick={
+                isOnSeat
+                  ? onLeaveSeat
+                  : isApplyingSeat
+                    ? onLeaveSeat /* cancel application */
+                    : onRequestSeat
+              }
+            >
+              {isApplyingSeat ? (
+                /* ── Applying state: spinning loader ── */
+                <>
+                  <div
+                    className="rounded-full flex items-center justify-center"
+                    style={{
+                      width: 'clamp(40px, 11vw, 44px)',
+                      height: 'clamp(40px, 11vw, 44px)',
+                      minWidth: 40,
+                      minHeight: 40,
+                      backgroundColor: 'rgba(255,255,255,0.15)',
+                    }}
+                  >
+                    <Loader2
+                      size={18}
+                      style={{ color: TUI.colors.white }}
+                      className="animate-spin"
+                    />
+                  </div>
+                  <span style={{ fontSize: 'clamp(10px, 2.5vw, 12px)', color: TUI.colors.G6 }}>
+                    إلغاء
+                  </span>
+                </>
+              ) : isOnSeat ? (
+                /* ── On seat state: green bg + MicOff + "إنهاء" ── */
+                <>
+                  <div
+                    className="rounded-full flex items-center justify-center"
+                    style={{
+                      width: 'clamp(40px, 11vw, 44px)',
+                      height: 'clamp(40px, 11vw, 44px)',
+                      minWidth: 40,
+                      minHeight: 40,
+                      backgroundColor: TUI.colors.green,
+                    }}
+                  >
+                    <MicOff size={18} style={{ color: TUI.colors.white }} />
+                  </div>
+                  <span style={{ fontSize: 'clamp(10px, 2.5vw, 12px)', color: TUI.colors.white }}>
+                    إنهاء
+                  </span>
+                </>
+              ) : (
+                /* ── Not on seat, not applying: mic icon + "صالة" ── */
+                <>
+                  <div
+                    className="rounded-full flex items-center justify-center"
+                    style={{
+                      width: 'clamp(40px, 11vw, 44px)',
+                      height: 'clamp(40px, 11vw, 44px)',
+                      minWidth: 40,
+                      minHeight: 40,
+                      backgroundColor: 'rgba(255,255,255,0.15)',
+                    }}
+                  >
+                    <Mic size={18} style={{ color: TUI.colors.white }} />
+                  </div>
+                  <span style={{ fontSize: 'clamp(10px, 2.5vw, 12px)', color: TUI.colors.G6 }}>
+                    صالة
+                  </span>
+                </>
+              )}
+            </div>
           </div>
-        </div>
-      )}
+        )}
+      </div>
 
       {/* ══════════════════════════════════════════════════════════════
           AUDIENCE ON SEAT — Barrage input + Mute mic (positioned left)
@@ -233,16 +249,19 @@ export default function BottomBar({
         <>
           {/* Barrage input — bottom left */}
           <div
-            className="absolute flex items-center cursor-pointer"
+            className="absolute flex items-center cursor-pointer touch-manipulation"
             style={{
-              bottom: TUI.dim.barrageInputBottom,
-              left: TUI.dim.barrageInputLeft,
-              width: TUI.dim.barrageInputW,
-              height: TUI.dim.barrageInputH,
+              bottom: 'clamp(16px, 5vh, 36px)',
+              left: 'clamp(12px, 4vw, 15px)',
+              width: 'clamp(100px, 35vw, 130px)',
+              maxWidth: 'calc(100vw - 200px)',
+              height: 'clamp(32px, 9vw, 36px)',
+              minHeight: 36,
               backgroundColor: 'rgba(255,255,255,0.1)',
               border: '1px solid rgba(255,255,255,0.15)',
               borderRadius: 18,
               padding: '0 12px',
+              paddingBottom: 'env(safe-area-inset-bottom, 0px)',
             }}
             onClick={() => {
               /* Opens chat input — placeholder for now */
@@ -255,7 +274,7 @@ export default function BottomBar({
             <span
               className="truncate flex-1"
               style={{
-                fontSize: TUI.font.captionG5.size,
+                fontSize: 'clamp(11px, 2.8vw, 12px)',
                 color: TUI.colors.G5,
                 pointerEvents: 'none',
               }}
@@ -267,12 +286,14 @@ export default function BottomBar({
           {/* Mute mic toggle — positioned left of barrage */}
           <button
             onClick={onToggleMic}
-            className="absolute flex-shrink-0 rounded-full flex items-center justify-center cursor-pointer"
+            className="absolute flex-shrink-0 rounded-full flex items-center justify-center cursor-pointer touch-manipulation"
             style={{
-              bottom: TUI.dim.muteMicBottom,
-              left: `${TUI.dim.muteMicLeft}px`,
-              width: TUI.dim.muteMicSize,
-              height: TUI.dim.muteMicSize,
+              bottom: 'clamp(16px, 5vh, 38px)',
+              left: 'clamp(120px, 40vw, 153px)',
+              width: 'clamp(36px, 10vw, 44px)',
+              height: 'clamp(36px, 10vw, 44px)',
+              minWidth: 36,
+              minHeight: 36,
               backgroundColor: 'transparent',
               border: '1px solid rgba(255,255,255,0.1)',
               transition: TUI.anim.fast,
