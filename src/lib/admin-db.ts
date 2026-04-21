@@ -584,6 +584,19 @@ async function ensureAdminTables(): Promise<void> {
     }
   }
 
+  // Migration: fix old rooms with micTheme='default' → auto-select based on micSeatCount
+  try {
+    await c.execute("UPDATE VoiceRoom SET micTheme = 'grid2x2' WHERE micTheme = 'default' AND micSeatCount = 4");
+    await c.execute("UPDATE VoiceRoom SET micTheme = 'grid2x3' WHERE micTheme = 'default' AND micSeatCount = 6");
+    await c.execute("UPDATE VoiceRoom SET micTheme = 'grid2x4' WHERE (micTheme = 'default' OR micTheme IS NULL) AND micSeatCount = 8");
+    await c.execute("UPDATE VoiceRoom SET micTheme = 'grid3x3' WHERE micTheme = 'default' AND micSeatCount = 9");
+    await c.execute("UPDATE VoiceRoom SET micTheme = 'arc' WHERE micTheme = 'default' AND micSeatCount = 10");
+    // Fallback: any remaining 'default' rooms → grid2x4 (most common)
+    await c.execute("UPDATE VoiceRoom SET micTheme = 'grid2x4' WHERE micTheme = 'default' OR micTheme IS NULL");
+    // Also fix rooms where micTheme is empty string
+    await c.execute("UPDATE VoiceRoom SET micTheme = 'grid2x4' WHERE micTheme = ''");
+  } catch { /* ignore */ }
+
   // Migration: add vipLevel to AppUser
   try {
     const auCols = await c.execute('PRAGMA table_info(AppUser)');
