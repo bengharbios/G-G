@@ -3231,17 +3231,20 @@ export async function toggleMicInRoom(roomId: string, userId: string): Promise<b
   return !current;
 }
 
-export async function sendGiftInRoom(roomId: string, giftId: string, fromUserId: string, toUserId: string | undefined, quantity?: number): Promise<{ success: boolean; newBalance: number; error?: string }> {
+export async function sendGiftInRoom(roomId: string, giftId: string, fromUserId: string, toUserId: string | undefined, quantity?: number, unitPrice?: number): Promise<{ success: boolean; newBalance: number; error?: string }> {
   const c = getClient();
   await ensureAdminTables();
   const qty = quantity || 1;
 
-  // Look up the gift price
-  const giftResult = await c.execute({ sql: 'SELECT price FROM Gift WHERE id = ? AND isActive = 1', args: [giftId] });
-  if (giftResult.rows.length === 0) {
-    return { success: false, newBalance: 0, error: 'الهدية غير موجودة' };
+  // Use provided unitPrice, or look up from DB
+  let price = unitPrice || 0;
+  if (!price) {
+    const giftResult = await c.execute({ sql: 'SELECT price FROM Gift WHERE id = ? AND isActive = 1', args: [giftId] });
+    if (giftResult.rows.length === 0) {
+      return { success: false, newBalance: 0, error: 'الهدية غير موجودة' };
+    }
+    price = Number(giftResult.rows[0].price) || 0;
   }
-  const price = Number(giftResult.rows[0].price) || 0;
   const totalCost = price * qty;
 
   if (totalCost <= 0) {

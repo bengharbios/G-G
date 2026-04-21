@@ -236,8 +236,8 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     }
 
     if (action === 'gift') {
-      const { giftId, toUserId, quantity } = await request.json();
-      const result = await sendGiftInRoom(id, giftId, userId, toUserId, quantity || 1);
+      const { giftId, toUserId, quantity, unitPrice } = await request.json();
+      const result = await sendGiftInRoom(id, giftId, userId, toUserId, quantity || 1, unitPrice ? Number(unitPrice) : undefined);
       if (!result.success) {
         return NextResponse.json({ success: false, error: result.error }, { status: 400 });
       }

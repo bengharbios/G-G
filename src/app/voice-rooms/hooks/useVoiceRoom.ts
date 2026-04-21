@@ -420,7 +420,10 @@ export function useVoiceRoom(
     try {
       const toUserId = target === 'specific' ? (specificUserId || profileSheet?.userId) : undefined;
       if (target === 'specific' && !toUserId) return;
-      const body: Record<string, unknown> = { giftId };
+      // Look up gift price from DEFAULT_GIFTS (client-side hardcoded) since DB uses different IDs
+      const giftData = DEFAULT_GIFTS.find(g => g.id === giftId) || (gifts.length > 0 ? gifts.find(g => g.id === giftId) : undefined);
+      const unitPrice = giftData?.price || 0;
+      const body: Record<string, unknown> = { giftId, unitPrice };
       if (toUserId) body.toUserId = toUserId;
       if (quantity && quantity > 1) body.quantity = quantity;
       const res = await fetch("/api/voice-rooms/" + roomId + "?action=gift", {
@@ -429,48 +432,52 @@ export function useVoiceRoom(
         body: JSON.stringify(body),
       });
       const data = await res.json();
-      if (data.success) {
-        const giftData = (gifts.length > 0 ? gifts : DEFAULT_GIFTS).find(g => g.id === giftId);
-        const totalCost = (giftData?.price || 0) * (quantity || 1);
-        const receiverName = target === 'everyone' ? 'الجميع' : profileSheet?.displayName || 'شخص';
-
-        const giftMsg: ChatMessage = {
-          id: genId(),
-          userId: authUser.id,
-          displayName: authUser.displayName,
-          avatar: authUser.avatar,
-          text: quantity && quantity > 1
-            ? "⭐ " + authUser.displayName + " أرسل " + (quantity) + "× " + (giftData?.nameAr || 'هدية') + " " + (target === 'everyone' ? 'للجميع' : "لـ " + receiverName)
-            : "⭐ " + authUser.displayName + " أرسل " + (giftData?.nameAr || 'هدية') + " " + (target === 'everyone' ? 'للجميع' : "لـ " + receiverName),
-          time: new Date().toLocaleTimeString('ar-SA', { hour: '2-digit', minute: '2-digit' }),
-          isGift: true,
-          giftEmoji: giftData?.emoji,
-          giftAnimation: giftData?.animation,
-        };
-        setChatMessages(prev => [...prev, giftMsg]);
-
-        if (giftData && giftData.animation && giftData.animation !== 'none') {
-          const anim: ActiveGiftAnimation = {
-            id: genId(),
-            emoji: giftData.emoji,
-            senderName: authUser.displayName,
-            receiverName: receiverName,
-            giftName: giftData.nameAr,
-            animation: giftData.animation,
-            price: totalCost,
-            timestamp: Date.now(),
-          };
-          setActiveGiftAnimation(anim);
-          const clearDelay = totalCost >= 5200 ? 4000 : totalCost >= 199 ? 3000 : 2000;
-          setTimeout(() => setActiveGiftAnimation(null), clearDelay);
-        }
-
-        toast({ title: 'تم إرسال الهدية! 🎉' });
-        fetchMyGemsBalance();
-        fetchWeeklyGems();
-        fetchTopGifts();
+      if (!data.success) {
+        toast({ title: data.error || 'فشل إرسال الهدية', description: 'حاول مرة أخرى' });
+        return;
       }
-    } catch { /* ignore */ }
+      const totalCost = unitPrice * (quantity || 1);
+      const receiverName = target === 'everyone' ? 'الجميع' : profileSheet?.displayName || 'شخص';
+
+      const giftMsg: ChatMessage = {
+        id: genId(),
+        userId: authUser.id,
+        displayName: authUser.displayName,
+        avatar: authUser.avatar,
+        text: quantity && quantity > 1
+          ? "⭐ " + authUser.displayName + " أرسل " + (quantity) + "× " + (giftData?.nameAr || 'هدية') + " " + (target === 'everyone' ? 'للجميع' : "لـ " + receiverName)
+          : "⭐ " + authUser.displayName + " أرسل " + (giftData?.nameAr || 'هدية') + " " + (target === 'everyone' ? 'للجميع' : "لـ " + receiverName),
+        time: new Date().toLocaleTimeString('ar-SA', { hour: '2-digit', minute: '2-digit' }),
+        isGift: true,
+        giftEmoji: giftData?.emoji,
+        giftAnimation: giftData?.animation,
+      };
+      setChatMessages(prev => [...prev, giftMsg]);
+
+      if (giftData && giftData.animation && giftData.animation !== 'none') {
+        const anim: ActiveGiftAnimation = {
+          id: genId(),
+          emoji: giftData.emoji,
+          senderName: authUser.displayName,
+          receiverName: receiverName,
+          giftName: giftData.nameAr,
+          animation: giftData.animation,
+          price: totalCost,
+          timestamp: Date.now(),
+        };
+        setActiveGiftAnimation(anim);
+        const clearDelay = totalCost >= 5200 ? 4000 : totalCost >= 199 ? 3000 : 2000;
+        setTimeout(() => setActiveGiftAnimation(null), clearDelay);
+      }
+
+      toast({ title: 'تم إرسال الهدية! 🎉' });
+      fetchMyGemsBalance();
+      fetchWeeklyGems();
+      fetchTopGifts();
+    } catch (err) {
+      console.error('[Gift Send Error]', err);
+      toast({ title: 'فشل إرسال الهدية', description: 'حاول مرة أخرى' });
+    }
   }, [roomId, authUser, gifts, profileSheet, toast, fetchWeeklyGems, fetchTopGifts, fetchMyGemsBalance]);
 
   /* ── Seat click handler ── */
