@@ -206,3 +206,24 @@ Stage Summary:
 - SettingsSheet.tsx NOT modified (locked per user request)
 - All voice-rooms changes compile without new TypeScript errors
 - 2 pre-existing TS errors remain (MicMenuSheet.tsx, SeatManagementSheet.tsx)
+---
+Task ID: 1
+Agent: Main Agent
+Task: Add mic layout selector accessible from room interior (owner can change mic seat style inside room)
+
+Work Log:
+- User reported they couldn't find where to change mic layout styles from inside the room
+- Created MicLayoutSheet.tsx: a bottom sheet with seat count selector + layout style grid with visual previews
+- Supports all 8 layout types: grid2x2, grid2x3, grid2x4, grid3x3, arc, theater, radio, podcast
+- Dynamic filtering shows only layouts compatible with selected seat count
+- Added "نمط المايكات" menu item to ThreeDotsMenu (LayoutGrid icon, owner only)
+- Wired handleMicLayoutChange to call handleUpdateSettings({ micTheme }) on server
+- Wired handleSeatCountChange to call handleUpdateSettings({ micSeatCount }) and re-fetch participants
+- ESLint passes with 0 errors in voice-rooms files
+- Pushed to GitHub as commit c30b9bf
+
+Stage Summary:
+- New file: src/app/voice-rooms/components/sheets/MicLayoutSheet.tsx
+- Modified: src/app/voice-rooms/components/RoomInteriorView.tsx
+- Room owners can now change mic seat layout from the three-dots menu (⋮ → نمط المايكات)
+- Seat count and layout style changes persist on server and apply instantly
