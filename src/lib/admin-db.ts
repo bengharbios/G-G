@@ -181,11 +181,13 @@ let _tablesReady = false;
 function getClient(): Client {
   if (_client) return _client;
 
-  const dbUrl =
-    process.env.TURSO_DATABASE_URL ||
-    process.env.DATABASE_URL ||
-    'file:db/data.db';
+  // Local dev: use DATABASE_URL (local file) — fast
+  // Vercel/production: TURSO_DATABASE_URL takes priority when DATABASE_URL is not a file
+  const tursoUrl = process.env.TURSO_DATABASE_URL;
+  const localUrl = process.env.DATABASE_URL || 'file:db/data.db';
 
+  // Use Turso only if explicitly set AND we're NOT in local dev (no file: prefix)
+  const dbUrl = (tursoUrl && !localUrl.startsWith('file:')) ? tursoUrl : localUrl;
   const isRemote = dbUrl.startsWith('libsql://');
 
   _client = createClient({
