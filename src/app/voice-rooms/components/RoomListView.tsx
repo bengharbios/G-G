@@ -532,8 +532,9 @@ function RoomCard({ room, onClick }: { room: VoiceRoom; onClick: () => void }) {
 
   return (
     <div
-      className="flex flex-col rounded-xl overflow-hidden cursor-pointer transition-all active:scale-[0.97] h-full"
+      className="flex flex-col rounded-xl overflow-hidden cursor-pointer transition-all active:scale-[0.97]"
       style={{
+        aspectRatio: '1/1',
         backgroundColor: 'rgba(255,255,255,0.12)',
         backdropFilter: 'blur(8px)',
         border: '1px solid rgba(255,255,255,0.1)',
@@ -541,51 +542,45 @@ function RoomCard({ room, onClick }: { room: VoiceRoom; onClick: () => void }) {
       }}
       onClick={onClick}
     >
-      {/* ── Cover Image Area ── */}
-      <div className="relative w-full" style={{ aspectRatio: '16/10' }}>
-        {room.roomImage ? (
+      {/* ── Cover Area (square, shows room avatar as main image) ── */}
+      <div className="relative w-full flex-1">
+        {/* Background gradient fallback */}
+        <div
+          className="absolute inset-0"
+          style={{ background: getRoomGradient(room.micTheme) }}
+        />
+
+        {/* Room Avatar — main image */}
+        {room.roomAvatar ? (
+          <img
+            src={room.roomAvatar}
+            alt={room.name}
+            className="absolute inset-0 w-full h-full object-cover"
+            draggable={false}
+            loading="lazy"
+          />
+        ) : room.roomImage ? (
           <img
             src={room.roomImage}
             alt={room.name}
-            className="w-full h-full object-cover"
+            className="absolute inset-0 w-full h-full object-cover"
+            draggable={false}
+            loading="lazy"
           />
         ) : (
           <div
-            className="w-full h-full flex items-center justify-center"
-            style={{ background: getRoomGradient(room.micTheme) }}
+            className="absolute inset-0 flex items-center justify-center"
           >
-            <Mic size={24} style={{ color: 'rgba(255,255,255,0.5)' }} />
+            <Mic size={28} style={{ color: 'rgba(255,255,255,0.4)' }} />
           </div>
         )}
 
-        {/* Room Avatar (bottom-right overlay) */}
-        {room.roomAvatar && (
-          <div
-            className="absolute bottom-2 left-2 rounded-full overflow-hidden flex items-center justify-center"
-            style={{
-              width: 32,
-              height: 32,
-              border: '2px solid rgba(255,255,255,0.8)',
-              boxShadow: '0 2px 8px rgba(0,0,0,0.3)',
-              zIndex: 2,
-            }}
-          >
-            <img
-              src={room.roomAvatar}
-              alt={room.name}
-              className="w-full h-full object-cover rounded-full"
-              draggable={false}
-              loading="lazy"
-            />
-          </div>
-        )}
-
-        {/* Gradient overlay at bottom of cover */}
+        {/* Gradient overlay at bottom */}
         <div
           className="absolute inset-x-0 bottom-0"
           style={{
-            height: '50%',
-            background: 'linear-gradient(transparent, rgba(0,0,0,0.6))',
+            height: '55%',
+            background: 'linear-gradient(transparent, rgba(0,0,0,0.65))',
           }}
         />
 
@@ -619,59 +614,48 @@ function RoomCard({ room, onClick }: { room: VoiceRoom; onClick: () => void }) {
           <Users size={10} />
           {room.participantCount || 0}
         </div>
-      </div>
 
-      {/* ── Room Info ── */}
-      <div className="flex flex-col gap-1.5 p-2.5 flex-1">
-        {/* Room Name */}
-        <p
-          className="truncate leading-tight"
-          style={{
-            fontSize: 'clamp(12px, 3.2vw, 14px)',
-            fontWeight: 600,
-            color: TUI.colors.white,
-          }}
-        >
-          {room.name}
-        </p>
-
-        {/* Host + Mode badge */}
-        <div className="flex items-center gap-1.5">
-          <span
-            className="truncate"
-            style={{
-              fontSize: 'clamp(10px, 2.6vw, 11px)',
-              color: 'rgba(255,255,255,0.5)',
-            }}
-          >
-            {room.hostName}
-          </span>
-          <span
-            className="flex-shrink-0 inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full"
-            style={{
-              fontSize: 8,
-              fontWeight: 600,
-              color: mode.color,
-              backgroundColor: `${mode.color}20`,
-            }}
-          >
-            <ModeIcon size={8} />
-            {mode.label}
-          </span>
-        </div>
-
-        {/* Description (if available) */}
-        {room.description && (
+        {/* ── Room Info (overlaid at bottom) ── */}
+        <div className="absolute bottom-0 inset-x-0 p-2.5">
+          {/* Room Name */}
           <p
-            className="truncate leading-tight"
+            className="truncate leading-tight mb-1"
             style={{
-              fontSize: 'clamp(10px, 2.4vw, 11px)',
-              color: 'rgba(255,255,255,0.35)',
+              fontSize: 'clamp(12px, 3.2vw, 14px)',
+              fontWeight: 600,
+              color: TUI.colors.white,
+              textShadow: '0 1px 3px rgba(0,0,0,0.4)',
             }}
           >
-            {room.description}
+            {room.name}
           </p>
-        )}
+
+          {/* Host + Mode badge */}
+          <div className="flex items-center gap-1.5">
+            <span
+              className="truncate"
+              style={{
+                fontSize: 'clamp(10px, 2.6vw, 11px)',
+                color: 'rgba(255,255,255,0.7)',
+                textShadow: '0 1px 2px rgba(0,0,0,0.3)',
+              }}
+            >
+              {room.hostName}
+            </span>
+            <span
+              className="flex-shrink-0 inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full"
+              style={{
+                fontSize: 8,
+                fontWeight: 600,
+                color: mode.color,
+                backgroundColor: 'rgba(0,0,0,0.45)',
+              }}
+            >
+              <ModeIcon size={8} />
+              {mode.label}
+            </span>
+          </div>
+        </div>
       </div>
     </div>
   );

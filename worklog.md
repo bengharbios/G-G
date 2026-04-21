@@ -258,3 +258,24 @@ Stage Summary:
 - All 5 patterns available in SettingsSheet's existing "نمط المايك" section
 - MicSeatGrid renders each pattern correctly in the room interior
 - DB migration handles old rooms and legacy theme IDs
+---
+Task ID: 1
+Agent: Main Agent
+Task: Fix lobby room cards - show room avatar not background, make cards square
+
+Work Log:
+- User reported: lobby cards show background image but should show room avatar (profile image)
+- User reported: room cards are too tall, need square cards so 2 fit per row
+- Updated RoomCard in RoomListView.tsx:
+  - Changed card to use `aspectRatio: '1/1'` for square shape
+  - Changed image priority: `roomAvatar` first, then `roomImage` fallback, then gradient + mic icon
+  - Moved room info (name, host, mode badge) to overlay at bottom of card instead of separate section
+  - Added text-shadow for readability over images
+  - Removed separate info section — all content overlaid on the image
+- Dev server running with no errors
+
+Stage Summary:
+- Room cards are now square (1:1 aspect ratio) — 2 cards fit perfectly per row
+- Room avatar is shown as the main image (falls back to roomImage if no avatar)
+- Room info overlaid at bottom with gradient + text-shadow for readability
+- No new lint errors
