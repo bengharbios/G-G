@@ -517,6 +517,7 @@ export function useVoiceRoom(
     const { seatIndex, participant } = micMenuSheetRef.current;
     switch (action) {
       case 'view-profile':
+      case 'profile':
         if (participant) setProfileSheet(participant);
         break;
       case 'take-seat':
