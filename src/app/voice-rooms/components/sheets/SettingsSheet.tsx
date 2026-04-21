@@ -19,7 +19,7 @@ import {
   ScrollText,
   Sparkles,
 } from 'lucide-react';
-import BottomSheetOverlay from '../shared/BottomSheetOverlay';
+// SettingsSheet renders directly as a full overlay (no BottomSheetOverlay wrapper to avoid double-window effect)
 import { TUI, type VoiceRoom } from '../../types';
 
 /* ═══════════════════════════════════════════════════════════════════════
@@ -754,242 +754,272 @@ export default function SettingsSheet({
 
   return (
     <>
-      {/* ── Main Settings Sheet ── */}
-      <BottomSheetOverlay
-        isOpen={isOpen}
-        onClose={onClose}
-        height="75%"
-        title=""
-        zIndex={50}
-      >
-        {/* Override the default content — custom teal design */}
-        <div
-          className="flex flex-col h-full"
-          style={{ direction: 'rtl' }}
+    <AnimatePresence>
+      {isOpen && (
+        <motion.div
+          className="fixed inset-0 z-50 flex items-end justify-center"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.2 }}
         >
-          {/* ── Teal Header with gradient ── */}
+          {/* Backdrop */}
           <div
-            className="flex items-center justify-center relative shrink-0"
+            className="absolute inset-0"
+            style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}
+            onClick={onClose}
+          />
+
+          {/* Settings Panel */}
+          <motion.div
+            className="relative w-full flex flex-col"
             style={{
-              height: 56,
-              background: `linear-gradient(135deg, ${TUI.colors.tealDark}, ${TUI.colors.teal}, ${TUI.colors.tealLight})`,
+              maxHeight: '80vh',
               borderTopLeftRadius: TUI.radius.xl,
               borderTopRightRadius: TUI.radius.xl,
+              overflow: 'hidden',
+              zIndex: 1,
             }}
+            initial={{ y: '100%' }}
+            animate={{ y: 0 }}
+            exit={{ y: '100%' }}
+            transition={{ type: 'tween', duration: 0.3, ease: [0.4, 0, 0.2, 1] }}
           >
-            <span
-              style={{
-                fontSize: '18px',
-                fontWeight: 700,
-                color: TUI.colors.white,
-              }}
-            >
-              الإعدادات
-            </span>
-            <button
-              onClick={onClose}
-              className="absolute left-4 flex items-center justify-center rounded-full transition-colors"
-              style={{
-                width: 32,
-                height: 32,
-                color: 'rgba(255,255,255,0.9)',
-              }}
-              aria-label="إغلاق"
-            >
-              <X size={20} />
-            </button>
-          </div>
-
-          {/* ── Scrollable Content ── */}
-          <div
-            className="flex-1 overflow-y-auto"
-            style={{
-              background: `linear-gradient(180deg, ${TUI.colors.teal} 0%, ${TUI.colors.tealDark} 100%)`,
-              padding: '16px 16px 24px',
-            }}
-          >
-            {/* ── User Profile Section ── */}
+            {/* ── Teal Header with gradient ── */}
             <div
-              className="flex items-center gap-3 p-3 mb-4"
+              className="flex items-center justify-center relative shrink-0"
               style={{
-                backgroundColor: TUI.colors.white,
-                borderRadius: TUI.radius.lg,
-                boxShadow: TUI.colors.cardShadow,
+                height: 56,
+                background: `linear-gradient(135deg, ${TUI.colors.tealDark}, ${TUI.colors.teal}, ${TUI.colors.tealLight})`,
+                borderTopLeftRadius: TUI.radius.xl,
+                borderTopRightRadius: TUI.radius.xl,
               }}
             >
-              {/* Avatar */}
+              {/* Drag indicator */}
               <div
-                className="flex items-center justify-center shrink-0"
+                className="absolute top-2"
                 style={{
-                  width: 48,
-                  height: 48,
-                  borderRadius: TUI.radius.circle,
-                  background: `linear-gradient(135deg, ${TUI.colors.teal}, ${TUI.colors.tealLight})`,
+                  width: 36,
+                  height: 4,
+                  borderRadius: 2,
+                  background: 'rgba(255,255,255,0.35)',
+                }}
+              />
+              <span
+                style={{
+                  fontSize: '18px',
+                  fontWeight: 700,
+                  color: TUI.colors.white,
                 }}
               >
-                <Crown size={22} color={TUI.colors.gold} />
-              </div>
-
-              {/* User Info */}
-              <div className="flex-1 flex flex-col gap-1">
-                <span
-                  style={{
-                    fontSize: '15px',
-                    fontWeight: 600,
-                    color: TUI.colors.textDark,
-                  }}
-                >
-                  {room.hostName || 'المالك'}
-                </span>
-                <div className="flex items-center gap-2">
-                  <span
-                    style={{
-                      fontSize: '12px',
-                      color: TUI.colors.textGray,
-                    }}
-                  >
-                    ID: {room.hostId?.slice(0, 8) || '----'}
-                  </span>
-                  <span
-                    className="flex items-center justify-center px-2 py-0.5 rounded-full"
-                    style={{
-                      backgroundColor: 'rgba(13,138,122,0.1)',
-                      fontSize: '11px',
-                      fontWeight: 600,
-                      color: TUI.colors.teal,
-                    }}
-                  >
-                    مالك
-                  </span>
-                </div>
-              </div>
-
-              {/* Tag field */}
-              <div
-                className="flex items-center justify-center shrink-0 px-3 py-1.5 rounded-full"
+                الإعدادات
+              </span>
+              <button
+                onClick={onClose}
+                className="absolute left-4 flex items-center justify-center rounded-full transition-colors"
                 style={{
-                  backgroundColor: 'rgba(255,215,0,0.15)',
-                  border: `1px solid rgba(255,215,0,0.3)`,
+                  width: 32,
+                  height: 32,
+                  color: 'rgba(255,255,255,0.9)',
                 }}
+                aria-label="إغلاق"
               >
-                <Sparkles size={14} color={TUI.colors.gold} />
-                <span
-                  style={{
-                    fontSize: '11px',
-                    fontWeight: 600,
-                    color: TUI.colors.goldDark,
-                    marginRight: 4,
-                  }}
-                >
-                  VIP
-                </span>
-              </div>
+                <X size={20} />
+              </button>
             </div>
 
-            {/* ── Settings Card Groups ── */}
-            {settingsGroups.map((group, groupIdx) => (
+            {/* ── Scrollable Content ── */}
+            <div
+              className="flex-1 overflow-y-auto"
+              style={{
+                background: `linear-gradient(180deg, ${TUI.colors.teal} 0%, ${TUI.colors.tealDark} 100%)`,
+                padding: '16px 16px 24px',
+              }}
+            >
+              {/* ── User Profile Section ── */}
               <div
-                key={groupIdx}
-                className="mb-3"
+                className="flex items-center gap-3 p-3 mb-4"
                 style={{
                   backgroundColor: TUI.colors.white,
                   borderRadius: TUI.radius.lg,
                   boxShadow: TUI.colors.cardShadow,
-                  overflow: 'hidden',
                 }}
               >
-                {group.map((row, rowIdx) => (
-                  <button
-                    key={row.id}
-                    onClick={row.onClick}
-                    className="w-full flex items-center gap-3 px-4 transition-colors active:bg-gray-50"
+                {/* Avatar */}
+                <div
+                  className="flex items-center justify-center shrink-0"
+                  style={{
+                    width: 48,
+                    height: 48,
+                    borderRadius: TUI.radius.circle,
+                    background: `linear-gradient(135deg, ${TUI.colors.teal}, ${TUI.colors.tealLight})`,
+                  }}
+                >
+                  <Crown size={22} color={TUI.colors.gold} />
+                </div>
+
+                {/* User Info */}
+                <div className="flex-1 flex flex-col gap-1">
+                  <span
                     style={{
-                      height: 56,
-                      backgroundColor: 'transparent',
-                      border: 'none',
-                      cursor: 'pointer',
-                      borderBottom:
-                        rowIdx < group.length - 1
-                          ? `1px solid ${TUI.colors.cardBorder}`
-                          : 'none',
+                      fontSize: '15px',
+                      fontWeight: 600,
+                      color: TUI.colors.textDark,
                     }}
                   >
-                    {/* Icon */}
-                    <div
-                      className="flex items-center justify-center shrink-0"
-                      style={{
-                        width: 36,
-                        height: 36,
-                        borderRadius: TUI.radius.md,
-                        backgroundColor: row.iconBg,
-                      }}
-                    >
-                      {row.icon}
-                    </div>
-
-                    {/* Label */}
+                    {room.hostName || 'المالك'}
+                  </span>
+                  <div className="flex items-center gap-2">
                     <span
-                      className="flex-1 text-right"
                       style={{
-                        fontSize: '14px',
-                        fontWeight: 500,
-                        color: TUI.colors.textDark,
+                        fontSize: '12px',
+                        color: TUI.colors.textGray,
                       }}
                     >
-                      {row.label}
+                      ID: {room.hostId?.slice(0, 8) || '----'}
                     </span>
+                    <span
+                      className="flex items-center justify-center px-2 py-0.5 rounded-full"
+                      style={{
+                        backgroundColor: 'rgba(13,138,122,0.1)',
+                        fontSize: '11px',
+                        fontWeight: 600,
+                        color: TUI.colors.teal,
+                      }}
+                    >
+                      مالك
+                    </span>
+                  </div>
+                </div>
 
-                    {/* Value (if any) */}
-                    {row.value && (
-                      <span
-                        className="shrink-0"
-                        style={{
-                          fontSize: '13px',
-                          fontWeight: 400,
-                          color: TUI.colors.textGray,
-                          marginLeft: 8,
-                        }}
-                      >
-                        {row.value}
-                      </span>
-                    )}
-
-                    {/* Badge (if any) */}
-                    {row.badge && (
-                      <span
-                        className="flex items-center justify-center shrink-0 rounded-full"
-                        style={{
-                          minWidth: 18,
-                          height: 18,
-                          padding: '0 5px',
-                          backgroundColor: row.badgeColor || TUI.colors.red,
-                          fontSize: '10px',
-                          fontWeight: 700,
-                          color: TUI.colors.white,
-                          marginLeft: 6,
-                        }}
-                      >
-                        {row.badge}
-                      </span>
-                    )}
-
-                    {/* Chevron */}
-                    <ChevronLeft
-                      size={18}
-                      color={TUI.colors.textMuted}
-                      className="shrink-0"
-                      style={{ marginLeft: 2 }}
-                    />
-                  </button>
-                ))}
+                {/* Tag field */}
+                <div
+                  className="flex items-center justify-center shrink-0 px-3 py-1.5 rounded-full"
+                  style={{
+                    backgroundColor: 'rgba(255,215,0,0.15)',
+                    border: `1px solid rgba(255,215,0,0.3)`,
+                  }}
+                >
+                  <Sparkles size={14} color={TUI.colors.gold} />
+                  <span
+                    style={{
+                      fontSize: '11px',
+                      fontWeight: 600,
+                      color: TUI.colors.goldDark,
+                      marginRight: 4,
+                    }}
+                  >
+                    VIP
+                  </span>
+                </div>
               </div>
-            ))}
 
-            {/* Bottom spacing */}
-            <div style={{ height: 16 }} />
-          </div>
-        </div>
-      </BottomSheetOverlay>
+              {/* ── Settings Card Groups ── */}
+              {settingsGroups.map((group, groupIdx) => (
+                <div
+                  key={groupIdx}
+                  className="mb-3"
+                  style={{
+                    backgroundColor: TUI.colors.white,
+                    borderRadius: TUI.radius.lg,
+                    boxShadow: TUI.colors.cardShadow,
+                    overflow: 'hidden',
+                  }}
+                >
+                  {group.map((row, rowIdx) => (
+                    <button
+                      key={row.id}
+                      onClick={row.onClick}
+                      className="w-full flex items-center gap-3 px-4 transition-colors active:bg-gray-50"
+                      style={{
+                        height: 56,
+                        backgroundColor: 'transparent',
+                        border: 'none',
+                        cursor: 'pointer',
+                        borderBottom:
+                          rowIdx < group.length - 1
+                            ? `1px solid ${TUI.colors.cardBorder}`
+                            : 'none',
+                      }}
+                    >
+                      {/* Icon */}
+                      <div
+                        className="flex items-center justify-center shrink-0"
+                        style={{
+                          width: 36,
+                          height: 36,
+                          borderRadius: TUI.radius.md,
+                          backgroundColor: row.iconBg,
+                        }}
+                      >
+                        {row.icon}
+                      </div>
+
+                      {/* Label */}
+                      <span
+                        className="flex-1 text-right"
+                        style={{
+                          fontSize: '14px',
+                          fontWeight: 500,
+                          color: TUI.colors.textDark,
+                        }}
+                      >
+                        {row.label}
+                      </span>
+
+                      {/* Value (if any) */}
+                      {row.value && (
+                        <span
+                          className="shrink-0"
+                          style={{
+                            fontSize: '13px',
+                            fontWeight: 400,
+                            color: TUI.colors.textGray,
+                            marginLeft: 8,
+                          }}
+                        >
+                          {row.value}
+                        </span>
+                      )}
+
+                      {/* Badge (if any) */}
+                      {row.badge && (
+                        <span
+                          className="flex items-center justify-center shrink-0 rounded-full"
+                          style={{
+                            minWidth: 18,
+                            height: 18,
+                            padding: '0 5px',
+                            backgroundColor: row.badgeColor || TUI.colors.red,
+                            fontSize: '10px',
+                            fontWeight: 700,
+                            color: TUI.colors.white,
+                            marginLeft: 6,
+                          }}
+                        >
+                          {row.badge}
+                        </span>
+                      )}
+
+                      {/* Chevron */}
+                      <ChevronLeft
+                        size={18}
+                        color={TUI.colors.textMuted}
+                        className="shrink-0"
+                        style={{ marginLeft: 2 }}
+                      />
+                    </button>
+                  ))}
+                </div>
+              ))}
+
+              {/* Bottom spacing */}
+              <div style={{ height: 16 }} />
+            </div>
+          </motion.div>
+        </motion.div>
+      )}
+    </AnimatePresence>
 
       {/* ── Sub-Dialogs ── */}
       <MicModeDialog
