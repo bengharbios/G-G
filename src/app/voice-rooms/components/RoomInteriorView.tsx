@@ -178,7 +178,7 @@ function SeatCircle({
         onMouseEnter={(e) => { if (isOccupied) { e.currentTarget.style.transform = 'scale(1.06)'; } }}
         onMouseLeave={(e) => { e.currentTarget.style.transform = 'scale(1)'; }}
       >
-        {/* ── Seat Number Badge (top-left) ── */
+        {/* ── Seat Number Badge (top-left) ── */}
         <span
           className="absolute flex items-center justify-center rounded-full pointer-events-none select-none"
           style={{
