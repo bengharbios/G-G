@@ -4,10 +4,11 @@ import { useState, useCallback, useRef, useEffect } from 'react';
 import {
   Loader2, AlertTriangle, X, ArrowRight, Share2,
   Crown, Volume2, VolumeX, Mic, MicOff, Gift, Send,
-  Megaphone, Pencil, Trophy, Disc3, ListMusic, Music, Music2,
+  Megaphone, Pencil, Trophy,
   Power, Lock, MoreVertical, Users, Settings2, Shield,
   PencilLine, VolumeIcon as VolumeOff2, Sparkles,
   UserPlus, LogOut, Heart,
+  Gamepad2, MessageSquare, Music, Bell, Ticket,
 } from 'lucide-react';
 import { useVoiceRoom } from '../hooks/useVoiceRoom';
 import {
@@ -43,19 +44,18 @@ import MicInviteDialog from './dialogs/MicInviteDialog';
 import type { VoiceRoom, AuthUser } from '../types';
 
 /* ═══════════════════════════════════════════════════════════════════════
-   RoomInteriorView — TUILiveKit Room Interior (Matching Lobby + Settings)
+   RoomInteriorView — TUILiveKit Room Interior (Screenshot-Exact Match)
 
    Structure (h-screen flex flex-col relative):
-     ├── Background (teal-green: #0D8A7A → #0A6B5E → #074a42 — same as lobby)
+     ├── Background (dark cosmic: #0A0E27 → #1A237E)
      ├── z-10 flex flex-col h-full
-     │   ├── Header (semi-transparent teal: avatar+crown+name | share+3dots+power)
-     │   ├── Announcement Bar (subtle dark with megaphone)
-     │   ├── Mic Seat Area (layout based on micTheme: chat5/broadcast5/chat10/team10/chat15)
-     │   ├── ChatPanel (compact, floating messages)
-     │   ├── LikeAnimation (overlay, left side)
+     │   ├── Header (avatar+name+ID | bell | 3dots)
+     │   ├── Mic Seat Area (layout based on micTheme)
+     │   ├── ChatPanel (floating messages)
+     │   ├── LikeAnimation (overlay)
      │   ├── GiftAnimations (overlay)
-     │   └── Bottom Bar (inline: volume+mic | chat pill | gift)
-     ├── LEFT SIDE VERTICAL MENU (music icons: Disc3, ListMusic, Music, Music2 + Crown + Trophy)
+     │   └── Bottom Bar (game controller | chat input | speaker)
+     ├── LEFT SIDE VERTICAL MENU (PASS/treasure/chest/chat/music/gift — with text labels)
      ├── Three-Dots Menu (overlay, grid of icons)
      └── All sheets/dialogs (EXACTLY unchanged — SettingsSheet LOCKED)
    ═══════════════════════════════════════════════════════════════════════ */
@@ -607,8 +607,8 @@ export default function RoomInteriorView({
     [handleSendChat],
   );
 
-  /* ── Teal-green gradient background (matching lobby & settings) ── */
-  const bgGradient = 'linear-gradient(180deg, #0D8A7A 0%, #0A6B5E 30%, #074a42 100%)';
+  /* ── Dark cosmic gradient background (matching screenshot) ── */
+  const bgGradient = 'linear-gradient(180deg, #0A0E27 0%, #1A237E 50%, #0D1442 100%)';
 
   /* ── Left side menu icon style (shared) ── */
   const menuBtnStyle: React.CSSProperties = {
@@ -639,7 +639,7 @@ export default function RoomInteriorView({
 
       {/* ═══════════════════════════════════════════════════════════════════════
           ROOT CONTAINER
-          Background: teal-green gradient matching lobby & settings
+          Background: dark cosmic gradient matching screenshot
           ═══════════════════════════════════════════════════════════════════════ */}
       <div
         className="fixed inset-0 flex flex-col"
@@ -652,132 +652,100 @@ export default function RoomInteriorView({
         <div className="relative z-10 flex flex-col h-full">
 
           {/* ════════════════════════════════════════════
-              HEADER
-              Right (visual): back arrow + avatar+crown+name + "مستمع X"
-              Left (visual): share + three-dots + power/exit
+              HEADER — Screenshot-matched: avatar+name+ID | bell | 3dots
               ════════════════════════════════════════════ */}
           <header
             className="flex items-center justify-between flex-shrink-0"
             style={{
-              height: 56,
-              minHeight: 56,
-              padding: '0 16px',
-              backgroundColor: 'rgba(7, 74, 66, 0.6)',
-              backdropFilter: 'blur(16px)',
-              WebkitBackdropFilter: 'blur(16px)',
-              borderBottom: '1px solid rgba(255,255,255,0.06)',
+              height: 52,
+              minHeight: 52,
+              padding: '0 12px',
+              backgroundColor: 'rgba(10, 14, 39, 0.7)',
+              backdropFilter: 'blur(12px)',
+              WebkitBackdropFilter: 'blur(12px)',
             }}
           >
-            {/* ── Back arrow ── */}
-            <button
-              onClick={handleClose}
-              className="rounded-full flex items-center justify-center cursor-pointer touch-manipulation flex-shrink-0"
-              style={{
-                width: 34,
-                height: 34,
-                minWidth: 44,
-                minHeight: 44,
-                backgroundColor: 'rgba(255,255,255,0.08)',
-                transition: TUI.anim.fast,
-              }}
-              aria-label="رجوع"
-            >
-              <ArrowRight size={18} style={{ color: TUI.colors.white }} />
-            </button>
-
-            {/* ── Center: room avatar + crown + name + level badge + listener count ── */}
+            {/* ── Right: Avatar + Name + ID ── */}
             <button
               type="button"
               onClick={() => setRoomInfoOpen(true)}
-              className="flex items-center min-w-0 flex-1 gap-2.5 bg-transparent border-none cursor-pointer touch-manipulation justify-center"
+              className="flex items-center gap-2 bg-transparent border-none cursor-pointer touch-manipulation"
               style={{ padding: 0 }}
               aria-label="معلومات الغرفة"
             >
+              {/* Room avatar */}
               <div
                 className="relative rounded-full overflow-hidden flex items-center justify-center flex-shrink-0"
                 style={{
-                  width: 34,
-                  height: 34,
+                  width: 32,
+                  height: 32,
                   backgroundColor: vr.room.roomAvatar
                     ? 'transparent'
                     : getAvatarColorFromPalette(vr.room.id).bg,
-                  border: '2px solid rgba(0, 200, 150, 0.5)',
-                  boxShadow: '0 0 8px rgba(0, 200, 150, 0.2)',
+                  border: '1.5px solid rgba(255,255,255,0.2)',
                 }}
               >
                 {vr.room.roomAvatar ? (
                   <img src={vr.room.roomAvatar} alt={vr.room.name} className="w-full h-full object-cover rounded-full" draggable={false} loading="lazy" />
-                ) : hostParticipant?.avatar ? (
-                  <img src={hostParticipant.avatar} alt={hostParticipant.displayName || hostParticipant.username} className="w-full h-full object-cover rounded-full" draggable={false} loading="lazy" />
                 ) : (
-                  <span className="font-medium" style={{ fontSize: 13, color: getAvatarColorFromPalette(vr.room.id).text, lineHeight: 1 }}>
-                    {(vr.room.name?.charAt(0) || hostParticipant?.displayName?.charAt(0) || '?')}
+                  <span className="font-medium" style={{ fontSize: 12, color: getAvatarColorFromPalette(vr.room.id).text, lineHeight: 1 }}>
+                    {(vr.room.name?.charAt(0) || '?')}
                   </span>
                 )}
               </div>
-              <div className="flex flex-col items-center min-w-0" style={{ gap: 1 }}>
-                <div className="flex items-center min-w-0" style={{ gap: 4 }}>
-                  <Crown size={13} fill={TUI.colors.gold} stroke={TUI.colors.gold} strokeWidth={1} className="flex-shrink-0" />
-                  <span className="truncate font-bold" style={{ fontSize: 13, fontWeight: 600, color: TUI.colors.white, maxWidth: 150 }}>
-                    {vr.room.name}
-                  </span>
-                  {vr.room.roomLevel > 0 && (
-                    <span
-                      className="flex items-center gap-0.5 flex-shrink-0 px-1 rounded-full"
-                      style={{
-                        fontSize: 9,
-                        fontWeight: 600,
-                        color: TUI.colors.gold,
-                        backgroundColor: 'rgba(255, 215, 0, 0.12)',
-                        padding: '1px 5px',
-                        lineHeight: '14px',
-                      }}
-                    >
-                      <Trophy size={9} fill={TUI.colors.gold} stroke={TUI.colors.gold} strokeWidth={1.5} />
-                      {vr.room.roomLevel}
-                    </span>
-                  )}
-                </div>
-                <span className="truncate" style={{ fontSize: 11, color: 'rgba(255,255,255,0.45)', maxWidth: 180 }}>
-                  {vr.listenerCount} مستمع
+              <div className="flex flex-col items-start min-w-0" style={{ gap: 0 }}>
+                <span className="truncate" style={{ fontSize: 13, fontWeight: 600, color: TUI.colors.white, maxWidth: 120, lineHeight: '18px' }}>
+                  {vr.room.name}
+                </span>
+                <span className="truncate" style={{ fontSize: 9, color: 'rgba(255,255,255,0.4)', maxWidth: 100, lineHeight: '12px' }}>
+                  ID: {vr.room.hostId?.slice(0, 8) || '----'}
                 </span>
               </div>
             </button>
 
-            {/* ── Left (visual): share + three-dots + power ── */}
-            <div className="flex items-center flex-shrink-0" style={{ gap: 6 }}>
-              {/* Share */}
-              <button
-                onClick={handleShare}
-                className="rounded-full flex items-center justify-center cursor-pointer touch-manipulation"
-                style={{ width: 34, height: 34, minWidth: 44, minHeight: 44, backgroundColor: 'rgba(255,255,255,0.08)', transition: TUI.anim.fast }}
-                aria-label="مشاركة"
+            {/* ── Center: Trophy with level badge ── */}
+            <div className="relative flex items-center justify-center">
+              <Trophy size={18} fill={TUI.colors.gold} stroke={TUI.colors.gold} strokeWidth={1} />
+              <span
+                className="absolute -top-1 -right-2 flex items-center justify-center rounded-full"
+                style={{
+                  minWidth: 14,
+                  height: 14,
+                  padding: '0 3px',
+                  backgroundColor: 'rgba(0,0,0,0.6)',
+                  fontSize: 8,
+                  fontWeight: 700,
+                  color: TUI.colors.white,
+                  lineHeight: '14px',
+                }}
               >
-                <Share2 size={16} style={{ color: TUI.colors.white }} />
+                {vr.room.roomLevel || 0}
+              </span>
+            </div>
+
+            {/* ── Left: Bell + Three-dots ── */}
+            <div className="flex items-center flex-shrink-0" style={{ gap: 4 }}>
+              {/* Notification bell */}
+              <button
+                className="rounded-full flex items-center justify-center cursor-pointer touch-manipulation relative"
+                style={{ width: 32, height: 32, minWidth: 44, minHeight: 44, transition: TUI.anim.fast }}
+                aria-label="إشعارات"
+              >
+                <Bell size={16} style={{ color: TUI.colors.white }} />
+                <span
+                  className="absolute top-0.5 right-0.5 w-2 h-2 rounded-full"
+                  style={{ backgroundColor: TUI.colors.red, boxShadow: `0 0 4px ${TUI.colors.red}` }}
+                />
               </button>
 
               {/* Three dots menu */}
               <button
                 onClick={() => setShowDotsMenu(prev => !prev)}
                 className="rounded-full flex items-center justify-center cursor-pointer touch-manipulation"
-                style={{ width: 34, height: 34, minWidth: 44, minHeight: 44, backgroundColor: 'rgba(255,255,255,0.08)', transition: TUI.anim.fast }}
+                style={{ width: 32, height: 32, minWidth: 44, minHeight: 44, transition: TUI.anim.fast }}
                 aria-label="القائمة"
               >
                 <MoreVertical size={16} style={{ color: TUI.colors.white }} />
-              </button>
-
-              {/* Power / Exit */}
-              <button
-                onClick={handleClose}
-                className="rounded-full flex items-center justify-center cursor-pointer touch-manipulation"
-                style={{
-                  width: 34, height: 34, minWidth: 44, minHeight: 44,
-                  backgroundColor: isOwner ? 'rgba(252, 85, 85, 0.2)' : 'rgba(255,255,255,0.08)',
-                  transition: TUI.anim.fast,
-                }}
-                aria-label={isOwner ? 'إنهاء الغرفة' : 'خروج'}
-              >
-                {isOwner ? <Power size={16} style={{ color: TUI.colors.red }} /> : <LogOut size={16} style={{ color: TUI.colors.white }} />}
               </button>
             </div>
           </header>
@@ -902,69 +870,42 @@ export default function RoomInteriorView({
           <GiftAnimations activeAnimation={vr.activeGiftAnimation} />
 
           {/* ════════════════════════════════════════════
-              BOTTOM BAR
-              Left: Volume toggle (admin) + Mic toggle (on seat)
-              Center: Chat text input pill
-              Right: Like + Gift icon
+              BOTTOM BAR — Screenshot-matched: game | chat input | speaker
               ════════════════════════════════════════════ */}
           <footer
             className="flex-shrink-0 w-full"
             style={{
-              padding: '8px 12px',
-              paddingBottom: 'max(8px, env(safe-area-inset-bottom, 8px))',
-              backgroundColor: 'rgba(7, 74, 66, 0.7)',
+              padding: '6px 10px',
+              paddingBottom: 'max(6px, env(safe-area-inset-bottom, 6px))',
+              backgroundColor: 'rgba(10, 14, 39, 0.8)',
               backdropFilter: 'blur(12px)',
               WebkitBackdropFilter: 'blur(12px)',
-              borderTop: '1px solid rgba(255,255,255,0.06)',
             }}
           >
-            <div className="flex items-center w-full" style={{ gap: 8 }}>
+            <div className="flex items-center w-full" style={{ gap: 6 }}>
 
-              {/* Volume toggle (admin only) */}
-              {isAdmin && (
-                <button
-                  onClick={vr.handleToggleRoomMute}
-                  className="rounded-full flex items-center justify-center flex-shrink-0 cursor-pointer touch-manipulation"
-                  style={{
-                    width: 38, height: 38, minWidth: 44, minHeight: 44,
-                    backgroundColor: vr.isRoomMuted ? 'rgba(252, 85, 85, 0.15)' : 'rgba(255,255,255,0.08)',
-                    transition: TUI.anim.fast,
-                  }}
-                  aria-label={vr.isRoomMuted ? 'الغرفة مكتومة' : 'كتم الغرفة'}
-                >
-                  {vr.isRoomMuted
-                    ? <VolumeX size={18} style={{ color: TUI.colors.red }} />
-                    : <Volume2 size={18} style={{ color: TUI.colors.white }} />}
-                </button>
-              )}
+              {/* Game controller icon */}
+              <button
+                className="rounded-lg flex items-center justify-center flex-shrink-0 cursor-pointer touch-manipulation"
+                style={{
+                  width: 38, height: 38, minWidth: 44, minHeight: 44,
+                  backgroundColor: 'rgba(255,255,255,0.06)',
+                  transition: TUI.anim.fast,
+                }}
+                aria-label="ألعاب"
+              >
+                <Gamepad2 size={18} style={{ color: 'rgba(255,255,255,0.6)' }} />
+              </button>
 
-              {/* Mic toggle (when on seat) */}
-              {vr.isOnSeat && (
-                <button
-                  onClick={vr.handleToggleMic}
-                  className="rounded-full flex items-center justify-center flex-shrink-0 cursor-pointer touch-manipulation"
-                  style={{
-                    width: 38, height: 38, minWidth: 44, minHeight: 44,
-                    backgroundColor: vr.isMicMuted ? 'rgba(252, 85, 85, 0.15)' : 'rgba(0, 200, 150, 0.15)',
-                    transition: TUI.anim.fast,
-                  }}
-                  aria-label={vr.isMicMuted ? 'إلغاء الكتم' : 'كتم الميك'}
-                >
-                  {vr.isMicMuted
-                    ? <MicOff size={18} style={{ color: TUI.colors.red }} />
-                    : <Mic size={18} style={{ color: TUI.colors.tealLight }} />}
-                </button>
-              )}
-
-              {/* Text input pill */}
+              {/* Chat text input */}
               <div
                 className="flex items-center flex-1 min-w-0"
                 style={{
-                  height: 38,
-                  backgroundColor: 'rgba(255,255,255,0.06)',
+                  height: 36,
+                  backgroundColor: 'rgba(255,255,255,0.08)',
                   borderRadius: '9999px',
                   padding: '0 14px',
-                  border: '1px solid rgba(255,255,255,0.04)',
+                  border: '1px solid rgba(255,255,255,0.06)',
                 }}
               >
                 <input
@@ -976,60 +917,59 @@ export default function RoomInteriorView({
                   placeholder={
                     vr.isRoomMuted ? 'الغرفة مكتومة'
                     : !authUser ? 'سجل دخولك للمشاركة'
-                    : 'اكتب شيئاً'
+                    : 'اكتب هنا...'
                   }
                   disabled={vr.isRoomMuted || !authUser}
                   maxLength={200}
                   dir="rtl"
                   className="flex-1 min-w-0 bg-transparent outline-none"
-                  style={{ fontSize: 13, color: TUI.colors.white, caretColor: TUI.colors.tealLight }}
+                  style={{ fontSize: 12, color: TUI.colors.white, caretColor: 'rgba(255,255,255,0.6)' }}
                 />
                 {chatInput.trim() && !vr.isRoomMuted && authUser && (
                   <button
                     onClick={() => { handleSendChat(); inputRef.current?.focus(); }}
                     className="flex items-center justify-center flex-shrink-0 cursor-pointer touch-manipulation"
-                    style={{ width: 28, height: 28, color: TUI.colors.tealLight, transition: TUI.anim.fast }}
+                    style={{ width: 26, height: 26, color: 'rgba(255,255,255,0.7)', transition: TUI.anim.fast }}
                     aria-label="إرسال"
                   >
-                    <Send size={14} />
+                    <Send size={13} />
                   </button>
                 )}
               </div>
 
-              {/* Like button */}
-              {authUser && (
+              {/* Speaker / Volume icon */}
+              {isAdmin && (
                 <button
-                  onTouchStart={() => setLikeActive(true)}
-                  onTouchEnd={() => setLikeActive(false)}
-                  onMouseDown={() => setLikeActive(true)}
-                  onMouseUp={() => setLikeActive(false)}
-                  onMouseLeave={() => setLikeActive(false)}
-                  className="rounded-full flex items-center justify-center flex-shrink-0 cursor-pointer touch-manipulation"
+                  onClick={vr.handleToggleRoomMute}
+                  className="rounded-lg flex items-center justify-center flex-shrink-0 cursor-pointer touch-manipulation"
                   style={{
                     width: 38, height: 38, minWidth: 44, minHeight: 44,
-                    backgroundColor: 'rgba(255, 59, 48, 0.15)',
+                    backgroundColor: vr.isRoomMuted ? 'rgba(252, 85, 85, 0.15)' : 'rgba(255,255,255,0.06)',
                     transition: TUI.anim.fast,
                   }}
-                  aria-label="إعجاب"
+                  aria-label={vr.isRoomMuted ? 'الغرفة مكتومة' : 'كتم الغرفة'}
                 >
-                  <Heart size={18} style={{ color: TUI.colors.likeRed }} fill={likeActive ? TUI.colors.likeRed : 'none'} />
+                  {vr.isRoomMuted
+                    ? <VolumeX size={18} style={{ color: TUI.colors.red }} />
+                    : <Volume2 size={18} style={{ color: 'rgba(255,255,255,0.6)' }} />}
                 </button>
               )}
 
-              {/* Gift icon */}
-              {authUser && (
+              {/* Mic toggle (when on seat, shown instead of speaker for non-admin) */}
+              {!isAdmin && vr.isOnSeat && (
                 <button
-                  onClick={() => vr.setGiftSheetOpen(true)}
-                  className="rounded-full flex items-center justify-center flex-shrink-0 cursor-pointer touch-manipulation"
+                  onClick={vr.handleToggleMic}
+                  className="rounded-lg flex items-center justify-center flex-shrink-0 cursor-pointer touch-manipulation"
                   style={{
                     width: 38, height: 38, minWidth: 44, minHeight: 44,
-                    background: 'linear-gradient(135deg, #00C896 0%, #0D8A7A 100%)',
+                    backgroundColor: vr.isMicMuted ? 'rgba(252, 85, 85, 0.15)' : 'rgba(255,255,255,0.06)',
                     transition: TUI.anim.fast,
-                    boxShadow: '0 0 12px rgba(0, 200, 150, 0.3)',
                   }}
-                  aria-label="إرسال هدية"
+                  aria-label={vr.isMicMuted ? 'إلغاء الكتم' : 'كتم الميك'}
                 >
-                  <Gift size={18} fill={TUI.colors.white} style={{ color: TUI.colors.white }} />
+                  {vr.isMicMuted
+                    ? <MicOff size={18} style={{ color: TUI.colors.red }} />
+                    : <Mic size={18} style={{ color: 'rgba(255,255,255,0.6)' }} />}
                 </button>
               )}
             </div>
@@ -1043,31 +983,62 @@ export default function RoomInteriorView({
         <div
           className="fixed flex-col items-center"
           style={{
-            left: 10,
+            left: 6,
             top: '50%',
             transform: 'translateY(-50%)',
             zIndex: 20,
-            gap: 8,
+            gap: 4,
           }}
         >
-          <button className="rounded-full flex items-center justify-center cursor-pointer touch-manipulation" style={menuBtnStyle} aria-label="تشغيل">
-            <Disc3 size={17} style={{ color: TUI.colors.tealLight }} />
+          {/* PASS */}
+          <button className="flex flex-col items-center cursor-pointer touch-manipulation bg-transparent border-none" aria-label="PASS">
+            <div className="flex items-center justify-center" style={{ width:36,height:36,borderRadius:10,background:'linear-gradient(135deg,#FFD700,#FFA000)',boxShadow:'0 2px 8px rgba(255,193,7,0.3)' }}>
+              <Ticket size={16} color="#fff" />
+            </div>
+            <span style={{ fontSize:8,color:'rgba(255,255,255,0.5)',marginTop:2 }}>PASS</span>
           </button>
-          <button className="rounded-full flex items-center justify-center cursor-pointer touch-manipulation" style={menuBtnStyle} aria-label="قائمة التشغيل">
-            <ListMusic size={17} style={{ color: TUI.colors.white }} />
+
+          {/* Chat — purple with badge */}
+          <button className="flex flex-col items-center cursor-pointer touch-manipulation bg-transparent border-none relative" aria-label="محادثة">
+            <div className="relative">
+              <div className="flex items-center justify-center" style={{ width:36,height:36,borderRadius:10,background:'linear-gradient(135deg,#A855F7,#7C3AED)',boxShadow:'0 2px 8px rgba(168,85,247,0.3)' }}>
+                <Gift size={16} color="#fff" />
+              </div>
+              <span className="absolute -top-1 -right-2 flex items-center justify-center rounded-full" style={{ minWidth:14,height:14,padding:'0 3px',backgroundColor:TUI.colors.red,fontSize:8,fontWeight:700,color:TUI.colors.white,lineHeight:'14px' }}>2</span>
+            </div>
+            <span style={{ fontSize:8,color:'rgba(255,255,255,0.5)',marginTop:2 }}>محادثة</span>
           </button>
-          <button className="rounded-full flex items-center justify-center cursor-pointer touch-manipulation" style={menuBtnStyle} aria-label="موسيقى">
-            <Music size={17} style={{ color: TUI.colors.white }} />
+
+          {/* Channel */}
+          <button className="flex flex-col items-center cursor-pointer touch-manipulation bg-transparent border-none" aria-label="القناة">
+            <div className="flex items-center justify-center" style={{ width:36,height:36,borderRadius:10,backgroundColor:'rgba(255,255,255,0.08)',border:'1px solid rgba(255,255,255,0.06)' }}>
+              <MessageSquare size={16} style={{ color:'rgba(255,255,255,0.6)' }} />
+            </div>
+            <span style={{ fontSize:8,color:'rgba(255,255,255,0.5)',marginTop:2 }}>القناة</span>
           </button>
-          <button className="rounded-full flex items-center justify-center cursor-pointer touch-manipulation" style={menuBtnStyle} aria-label="مؤثرات صوتية">
-            <Music2 size={17} style={{ color: TUI.colors.white }} />
+
+          {/* Music */}
+          <button className="flex flex-col items-center cursor-pointer touch-manipulation bg-transparent border-none" aria-label="الموسيقى">
+            <div className="flex items-center justify-center" style={{ width:36,height:36,borderRadius:10,backgroundColor:'rgba(255,255,255,0.08)',border:'1px solid rgba(255,255,255,0.06)' }}>
+              <Music size={16} style={{ color:'rgba(255,255,255,0.6)' }} />
+            </div>
+            <span style={{ fontSize:8,color:'rgba(255,255,255,0.5)',marginTop:2 }}>الموسيقى</span>
           </button>
-          <div style={{ width: 20, height: 1, backgroundColor: 'rgba(255,255,255,0.06)', margin: '2px 0' }} />
-          <button className="rounded-full flex items-center justify-center cursor-pointer touch-manipulation" style={menuBtnStyle} aria-label="كنز">
-            <Crown size={17} fill={TUI.colors.gold} stroke={TUI.colors.gold} strokeWidth={1} />
+
+          {/* Gift — orange/red */}
+          <button onClick={() => vr.setGiftSheetOpen(true)} className="flex flex-col items-center cursor-pointer touch-manipulation bg-transparent border-none" aria-label="هدية">
+            <div className="flex items-center justify-center" style={{ width:36,height:36,borderRadius:10,background:'linear-gradient(135deg,#FF6B35,#E53935)',boxShadow:'0 2px 8px rgba(255,107,53,0.3)' }}>
+              <Gift size={16} color="#fff" />
+            </div>
+            <span style={{ fontSize:8,color:'rgba(255,255,255,0.5)',marginTop:2 }}>هدية</span>
           </button>
-          <button className="rounded-full flex items-center justify-center cursor-pointer touch-manipulation" style={menuBtnStyle} aria-label="أنشطة">
-            <Trophy size={17} style={{ color: TUI.colors.goldDark }} />
+
+          {/* Crown */}
+          <button className="flex flex-col items-center cursor-pointer touch-manipulation bg-transparent border-none" aria-label="كنز">
+            <div className="flex items-center justify-center" style={{ width:36,height:36,borderRadius:10,backgroundColor:'rgba(255,255,255,0.08)',border:'1px solid rgba(255,255,255,0.06)' }}>
+              <Crown size={16} fill={TUI.colors.gold} stroke={TUI.colors.gold} strokeWidth={1} />
+            </div>
+            <span style={{ fontSize:8,color:'rgba(255,255,255,0.5)',marginTop:2 }}>كنز</span>
           </button>
         </div>
 
