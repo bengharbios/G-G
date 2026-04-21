@@ -1,9 +1,18 @@
 'use client';
 
-import { useState, useMemo } from 'react';
-import { Star, Send } from 'lucide-react';
-import BottomSheetOverlay from '../shared/BottomSheetOverlay';
-import { TUI, GIFT_CATEGORIES, DEFAULT_GIFTS, GIFT_ASSETS, type Gift } from '../../types';
+import { useState, useMemo, useRef, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Send, Gem, Sparkles } from 'lucide-react';
+import { TUI, GIFT_CATEGORIES, DEFAULT_GIFTS, GIFT_GRADES, type Gift } from '../../types';
+
+/* ═══════════════════════════════════════════════════════════════════════
+   GiftSheet — 17ae.com Professional Gift Store Design
+   
+   Dark background (#10111A), 4-column gift grid, horizontal category tabs,
+   quantity selector, grade badges, NEW/FX badges.
+   
+   NO BottomSheetOverlay — uses AnimatePresence directly (matching SettingsSheet pattern).
+   ═══════════════════════════════════════════════════════════════════════ */
 
 interface GiftSheetProps {
   isOpen: boolean;
@@ -12,263 +21,432 @@ interface GiftSheetProps {
   gems: number;
 }
 
-const GIFTS_PER_PAGE = 8;
+// Quantity options
+const QUANTITY_OPTIONS = [1, 10, 66, 99];
+
+// Format price display
+function formatPrice(price: number): string {
+  if (price >= 10000) return `${(price / 1000).toFixed(0)}K`;
+  if (price >= 1000) return `${(price / 1000).toFixed(price % 1000 === 0 ? 0 : 1)}K`;
+  return String(price);
+}
+
+// Get grade color for badge
+function getGradeColor(grade: number): string {
+  const g = GIFT_GRADES[grade as keyof typeof GIFT_GRADES];
+  return g?.color || '#8F9AB2';
+}
 
 export default function GiftSheet({ isOpen, onClose, onSendGift, gems }: GiftSheetProps) {
   const [selectedCategory, setSelectedCategory] = useState('popular');
   const [selectedGift, setSelectedGift] = useState<Gift | null>(null);
+  const [quantity, setQuantity] = useState(1);
+  const tabsRef = useRef<HTMLDivElement>(null);
+  const [activeTabScroll, setActiveTabScroll] = useState(false);
 
+  // Filtered gifts for current category
   const filteredGifts = useMemo(
     () => DEFAULT_GIFTS.filter((g) => g.category === selectedCategory),
     [selectedCategory],
   );
 
-  const [currentPage, setCurrentPage] = useState(0);
-  const totalPages = Math.max(1, Math.ceil(filteredGifts.length / GIFTS_PER_PAGE));
-  const pageGifts = filteredGifts.slice(
-    currentPage * GIFTS_PER_PAGE,
-    (currentPage + 1) * GIFTS_PER_PAGE,
-  );
+  // Can send check
+  const canSend = selectedGift !== null && selectedGift.price * quantity <= gems;
 
-  const canSend = selectedGift !== null && selectedGift.price <= gems;
-
+  // Handle category change
   const handleCategoryChange = (catId: string) => {
     setSelectedCategory(catId);
     setSelectedGift(null);
-    setCurrentPage(0);
   };
 
+  // Handle send
   const handleSend = () => {
     if (selectedGift && canSend) {
-      onSendGift(selectedGift.id, 1);
+      onSendGift(selectedGift.id, quantity);
       setSelectedGift(null);
+      setQuantity(1);
     }
   };
 
+  // Handle close
   const handleClose = () => {
     setSelectedGift(null);
-    setCurrentPage(0);
+    setQuantity(1);
     onClose();
   };
 
-  return (
-    <BottomSheetOverlay
-      isOpen={isOpen}
-      onClose={handleClose}
-      height="440px"
-      title="هدايا"
-    >
-      {/* ═══════════════════════════════════════════════════════════════════
-          Top Gifts Banner (matching screenshot — star icon banner)
-          ═══════════════════════════════════════════════════════════════════ */}
-      <div
-        className="flex items-center gap-2 mb-3 px-1"
-        style={{
-          padding: '6px 10px',
-          backgroundColor: 'linear-gradient(135deg, rgba(255, 215, 0, 0.12), rgba(123, 97, 255, 0.08))',
-          borderRadius: 10,
-          border: '1px solid rgba(255, 215, 0, 0.15)',
-        }}
-      >
-        <Star size={16} fill={TUI.colors.gold} stroke={TUI.colors.gold} strokeWidth={1} />
-        <span style={{ fontSize: 12, fontWeight: 600, color: TUI.colors.gold }}>
-          هدايا مميزة
-        </span>
-        <span style={{ fontSize: 11, color: TUI.colors.G6, marginRight: 'auto' }}>
-          أرسل هدايا لتظهّر في لوحة المتصدرين
-        </span>
-      </div>
+  // Scroll detection for tabs shadow
+  useEffect(() => {
+    const el = tabsRef.current;
+    if (!el) return;
+    const handleScroll = () => {
+      setActiveTabScroll(el.scrollLeft > 4);
+    };
+    el.addEventListener('scroll', handleScroll, { passive: true });
+    return () => el.removeEventListener('scroll', handleScroll);
+  }, []);
 
-      {/* ═══════════════════════════════════════════════════════════════════
-          Gift Grid — 4 columns, 2 rows per page
-          Each gift card: emoji + name + price in gold coins
-          ═══════════════════════════════════════════════════════════════════ */}
-      <div
-        className="grid grid-cols-4 mb-3"
-        style={{
-          gap: 6,
-          minHeight: 220,
-          padding: '0 2px',
-        }}
-      >
-        {pageGifts.map((gift) => {
-          const isSelected = selectedGift?.id === gift.id;
-          const hasEffect = gift.animationResourceUrl || ['fireworks', 'confetti'].includes(gift.animation || '');
-          return (
-            <button
-              key={gift.id}
-              onClick={() => setSelectedGift(isSelected ? null : gift)}
-              className="flex flex-col items-center justify-center transition-all relative overflow-hidden cursor-pointer touch-manipulation"
+  return (
+    <AnimatePresence>
+      {isOpen && (
+        <motion.div
+          className="fixed inset-0 z-50 flex items-end justify-center"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.2 }}
+        >
+          {/* Backdrop */}
+          <div
+            className="absolute inset-0"
+            style={{ backgroundColor: 'rgba(0,0,0,0.55)' }}
+            onClick={handleClose}
+          />
+
+          {/* Gift Panel */}
+          <motion.div
+            className="relative w-full flex flex-col"
+            style={{
+              maxHeight: '85vh',
+              borderTopLeftRadius: TUI.radius.xl,
+              borderTopRightRadius: TUI.radius.xl,
+              overflow: 'hidden',
+              zIndex: 1,
+            }}
+            initial={{ y: '100%' }}
+            animate={{ y: 0 }}
+            exit={{ y: '100%' }}
+            transition={{ type: 'tween', duration: 0.3, ease: [0.4, 0, 0.2, 1] }}
+            dir="rtl"
+          >
+            {/* ═══════════════════════════════════════════════════════════════
+                Header — Dark with teal accent
+                ═══════════════════════════════════════════════════════════════ */}
+            <div
+              className="flex items-center justify-between shrink-0 relative"
               style={{
-                height: 108,
-                backgroundColor: isSelected
-                  ? 'rgba(123, 97, 255, 0.1)'
-                  : 'rgba(255,255,255,0.03)',
-                border: isSelected
-                  ? `2px solid ${TUI.colors.purple}`
-                  : '2px solid rgba(255,255,255,0.04)',
-                borderRadius: 12,
+                height: 52,
+                background: '#10111A',
+                borderTopLeftRadius: TUI.radius.xl,
+                borderTopRightRadius: TUI.radius.xl,
+                borderBottom: '1px solid rgba(255,255,255,0.06)',
               }}
             >
-              {/* Gift emoji */}
-              <div className="relative mb-1">
-                <span style={{ fontSize: 36, lineHeight: 1 }}>{gift.emoji}</span>
-                {/* Effect badge (for gifts with animations) */}
-                {hasEffect && (
-                  <span
-                    className="absolute -top-1 -right-2 flex items-center justify-center rounded-full"
-                    style={{
-                      width: 14,
-                      height: 14,
-                      backgroundColor: TUI.colors.purple,
-                      fontSize: 7,
-                      color: TUI.colors.white,
-                      fontWeight: 700,
-                      border: '1.5px solid rgba(26, 31, 58, 0.9)',
-                    }}
-                  >
-                    FX
-                  </span>
-                )}
+              {/* Drag indicator */}
+              <div
+                className="absolute top-2 left-1/2 -translate-x-1/2"
+                style={{
+                  width: 36,
+                  height: 4,
+                  borderRadius: 2,
+                  background: 'rgba(255,255,255,0.15)',
+                }}
+              />
+              {/* Title */}
+              <div className="flex items-center gap-2 absolute" style={{ right: 16 }}>
+                <Gem size={18} fill={TUI.colors.gold} stroke={TUI.colors.gold} />
+                <span style={{ fontSize: 17, fontWeight: 700, color: TUI.colors.white }}>
+                  متجر الهدايا
+                </span>
               </div>
-
-              {/* Name */}
-              <span
-                className="truncate w-full text-center px-0.5"
-                style={{
-                  fontSize: 10,
-                  color: isSelected ? TUI.colors.purple : TUI.colors.G6,
-                  fontWeight: isSelected ? 600 : 400,
-                  lineHeight: '14px',
-                }}
+              {/* Gems balance */}
+              <div
+                className="flex items-center gap-1 absolute"
+                style={{ left: 16 }}
               >
-                {gift.nameAr}
-              </span>
+                <Gem size={14} fill={TUI.colors.gold} stroke={TUI.colors.gold} />
+                <span style={{ fontSize: 13, fontWeight: 600, color: TUI.colors.gold }}>
+                  {gems.toLocaleString()}
+                </span>
+              </div>
+            </div>
 
-              {/* Price in gold coins */}
-              <span
-                className="flex items-center gap-0.5"
-                style={{
-                  fontSize: 10,
-                  color: TUI.colors.gold,
-                  fontWeight: 500,
-                }}
-              >
-                <span style={{ fontSize: 10 }}>🪙</span>
-                {gift.price >= 1000 ? `${(gift.price / 1000).toFixed(gift.price % 1000 === 0 ? 0 : 1)}K` : gift.price}
-              </span>
-
-              {/* Selected overlay — "إرسال" */}
-              {isSelected && (
-                <div
-                  className="absolute inset-0 flex items-center justify-center"
-                  style={{
-                    backgroundColor: 'rgba(123, 97, 255, 0.08)',
-                  }}
-                >
-                  <span
-                    className="px-2 py-0.5 rounded-full"
+            {/* ═══════════════════════════════════════════════════════════════
+                Category Tabs — Horizontal scroll with pill buttons
+                ═══════════════════════════════════════════════════════════════ */}
+            <div
+              ref={tabsRef}
+              className="flex items-center shrink-0 overflow-x-auto scrollbar-hide"
+              style={{
+                height: 44,
+                padding: '0 12px',
+                gap: 8,
+                background: '#10111A',
+                borderBottom: '1px solid rgba(255,255,255,0.06)',
+                boxShadow: activeTabScroll ? '0 4px 12px rgba(0,0,0,0.3)' : 'none',
+                transition: 'box-shadow 0.2s ease',
+              }}
+            >
+              {GIFT_CATEGORIES.map((cat) => {
+                const isActive = selectedCategory === cat.id;
+                return (
+                  <button
+                    key={cat.id}
+                    onClick={() => handleCategoryChange(cat.id)}
+                    className="shrink-0 flex items-center gap-1.5 px-3.5 py-1.5 rounded-full border-none cursor-pointer touch-manipulation transition-all"
                     style={{
-                      fontSize: 10,
-                      fontWeight: 600,
-                      color: TUI.colors.white,
-                      backgroundColor: TUI.colors.purple,
+                      fontSize: 12,
+                      fontWeight: isActive ? 600 : 500,
+                      color: isActive ? TUI.colors.white : TUI.colors.G5,
+                      backgroundColor: isActive
+                        ? 'rgba(13, 138, 122, 0.25)'
+                        : 'rgba(255,255,255,0.04)',
+                      border: isActive
+                        ? '1.5px solid rgba(13, 138, 122, 0.5)'
+                        : '1.5px solid transparent',
+                      backdropFilter: isActive ? 'blur(4px)' : 'none',
                     }}
                   >
-                    إرسال
-                  </span>
+                    <span style={{ fontSize: 14 }}>{cat.icon}</span>
+                    {cat.name}
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* ═══════════════════════════════════════════════════════════════
+                Gift Grid — 4 columns, scrollable
+                ═══════════════════════════════════════════════════════════════ */}
+            <div
+              className="flex-1 overflow-y-auto"
+              style={{
+                background: '#10111A',
+                padding: '10px 8px',
+              }}
+            >
+              {filteredGifts.length === 0 ? (
+                <div
+                  className="flex flex-col items-center justify-center"
+                  style={{ padding: '40px 0', gap: 8 }}
+                >
+                  <span style={{ fontSize: 32 }}>🎁</span>
+                  <span style={{ fontSize: 13, color: TUI.colors.G5 }}>لا توجد هدايا في هذه الفئة</span>
+                </div>
+              ) : (
+                <div
+                  className="grid grid-cols-4"
+                  style={{ gap: 8 }}
+                >
+                  {filteredGifts.map((gift) => {
+                    const isSelected = selectedGift?.id === gift.id;
+                    const hasFullscreen = gift.bmType === 1;
+                    return (
+                      <button
+                        key={gift.id}
+                        onClick={() => setSelectedGift(isSelected ? null : gift)}
+                        className="flex flex-col items-center justify-center relative overflow-hidden cursor-pointer touch-manipulation"
+                        style={{
+                          minHeight: 100,
+                          padding: '8px 4px 6px',
+                          backgroundColor: isSelected
+                            ? 'rgba(13, 138, 122, 0.12)'
+                            : 'rgba(255,255,255,0.04)',
+                          border: isSelected
+                            ? `2px solid ${TUI.colors.teal}`
+                            : '2px solid rgba(255,255,255,0.06)',
+                          borderRadius: TUI.radius.lg,
+                          transition: 'all 0.15s ease',
+                          boxShadow: isSelected
+                            ? `0 0 16px rgba(13, 138, 122, 0.2)`
+                            : 'none',
+                        }}
+                      >
+                        {/* Gift emoji (large, centered) */}
+                        <div className="relative mb-1">
+                          <span style={{ fontSize: 34, lineHeight: 1 }}>{gift.emoji}</span>
+
+                          {/* NEW badge */}
+                          {gift.isNew && (
+                            <span
+                              className="absolute flex items-center justify-center"
+                              style={{
+                                top: -6,
+                                right: -10,
+                                padding: '1px 4px',
+                                borderRadius: 4,
+                                backgroundColor: TUI.colors.red,
+                                fontSize: 7,
+                                fontWeight: 700,
+                                color: TUI.colors.white,
+                                letterSpacing: '0.5px',
+                                boxShadow: `0 1px 4px ${TUI.colors.red}`,
+                              }}
+                            >
+                              NEW
+                            </span>
+                          )}
+
+                          {/* FX badge (fullscreen effect) */}
+                          {hasFullscreen && (
+                            <span
+                              className="absolute flex items-center justify-center rounded-full"
+                              style={{
+                                top: -5,
+                                left: -8,
+                                width: 16,
+                                height: 16,
+                                backgroundColor: 'rgba(175, 82, 222, 0.9)',
+                                fontSize: 6,
+                                fontWeight: 800,
+                                color: TUI.colors.white,
+                                border: '1.5px solid rgba(16, 17, 26, 0.9)',
+                                boxShadow: '0 1px 4px rgba(175,82,222,0.4)',
+                              }}
+                            >
+                              FX
+                            </span>
+                          )}
+                        </div>
+
+                        {/* Gift name */}
+                        <span
+                          className="truncate w-full text-center px-0.5"
+                          style={{
+                            fontSize: 10,
+                            color: isSelected ? TUI.colors.tealLight : TUI.colors.G6,
+                            fontWeight: isSelected ? 600 : 400,
+                            lineHeight: '14px',
+                            marginBottom: 2,
+                          }}
+                        >
+                          {gift.nameAr}
+                        </span>
+
+                        {/* Grade dot + price */}
+                        <div className="flex items-center gap-1">
+                          {/* Grade indicator dot */}
+                          <span
+                            style={{
+                              width: 6,
+                              height: 6,
+                              borderRadius: '50%',
+                              backgroundColor: getGradeColor(gift.grade),
+                              flexShrink: 0,
+                              boxShadow: `0 0 4px ${getGradeColor(gift.grade)}40`,
+                            }}
+                          />
+                          {/* Price in gold */}
+                          <span
+                            className="flex items-center gap-0.5"
+                            style={{
+                              fontSize: 10,
+                              color: TUI.colors.gold,
+                              fontWeight: 500,
+                            }}
+                          >
+                            <Gem size={8} fill={TUI.colors.gold} stroke={TUI.colors.gold} />
+                            {formatPrice(gift.price)}
+                          </span>
+                        </div>
+
+                        {/* Selected overlay with "إرسال" */}
+                        {isSelected && (
+                          <div
+                            className="absolute inset-0 flex items-center justify-center"
+                            style={{
+                              backgroundColor: 'rgba(13, 138, 122, 0.08)',
+                              borderRadius: TUI.radius.lg,
+                            }}
+                          >
+                            <span
+                              className="px-2.5 py-0.5 rounded-full"
+                              style={{
+                                fontSize: 10,
+                                fontWeight: 600,
+                                color: TUI.colors.white,
+                                backgroundColor: TUI.colors.teal,
+                                boxShadow: `0 2px 8px ${TUI.colors.teal}60`,
+                              }}
+                            >
+                              إرسال
+                            </span>
+                          </div>
+                        )}
+                      </button>
+                    );
+                  })}
                 </div>
               )}
-            </button>
-          );
-        })}
-      </div>
+            </div>
 
-      {/* ═══════════════════════════════════════════════════════════════════
-          Pagination dots
-          ═══════════════════════════════════════════════════════════════════ */}
-      {totalPages > 1 && (
-        <div className="flex items-center justify-center gap-1.5 mb-3">
-          {Array.from({ length: totalPages }).map((_, i) => (
-            <button
-              key={i}
-              onClick={() => setCurrentPage(i)}
-              className="rounded-full transition-all cursor-pointer"
+            {/* ═══════════════════════════════════════════════════════════════
+                Bottom Bar — Quantity selector + Send button
+                ═══════════════════════════════════════════════════════════════ */}
+            <div
+              className="flex items-center justify-between shrink-0"
               style={{
-                width: currentPage === i ? 16 : 6,
-                height: 6,
-                backgroundColor: currentPage === i ? TUI.colors.purple : 'rgba(255,255,255,0.15)',
-                border: 'none',
-              }}
-            />
-          ))}
-        </div>
-      )}
-
-      {/* ═══════════════════════════════════════════════════════════════════
-          Category Tabs + Gems Balance + Send Button
-          ═══════════════════════════════════════════════════════════════════ */}
-      <div className="flex items-center justify-between gap-2">
-        {/* Category Tabs */}
-        <div className="flex gap-1 overflow-x-auto scrollbar-hide flex-1" style={{ direction: 'rtl' }}>
-          {GIFT_CATEGORIES.map((cat) => (
-            <button
-              key={cat.id}
-              onClick={() => handleCategoryChange(cat.id)}
-              className="shrink-0 px-3 py-1.5 rounded-full transition-colors cursor-pointer"
-              style={{
-                fontSize: 12,
-                fontWeight: 500,
-                color: selectedCategory === cat.id ? TUI.colors.white : TUI.colors.G6,
-                backgroundColor:
-                  selectedCategory === cat.id
-                    ? 'rgba(123, 97, 255, 0.15)'
-                    : 'transparent',
-                border: selectedCategory === cat.id
-                  ? '1px solid rgba(123, 97, 255, 0.3)'
-                  : '1px solid transparent',
+                height: 56,
+                padding: '0 12px',
+                paddingBottom: 'max(8px, env(safe-area-inset-bottom, 8px))',
+                background: '#0D0E16',
+                borderTop: '1px solid rgba(255,255,255,0.06)',
+                gap: 10,
               }}
             >
-              {cat.icon} {cat.name}
-            </button>
-          ))}
-        </div>
+              {/* Quantity selector */}
+              <div
+                className="flex items-center gap-1.5"
+                style={{
+                  backgroundColor: 'rgba(255,255,255,0.05)',
+                  borderRadius: '10px',
+                  padding: '4px',
+                }}
+              >
+                {QUANTITY_OPTIONS.map((q) => (
+                  <button
+                    key={q}
+                    onClick={() => setQuantity(q)}
+                    className="flex items-center justify-center cursor-pointer touch-manipulation border-none"
+                    style={{
+                      width: q === 1 ? 36 : 32,
+                      height: 32,
+                      borderRadius: 8,
+                      fontSize: q === 1 ? 13 : 11,
+                      fontWeight: quantity === q ? 700 : 500,
+                      color: quantity === q ? TUI.colors.white : TUI.colors.G5,
+                      backgroundColor: quantity === q
+                        ? 'rgba(13, 138, 122, 0.3)'
+                        : 'transparent',
+                      transition: 'all 0.15s ease',
+                    }}
+                  >
+                    ×{q}
+                  </button>
+                ))}
+              </div>
 
-        {/* Send Button + Gems */}
-        <div className="flex items-center gap-2 flex-shrink-0">
-          {/* Gems balance */}
-          <span
-            className="shrink-0 flex items-center gap-1"
-            style={{ fontSize: 11, color: TUI.colors.gold, fontWeight: 600 }}
-          >
-            🪙 {gems.toLocaleString()}
-          </span>
-
-          {/* Send button (purple gradient) */}
-          <button
-            onClick={handleSend}
-            disabled={!canSend}
-            className="shrink-0 flex items-center justify-center gap-1.5 cursor-pointer touch-manipulation"
-            style={{
-              padding: '6px 14px',
-              borderRadius: '9999px',
-              border: 'none',
-              fontSize: 12,
-              fontWeight: 600,
-              color: TUI.colors.white,
-              backgroundColor: canSend
-                ? 'linear-gradient(135deg, #7B61FF 0%, #C084FC 100%)'
-                : 'rgba(255,255,255,0.08)',
-              boxShadow: canSend ? '0 0 12px rgba(123, 97, 255, 0.3)' : 'none',
-              transition: TUI.anim.fast,
-              opacity: canSend ? 1 : 0.5,
-            }}
-          >
-            <Send size={13} />
-            إرسال
-          </button>
-        </div>
-      </div>
-    </BottomSheetOverlay>
+              {/* Send button (teal gradient) */}
+              <button
+                onClick={handleSend}
+                disabled={!canSend}
+                className="flex items-center justify-center gap-2 cursor-pointer touch-manipulation border-none shrink-0"
+                style={{
+                  height: 40,
+                  padding: '0 20px',
+                  borderRadius: '12px',
+                  fontSize: 14,
+                  fontWeight: 700,
+                  color: TUI.colors.white,
+                  background: canSend
+                    ? `linear-gradient(135deg, ${TUI.colors.tealDark}, ${TUI.colors.teal}, ${TUI.colors.tealLight})`
+                    : 'rgba(255,255,255,0.06)',
+                  boxShadow: canSend
+                    ? `0 2px 12px ${TUI.colors.teal}50`
+                    : 'none',
+                  transition: 'all 0.2s ease',
+                  opacity: canSend ? 1 : 0.5,
+                  minWidth: 100,
+                }}
+              >
+                <Send size={15} />
+                <span>
+                  {selectedGift ? `إرسال (${formatPrice(selectedGift.price * quantity)})` : 'إرسال'}
+                </span>
+              </button>
+            </div>
+          </motion.div>
+        </motion.div>
+      )}
+    </AnimatePresence>
   );
 }

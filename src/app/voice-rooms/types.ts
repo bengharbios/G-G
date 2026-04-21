@@ -72,6 +72,15 @@ export interface Gift {
   giftImageUrl?: string;
   animationResourceUrl?: string;
   animation?: 'none' | 'particles' | 'fireworks' | 'hearts' | 'stars' | 'confetti';
+  // NEW fields (matching 17ae.com design)
+  grade: number;          // 0-4, determines effect intensity
+  bmType: number;         // 0=none, 1=fullscreen, 2=halfscreen
+  bgColor?: string;       // Background color for gift preview
+  thumb?: string;         // Thumbnail image URL
+  video?: string;         // MP4 video URL for preview
+  timeLength?: number;    // Animation duration in seconds
+  isNew?: boolean;        // "New" badge
+  format?: string;        // "svga,vap,mp4"
 }
 
 export interface RoomTemplate {
@@ -111,6 +120,9 @@ export interface ActiveGiftAnimation {
   animation: 'none' | 'particles' | 'fireworks' | 'hearts' | 'stars' | 'confetti';
   price: number;
   timestamp: number;
+  grade?: number;         // 0-4 gift grade
+  bmType?: number;        // 0=none, 1=fullscreen, 2=halfscreen
+  senderAvatar?: string;  // Sender avatar URL
 }
 
 export interface SeatData {
@@ -369,10 +381,25 @@ export const ROLE_PILL_BG: Record<RoomRole, string> = {
   visitor: 'bg-[rgba(124,133,166,0.15)] text-[#D1D9EC]',
 };
 
+// Gift Grade Configuration (matching 17ae.com 5-tier system)
+export const GIFT_GRADES = {
+  0: { name: 'مجاني', nameEn: 'Free', color: '#8F9AB2', particleCount: 0, effect: 'none' as const },
+  1: { name: 'أساسي', nameEn: 'Basic', color: '#34C759', particleCount: 15, effect: 'hearts' as const },
+  2: { name: 'متوسط', nameEn: 'Medium', color: '#007AFF', particleCount: 25, effect: 'confetti' as const },
+  3: { name: 'مميز', nameEn: 'Premium', color: '#AF52DE', particleCount: 40, effect: 'fireworks' as const },
+  4: { name: 'فاخر', nameEn: 'Luxury', color: '#FFD700', particleCount: 60, effect: 'fullScreen' as const },
+} as const;
+
+// Expanded Gift Categories (matching 17ae.com)
 export const GIFT_CATEGORIES = [
   { id: 'popular', name: 'الأكثر شعبية', icon: '🔥' },
+  { id: 'romance', name: 'رومانسية', icon: '💕' },
   { id: 'luxury', name: 'فاخرة', icon: '👑' },
   { id: 'special', name: 'مميزة', icon: '✨' },
+  { id: 'ramadan', name: 'رمضان', icon: '🌙' },
+  { id: 'birthday', name: 'عيد ميلاد', icon: '🎂' },
+  { id: 'vip', name: 'VIP', icon: '💎' },
+  { id: 'zodiac', name: 'أبراج', icon: '⭐' },
 ];
 
 // ─── Gift Asset URLs (TUILiveKit Source) ────────────────────────────────────
@@ -431,32 +458,46 @@ export const GIFT_ASSETS: { [key: string]: string | string[] | ((emoji: string) 
 
 export const DEFAULT_GIFTS: Gift[] = [
   // ── Popular (الشعبية) ──
-  { id: 'g1',  name: 'Rose',     nameAr: 'وردة',     emoji: '🌹', price: 1,   category: 'popular', animation: 'hearts' },
-  { id: 'g2',  name: 'Lips',     nameAr: 'بوسة',     emoji: '💋', price: 5,   category: 'popular', animation: 'hearts' },
-  { id: 'g3',  name: 'Star',     nameAr: 'نجمة',     emoji: '⭐', price: 9,   category: 'popular', animation: 'stars' },
-  { id: 'g4',  name: 'Heart',    nameAr: 'قلب',      emoji: '💖', price: 19,  category: 'popular', animation: 'hearts' },
-  { id: 'g5',  name: 'Fire',     nameAr: 'نار',      emoji: '🔥', price: 29,  category: 'popular', animation: 'particles' },
-  { id: 'g6',  name: 'BlueOrb',  nameAr: 'كرة زرقاء', emoji: '🔵', price: 39,  category: 'popular', animation: 'particles' },
-  { id: 'g7',  name: 'Balloons', nameAr: 'بالونات',  emoji: '🎈', price: 49,  category: 'popular', animation: 'particles' },
-  { id: 'g8',  name: 'Clap',     nameAr: 'تصفيق',   emoji: '👏', price: 66,  category: 'popular', animation: 'stars' },
+  { id: 'g1',  name: 'Rose',     nameAr: 'وردة',       emoji: '🌹', price: 1,     category: 'popular', animation: 'hearts',     grade: 0, bmType: 0, bgColor: '#1a1020' },
+  { id: 'g2',  name: 'Lips',     nameAr: 'بوسة',       emoji: '💋', price: 5,     category: 'popular', animation: 'hearts',     grade: 0, bmType: 0, bgColor: '#201015' },
+  { id: 'g3',  name: 'Star',     nameAr: 'نجمة',       emoji: '⭐', price: 9,     category: 'popular', animation: 'stars',      grade: 1, bmType: 0, bgColor: '#1a1810' },
+  { id: 'g4',  name: 'Heart',    nameAr: 'قلب',        emoji: '💖', price: 19,    category: 'popular', animation: 'hearts',     grade: 1, bmType: 0, bgColor: '#201018' },
+  { id: 'g5',  name: 'Fire',     nameAr: 'نار',        emoji: '🔥', price: 29,    category: 'popular', animation: 'particles',  grade: 1, bmType: 0, bgColor: '#201510', isNew: true },
+  { id: 'g6',  name: 'BlueOrb',  nameAr: 'كرة زرقاء',  emoji: '🔵', price: 39,    category: 'popular', animation: 'particles',  grade: 1, bmType: 0, bgColor: '#101520' },
+  { id: 'g7',  name: 'Balloons', nameAr: 'بالونات',    emoji: '🎈', price: 49,    category: 'popular', animation: 'particles',  grade: 1, bmType: 0, bgColor: '#151520' },
+  { id: 'g8',  name: 'Clap',     nameAr: 'تصفيق',     emoji: '👏', price: 66,    category: 'popular', animation: 'stars',      grade: 1, bmType: 0, bgColor: '#1a1510' },
+  // ── Romance (رومانسية) ──
+  { id: 'g9',  name: 'Rose99',   nameAr: 'بوكيه ورد',  emoji: '💐', price: 520,   category: 'romance', animation: 'hearts',     grade: 2, bmType: 2, bgColor: '#201018', isNew: true },
+  { id: 'g10', name: 'Ring',     nameAr: 'خاتم',       emoji: '💍', price: 520,   category: 'romance', animation: 'stars',      grade: 2, bmType: 2, bgColor: '#1a1518' },
+  { id: 'g11', name: 'Bear',     nameAr: 'دب',         emoji: '🧸', price: 666,   category: 'romance', animation: 'hearts',     grade: 2, bmType: 2, bgColor: '#1a1510' },
   // ── Luxury (الفاخرة) ──
-  { id: 'g9',  name: 'GiftBox',  nameAr: 'صندوق هدايا', emoji: '🎁', price: 99,   category: 'luxury', animation: 'fireworks' },
-  { id: 'g10', name: 'Crown',    nameAr: 'تاج',       emoji: '👑', price: 199,  category: 'luxury', animation: 'stars' },
-  { id: 'g11', name: 'Rose99',   nameAr: 'بوكيه ورد', emoji: '💐', price: 520,  category: 'luxury', animation: 'hearts' },
-  { id: 'g12', name: 'Rocket',   nameAr: 'صاروخ',    emoji: '🚀', price: 1314, category: 'luxury', animation: 'fireworks', animationResourceUrl: TUI_SVGA_CAR },
-  { id: 'g13', name: 'Beer',     nameAr: 'بيرة',      emoji: '🍺', price: 99,   category: 'luxury', animation: 'particles' },
-  { id: 'g14', name: 'Cake',     nameAr: 'كعكة',     emoji: '🎂', price: 199,  category: 'luxury', animation: 'confetti' },
-  { id: 'g15', name: 'Ring',     nameAr: 'خاتم',     emoji: '💍', price: 520,  category: 'luxury', animation: 'stars' },
-  { id: 'g16', name: 'Bear',     nameAr: 'دب',       emoji: '🧸', price: 666,  category: 'luxury', animation: 'hearts' },
+  { id: 'g12', name: 'GiftBox',  nameAr: 'صندوق هدايا', emoji: '🎁', price: 99,    category: 'luxury', animation: 'fireworks',  grade: 2, bmType: 0, bgColor: '#151520' },
+  { id: 'g13', name: 'Crown',    nameAr: 'تاج',        emoji: '👑', price: 199,   category: 'luxury', animation: 'stars',      grade: 2, bmType: 0, bgColor: '#1a1810' },
+  { id: 'g14', name: 'Beer',     nameAr: 'بيرة',       emoji: '🍺', price: 99,    category: 'luxury', animation: 'particles',  grade: 1, bmType: 0, bgColor: '#151510' },
+  { id: 'g15', name: 'Cake',     nameAr: 'كعكة',       emoji: '🎂', price: 199,   category: 'luxury', animation: 'confetti',   grade: 2, bmType: 0, bgColor: '#1a1510' },
   // ── Special (المميزة - مع تأثيرات) ──
-  { id: 'g17', name: 'Diamond',  nameAr: 'ماسة',      emoji: '💎', price: 2999,  category: 'special', animation: 'confetti' },
-  { id: 'g18', name: 'Trophy',   nameAr: 'كأس',      emoji: '🏆', price: 5200,  category: 'special', animation: 'fireworks' },
-  { id: 'g19', name: 'GoldStar', nameAr: 'نجم ذهبي',  emoji: '🌟', price: 10000, category: 'special', animation: 'confetti', animationResourceUrl: TUI_SVGA_SPORTS_CAR },
-  { id: 'g20', name: 'Castle',   nameAr: 'قلعة',     emoji: '🏰', price: 52000, category: 'special', animation: 'fireworks', animationResourceUrl: TUI_SVGA_CAT },
-  { id: 'g21', name: 'SportsCar',nameAr: 'سيارة رياضية', emoji: '🏎', price: 13140, category: 'special', animation: 'fireworks', animationResourceUrl: TUI_SVGA_SPORTS_CAR },
-  { id: 'g22', name: 'RocketBig',nameAr: 'صاروخ عملاق', emoji: '🚀', price: 52000, category: 'special', animation: 'fireworks', animationResourceUrl: TUI_SVGA_CAR },
-  { id: 'g23', name: 'Cat',      nameAr: 'قطة',      emoji: '🐱', price: 9999,  category: 'special', animation: 'confetti', animationResourceUrl: TUI_SVGA_CAT },
-  { id: 'g24', name: 'Unicorn',  nameAr: 'يونيكورن',  emoji: '🦄', price: 6666,  category: 'special', animation: 'stars' },
+  { id: 'g16', name: 'Diamond',  nameAr: 'ماسة',       emoji: '💎', price: 2999,  category: 'special', animation: 'confetti',   grade: 3, bmType: 1, bgColor: '#101520', isNew: true },
+  { id: 'g17', name: 'Rocket',   nameAr: 'صاروخ',      emoji: '🚀', price: 1314,  category: 'special', animation: 'fireworks',  grade: 3, bmType: 1, animationResourceUrl: TUI_SVGA_CAR, bgColor: '#151010' },
+  { id: 'g18', name: 'Trophy',   nameAr: 'كأس',        emoji: '🏆', price: 5200,  category: 'special', animation: 'fireworks',  grade: 3, bmType: 1, bgColor: '#1a1810' },
+  { id: 'g19', name: 'GoldStar', nameAr: 'نجم ذهبي',   emoji: '🌟', price: 10000, category: 'special', animation: 'confetti',   grade: 4, bmType: 1, animationResourceUrl: TUI_SVGA_SPORTS_CAR, bgColor: '#1a1810' },
+  { id: 'g20', name: 'Castle',   nameAr: 'قلعة',       emoji: '🏰', price: 52000, category: 'special', animation: 'fireworks',  grade: 4, bmType: 1, animationResourceUrl: TUI_SVGA_CAT, bgColor: '#151020' },
+  { id: 'g21', name: 'SportsCar', nameAr: 'سيارة رياضية', emoji: '🏎', price: 13140, category: 'special', animation: 'fireworks',  grade: 4, bmType: 1, animationResourceUrl: TUI_SVGA_SPORTS_CAR, bgColor: '#151010' },
+  { id: 'g22', name: 'RocketBig', nameAr: 'صاروخ عملاق', emoji: '🚀', price: 52000, category: 'special', animation: 'fireworks',  grade: 4, bmType: 1, animationResourceUrl: TUI_SVGA_CAR, bgColor: '#201010' },
+  { id: 'g23', name: 'Cat',      nameAr: 'قطة',        emoji: '🐱', price: 9999,  category: 'special', animation: 'confetti',   grade: 3, bmType: 1, animationResourceUrl: TUI_SVGA_CAT, bgColor: '#151510' },
+  { id: 'g24', name: 'Unicorn',  nameAr: 'يونيكورن',   emoji: '🦄', price: 6666,  category: 'special', animation: 'stars',      grade: 3, bmType: 1, bgColor: '#151020', isNew: true },
+  // ── Ramadan (رمضان) ──
+  { id: 'g25', name: 'Moon',     nameAr: 'هلال رمضان', emoji: '🌙', price: 99,    category: 'ramadan', animation: 'stars',      grade: 1, bmType: 0, bgColor: '#0a0f20', isNew: true },
+  { id: 'g26', name: 'Lantern',  nameAr: 'فانوس',      emoji: '🏮', price: 199,   category: 'ramadan', animation: 'particles',  grade: 2, bmType: 0, bgColor: '#1a1508' },
+  { id: 'g27', name: 'Mosque',   nameAr: 'مسجد',       emoji: '🕌', price: 520,   category: 'ramadan', animation: 'stars',      grade: 2, bmType: 2, bgColor: '#0a1018' },
+  // ── Birthday (عيد ميلاد) ──
+  { id: 'g28', name: 'Party',    nameAr: 'حفلة',       emoji: '🎉', price: 99,    category: 'birthday', animation: 'confetti',   grade: 1, bmType: 0, bgColor: '#151510' },
+  { id: 'g29', name: 'CakeBig',  nameAr: 'كعكة كبيرة', emoji: '🎂', price: 520,   category: 'birthday', animation: 'confetti',   grade: 2, bmType: 2, bgColor: '#1a1510' },
+  // ── VIP (VIP) ──
+  { id: 'g30', name: 'Gem',      nameAr: 'جوهرة',      emoji: '💎', price: 5200,  category: 'vip', animation: 'fireworks',  grade: 3, bmType: 1, bgColor: '#101520' },
+  { id: 'g31', name: 'CrownGold', nameAr: 'تاج ذهبي',    emoji: '👑', price: 10000, category: 'vip', animation: 'fireworks',  grade: 4, bmType: 1, bgColor: '#1a1808', isNew: true },
+  // ── Zodiac (أبراج) ──
+  { id: 'g32', name: 'Aries',    nameAr: 'الحمل',      emoji: '♈', price: 199,   category: 'zodiac', animation: 'stars',      grade: 2, bmType: 0, bgColor: '#1a1015' },
+  { id: 'g33', name: 'Leo',      nameAr: 'الأسد',      emoji: '♌', price: 199,   category: 'zodiac', animation: 'fireworks',  grade: 2, bmType: 0, bgColor: '#1a1508' },
 ];
 
 export const MIC_OPTIONS = [5, 10, 15];

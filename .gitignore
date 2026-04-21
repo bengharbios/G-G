@@ -54,3 +54,4 @@ server.log
 /skills/
 # Keep .env local (contains secrets)
 upload/*.png
+search*.json giftlist_api.json gifts_page.json

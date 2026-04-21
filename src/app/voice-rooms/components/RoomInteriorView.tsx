@@ -1146,22 +1146,44 @@ export default function RoomInteriorView({
                 </button>
               )}
 
-              {/* Gift button (gradient with shimmer) */}
+              {/* Gift button (golden glow with badge) */}
               {authUser && (
                 <button
                   onClick={() => vr.setGiftSheetOpen(true)}
-                  className="rounded-full flex items-center justify-center flex-shrink-0 cursor-pointer touch-manipulation relative overflow-hidden"
+                  className="rounded-[10px] flex items-center justify-center flex-shrink-0 cursor-pointer touch-manipulation relative overflow-hidden"
                   style={{
                     width: 38, height: 38, minWidth: 44, minHeight: 44,
                     background: 'linear-gradient(135deg, #f59e0b 0%, #ef4444 50%, #f59e0b 100%)',
                     backgroundSize: '200% 200%',
-                    boxShadow: '0 2px 10px rgba(245,158,11,0.35)',
+                    boxShadow: '0 2px 12px rgba(245,158,11,0.4)',
                     transition: TUI.anim.fast,
                     animation: 'giftShimmer 3s ease-in-out infinite',
                   }}
                   aria-label="إرسال هدية"
                 >
                   <Gift size={18} fill={TUI.colors.white} style={{ color: TUI.colors.white, zIndex: 1, position: 'relative' }} />
+                  {/* Unread gifts count badge */}
+                  {vr.topGifts.length > 0 && (
+                    <span
+                      className="absolute flex items-center justify-center rounded-full"
+                      style={{
+                        top: -4,
+                        right: -4,
+                        minWidth: 16,
+                        height: 16,
+                        padding: '0 4px',
+                        backgroundColor: TUI.colors.red,
+                        fontSize: 9,
+                        fontWeight: 700,
+                        color: TUI.colors.white,
+                        boxShadow: `0 0 6px ${TUI.colors.red}`,
+                        border: '2px solid rgba(10, 14, 39, 0.9)',
+                        zIndex: 2,
+                      }}
+                    >
+                      {vr.topGifts.length > 9 ? '9+' : vr.topGifts.length}
+                    </span>
+                  )}
                 </button>
               )}
 
