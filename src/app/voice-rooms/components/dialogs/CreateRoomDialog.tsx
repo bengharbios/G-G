@@ -44,8 +44,8 @@ interface CreateRoomDialogProps {
 export default function CreateRoomDialog({ isOpen, onClose, onCreate }: CreateRoomDialogProps) {
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
-  const [micSeatCount, setMicSeatCount] = useState(8);
-  const [micTheme, setMicTheme] = useState<MicLayoutId>('grid2x4');
+  const [micSeatCount, setMicSeatCount] = useState(5);
+  const [micTheme, setMicTheme] = useState<MicLayoutId>('chat5');
   const [roomMode, setRoomMode] = useState<RoomMode>('public');
   const [roomPassword, setRoomPassword] = useState('');
   const [roomImage, setRoomImage] = useState(DEFAULT_BG_URLS[0]);
@@ -55,8 +55,8 @@ export default function CreateRoomDialog({ isOpen, onClose, onCreate }: CreateRo
   const resetForm = useCallback(() => {
     setName('');
     setDescription('');
-    setMicSeatCount(8);
-    setMicTheme('grid2x4');
+    setMicSeatCount(5);
+    setMicTheme('chat5');
     setRoomMode('public');
     setRoomPassword('');
     setRoomImage(DEFAULT_BG_URLS[0]);
@@ -252,21 +252,6 @@ export default function CreateRoomDialog({ isOpen, onClose, onCreate }: CreateRo
                 </button>
               );
             })}
-            {/* Fallback: arc for any seat count */}
-            {!MIC_LAYOUTS.some(l => l.seatCounts.includes(micSeatCount)) && (
-              <button
-                onClick={() => setMicTheme('arc')}
-                className="flex-shrink-0 flex flex-col items-center justify-center gap-1 rounded-[10px] transition-all cursor-pointer touch-manipulation"
-                style={{
-                  width: 68, height: 60,
-                  backgroundColor: micTheme === 'arc' ? 'rgba(123, 97, 255, 0.1)' : TUI.colors.bgInput,
-                  border: micTheme === 'arc' ? `2px solid ${TUI.colors.purple}` : `1px solid ${TUI.colors.strokePrimary}`,
-                }}
-              >
-                <span style={{ fontSize: 20 }}>⌢</span>
-                <span style={{ fontSize: 10, color: micTheme === 'arc' ? TUI.colors.purple : TUI.colors.G5 }}>قوس</span>
-              </button>
-            )}
           </div>
         </div>
 

@@ -458,11 +458,11 @@ export const DEFAULT_GIFTS: Gift[] = [
   { id: 'g24', name: 'Unicorn',  nameAr: 'يونيكورن',  emoji: '🦄', price: 6666,  category: 'special', animation: 'stars' },
 ];
 
-export const MIC_OPTIONS = [4, 6, 8, 9, 10];
+export const MIC_OPTIONS = [5, 10, 15];
 
 // ─── Mic Seat Layout Types ─────────────────────────────────────────────────
 
-export type MicLayoutId = 'arc' | 'grid2x2' | 'grid2x3' | 'grid2x4' | 'grid3x3' | 'theater' | 'radio' | 'podcast';
+export type MicLayoutId = 'chat5' | 'broadcast5' | 'chat10' | 'team10' | 'chat15';
 
 export interface MicLayout {
   id: MicLayoutId;
@@ -472,17 +472,67 @@ export interface MicLayout {
   seatCounts: number[];  // supported seat counts for this layout
   cols: number;
   rows: number;
+  // Visual layout: array of rows, each row = number of dots
+  visualRows: number[];
+  // Team divider: show divider between col 2 and 3
+  hasTeamDivider?: boolean;
+  // Broadcast: single seat on top
+  isBroadcast?: boolean;
 }
 
 export const MIC_LAYOUTS: MicLayout[] = [
-  { id: 'grid2x2',  name: 'شبكة 2×2',  icon: '⊞', description: '4 مقاعد في صفين', seatCounts: [4], cols: 2, rows: 2 },
-  { id: 'grid2x3',  name: 'شبكة 2×3',  icon: '⊞', description: '6 مقاعد في صفين', seatCounts: [6], cols: 3, rows: 2 },
-  { id: 'grid2x4',  name: 'شبكة 2×4',  icon: '⊞', description: '8 مقاعد في صفين', seatCounts: [8], cols: 4, rows: 2 },
-  { id: 'grid3x3',  name: 'شبكة 3×3',  icon: '⊞', description: '9 مقاعد في 3 صفوف', seatCounts: [9], cols: 3, rows: 3 },
-  { id: 'arc',      name: 'قوس',       icon: '⌢', description: 'ترتيب قوس منحني', seatCounts: [4, 6, 8, 9, 10], cols: 0, rows: 1 },
-  { id: 'theater',  name: 'مسرح',     icon: '🎭', description: 'ترتيب مسرحي', seatCounts: [6, 8, 9, 10], cols: 0, rows: 0 },
-  { id: 'radio',    name: 'راديو',     icon: '📻', description: 'ترتيب راديو دائري', seatCounts: [4, 6, 8], cols: 0, rows: 0 },
-  { id: 'podcast',  name: 'بودكاست',  icon: '🎙', description: 'ترتيب بودكاست', seatCounts: [4, 6, 8, 10], cols: 0, rows: 0 },
+  // ── Chat 5: 1 row of 5 (horizontal line) ──
+  {
+    id: 'chat5',
+    name: 'محادثة',
+    icon: '💬',
+    description: '5 مايكات في صف واحد',
+    seatCounts: [5],
+    cols: 5, rows: 1,
+    visualRows: [5],
+  },
+  // ── Broadcast 5: 1 top + 4 bottom (pyramid/broadcast) ──
+  {
+    id: 'broadcast5',
+    name: 'بث',
+    icon: '📡',
+    description: '5 مايكات هرمي',
+    seatCounts: [5],
+    cols: 0, rows: 2,
+    visualRows: [1, 4],
+    isBroadcast: true,
+  },
+  // ── Chat 10: 2 rows of 5 (2×5 grid) ──
+  {
+    id: 'chat10',
+    name: 'محادثة',
+    icon: '💬',
+    description: '10 مايكات شبكة',
+    seatCounts: [10],
+    cols: 5, rows: 2,
+    visualRows: [5, 5],
+  },
+  // ── Team 10: 2 rows of 5 with divider between seats 2&3 ──
+  {
+    id: 'team10',
+    name: 'فريق',
+    icon: '👥',
+    description: '10 مايكات فريقين',
+    seatCounts: [10],
+    cols: 5, rows: 2,
+    visualRows: [5, 5],
+    hasTeamDivider: true,
+  },
+  // ── Chat 15: 3 rows of 5 (3×5 grid) ──
+  {
+    id: 'chat15',
+    name: 'محادثة',
+    icon: '💬',
+    description: '15 مايكات شبكة كبيرة',
+    seatCounts: [15],
+    cols: 5, rows: 3,
+    visualRows: [5, 5, 5],
+  },
 ];
 
 /** Get the best layout for a given seat count */
@@ -490,19 +540,18 @@ export function getMicLayout(micTheme: string, seatCount: number): MicLayout {
   if (micTheme && micTheme !== 'default') {
     const found = MIC_LAYOUTS.find(l => l.id === micTheme && l.seatCounts.includes(seatCount));
     if (found) return found;
+    // Also match by id alone if seatCount matches any supported
+    const foundById = MIC_LAYOUTS.find(l => l.id === micTheme);
+    if (foundById && foundById.seatCounts.includes(seatCount)) return foundById;
   }
   // Auto-select best layout based on seat count
   const autoMap: Record<number, MicLayoutId> = {
-    4: 'grid2x2',
-    5: 'arc',
-    6: 'grid2x3',
-    7: 'arc',
-    8: 'grid2x4',
-    9: 'grid3x3',
-    10: 'arc',
+    5: 'chat5',
+    10: 'chat10',
+    15: 'chat15',
   };
-  const autoId = autoMap[seatCount] || 'arc';
-  return MIC_LAYOUTS.find(l => l.id === autoId) || MIC_LAYOUTS[4]; // fallback to arc
+  const autoId = autoMap[seatCount] || 'chat5';
+  return MIC_LAYOUTS.find(l => l.id === autoId) || MIC_LAYOUTS[0]; // fallback to chat5
 }
 
 export const ROOM_MODE_OPTIONS: { value: RoomMode; label: string; icon: typeof Globe; desc: string }[] = [

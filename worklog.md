@@ -227,3 +227,34 @@ Stage Summary:
 - Modified: src/app/voice-rooms/components/RoomInteriorView.tsx
 - Room owners can now change mic seat layout from the three-dots menu (⋮ → نمط المايكات)
 - Seat count and layout style changes persist on server and apply instantly
+---
+Task ID: 1
+Agent: Main Agent
+Task: Study screenshot mic layout patterns and update SettingsSheet with correct TUILiveKit patterns
+
+Work Log:
+- Read all 9 screenshot analysis JSON files from /tmp/analysis_room_*.json and /tmp/my-project/upload/pasted_image_*_detail.json
+- Identified the EXACT 5 mic layout patterns from TUILiveKit Mic Mode modal:
+  1. **Chat 5** (chat5): 1 row of 5 seats (horizontal line)
+  2. **Broadcast 5** (broadcast5): Top 1 + bottom 4 seats (pyramid/broadcast)
+  3. **Chat 10** (chat10): 2 rows of 5 seats (2×5 grid) — LOCKED in screenshots
+  4. **Team 10** (team10): 2 rows of 5 seats with divider between seats 2&3 — LOCKED
+  5. **Chat 15** (chat15): 3 rows of 5 seats (3×5 grid) — LOCKED
+- Updated types.ts: Changed MicLayoutId from 8 old types to 5 correct types
+- Updated MIC_OPTIONS from [4,6,8,9,10] to [5,10,15]
+- Updated MIC_LAYOUTS array with correct patterns including visualRows, hasTeamDivider, isBroadcast
+- Updated getMicLayout() auto-select for 5→chat5, 10→chat10, 15→chat15
+- Updated SettingsSheet.tsx MIC_MODE_OPTIONS with 5 correct patterns matching screenshots
+- Updated renderMicVisual() to handle broadcast (pyramid), team (with divider), and chat layouts
+- Updated RoomInteriorView.tsx MicSeatGrid with correct layout renderers for all 5 types
+- Updated CreateRoomDialog defaults to chat5/5 seats (was grid2x4/8)
+- Removed arc fallback button from CreateRoomDialog
+- Updated admin-db.ts migration to map legacy themes → new TUILiveKit layout IDs
+- Deleted MicLayoutSheet.tsx (was wrong approach per user request)
+- Ran lint — no errors in voice-rooms code
+
+Stage Summary:
+- Mic layout patterns now EXACTLY match TUILiveKit screenshots
+- All 5 patterns available in SettingsSheet's existing "نمط المايك" section
+- MicSeatGrid renders each pattern correctly in the room interior
+- DB migration handles old rooms and legacy theme IDs

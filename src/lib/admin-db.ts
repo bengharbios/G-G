@@ -584,17 +584,19 @@ async function ensureAdminTables(): Promise<void> {
     }
   }
 
-  // Migration: fix old rooms with micTheme='default' → auto-select based on micSeatCount
+  // Migration: fix old rooms with micTheme='default' or legacy themes → new TUILiveKit layout IDs
   try {
-    await c.execute("UPDATE VoiceRoom SET micTheme = 'grid2x2' WHERE micTheme = 'default' AND micSeatCount = 4");
-    await c.execute("UPDATE VoiceRoom SET micTheme = 'grid2x3' WHERE micTheme = 'default' AND micSeatCount = 6");
-    await c.execute("UPDATE VoiceRoom SET micTheme = 'grid2x4' WHERE (micTheme = 'default' OR micTheme IS NULL) AND micSeatCount = 8");
-    await c.execute("UPDATE VoiceRoom SET micTheme = 'grid3x3' WHERE micTheme = 'default' AND micSeatCount = 9");
-    await c.execute("UPDATE VoiceRoom SET micTheme = 'arc' WHERE micTheme = 'default' AND micSeatCount = 10");
-    // Fallback: any remaining 'default' rooms → grid2x4 (most common)
-    await c.execute("UPDATE VoiceRoom SET micTheme = 'grid2x4' WHERE micTheme = 'default' OR micTheme IS NULL");
+    // Direct default migration
+    await c.execute("UPDATE VoiceRoom SET micTheme = 'chat5', micSeatCount = 5 WHERE micTheme = 'default' AND micSeatCount IN (4, 5)");
+    await c.execute("UPDATE VoiceRoom SET micTheme = 'chat10', micSeatCount = 10 WHERE micTheme = 'default' AND micSeatCount IN (6, 7, 8, 9, 10)");
+    await c.execute("UPDATE VoiceRoom SET micTheme = 'chat15', micSeatCount = 15 WHERE micTheme = 'default' AND micSeatCount > 10");
+    // Fallback: any remaining 'default' rooms → chat5 (most common)
+    await c.execute("UPDATE VoiceRoom SET micTheme = 'chat5', micSeatCount = 5 WHERE micTheme = 'default' OR micTheme IS NULL");
     // Also fix rooms where micTheme is empty string
-    await c.execute("UPDATE VoiceRoom SET micTheme = 'grid2x4' WHERE micTheme = ''");
+    await c.execute("UPDATE VoiceRoom SET micTheme = 'chat5', micSeatCount = 5 WHERE micTheme = ''");
+    // Migrate legacy layout IDs to new ones
+    await c.execute("UPDATE VoiceRoom SET micTheme = 'chat5', micSeatCount = 5 WHERE micTheme IN ('grid2x2', 'arc', 'radio', 'podcast')");
+    await c.execute("UPDATE VoiceRoom SET micTheme = 'chat10', micSeatCount = 10 WHERE micTheme IN ('grid2x3', 'grid2x4', 'grid3x3', 'theater', 'broadcast5') AND micSeatCount >= 6");
   } catch { /* ignore */ }
 
   // Migration: add vipLevel to AppUser

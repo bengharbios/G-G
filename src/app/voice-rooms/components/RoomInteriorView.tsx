@@ -50,7 +50,7 @@ import type { VoiceRoom, AuthUser } from '../types';
      ├── z-10 flex flex-col h-full
      │   ├── Header (semi-transparent: avatar+crown+name | share+3dots+power)
      │   ├── Announcement Bar (subtle dark with megaphone)
-     │   ├── Mic Seat Area (layout based on micTheme: grid/arc/theater/radio)
+     │   ├── Mic Seat Area (layout based on micTheme: chat5/broadcast5/chat10/team10/chat15)
      │   ├── ChatPanel (compact, floating messages)
      │   ├── LikeAnimation (overlay, left side)
      │   ├── GiftAnimations (overlay)
@@ -219,7 +219,7 @@ function SeatCircle({
   );
 }
 
-/* ── Mic Seat Layouts ── */
+/* ── Mic Seat Layouts (TUILiveKit screenshot-matched) ── */
 function MicSeatGrid({
   seats,
   layoutId,
@@ -229,19 +229,56 @@ function MicSeatGrid({
   layoutId: MicLayoutId;
   onSeatClick: (idx: number) => void;
 }) {
-  const seatSize = seats.length <= 6 ? 54 : seats.length <= 8 ? 50 : 46;
+  const seatSize = seats.length <= 5 ? 54 : seats.length <= 10 ? 50 : 46;
+  const rowGap = seats.length <= 5 ? 0 : seats.length <= 10 ? 12 : 10;
 
-  // ── Grid layouts (2x2, 2x3, 2x4, 3x3) ──
-  if (layoutId.startsWith('grid')) {
-    const cols = layoutId === 'grid2x2' ? 2 : layoutId === 'grid2x3' ? 3 : layoutId === 'grid2x4' ? 4 : 3;
+  // ── Chat 5: 1 row of 5 (horizontal line) ──
+  if (layoutId === 'chat5') {
+    return (
+      <div
+        className="flex items-center justify-center flex-shrink-0"
+        style={{ padding: '24px 12px 8px', gap: 10 }}
+      >
+        {seats.map((seat) => (
+          <SeatCircle key={seat.seatIndex} seat={seat} size={seatSize} onSeatClick={onSeatClick} />
+        ))}
+      </div>
+    );
+  }
+
+  // ── Broadcast 5: 1 top (host) + 4 bottom (pyramid) ──
+  if (layoutId === 'broadcast5') {
+    const hostSeat = seats.find(s => s.participant?.role === 'owner') || seats[0];
+    const bottomSeats = seats.filter(s => s.seatIndex !== hostSeat.seatIndex);
     return (
       <div
         className="flex flex-col items-center flex-shrink-0"
-        style={{ padding: '16px 16px 8px', gap: 12 }}
+        style={{ padding: '16px 16px 8px', gap: 14 }}
       >
-        {Array.from({ length: Math.ceil(seats.length / cols) }).map((_, row) => (
-          <div key={row} className="flex items-center justify-center" style={{ gap: 10 }}>
-            {seats.slice(row * cols, (row + 1) * cols).map((seat) => (
+        {/* Top row: Host (slightly larger) */}
+        <div className="flex items-center justify-center">
+          <SeatCircle seat={hostSeat} size={seatSize + 6} onSeatClick={onSeatClick} />
+        </div>
+        {/* Bottom row: 4 seats */}
+        <div className="flex items-center justify-center" style={{ gap: 10 }}>
+          {bottomSeats.map((seat) => (
+            <SeatCircle key={seat.seatIndex} seat={seat} size={seatSize} onSeatClick={onSeatClick} />
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  // ── Chat 10: 2 rows of 5 (2×5 grid) ──
+  if (layoutId === 'chat10') {
+    return (
+      <div
+        className="flex flex-col items-center flex-shrink-0"
+        style={{ padding: '16px 12px 8px', gap: rowGap }}
+      >
+        {Array.from({ length: Math.ceil(seats.length / 5) }).map((_, row) => (
+          <div key={row} className="flex items-center justify-center" style={{ gap: 8 }}>
+            {seats.slice(row * 5, (row + 1) * 5).map((seat) => (
               <SeatCircle key={seat.seatIndex} seat={seat} size={seatSize} onSeatClick={onSeatClick} />
             ))}
           </div>
@@ -250,26 +287,38 @@ function MicSeatGrid({
     );
   }
 
-  // ── Theater layout (3-2-2 or 3-3-2 pyramid) ──
-  if (layoutId === 'theater') {
-    const theaterRows: number[] = seats.length <= 6
-      ? [2, 2, 2]
-      : seats.length <= 8
-        ? [3, 3, 2]
-        : [3, 3, 3];
-    let idx = 0;
+  // ── Team 10: 2 rows of 5 with divider between seats 2&3 ──
+  if (layoutId === 'team10') {
     return (
       <div
         className="flex flex-col items-center flex-shrink-0"
-        style={{ padding: '16px 16px 8px', gap: 14 }}
+        style={{ padding: '16px 12px 8px', gap: rowGap }}
       >
-        {theaterRows.map((count, row) => {
-          const rowSeats = seats.slice(idx, idx + count);
-          idx += count;
+        {Array.from({ length: Math.ceil(seats.length / 5) }).map((_, row) => {
+          const rowSeats = seats.slice(row * 5, (row + 1) * 5);
           return (
-            <div key={row} className="flex items-center justify-center" style={{ gap: 10 }}>
-              {rowSeats.map((seat) => (
-                <SeatCircle key={seat.seatIndex} seat={seat} size={seatSize - (row > 0 ? 4 : 0)} onSeatClick={onSeatClick} />
+            <div key={row} className="flex items-center justify-center" style={{ gap: 0 }}>
+              {/* Team A: seats 0, 1 */}
+              {rowSeats.slice(0, 2).map((seat) => (
+                <div key={seat.seatIndex} style={{ padding: '0 4px' }}>
+                  <SeatCircle seat={seat} size={seatSize} onSeatClick={onSeatClick} />
+                </div>
+              ))}
+              {/* Divider */}
+              <div
+                style={{
+                  width: 2,
+                  height: seatSize + 16,
+                  backgroundColor: 'rgba(123, 97, 255, 0.35)',
+                  borderRadius: 1,
+                  margin: '0 6px',
+                }}
+              />
+              {/* Team B: seats 2, 3, 4 */}
+              {rowSeats.slice(2, 5).map((seat) => (
+                <div key={seat.seatIndex} style={{ padding: '0 4px' }}>
+                  <SeatCircle seat={seat} size={seatSize} onSeatClick={onSeatClick} />
+                </div>
               ))}
             </div>
           );
@@ -278,58 +327,16 @@ function MicSeatGrid({
     );
   }
 
-  // ── Radio layout (semicircle arc) ──
-  if (layoutId === 'radio') {
-    const total = seats.length;
-    const centerX = 50; // percentage
-    const radiusX = 38; // percentage
-    const radiusY = 18; // percentage
-    return (
-      <div
-        className="relative flex-shrink-0"
-        style={{ width: '100%', height: 130, padding: '8px 16px' }}
-      >
-        {seats.map((seat, i) => {
-          const angle = (Math.PI * (i + 1)) / (total + 1); // spread across semicircle
-          const x = centerX + radiusX * Math.cos(Math.PI - angle);
-          const y = 80 + radiusY * Math.sin(angle);
-          return (
-            <div
-              key={seat.seatIndex}
-              className="absolute flex items-center justify-center"
-              style={{
-                left: `${x}%`,
-                top: `${y}%`,
-                transform: 'translate(-50%, -50%)',
-              }}
-            >
-              <SeatCircle seat={seat} size={seatSize} onSeatClick={onSeatClick} />
-            </div>
-          );
-        })}
-      </div>
-    );
-  }
-
-  // ── Podcast layout (host centered on top, others below in pairs) ──
-  if (layoutId === 'podcast') {
-    const host = seats.find(s => s.participant?.role === 'owner');
-    const others = seats.filter(s => s.seatIndex !== host?.seatIndex);
+  // ── Chat 15: 3 rows of 5 (3×5 grid) ──
+  if (layoutId === 'chat15') {
     return (
       <div
         className="flex flex-col items-center flex-shrink-0"
-        style={{ padding: '16px 16px 8px', gap: 12 }}
+        style={{ padding: '12px 8px 8px', gap: rowGap }}
       >
-        {/* Host row */}
-        {host && (
-          <div className="flex items-center justify-center" style={{ gap: 10 }}>
-            <SeatCircle seat={host} size={seatSize + 6} onSeatClick={onSeatClick} />
-          </div>
-        )}
-        {/* Others in pairs */}
-        {Array.from({ length: Math.ceil(others.length / 2) }).map((_, row) => (
-          <div key={row} className="flex items-center justify-center" style={{ gap: 10 }}>
-            {others.slice(row * 2, (row + 1) * 2).map((seat) => (
+        {Array.from({ length: Math.ceil(seats.length / 5) }).map((_, row) => (
+          <div key={row} className="flex items-center justify-center" style={{ gap: 6 }}>
+            {seats.slice(row * 5, (row + 1) * 5).map((seat) => (
               <SeatCircle key={seat.seatIndex} seat={seat} size={seatSize} onSeatClick={onSeatClick} />
             ))}
           </div>
@@ -338,22 +345,15 @@ function MicSeatGrid({
     );
   }
 
-  // ── Default: Arc layout (parabolic curve) ──
+  // ── Default fallback: single row (for any seat count) ──
   return (
     <div
-      className="flex items-end justify-center flex-shrink-0"
-      style={{ padding: '16px 16px 8px', gap: 8 }}
+      className="flex items-center justify-center flex-shrink-0 flex-wrap"
+      style={{ padding: '16px 12px 8px', gap: 10 }}
     >
-      {seats.map((seat, i) => {
-        const total = seats.length;
-        const normalized = total > 1 ? (i / (total - 1)) - 0.5 : 0;
-        const yOffset = Math.pow(normalized * 2, 2) * 18;
-        return (
-          <div key={seat.seatIndex} style={{ transform: `translateY(${yOffset}px)`, transition: 'transform 0.3s ease' }}>
-            <SeatCircle seat={seat} size={seatSize} onSeatClick={onSeatClick} />
-          </div>
-        );
-      })}
+      {seats.map((seat) => (
+        <SeatCircle key={seat.seatIndex} seat={seat} size={seatSize} onSeatClick={onSeatClick} />
+      ))}
     </div>
   );
 }

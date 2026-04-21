@@ -40,7 +40,7 @@ interface SettingsSheetProps {
 
 // ─── Mic Mode Option Types ─────────────────────────────────────────────────
 
-type MicModeKey = 'chat4' | 'chat6' | 'chat8' | 'chat9' | 'chat10' | 'broadcast5' | 'theater8' | 'theater9' | 'radio8' | 'podcast8' | 'podcast10';
+type MicModeKey = 'chat5' | 'broadcast5' | 'chat10' | 'team10' | 'chat15';
 
 interface MicModeOption {
   key: MicModeKey;
@@ -52,28 +52,21 @@ interface MicModeOption {
   micSeatCount: number;
   // Visual layout: array of rows, each row = number of dots
   visualRows: number[];
-  isArc?: boolean;
-  isRadio?: boolean;
+  isBroadcast?: boolean;
+  hasTeamDivider?: boolean;
 }
 
 const MIC_MODE_OPTIONS: MicModeOption[] = [
-  // ── 2-row Grid layouts ──
-  { key: 'chat4',   label: 'شبكة 2×2',   sublabel: '4 مايكات',  icon: 'grid',    locked: false, micTheme: 'grid2x2', micSeatCount: 4,  visualRows: [2, 2] },
-  { key: 'chat6',   label: 'شبكة 2×3',   sublabel: '6 مايكات',  icon: 'grid',    locked: false, micTheme: 'grid2x3', micSeatCount: 6,  visualRows: [3, 3] },
-  { key: 'chat8',   label: 'شبكة 2×4',   sublabel: '8 مايكات',  icon: 'grid',    locked: false, micTheme: 'grid2x4', micSeatCount: 8,  visualRows: [4, 4] },
-  { key: 'chat9',   label: 'شبكة 3×3',   sublabel: '9 مايكات',  icon: 'grid',    locked: false, micTheme: 'grid3x3', micSeatCount: 9,  visualRows: [3, 3, 3] },
-  // ── Broadcast (1+4 star) ──
-  { key: 'broadcast5', label: 'بث',          sublabel: '5 مايكات',  icon: 'broadcast',locked: false, micTheme: 'arc',     micSeatCount: 5,  visualRows: [1, 4] },
-  // ── Theater (pyramid) layouts ──
-  { key: 'theater8',   label: 'مسرح',       sublabel: '8 مايكات',  icon: 'theater',  locked: false, micTheme: 'theater', micSeatCount: 8,  visualRows: [3, 3, 2] },
-  { key: 'theater9',   label: 'مسرح',       sublabel: '9 مايكات',  icon: 'theater',  locked: false, micTheme: 'theater', micSeatCount: 9,  visualRows: [3, 3, 3] },
-  // ── Radio (semicircle) ──
-  { key: 'radio8',     label: 'راديو',       sublabel: '8 مايكات',  icon: 'radio',    locked: false, micTheme: 'radio',   micSeatCount: 8,  visualRows: [8], isRadio: true },
-  // ── Podcast (host top + pairs) ──
-  { key: 'podcast8',   label: 'بودكاست',    sublabel: '8 مايكات',  icon: 'podcast',  locked: false, micTheme: 'podcast', micSeatCount: 8,  visualRows: [1, 2, 2, 2, 1] },
-  { key: 'podcast10',  label: 'بودكاست',    sublabel: '10 مايكات', icon: 'podcast',  locked: false, micTheme: 'podcast', micSeatCount: 10, visualRows: [1, 2, 2, 2, 2, 1] },
-  // ── Arc (curved) for 10 ──
-  { key: 'chat10',     label: 'قوس',         sublabel: '10 مايكات', icon: 'arc',      locked: false, micTheme: 'arc',     micSeatCount: 10, visualRows: [10], isArc: true },
+  // ── Chat 5: 1 row of 5 (horizontal line) ──
+  { key: 'chat5',       label: 'محادثة',   sublabel: '5 مايكات',  icon: 'chat',      locked: false, micTheme: 'chat5',       micSeatCount: 5,  visualRows: [5] },
+  // ── Broadcast 5: 1 top + 4 bottom (pyramid/broadcast) ──
+  { key: 'broadcast5',  label: 'بث',       sublabel: '5 مايكات',  icon: 'broadcast', locked: false, micTheme: 'broadcast5',  micSeatCount: 5,  visualRows: [1, 4], isBroadcast: true },
+  // ── Chat 10: 2 rows of 5 (2×5 grid) ──
+  { key: 'chat10',      label: 'محادثة',   sublabel: '10 مايكات', icon: 'chat',      locked: true,  micTheme: 'chat10',      micSeatCount: 10, visualRows: [5, 5] },
+  // ── Team 10: 2 rows of 5 with divider between seats 2&3 ──
+  { key: 'team10',      label: 'فريق',     sublabel: '10 مايكات', icon: 'team',      locked: true,  micTheme: 'team10',      micSeatCount: 10, visualRows: [5, 5], hasTeamDivider: true },
+  // ── Chat 15: 3 rows of 5 (3×5 grid) ──
+  { key: 'chat15',      label: 'محادثة',   sublabel: '15 مايكات', icon: 'chat',      locked: true,  micTheme: 'chat15',      micSeatCount: 15, visualRows: [5, 5, 5] },
 ];
 
 // ─── Settings Row Data ────────────────────────────────────────────────────
@@ -160,19 +153,30 @@ function MicModeDialog({
   // Render mic circles based on mode type
   const renderMicVisual = (option: MicModeOption, isSelected: boolean) => {
     const baseColor = option.locked ? '#BDBDBD' : (isSelected ? TUI.colors.teal : TUI.colors.tealLight);
-    const dotSize = option.visualRows.some(r => r > 5) ? 11 : option.visualRows.length > 2 ? 13 : 15;
-    const gap = option.visualRows.some(r => r > 5) ? 3 : 4;
+    const totalSeats = option.visualRows.reduce((sum, r) => sum + r, 0);
+    const dotSize = totalSeats > 10 ? 10 : totalSeats > 5 ? 11 : option.visualRows.length > 1 ? 13 : 14;
+    const gap = totalSeats > 10 ? 3 : 4;
     const opacity = option.locked ? 0.35 : 1;
 
-    // Arc layout (curved bottom row)
-    if (option.isArc) {
-      const count = option.visualRows[0];
+    // Broadcast layout: 1 seat on top + 4 on bottom (centered pyramid)
+    if (option.isBroadcast) {
       return (
-        <div className="flex items-end justify-center" style={{ gap, height: 42 }}>
-          {Array.from({ length: count }).map((_, i) => {
-            const normalized = count > 1 ? (i / (count - 1)) - 0.5 : 0;
-            const yOffset = Math.pow(normalized * 2, 2) * 12;
-            return (
+        <div className="flex flex-col items-center" style={{ gap }}>
+          {/* Top row: 1 host seat (slightly larger) */}
+          <div className="flex items-center justify-center">
+            <div
+              className="rounded-full"
+              style={{
+                width: dotSize + 4,
+                height: dotSize + 4,
+                backgroundColor: baseColor,
+                opacity,
+              }}
+            />
+          </div>
+          {/* Bottom row: 4 seats */}
+          <div className="flex items-center justify-center" style={{ gap }}>
+            {Array.from({ length: 4 }).map((_, i) => (
               <div
                 key={i}
                 className="rounded-full"
@@ -181,67 +185,72 @@ function MicModeDialog({
                   height: dotSize,
                   backgroundColor: baseColor,
                   opacity,
-                  transform: `translateY(${yOffset}px)`,
                 }}
               />
-            );
-          })}
+            ))}
+          </div>
         </div>
       );
     }
 
-    // Radio layout (semicircle)
-    if (option.isRadio) {
-      const count = option.visualRows[0];
+    // Team layout: 2 rows of 5 with vertical divider between seats 2&3
+    if (option.hasTeamDivider) {
       return (
-        <div className="flex items-center justify-center" style={{ width: '100%', height: 42 }}>
-          {Array.from({ length: count }).map((_, i) => {
-            const angle = (Math.PI * (i + 1)) / (count + 1);
-            const x = 50 + 42 * Math.cos(Math.PI - angle);
-            const y = 70 + 18 * Math.sin(angle);
-            return (
+        <div className="flex flex-col items-center" style={{ gap }}>
+          {option.visualRows.map((count, rowIdx) => (
+            <div key={rowIdx} className="flex items-center" style={{ gap }}>
+              {Array.from({ length: count }).map((_, col) => (
+                <>
+                  {/* Divider between seat 2 and 3 */}
+                  {col === 2 && (
+                    <div
+                      key={`divider-${rowIdx}`}
+                      style={{
+                        width: 1.5,
+                        height: dotSize + 4,
+                        backgroundColor: option.locked ? '#D0D0D0' : (isSelected ? '#006064' : '#B2DFDB'),
+                        opacity: 0.6,
+                        margin: '0 2px',
+                      }}
+                    />
+                  )}
+                  <div
+                    key={col}
+                    className="rounded-full"
+                    style={{
+                      width: dotSize,
+                      height: dotSize,
+                      backgroundColor: baseColor,
+                      opacity,
+                    }}
+                  />
+                </>
+              ))}
+            </div>
+          ))}
+        </div>
+      );
+    }
+
+    // Chat layouts: simple rows of circles (1×5, 2×5, 3×5)
+    return (
+      <div className="flex flex-col items-center" style={{ gap }}>
+        {option.visualRows.map((count, rowIdx) => (
+          <div key={rowIdx} className="flex items-center justify-center" style={{ gap }}>
+            {Array.from({ length: count }).map((_, col) => (
               <div
-                key={i}
-                className="absolute rounded-full"
+                key={col}
+                className="rounded-full"
                 style={{
                   width: dotSize,
                   height: dotSize,
                   backgroundColor: baseColor,
                   opacity,
-                  left: `${x}%`,
-                  top: `${y}%`,
-                  transform: 'translate(-50%, -50%)',
                 }}
               />
-            );
-          })}
-        </div>
-      );
-    }
-
-    // Grid / Theater / Broadcast / Podcast: rows of circles
-    return (
-      <div className="flex flex-col items-center" style={{ gap }}>
-        {option.visualRows.map((count, rowIdx) => {
-          const isHostRow = option.visualRows.length > 2 && rowIdx === 0 && count === 1;
-          const currentDotSize = isHostRow ? dotSize + 4 : dotSize;
-          return (
-            <div key={rowIdx} className="flex items-center justify-center" style={{ gap }}>
-              {Array.from({ length: count }).map((_, col) => (
-                <div
-                  key={col}
-                  className="rounded-full"
-                  style={{
-                    width: currentDotSize,
-                    height: currentDotSize,
-                    backgroundColor: baseColor,
-                    opacity,
-                  }}
-                />
-              ))}
-            </div>
-          );
-        })}
+            ))}
+          </div>
+        ))}
       </div>
     );
   };
