@@ -6,7 +6,7 @@ import {
   Crown, Volume2, VolumeX, Mic, MicOff, Gift, Send,
   Megaphone, Pencil, Trophy, Disc3, ListMusic, Music, Music2,
   Power, Lock, MoreVertical, Users, Settings2, Shield,
-  PencilLine, LayoutGrid, VolumeIcon as VolumeOff2, Sparkles,
+  PencilLine, VolumeIcon as VolumeOff2, Sparkles,
   UserPlus, LogOut, Heart,
 } from 'lucide-react';
 import { useVoiceRoom } from '../hooks/useVoiceRoom';
@@ -31,7 +31,6 @@ import ProfileSheet from './sheets/ProfileSheet';
 import MicMenuSheet from './sheets/MicMenuSheet';
 import SeatManagementSheet from './sheets/SeatManagementSheet';
 import RoomInfoSheet from './sheets/RoomInfoSheet';
-import MicLayoutSheet from './sheets/MicLayoutSheet';
 
 // ─── Dialogs ─────────────────────────────────────────────────────────────────
 
@@ -371,7 +370,6 @@ function ThreeDotsMenu({
   onOpenSeatMgmt,
   onOpenRoomInfo,
   onOpenProfile,
-  onOpenMicLayout,
   onShare,
   onToggleRoomMute,
   isRoomMuted,
@@ -385,7 +383,6 @@ function ThreeDotsMenu({
   onOpenSeatMgmt: () => void;
   onOpenRoomInfo: () => void;
   onOpenProfile: () => void;
-  onOpenMicLayout: () => void;
   onShare: () => void;
   onToggleRoomMute: () => void;
   isRoomMuted: boolean;
@@ -395,7 +392,6 @@ function ThreeDotsMenu({
   const items = [
     { icon: Settings2, label: 'الإعدادات', action: onOpenSettings, show: isAdmin },
     { icon: PencilLine, label: 'تعديل الغرفة', action: onOpenRoomInfo, show: isOwner },
-    { icon: LayoutGrid, label: 'نمط المايكات', action: onOpenMicLayout, show: isOwner },
     { icon: Users, label: 'إدارة المقاعد', action: onOpenSeatMgmt, show: isAdmin, badge: pendingRequests },
     { icon: Shield, label: 'إدارة الأدوار', action: onOpenProfile, show: isAdmin },
     { icon: Volume2, label: isRoomMuted ? 'إلغاء كتم الغرفة' : 'كتم الغرفة', action: onToggleRoomMute, show: isAdmin, color: isRoomMuted ? TUI.colors.red : undefined },
@@ -524,24 +520,8 @@ export default function RoomInteriorView({
   /* ── Three-dots menu state ── */
   const [showDotsMenu, setShowDotsMenu] = useState(false);
 
-  /* ── Mic layout sheet state ── */
-  const [micLayoutOpen, setMicLayoutOpen] = useState(false);
-
   /* ── Mic layout ── */
   const micLayout = getMicLayout(vr.room.micTheme, vr.seats.length);
-
-  /* ── Handle mic layout change ── */
-  async function handleMicLayoutChange(layoutId: MicLayoutId) {
-    await vr.handleUpdateSettings({ micTheme: layoutId });
-    setMicLayoutOpen(false);
-  }
-
-  /* ── Handle seat count change ── */
-  async function handleSeatCountChange(count: number) {
-    await vr.handleUpdateSettings({ micSeatCount: count });
-    // After changing seat count, re-fetch participants to rebuild seats
-    await vr.fetchParticipants();
-  }
 
   /* ── Accept/Reject seat handlers ── */
   async function handleAcceptSeat(userId: string) {
@@ -1033,7 +1013,6 @@ export default function RoomInteriorView({
           onOpenSeatMgmt={() => setSeatMgmtOpen(true)}
           onOpenRoomInfo={() => setRoomInfoOpen(true)}
           onOpenProfile={() => {}}
-          onOpenMicLayout={() => setMicLayoutOpen(true)}
           onShare={handleShare}
           onToggleRoomMute={vr.handleToggleRoomMute}
           isRoomMuted={vr.isRoomMuted}
@@ -1044,19 +1023,7 @@ export default function RoomInteriorView({
             SettingsSheet and all others — EXACTLY unchanged
             ════════════════════════════════════════════════════════════════════ */}
 
-        {/* ── Mic Layout Sheet (owner only) ── */}
-        {isOwner && (
-          <MicLayoutSheet
-            isOpen={micLayoutOpen}
-            onClose={() => setMicLayoutOpen(false)}
-            currentMicTheme={vr.room.micTheme}
-            currentSeatCount={vr.room.micSeatCount}
-            onLayoutChange={handleMicLayoutChange}
-            onSeatCountChange={handleSeatCountChange}
-          />
-        )}
-
-        {/* ── Settings Sheet (owner/admin only) — LOCKED, DO NOT CHANGE ── */}
+        {/* ── Settings Sheet (owner/admin only) ── */}
         {isAdmin && (
           <SettingsSheet
             isOpen={vr.settingsOpen}

@@ -40,21 +40,40 @@ interface SettingsSheetProps {
 
 // ─── Mic Mode Option Types ─────────────────────────────────────────────────
 
-type MicModeKey = 'chat5' | 'broadcast5' | 'chat10' | 'team10';
+type MicModeKey = 'chat4' | 'chat6' | 'chat8' | 'chat9' | 'chat10' | 'broadcast5' | 'theater8' | 'theater9' | 'radio8' | 'podcast8' | 'podcast10';
 
 interface MicModeOption {
   key: MicModeKey;
   label: string;
   sublabel: string;
-  icon: 'chat' | 'broadcast' | 'chat' | 'team';
+  icon: string;
   locked: boolean;
+  micTheme: string;
+  micSeatCount: number;
+  // Visual layout: array of rows, each row = number of dots
+  visualRows: number[];
+  isArc?: boolean;
+  isRadio?: boolean;
 }
 
 const MIC_MODE_OPTIONS: MicModeOption[] = [
-  { key: 'chat5', label: 'محادثة', sublabel: '5 مايكات', icon: 'chat', locked: false },
-  { key: 'broadcast5', label: 'بث', sublabel: '5 مايكات', icon: 'broadcast', locked: false },
-  { key: 'chat10', label: 'محادثة', sublabel: '10 مايكات', icon: 'chat', locked: true },
-  { key: 'team10', label: 'فريق', sublabel: '10 مايكات', icon: 'team', locked: true },
+  // ── 2-row Grid layouts ──
+  { key: 'chat4',   label: 'شبكة 2×2',   sublabel: '4 مايكات',  icon: 'grid',    locked: false, micTheme: 'grid2x2', micSeatCount: 4,  visualRows: [2, 2] },
+  { key: 'chat6',   label: 'شبكة 2×3',   sublabel: '6 مايكات',  icon: 'grid',    locked: false, micTheme: 'grid2x3', micSeatCount: 6,  visualRows: [3, 3] },
+  { key: 'chat8',   label: 'شبكة 2×4',   sublabel: '8 مايكات',  icon: 'grid',    locked: false, micTheme: 'grid2x4', micSeatCount: 8,  visualRows: [4, 4] },
+  { key: 'chat9',   label: 'شبكة 3×3',   sublabel: '9 مايكات',  icon: 'grid',    locked: false, micTheme: 'grid3x3', micSeatCount: 9,  visualRows: [3, 3, 3] },
+  // ── Broadcast (1+4 star) ──
+  { key: 'broadcast5', label: 'بث',          sublabel: '5 مايكات',  icon: 'broadcast',locked: false, micTheme: 'arc',     micSeatCount: 5,  visualRows: [1, 4] },
+  // ── Theater (pyramid) layouts ──
+  { key: 'theater8',   label: 'مسرح',       sublabel: '8 مايكات',  icon: 'theater',  locked: false, micTheme: 'theater', micSeatCount: 8,  visualRows: [3, 3, 2] },
+  { key: 'theater9',   label: 'مسرح',       sublabel: '9 مايكات',  icon: 'theater',  locked: false, micTheme: 'theater', micSeatCount: 9,  visualRows: [3, 3, 3] },
+  // ── Radio (semicircle) ──
+  { key: 'radio8',     label: 'راديو',       sublabel: '8 مايكات',  icon: 'radio',    locked: false, micTheme: 'radio',   micSeatCount: 8,  visualRows: [8], isRadio: true },
+  // ── Podcast (host top + pairs) ──
+  { key: 'podcast8',   label: 'بودكاست',    sublabel: '8 مايكات',  icon: 'podcast',  locked: false, micTheme: 'podcast', micSeatCount: 8,  visualRows: [1, 2, 2, 2, 1] },
+  { key: 'podcast10',  label: 'بودكاست',    sublabel: '10 مايكات', icon: 'podcast',  locked: false, micTheme: 'podcast', micSeatCount: 10, visualRows: [1, 2, 2, 2, 2, 1] },
+  // ── Arc (curved) for 10 ──
+  { key: 'chat10',     label: 'قوس',         sublabel: '10 مايكات', icon: 'arc',      locked: false, micTheme: 'arc',     micSeatCount: 10, visualRows: [10], isArc: true },
 ];
 
 // ─── Settings Row Data ────────────────────────────────────────────────────
@@ -116,78 +135,113 @@ function ToggleSwitch({
 function MicModeDialog({
   isOpen,
   onClose,
-  currentMode,
+  currentTheme,
+  currentSeatCount,
   onConfirm,
 }: {
   isOpen: boolean;
   onClose: () => void;
-  currentMode: MicModeKey;
-  onConfirm: (mode: MicModeKey) => void;
+  currentTheme: string;
+  currentSeatCount: number;
+  onConfirm: (micTheme: string, micSeatCount: number) => void;
 }) {
-  const [selected, setSelected] = useState<MicModeKey>(currentMode);
+  // Find current matching option
+  const currentKey = MIC_MODE_OPTIONS.find(
+    o => o.micTheme === currentTheme && o.micSeatCount === currentSeatCount,
+  )?.key || MIC_MODE_OPTIONS[2].key;
+  const [selected, setSelected] = useState<MicModeKey>(currentKey);
 
   const handleConfirm = () => {
-    onConfirm(selected);
+    const option = MIC_MODE_OPTIONS.find(o => o.key === selected);
+    if (option) onConfirm(option.micTheme, option.micSeatCount);
     onClose();
   };
 
   // Render mic circles based on mode type
-  const renderMicVisual = (option: MicModeOption) => {
-    const baseColor = option.locked ? '#BDBDBD' : TUI.colors.tealLight;
+  const renderMicVisual = (option: MicModeOption, isSelected: boolean) => {
+    const baseColor = option.locked ? '#BDBDBD' : (isSelected ? TUI.colors.teal : TUI.colors.tealLight);
+    const dotSize = option.visualRows.some(r => r > 5) ? 11 : option.visualRows.length > 2 ? 13 : 15;
+    const gap = option.visualRows.some(r => r > 5) ? 3 : 4;
+    const opacity = option.locked ? 0.35 : 1;
 
-    if (option.icon === 'broadcast') {
-      // Star pattern: 1 top + 4 around it
+    // Arc layout (curved bottom row)
+    if (option.isArc) {
+      const count = option.visualRows[0];
       return (
-        <div className="flex flex-col items-center gap-1">
-          <div
-            className="rounded-sm"
-            style={{
-              width: 14,
-              height: 14,
-              backgroundColor: baseColor,
-              opacity: option.locked ? 0.4 : 1,
-            }}
-          />
-          <div className="flex gap-1">
-            {[0, 1, 2, 3].map((i) => (
+        <div className="flex items-end justify-center" style={{ gap, height: 42 }}>
+          {Array.from({ length: count }).map((_, i) => {
+            const normalized = count > 1 ? (i / (count - 1)) - 0.5 : 0;
+            const yOffset = Math.pow(normalized * 2, 2) * 12;
+            return (
               <div
                 key={i}
-                className="rounded-sm"
+                className="rounded-full"
                 style={{
-                  width: 14,
-                  height: 14,
+                  width: dotSize,
+                  height: dotSize,
                   backgroundColor: baseColor,
-                  opacity: option.locked ? 0.4 : 1,
+                  opacity,
+                  transform: `translateY(${yOffset}px)`,
                 }}
               />
-            ))}
-          </div>
+            );
+          })}
         </div>
       );
     }
 
-    // Chat / Team: rows of circles
-    const rows = option.sublabel.includes('10') ? 2 : 1;
-    const cols = option.sublabel.includes('10') ? 5 : 5;
-
-    return (
-      <div className="flex flex-col items-center gap-1">
-        {Array.from({ length: rows }).map((_, row) => (
-          <div key={row} className="flex gap-1">
-            {Array.from({ length: cols }).map((_, col) => (
+    // Radio layout (semicircle)
+    if (option.isRadio) {
+      const count = option.visualRows[0];
+      return (
+        <div className="flex items-center justify-center" style={{ width: '100%', height: 42 }}>
+          {Array.from({ length: count }).map((_, i) => {
+            const angle = (Math.PI * (i + 1)) / (count + 1);
+            const x = 50 + 42 * Math.cos(Math.PI - angle);
+            const y = 70 + 18 * Math.sin(angle);
+            return (
               <div
-                key={col}
-                className="rounded-full"
+                key={i}
+                className="absolute rounded-full"
                 style={{
-                  width: 14,
-                  height: 14,
+                  width: dotSize,
+                  height: dotSize,
                   backgroundColor: baseColor,
-                  opacity: option.locked ? 0.4 : 1,
+                  opacity,
+                  left: `${x}%`,
+                  top: `${y}%`,
+                  transform: 'translate(-50%, -50%)',
                 }}
               />
-            ))}
-          </div>
-        ))}
+            );
+          })}
+        </div>
+      );
+    }
+
+    // Grid / Theater / Broadcast / Podcast: rows of circles
+    return (
+      <div className="flex flex-col items-center" style={{ gap }}>
+        {option.visualRows.map((count, rowIdx) => {
+          const isHostRow = option.visualRows.length > 2 && rowIdx === 0 && count === 1;
+          const currentDotSize = isHostRow ? dotSize + 4 : dotSize;
+          return (
+            <div key={rowIdx} className="flex items-center justify-center" style={{ gap }}>
+              {Array.from({ length: count }).map((_, col) => (
+                <div
+                  key={col}
+                  className="rounded-full"
+                  style={{
+                    width: currentDotSize,
+                    height: currentDotSize,
+                    backgroundColor: baseColor,
+                    opacity,
+                  }}
+                />
+              ))}
+            </div>
+          );
+        })}
       </div>
     );
   };
@@ -252,9 +306,9 @@ function MicModeDialog({
               </button>
             </div>
 
-            {/* 2x2 Grid */}
+            {/* 3-column Grid */}
             <div
-              className="grid grid-cols-2 gap-3 p-4"
+              className="grid grid-cols-3 gap-2.5 p-4"
               style={{ direction: 'rtl' }}
             >
               {MIC_MODE_OPTIONS.map((option) => {
@@ -263,7 +317,7 @@ function MicModeDialog({
                   <button
                     key={option.key}
                     onClick={() => !option.locked && setSelected(option.key)}
-                    className="relative flex flex-col items-center justify-center gap-2 p-3 transition-all"
+                    className="relative flex flex-col items-center justify-center gap-1.5 p-2 transition-all"
                     style={{
                       borderRadius: TUI.radius.lg,
                       border: isSelected
@@ -272,49 +326,61 @@ function MicModeDialog({
                       backgroundColor: isSelected ? TUI.colors.tealMint : '#FAFAFA',
                       opacity: option.locked ? 0.55 : 1,
                       cursor: option.locked ? 'not-allowed' : 'pointer',
-                      minHeight: 110,
+                      minHeight: 100,
                     }}
                   >
                     {/* Lock icon for locked items */}
                     {option.locked && (
                       <div
-                        className="absolute top-2 left-2 flex items-center justify-center rounded-full"
+                        className="absolute top-1.5 left-1.5 flex items-center justify-center rounded-full"
                         style={{
-                          width: 22,
-                          height: 22,
+                          width: 20,
+                          height: 20,
                           backgroundColor: 'rgba(0,0,0,0.06)',
                         }}
                       >
-                        <Lock size={12} color={TUI.colors.textGray} />
+                        <Lock size={10} color={TUI.colors.textGray} />
                       </div>
                     )}
 
                     {/* Selected checkmark */}
                     {isSelected && (
                       <div
-                        className="absolute top-2 right-2 flex items-center justify-center rounded-full"
+                        className="absolute top-1.5 right-1.5 flex items-center justify-center rounded-full"
                         style={{
-                          width: 22,
-                          height: 22,
+                          width: 20,
+                          height: 20,
                           backgroundColor: TUI.colors.tealLight,
                         }}
                       >
-                        <Check size={13} color={TUI.colors.white} strokeWidth={3} />
+                        <Check size={11} color={TUI.colors.white} strokeWidth={3} />
                       </div>
                     )}
 
                     {/* Mic visual */}
-                    {renderMicVisual(option)}
+                    <div className="relative" style={{ width: '100%', height: 48 }}>
+                      {renderMicVisual(option, isSelected)}
+                    </div>
 
                     {/* Label */}
                     <span
+                      className="text-center leading-tight"
                       style={{
-                        fontSize: '13px',
+                        fontSize: '11px',
                         fontWeight: isSelected ? 600 : 500,
                         color: isSelected ? TUI.colors.teal : TUI.colors.textDark,
                       }}
                     >
-                      {option.label} - {option.sublabel}
+                      {option.label}
+                    </span>
+                    <span
+                      className="text-center"
+                      style={{
+                        fontSize: '10px',
+                        color: TUI.colors.textGray,
+                      }}
+                    >
+                      {option.sublabel}
                     </span>
                   </button>
                 );
@@ -575,7 +641,6 @@ export default function SettingsSheet({
   // ── Sub-dialog states ──
   const [showMicModeDialog, setShowMicModeDialog] = useState(false);
   const [showAdminPermDialog, setShowAdminPermDialog] = useState(false);
-  const [selectedMicMode, setSelectedMicMode] = useState<MicModeKey>('chat5');
 
   const [adminPerms, setAdminPerms] = useState<AdminPermissionState>({
     useClock: true,
@@ -584,22 +649,17 @@ export default function SettingsSheet({
     changeTheme: false,
   });
 
-  // ── Mic mode labels for display ──
-  const getMicModeLabel = (key: MicModeKey): string => {
-    const map: Record<MicModeKey, string> = {
-      chat5: 'محادثة - 5 مايكات',
-      broadcast5: 'بث - 5 مايكات',
-      chat10: 'محادثة - 10 مايكات',
-      team10: 'فريق - 10 مايكات',
-    };
-    return map[key];
+  // ── Mic mode label for display ──
+  const getMicModeDisplay = (): string => {
+ const found = MIC_MODE_OPTIONS.find(o => o.micTheme === room.micTheme && o.micSeatCount === room.micSeatCount);
+    if (found) return `${found.label} - ${found.sublabel}`;
+    return `${room.micSeatCount} مايكات`;
   };
 
   // ── Handlers ──
   const handleMicModeConfirm = useCallback(
-    (mode: MicModeKey) => {
-      setSelectedMicMode(mode);
-      onUpdate({ micMode: mode });
+    (micTheme: string, micSeatCount: number) => {
+      onUpdate({ micTheme, micSeatCount });
     },
     [onUpdate],
   );
@@ -621,7 +681,7 @@ export default function SettingsSheet({
         label: 'نمط المايك',
         icon: <Mic size={20} color={TUI.colors.teal} />,
         iconBg: 'rgba(13,138,122,0.1)',
-        value: getMicModeLabel(selectedMicMode),
+        value: getMicModeDisplay(),
         onClick: () => setShowMicModeDialog(true),
       },
       {
@@ -926,7 +986,8 @@ export default function SettingsSheet({
       <MicModeDialog
         isOpen={showMicModeDialog}
         onClose={() => setShowMicModeDialog(false)}
-        currentMode={selectedMicMode}
+        currentTheme={room.micTheme}
+        currentSeatCount={room.micSeatCount}
         onConfirm={handleMicModeConfirm}
       />
 
