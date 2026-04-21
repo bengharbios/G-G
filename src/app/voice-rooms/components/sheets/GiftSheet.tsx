@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Send, Gem, Sparkles } from 'lucide-react';
+import { Send, Gem, Sparkles, UsersRound, Mic, UserCheck } from 'lucide-react';
 import { TUI, GIFT_CATEGORIES, DEFAULT_GIFTS, GIFT_GRADES, type Gift } from '../../types';
 
 /* ═══════════════════════════════════════════════════════════════════════
@@ -17,8 +17,10 @@ import { TUI, GIFT_CATEGORIES, DEFAULT_GIFTS, GIFT_GRADES, type Gift } from '../
 interface GiftSheetProps {
   isOpen: boolean;
   onClose: () => void;
-  onSendGift: (giftId: string, quantity: number) => void;
+  onSendGift: (giftId: string, quantity: number, recipient: { type: 'everyone' | 'mic' | 'specific', userId?: string }) => void;
   gems: number;
+  preselectedRecipient?: { type: 'everyone' | 'mic' | 'specific', userId?: string; displayName?: string } | null;
+  micParticipants?: Array<{ userId: string; displayName: string; avatar?: string }>;
 }
 
 // Quantity options
@@ -37,10 +39,13 @@ function getGradeColor(grade: number): string {
   return g?.color || '#8F9AB2';
 }
 
-export default function GiftSheet({ isOpen, onClose, onSendGift, gems }: GiftSheetProps) {
+export default function GiftSheet({ isOpen, onClose, onSendGift, gems, preselectedRecipient, micParticipants }: GiftSheetProps) {
   const [selectedCategory, setSelectedCategory] = useState('popular');
   const [selectedGift, setSelectedGift] = useState<Gift | null>(null);
   const [quantity, setQuantity] = useState(1);
+  const [recipientMode, setRecipientMode] = useState<'everyone' | 'mic' | 'specific'>(
+    preselectedRecipient?.type || 'everyone',
+  );
   const tabsRef = useRef<HTMLDivElement>(null);
   const [activeTabScroll, setActiveTabScroll] = useState(false);
 
@@ -62,7 +67,11 @@ export default function GiftSheet({ isOpen, onClose, onSendGift, gems }: GiftShe
   // Handle send
   const handleSend = () => {
     if (selectedGift && canSend) {
-      onSendGift(selectedGift.id, quantity);
+      const recipient = {
+        type: recipientMode,
+        userId: recipientMode === 'specific' && preselectedRecipient ? preselectedRecipient.userId : undefined,
+      };
+      onSendGift(selectedGift.id, quantity, recipient);
       setSelectedGift(null);
       setQuantity(1);
     }
@@ -202,6 +211,65 @@ export default function GiftSheet({ isOpen, onClose, onSendGift, gems }: GiftShe
                   </button>
                 );
               })}
+            </div>
+
+            {/* ═══════════════════════════════════════════════════════════════
+                Recipient Selection Bar
+                ═══════════════════════════════════════════════════════════════ */}
+            <div
+              className="flex items-center shrink-0"
+              style={{
+                height: 44,
+                padding: '0 12px',
+                gap: 8,
+                background: '#10111A',
+                borderBottom: '1px solid rgba(255,255,255,0.06)',
+              }}
+            >
+              {(
+                [
+                  { key: 'everyone' as const, label: 'للجميع', icon: UsersRound },
+                  { key: 'mic' as const, label: 'على المايك', icon: Mic },
+                  { key: 'specific' as const, label: 'لشخص محدد', icon: UserCheck },
+                ] as const
+              ).map((opt) => {
+                const isActive = recipientMode === opt.key;
+                return (
+                  <button
+                    key={opt.key}
+                    onClick={() => setRecipientMode(opt.key)}
+                    className="shrink-0 flex items-center gap-1.5 px-3.5 py-1.5 rounded-full border-none cursor-pointer touch-manipulation transition-all"
+                    style={{
+                      fontSize: 11,
+                      fontWeight: isActive ? 600 : 500,
+                      color: isActive ? TUI.colors.white : TUI.colors.G5,
+                      backgroundColor: isActive
+                        ? 'rgba(13, 138, 122, 0.25)'
+                        : 'rgba(255,255,255,0.04)',
+                      border: isActive
+                        ? '1.5px solid rgba(13, 138, 122, 0.5)'
+                        : '1.5px solid transparent',
+                    }}
+                  >
+                    <opt.icon size={13} />
+                    {opt.label}
+                  </button>
+                );
+              })}
+              {/* Preselected recipient name */}
+              {preselectedRecipient?.displayName && recipientMode === 'specific' && (
+                <span
+                  className="flex items-center gap-1 shrink-0 px-2 py-1 rounded-full"
+                  style={{
+                    fontSize: 10,
+                    fontWeight: 600,
+                    color: TUI.colors.tealLight,
+                    backgroundColor: 'rgba(13, 138, 122, 0.12)',
+                  }}
+                >
+                  إرسال إلى: {preselectedRecipient.displayName}
+                </span>
+              )}
             </div>
 
             {/* ═══════════════════════════════════════════════════════════════

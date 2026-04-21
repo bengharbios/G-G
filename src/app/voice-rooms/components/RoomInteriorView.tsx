@@ -630,6 +630,9 @@ export default function RoomInteriorView({
   /* ── Three-dots menu state ── */
   const [showDotsMenu, setShowDotsMenu] = useState(false);
 
+  /* ── Gift recipient preselection ── */
+  const [giftRecipient, setGiftRecipient] = useState<{ type: 'everyone' | 'mic' | 'specific'; userId?: string; displayName?: string } | null>(null);
+
   /* ── Mic layout ── */
   const micLayout = getMicLayout(vr.room.micTheme, vr.seats.length);
 
@@ -662,8 +665,16 @@ export default function RoomInteriorView({
   }
 
   /* ── GiftSheet onSendGift adapter ── */
-  function handleGiftSend(giftId: string, quantity: number) {
-    vr.handleSendGift(giftId, 'everyone', quantity);
+  function handleGiftSend(giftId: string, quantity: number, recipient?: { type: 'everyone' | 'mic' | 'specific'; userId?: string }) {
+    if (recipient?.type === 'specific' && recipient.userId) {
+      vr.handleSendGift(giftId, 'specific', quantity, recipient.userId);
+    } else if (recipient?.type === 'mic') {
+      vr.handleSendGift(giftId, 'everyone', quantity);
+    } else {
+      vr.handleSendGift(giftId, 'everyone', quantity);
+    }
+    vr.setGiftSheetOpen(false);
+    setGiftRecipient(null);
   }
 
   /* ── Send chat handler ── */
@@ -1316,10 +1327,17 @@ export default function RoomInteriorView({
         {/* ── Gift Sheet ── */}
         {authUser && (
           <GiftSheet
+            key={giftRecipient?.userId || 'default'}
             isOpen={vr.giftSheetOpen}
-            onClose={() => vr.setGiftSheetOpen(false)}
+            onClose={() => { vr.setGiftSheetOpen(false); setGiftRecipient(null); }}
             onSendGift={handleGiftSend}
-            gems={vr.weeklyGems}
+            gems={vr.myGemsBalance}
+            preselectedRecipient={giftRecipient}
+            micParticipants={vr.participants.filter(p => p.seatIndex >= 0).map(p => ({
+              userId: p.userId,
+              displayName: p.displayName,
+              avatar: p.avatar,
+            }))}
           />
         )}
 
@@ -1342,7 +1360,16 @@ export default function RoomInteriorView({
           onChangeRole={vr.handleChangeRole}
           onRemoveRole={vr.handleRemoveRole}
           onInviteToMic={vr.handleInviteToMic}
-          onGiftClick={() => { vr.setProfileSheet(null); setTimeout(() => vr.setGiftSheetOpen(true), 300); }}
+          onGiftClick={() => {
+            const targetUser = vr.profileSheet;
+            setGiftRecipient({
+              type: 'specific',
+              userId: targetUser?.userId,
+              displayName: targetUser?.displayName,
+            });
+            vr.setProfileSheet(null);
+            setTimeout(() => vr.setGiftSheetOpen(true), 300);
+          }}
           authUserId={authUser?.id}
         />
 

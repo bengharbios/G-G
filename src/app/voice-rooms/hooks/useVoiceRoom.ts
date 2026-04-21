@@ -32,6 +32,7 @@ export function useVoiceRoom(
   const [isMicMuted, setIsMicMuted] = useState(false);
   const [loading, setLoading] = useState(true);
   const [weeklyGems, setWeeklyGems] = useState(0);
+  const [myGemsBalance, setMyGemsBalance] = useState(0);
   const [topGifts, setTopGifts] = useState<Array<{
     giftName: string; giftEmoji: string; gems: number;
     senderName: string; senderAvatar: string;
@@ -126,6 +127,14 @@ export function useVoiceRoom(
     } catch { /* ignore */ }
   }, [roomId]);
 
+  const fetchMyGemsBalance = useCallback(async () => {
+    try {
+      const res = await fetch(`/api/voice-rooms/${roomId}?action=my-gems`);
+      const data = await res.json();
+      if (data.success) setMyGemsBalance(data.gems);
+    } catch { /* ignore */ }
+  }, [roomId]);
+
   const fetchTopGifts = useCallback(async () => {
     try {
       const res = await fetch(`/api/voice-rooms/${roomId}?action=top-gifts&limit=20`);
@@ -200,6 +209,8 @@ export function useVoiceRoom(
   useEffect(() => { fetchGiftsRef.current = fetchGifts; }, [fetchGifts]);
   useEffect(() => { fetchWeeklyGemsRef.current = fetchWeeklyGems; }, [fetchWeeklyGems]);
   useEffect(() => { fetchTopGiftsRef.current = fetchTopGifts; }, [fetchTopGifts]);
+  const fetchMyGemsBalanceRef = useRef(fetchMyGemsBalance);
+  useEffect(() => { fetchMyGemsBalanceRef.current = fetchMyGemsBalance; }, [fetchMyGemsBalance]);
   useEffect(() => { checkKickedRef.current = checkKicked; }, [checkKicked]);
   useEffect(() => { toastRef.current = toast; }, [toast]);
 
@@ -226,6 +237,7 @@ export function useVoiceRoom(
           fetchRoomDetailsRef.current(),
           fetchWeeklyGemsRef.current(),
           fetchTopGiftsRef.current(),
+          fetchMyGemsBalanceRef.current(),
         ]);
         setLoading(false);
       }
@@ -237,6 +249,7 @@ export function useVoiceRoom(
     roomPoll = setInterval(() => { if (!cancelled) fetchRoomDetailsRef.current(); }, 6000);
     const myPoll = setInterval(() => { if (!cancelled) fetchMyParticipantRef.current(); }, 4000);
     const gemsPoll = setInterval(() => { if (!cancelled) fetchWeeklyGemsRef.current(); }, 10000);
+    const myGemsPoll = setInterval(() => { if (!cancelled) fetchMyGemsBalanceRef.current(); }, 10000);
 
     return () => {
       cancelled = true;
@@ -245,6 +258,7 @@ export function useVoiceRoom(
       if (roomPoll) clearInterval(roomPoll);
       if (myPoll) clearInterval(myPoll);
       if (gemsPoll) clearInterval(gemsPoll);
+      if (myGemsPoll) clearInterval(myGemsPoll);
     };
   }, [roomId]);
 
@@ -401,10 +415,10 @@ export function useVoiceRoom(
     } catch { /* ignore */ }
   }, [roomId, fetchParticipants, toast]);
 
-  const handleSendGift = useCallback(async (giftId: string, target: string, quantity: number) => {
+  const handleSendGift = useCallback(async (giftId: string, target: string, quantity: number, specificUserId?: string) => {
     if (!authUser) return;
     try {
-      const toUserId = target === 'specific' ? profileSheet?.userId : undefined;
+      const toUserId = target === 'specific' ? (specificUserId || profileSheet?.userId) : undefined;
       if (target === 'specific' && !toUserId) return;
       const body: Record<string, unknown> = { giftId };
       if (toUserId) body.toUserId = toUserId;
@@ -452,11 +466,12 @@ export function useVoiceRoom(
         }
 
         toast({ title: 'تم إرسال الهدية! 🎉' });
+        fetchMyGemsBalance();
         fetchWeeklyGems();
         fetchTopGifts();
       }
     } catch { /* ignore */ }
-  }, [roomId, authUser, gifts, profileSheet, toast, fetchWeeklyGems, fetchTopGifts]);
+  }, [roomId, authUser, gifts, profileSheet, toast, fetchWeeklyGems, fetchTopGifts, fetchMyGemsBalance]);
 
   /* ── Seat click handler ── */
   const handleSeatClick = useCallback((seatIndex: number) => {
@@ -741,7 +756,7 @@ export function useVoiceRoom(
   return {
     // State
     room, participants, myParticipant, myRole, gifts, chatMessages,
-    isRoomMuted, isMicMuted, loading, weeklyGems, topGifts, seats,
+    isRoomMuted, isMicMuted, loading, weeklyGems, topGifts, seats, myGemsBalance,
     profileStats, profileSheet, giftSheetOpen, activeGiftAnimation,
     settingsOpen, kickDialogOpen, pendingInvite, pendingMicInvite,
     micMenuSheet, currentUserId, isOnSeat, listenerCount,

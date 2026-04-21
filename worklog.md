@@ -299,3 +299,73 @@ Stage Summary:
 - Pre-existing ESLint parser false positive confirmed (line 172/203, existed before changes)
 - Zero new compilation errors
 - No new lint errors
+---
+Task ID: 3
+Agent: Main Agent
+Task: Fix backend gift system to support proper gem deduction and user gems balance
+
+Work Log:
+- Read worklog.md, admin-db.ts (sendGiftInRoom at line ~3226), and voice-rooms API route
+- Analyzed existing gems infrastructure: Subscription table has gemsBalance column, existing deductGems/addGems work by subscriptionCode
+- Rewrote `sendGiftInRoom` in admin-db.ts:
+  - New signature: `(roomId, giftId, fromUserId, toUserId | undefined, quantity?) → { success, newBalance, error? }`
+  - Looks up gift price from Gift table
+  - Calculates total cost = price × quantity (defaults to 1)
+  - Checks sender has enough gems via AppUser → Subscription JOIN
+  - Deducts gems from sender's Subscription.gemsBalance
+  - If toUserId provided, adds gems to receiver's Subscription.gemsBalance
+  - Inserts GiftHistory record with quantity
+  - Returns `{ success, newBalance }` or `{ success: false, error }`
+- Added `getUserGemsBalance(userId)` export function in admin-db.ts
+  - JOINs AppUser → Subscription to get gemsBalance for any userId
+  - Returns 0 if user not found
+- Added DB migration for `quantity` column on GiftHistory table
+- Updated API route (voice-rooms/[id]/route.ts):
+  - Added `getUserGemsBalance` to imports
+  - Updated POST `gift` action: passes toUserId + quantity, handles new return type with error propagation
+  - Added GET `my-gems` action: returns authenticated user's gems balance
+- Ran lint: zero new errors in modified files (all 52 lint issues are pre-existing)
+
+Stage Summary:
+- `sendGiftInRoom` now properly deducts gems from sender and credits receiver
+- GiftHistory records now include quantity
+- New `getUserGemsBalance()` function available for querying user gem balance
+- New API endpoint: GET `?action=my-gems` returns user's current gems
+- POST gift action returns `newBalance` and proper error messages
+- Files modified: src/lib/admin-db.ts, src/app/api/voice-rooms/[id]/route.ts
+---
+Task ID: 4
+Agent: Main Agent
+Task: Fix frontend gift flow to support recipient selection and proper gems display
+
+Work Log:
+- Updated useVoiceRoom.ts hook:
+  - Added `myGemsBalance` state alongside existing `weeklyGems`
+  - Added `fetchMyGemsBalance` callback (GET `?action=my-gems`)
+  - Added stable ref (`fetchMyGemsBalanceRef`) and sync effect
+  - Added to init Promise.all and 10-second polling interval
+  - Updated `handleSendGift` signature to accept optional `specificUserId` parameter
+  - Added `fetchMyGemsBalance()` call after successful gift send (to refresh balance)
+  - Exported `myGemsBalance` in return object
+- Updated GiftSheet.tsx:
+  - Changed `onSendGift` signature to include `recipient: { type, userId? }`
+  - Added `preselectedRecipient` and `micParticipants` props
+  - Added `recipientMode` state (everyone/mic/specific) initialized from preselectedRecipient
+  - Added recipient selection bar between category tabs and gift grid (3 pill buttons: للجميع, على المايك, لشخص محدد)
+  - Shows "إرسال إلى: {name}" badge when preselectedRecipient is set
+  - Imported UsersRound, Mic, UserCheck icons from lucide-react
+- Updated RoomInteriorView.tsx:
+  - Added `giftRecipient` state for gift recipient preselection
+  - Updated `handleGiftSend` adapter to route specific/mic/everyone to correct hook calls
+  - Changed `gems={vr.weeklyGems}` to `gems={vr.myGemsBalance}` (user's actual balance)
+  - Added `key={giftRecipient?.userId || 'default'}` to GiftSheet for remount on recipient change
+  - Updated ProfileSheet `onGiftClick` to capture target user info and set giftRecipient before opening GiftSheet
+  - Passes micParticipants (filtered participants on seats) to GiftSheet
+- Ran lint: zero new errors in voice-rooms files (all errors are pre-existing)
+
+Stage Summary:
+- 3 files modified: useVoiceRoom.ts, GiftSheet.tsx, RoomInteriorView.tsx
+- GiftSheet now shows user's actual gem balance (myGemsBalance) instead of room weekly total
+- GiftSheet supports 3 recipient modes: everyone, on mic, specific person
+- ProfileSheet → GiftSheet flow now correctly passes target user info
+- Polling keeps gem balance fresh (10-second interval)

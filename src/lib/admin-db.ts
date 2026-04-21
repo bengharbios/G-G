@@ -531,6 +531,14 @@ async function ensureAdminTables(): Promise<void> {
       toUserId TEXT NOT NULL, roomId TEXT DEFAULT '', createdAt TEXT DEFAULT (datetime('now')))
   `);
 
+  // Migration: add quantity column to GiftHistory if missing
+  try {
+    const ghCols = await c.execute('PRAGMA table_info(GiftHistory)');
+    if (!ghCols.rows.some(r => r.name === 'quantity')) {
+      await c.execute('ALTER TABLE GiftHistory ADD COLUMN quantity INTEGER DEFAULT 1');
+    }
+  } catch { /* ignore */ }
+
   // Migration: add level column to AppUser if missing
   try {
     const userCols = await c.execute('PRAGMA table_info(AppUser)');
@@ -3223,11 +3231,71 @@ export async function toggleMicInRoom(roomId: string, userId: string): Promise<b
   return !current;
 }
 
-export async function sendGiftInRoom(roomId: string, giftId: string, fromUserId: string, toUserId: string): Promise<boolean> {
+export async function sendGiftInRoom(roomId: string, giftId: string, fromUserId: string, toUserId: string | undefined, quantity?: number): Promise<{ success: boolean; newBalance: number; error?: string }> {
   const c = getClient();
   await ensureAdminTables();
-  await c.execute({ sql: 'INSERT INTO GiftHistory (id, giftId, fromUserId, toUserId, roomId) VALUES (?, ?, ?, ?, ?)', args: [crypto.randomUUID(), giftId, fromUserId, toUserId, roomId] });
-  return true;
+  const qty = quantity || 1;
+
+  // Look up the gift price
+  const giftResult = await c.execute({ sql: 'SELECT price FROM Gift WHERE id = ? AND isActive = 1', args: [giftId] });
+  if (giftResult.rows.length === 0) {
+    return { success: false, newBalance: 0, error: 'الهدية غير موجودة' };
+  }
+  const price = Number(giftResult.rows[0].price) || 0;
+  const totalCost = price * qty;
+
+  if (totalCost <= 0) {
+    return { success: false, newBalance: 0, error: 'سعر الهدية غير صالح' };
+  }
+
+  // Get sender's gemsBalance
+  const senderResult = await c.execute({
+    sql: `SELECT s.gemsBalance FROM Subscription s JOIN AppUser u ON u.subscriptionId = s.id WHERE u.id = ? AND u.isActive = 1`,
+    args: [fromUserId],
+  });
+  if (senderResult.rows.length === 0) {
+    return { success: false, newBalance: 0, error: 'المستخدم غير موجود' };
+  }
+  const senderBalance = Number(senderResult.rows[0].gemsBalance ?? 0);
+  if (senderBalance < totalCost) {
+    return { success: false, newBalance: senderBalance, error: 'رصيد الجواهر غير كافٍ' };
+  }
+
+  // Deduct gems from sender
+  const newSenderBalance = senderBalance - totalCost;
+  await c.execute({
+    sql: `UPDATE Subscription SET gemsBalance = gemsBalance - ? WHERE id IN (SELECT subscriptionId FROM AppUser WHERE id = ?)`,
+    args: [totalCost, fromUserId],
+  });
+
+  // If toUserId is provided, add gems to receiver
+  if (toUserId) {
+    await c.execute({
+      sql: `UPDATE Subscription SET gemsBalance = gemsBalance + ? WHERE id IN (SELECT subscriptionId FROM AppUser WHERE id = ?)`,
+      args: [totalCost, toUserId],
+    });
+  }
+
+  // Insert the GiftHistory record
+  await c.execute({
+    sql: 'INSERT INTO GiftHistory (id, giftId, fromUserId, toUserId, roomId, quantity) VALUES (?, ?, ?, ?, ?, ?)',
+    args: [crypto.randomUUID(), giftId, fromUserId, toUserId || '', roomId, qty],
+  });
+
+  return { success: true, newBalance: newSenderBalance };
+}
+
+export async function getUserGemsBalance(userId: string): Promise<number> {
+  const c = getClient();
+  await ensureAdminTables();
+  const result = await c.execute({
+    sql: `SELECT s.gemsBalance FROM Subscription s 
+          JOIN AppUser u ON u.subscriptionId = s.id 
+          WHERE u.id = ? AND u.isActive = 1`,
+    args: [userId],
+  });
+  if (result.rows.length === 0) return 0;
+  return Number(result.rows[0].gemsBalance ?? 0);
 }
 
 // Get top gifts sent in a room (for Moments tab)

@@ -13,6 +13,7 @@ import {
   inviteRoleToRoom, acceptRoleInvite, rejectRoleInvite,
   inviteToMic, acceptMicInvite, rejectMicInvite,
   ROLE_HIERARCHY, RoomRole, getRoomWeeklyGems, getRoomTopGifts,
+  getUserGemsBalance,
 } from '@/lib/admin-db';
 
 const JWT_SECRET = new TextEncoder().encode(process.env.JWT_SECRET || 'gg-platform-secret-key-2024');
@@ -93,6 +94,12 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       const targetUserId = searchParams.get('userId') || (p.userId as string);
       const stats = await getUserGiftStats(targetUserId);
       return NextResponse.json({ success: true, stats });
+    }
+    if (action === 'my-gems') {
+      const p = await getPayload(request);
+      if (!p) return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
+      const balance = await getUserGemsBalance(p.userId as string);
+      return NextResponse.json({ success: true, gems: balance });
     }
     if (action === 'weekly-gems') {
       const gems = await getRoomWeeklyGems(id);
@@ -229,9 +236,12 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     }
 
     if (action === 'gift') {
-      const { giftId, toUserId } = await request.json();
-      const ok = await sendGiftInRoom(id, giftId, userId, toUserId);
-      return NextResponse.json({ success: ok });
+      const { giftId, toUserId, quantity } = await request.json();
+      const result = await sendGiftInRoom(id, giftId, userId, toUserId, quantity || 1);
+      if (!result.success) {
+        return NextResponse.json({ success: false, error: result.error }, { status: 400 });
+      }
+      return NextResponse.json({ success: true, newBalance: result.newBalance });
     }
 
     if (action === 'request-seat') {
