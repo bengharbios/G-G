@@ -7,8 +7,8 @@ import {
   Megaphone, Pencil,
   Lock, MoreVertical, Users, Settings2, Shield,
   PencilLine, Sparkles,
-  UserPlus, LogOut, Heart,
-  Music, Music2, ListMusic,
+  UserPlus, LogOut, Heart, AlertTriangle,
+  MessageSquare, UserCog,
 } from 'lucide-react';
 import { useVoiceRoom } from '../hooks/useVoiceRoom';
 import {
@@ -96,9 +96,35 @@ function SpeakingBars({ active }: { active: boolean }) {
           0% { transform: scale(1); opacity: 0.6; }
           100% { transform: scale(1.6); opacity: 0; }
         }
+        @keyframes giftShimmer {
+          0% { background-position: 0% 50%; }
+          50% { background-position: 100% 50%; }
+          100% { background-position: 0% 50%; }
+        }
       `}</style>
     </div>
   );
+}
+
+/* ── Role-based border colors for occupied seats ── */
+function getSeatBorderColor(role: RoomRole, isSpeaking: boolean): string {
+  if (isSpeaking) return TUI.colors.tealLight;
+  switch (role) {
+    case 'owner': return TUI.colors.gold;
+    case 'coowner': return '#a78bfa';
+    case 'admin': return '#60a5fa';
+    default: return TUI.colors.tealLight;
+  }
+}
+
+function getSeatGlow(role: RoomRole, isSpeaking: boolean): string {
+  if (isSpeaking) return '0 0 16px rgba(0,200,150,0.55), 0 0 32px rgba(0,200,150,0.25), inset 0 0 10px rgba(0,200,150,0.12)';
+  switch (role) {
+    case 'owner': return '0 0 12px rgba(255,215,0,0.4), 0 0 24px rgba(255,215,0,0.15)';
+    case 'coowner': return '0 0 10px rgba(167,139,250,0.35), 0 0 20px rgba(167,139,250,0.12)';
+    case 'admin': return '0 0 10px rgba(96,165,250,0.35), 0 0 20px rgba(96,165,250,0.12)';
+    default: return '0 0 10px rgba(0,200,150,0.3), 0 0 20px rgba(0,200,150,0.1)';
+  }
 }
 
 /* ── Seat Circle — TUILiveKit exact mic seat with number badge, name label, glow ── */
@@ -115,6 +141,7 @@ function SeatCircle({
   const isEmpty = !seat.participant && !isLocked;
   const isOccupied = !!seat.participant;
   const isSpeaking = isOccupied && !seat.participant!.isMuted && !seat.participant!.micFrozen;
+  const seatRole = isOccupied ? seat.participant!.role : 'visitor';
   const innerSize = size - 6;
   const fontSize = size <= 46 ? 10 : size <= 50 ? 11 : 12;
 
@@ -138,32 +165,36 @@ function SeatCircle({
           height: size,
           backgroundColor: isEmpty ? 'rgba(255,255,255,0.06)' : isLocked ? 'rgba(255,255,255,0.03)' : 'transparent',
           border: isOccupied
-            ? `2.5px solid ${TUI.colors.tealLight}`
+            ? `2.5px solid ${getSeatBorderColor(seatRole, isSpeaking)}`
             : isLocked
               ? '2px dashed rgba(255,255,255,0.15)'
               : '2px solid rgba(255,255,255,0.08)',
-          boxShadow: isSpeaking
-            ? `0 0 14px rgba(0, 200, 150, 0.5), 0 0 28px rgba(0, 200, 150, 0.2), inset 0 0 8px rgba(0, 200, 150, 0.1)`
-            : isOccupied
-              ? `0 0 10px rgba(0, 200, 150, 0.3), 0 0 20px rgba(0, 200, 150, 0.1)`
-              : 'none',
+          boxShadow: isOccupied
+            ? getSeatGlow(seatRole, isSpeaking)
+            : 'none',
           transition: 'all 0.3s ease',
+          transform: 'scale(1)',
         }}
+        onMouseEnter={(e) => { if (isOccupied) { e.currentTarget.style.transform = 'scale(1.06)'; } }}
+        onMouseLeave={(e) => { e.currentTarget.style.transform = 'scale(1)'; }}
       >
         {/* ── Seat Number Badge (top-left) ── */
         <span
           className="absolute flex items-center justify-center rounded-full pointer-events-none select-none"
           style={{
-            top: -3,
-            left: -3,
-            width: 16,
-            height: 16,
-            backgroundColor: isOccupied ? TUI.colors.teal : 'rgba(255,255,255,0.12)',
+            top: -4,
+            left: -4,
+            width: 17,
+            height: 17,
+            background: isOccupied
+              ? ['linear-gradient(135deg, ', getSeatBorderColor(seatRole, false), ', ', TUI.colors.tealDark, ')'].join('')
+              : 'rgba(255,255,255,0.12)',
             fontSize: 9,
             fontWeight: 700,
             color: isOccupied ? TUI.colors.white : 'rgba(255,255,255,0.5)',
             zIndex: 3,
-            boxShadow: '0 1px 3px rgba(0,0,0,0.3)',
+            boxShadow: '0 1px 4px rgba(0,0,0,0.4)',
+            border: isOccupied ? '1.5px solid rgba(255,255,255,0.2)' : 'none',
           }}
         >
           {seat.seatIndex + 1}
@@ -188,18 +219,18 @@ function SeatCircle({
                 <span
                   className="absolute rounded-full pointer-events-none"
                   style={{
-                    inset: -4,
-                    border: `1.5px solid ${TUI.colors.tealLight}`,
-                    opacity: 0.5,
+                    inset: -5,
+                    border: `2px solid ${TUI.colors.tealLight}`,
+                    opacity: 0.6,
                     animation: 'seatRipple 1.5s ease-out infinite',
                   }}
                 />
                 <span
                   className="absolute rounded-full pointer-events-none"
                   style={{
-                    inset: -4,
-                    border: `1.5px solid ${TUI.colors.tealLight}`,
-                    opacity: 0.5,
+                    inset: -5,
+                    border: `2px solid ${TUI.colors.tealLight}`,
+                    opacity: 0.6,
                     animation: 'seatRipple 1.5s ease-out 0.75s infinite',
                   }}
                 />
@@ -238,16 +269,17 @@ function SeatCircle({
               <span
                 className="absolute flex items-center justify-center rounded-full"
                 style={{
-                  bottom: -1,
-                  right: -1,
-                  width: 16,
-                  height: 16,
+                  bottom: -2,
+                  right: -2,
+                  width: 18,
+                  height: 18,
                   backgroundColor: TUI.colors.red,
                   zIndex: 2,
-                  boxShadow: '0 1px 4px rgba(252,85,85,0.4)',
+                  boxShadow: '0 1px 6px rgba(252,85,85,0.5)',
+                  border: '2px solid rgba(10,14,39,0.9)',
                 }}
               >
-                <MicOff size={8} color="#fff" strokeWidth={2.5} />
+                <MicOff size={9} color="#fff" strokeWidth={2.5} />
               </span>
             )}
 
@@ -255,9 +287,19 @@ function SeatCircle({
             {seat.participant.role === 'owner' && (
               <span
                 className="absolute flex items-center justify-center"
-                style={{ top: -3, right: -3, width: 16, height: 16, zIndex: 2 }}
+                style={{ top: -4, right: -4, width: 18, height: 18, zIndex: 2 }}
               >
-                <Crown size={14} fill={TUI.colors.gold} stroke={TUI.colors.gold} strokeWidth={1} />
+                <Crown size={15} fill={TUI.colors.gold} stroke={TUI.colors.gold} strokeWidth={1} />
+              </span>
+            )}
+
+            {/* Admin badge */}
+            {seat.participant.role === 'admin' && !isSpeaking && (
+              <span
+                className="absolute flex items-center justify-center"
+                style={{ top: -4, right: -4, width: 16, height: 16, zIndex: 2, backgroundColor: 'rgba(96,165,250,0.9)', borderRadius: '50%', border: '1.5px solid rgba(10,14,39,0.9)' }}
+              >
+                <Shield size={9} fill="#fff" stroke="#fff" strokeWidth={2} />
               </span>
             )}
           </>
@@ -268,16 +310,17 @@ function SeatCircle({
       <span
         className="text-center leading-tight select-none"
         style={{
-          maxWidth: size + 8,
+          maxWidth: size + 10,
           fontSize,
-          color: isOccupied ? TUI.colors.G7 : 'transparent',
+          color: isOccupied ? (isSpeaking ? TUI.colors.tealLight : TUI.colors.G7) : 'transparent',
           overflow: 'hidden',
           textOverflow: 'ellipsis',
           whiteSpace: 'nowrap',
           height: fontSize + 2,
+          fontWeight: isSpeaking ? 600 : 400,
         }}
       >
-        {isOccupied ? (seat.participant!.displayName.length > 5 ? seat.participant!.displayName.slice(0, 5) + '…' : seat.participant!.displayName) : '\u00A0'}
+        {isOccupied ? (seat.participant!.displayName.length > 6 ? seat.participant!.displayName.slice(0, 6) + '…' : seat.participant!.displayName) : '\u00A0'}
       </span>
 
       {/* Speaking bars (only when speaking, replaces name) */}
@@ -724,8 +767,8 @@ export default function RoomInteriorView({
           <header
             className="flex items-center justify-between flex-shrink-0"
             style={{
-              height: 48,
-              minHeight: 48,
+              height: 52,
+              minHeight: 52,
               padding: '0 12px',
               backgroundColor: 'rgba(10, 14, 39, 0.65)',
               backdropFilter: 'blur(16px)',
@@ -736,92 +779,126 @@ export default function RoomInteriorView({
             <button
               type="button"
               onClick={() => setRoomInfoOpen(true)}
-              className="flex items-center gap-2 bg-transparent border-none cursor-pointer touch-manipulation min-w-0"
+              className="flex items-center gap-2.5 bg-transparent border-none cursor-pointer touch-manipulation min-w-0"
               style={{ padding: 0, flex: '0 1 auto' }}
               aria-label="معلومات الغرفة"
             >
               <div
                 className="relative rounded-full overflow-hidden flex items-center justify-center flex-shrink-0"
                 style={{
-                  width: 28,
-                  height: 28,
+                  width: 32,
+                  height: 32,
                   backgroundColor: vr.room.roomAvatar
                     ? 'transparent'
                     : getAvatarColorFromPalette(vr.room.id).bg,
-                  border: '1.5px solid rgba(255,255,255,0.15)',
+                  border: '2px solid rgba(255,255,255,0.2)',
+                  boxShadow: '0 0 8px rgba(0,200,150,0.2)',
                 }}
               >
                 {vr.room.roomAvatar ? (
                   <img src={vr.room.roomAvatar} alt={vr.room.name} className="w-full h-full object-cover rounded-full" draggable={false} loading="lazy" />
                 ) : (
-                  <span className="font-medium" style={{ fontSize: 11, color: getAvatarColorFromPalette(vr.room.id).text, lineHeight: 1 }}>
+                  <span className="font-medium" style={{ fontSize: 13, color: getAvatarColorFromPalette(vr.room.id).text, lineHeight: 1 }}>
                     {(vr.room.name?.charAt(0) || '?')}
                   </span>
                 )}
+                {/* Online indicator dot */}
+                <div
+                  className="absolute"
+                  style={{ bottom: -1, left: -1, width: 10, height: 10, borderRadius: '50%', backgroundColor: TUI.colors.green, border: '2px solid rgba(10, 14, 39, 0.9)', boxShadow: `0 0 4px ${TUI.colors.green}` }}
+                />
               </div>
-              <div className="flex flex-col items-start min-w-0" style={{ gap: 0 }}>
-                <span className="truncate" style={{ fontSize: 13, fontWeight: 600, color: TUI.colors.white, maxWidth: 100, lineHeight: '16px' }}>
+              <div className="flex flex-col items-start min-w-0" style={{ gap: 1 }}>
+                <span className="truncate" style={{ fontSize: 13, fontWeight: 600, color: TUI.colors.white, maxWidth: 110, lineHeight: '16px' }}>
                   {vr.room.name}
                 </span>
-                <span className="truncate" style={{ fontSize: 9, color: 'rgba(255,255,255,0.35)', maxWidth: 80, lineHeight: '11px' }}>
+                <span className="truncate flex items-center gap-1" style={{ fontSize: 9, color: 'rgba(255,255,255,0.4)', maxWidth: 90, lineHeight: '12px' }}>
+                  <span style={{ width: 5, height: 5, borderRadius: '50%', backgroundColor: TUI.colors.green, display: 'inline-block' }} />
                   Lv.{vr.room.roomLevel || 0}
                 </span>
               </div>
             </button>
 
-            {/* ── Center: Audience avatar row ── */}
-            <div
-              className="flex items-center overflow-hidden flex-shrink-0 mx-2"
-              style={{ maxWidth: 100, gap: -4 }}
+            {/* ── Center: Audience avatar row with count ── */}
+            <button
+              type="button"
+              className="flex items-center overflow-hidden flex-shrink-0 mx-2 bg-transparent border-none cursor-pointer touch-manipulation"
+              style={{ maxWidth: 120, transition: TUI.anim.fast }}
+              onClick={() => setRoomInfoOpen(true)}
+              aria-label="قائمة الحضور"
             >
-              {audienceList.slice(0, 4).map((p, i) => (
-                <div
-                  key={p.userId}
-                  className="relative rounded-full overflow-hidden flex items-center justify-center flex-shrink-0"
-                  style={{
-                    width: 20,
-                    height: 20,
-                    marginLeft: i > 0 ? -6 : 0,
-                    border: '1.5px solid rgba(10, 14, 39, 0.8)',
-                    zIndex: 4 - i,
-                  }}
-                >
-                  {p.avatar ? (
-                    <img src={p.avatar} alt={p.displayName} className="w-full h-full object-cover rounded-full" draggable={false} loading="lazy" />
-                  ) : (
+              {audienceList.length > 0 ? (
+                <>
+                  {audienceList.slice(0, 5).map((p, i) => (
                     <div
-                      className="w-full h-full flex items-center justify-center rounded-full"
+                      key={p.userId}
+                      className="relative rounded-full overflow-hidden flex items-center justify-center flex-shrink-0"
                       style={{
-                        backgroundColor: getAvatarColorFromPalette(p.userId).bg,
-                        color: getAvatarColorFromPalette(p.userId).text,
-                        fontSize: 7,
-                        fontWeight: 600,
+                        width: 24,
+                        height: 24,
+                        marginLeft: i > 0 ? -7 : 0,
+                        border: '2px solid rgba(10, 14, 39, 0.85)',
+                        zIndex: 5 - i,
                       }}
                     >
-                      {p.displayName.charAt(0)}
+                      {p.avatar ? (
+                        <img src={p.avatar} alt={p.displayName} className="w-full h-full object-cover rounded-full" draggable={false} loading="lazy" />
+                      ) : (
+                        <div
+                          className="w-full h-full flex items-center justify-center rounded-full"
+                          style={{
+                            backgroundColor: getAvatarColorFromPalette(p.userId).bg,
+                            color: getAvatarColorFromPalette(p.userId).text,
+                            fontSize: 8,
+                            fontWeight: 600,
+                          }}
+                        >
+                          {p.displayName.charAt(0)}
+                        </div>
+                      )}
                     </div>
+                  ))}
+                  {audienceList.length > 5 && (
+                    <span
+                      className="flex items-center justify-center rounded-full flex-shrink-0"
+                      style={{
+                        width: 24,
+                        height: 24,
+                        marginLeft: -7,
+                        backgroundColor: 'rgba(0,200,150,0.2)',
+                        fontSize: 8,
+                        fontWeight: 700,
+                        color: TUI.colors.tealLight,
+                        border: '2px solid rgba(10, 14, 39, 0.85)',
+                        zIndex: 0,
+                      }}
+                    >
+                      +{audienceList.length - 5}
+                    </span>
                   )}
-                </div>
-              ))}
-              {audienceList.length > 4 && (
-                <span
+                </>
+              ) : (
+                <div
                   className="flex items-center justify-center rounded-full flex-shrink-0"
                   style={{
-                    width: 20,
-                    height: 20,
-                    marginLeft: -6,
-                    backgroundColor: 'rgba(255,255,255,0.1)',
-                    fontSize: 8,
-                    fontWeight: 700,
-                    color: TUI.colors.G6,
-                    border: '1.5px solid rgba(10, 14, 39, 0.8)',
-                    zIndex: 0,
+                    width: 24,
+                    height: 24,
+                    backgroundColor: 'rgba(255,255,255,0.08)',
+                    fontSize: 9,
+                    color: TUI.colors.G5,
                   }}
                 >
-                  +{audienceList.length - 4}
-                </span>
+                  <Users size={12} style={{ color: TUI.colors.G5 }} />
+                </div>
               )}
-            </div>
+              {/* Total count badge */}
+              <span
+                className="flex-shrink-0 mr-1"
+                style={{ fontSize: 10, fontWeight: 600, color: 'rgba(255,255,255,0.5)' }}
+              >
+                {vr.participants.length}
+              </span>
+            </button>
 
             {/* ── Left: Close button + Three-dots ── */}
             <div className="flex items-center flex-shrink-0" style={{ gap: 2 }}>
@@ -833,8 +910,8 @@ export default function RoomInteriorView({
                 aria-label={isOwner ? 'إنهاء البث' : 'مغادرة'}
               >
                 {isOwner
-                  ? <X size={16} style={{ color: TUI.colors.red }} strokeWidth={2.5} />
-                  : <ArrowRight size={16} style={{ color: TUI.colors.white }} strokeWidth={2} />}
+                  ? <X size={18} style={{ color: TUI.colors.red }} strokeWidth={2.5} />
+                  : <ArrowRight size={18} style={{ color: TUI.colors.white }} strokeWidth={2} />}
               </button>
 
               {/* Three dots menu */}
@@ -844,18 +921,19 @@ export default function RoomInteriorView({
                 style={{ width: 32, height: 32, minWidth: 44, minHeight: 44, transition: TUI.anim.fast }}
                 aria-label="القائمة"
               >
-                <MoreVertical size={16} style={{ color: TUI.colors.white }} />
+                <MoreVertical size={18} style={{ color: TUI.colors.white }} />
                 {pendingSeatRequests > 0 && (
                   <span
                     className="absolute top-0 right-0 flex items-center justify-center rounded-full"
                     style={{
-                      width: 14,
-                      height: 14,
+                      width: 15,
+                      height: 15,
                       backgroundColor: TUI.colors.red,
                       fontSize: 8,
                       fontWeight: 700,
                       color: TUI.colors.white,
                       boxShadow: `0 0 6px ${TUI.colors.red}`,
+                      border: '1.5px solid rgba(10, 14, 39, 0.9)',
                     }}
                   >
                     {pendingSeatRequests > 9 ? '9' : pendingSeatRequests}
@@ -1048,39 +1126,42 @@ export default function RoomInteriorView({
                   onMouseDown={() => setLikeActive(true)}
                   onMouseUp={() => setLikeActive(false)}
                   onMouseLeave={() => setLikeActive(false)}
-                  className="rounded-full flex items-center justify-center flex-shrink-0 cursor-pointer touch-manipulation"
+                  className="rounded-full flex items-center justify-center flex-shrink-0 cursor-pointer touch-manipulation relative"
                   style={{
-                    width: 36, height: 36, minWidth: 44, minHeight: 44,
+                    width: 38, height: 38, minWidth: 44, minHeight: 44,
                     transition: TUI.anim.fast,
                   }}
                   aria-label="إعجاب"
                 >
                   <Heart
-                    size={20}
+                    size={22}
                     fill={likeActive ? TUI.colors.likeRed : 'none'}
                     style={{
-                      color: likeActive ? TUI.colors.likeRed : 'rgba(255,255,255,0.6)',
-                      transform: likeActive ? 'scale(1.15)' : 'scale(1)',
+                      color: likeActive ? TUI.colors.likeRed : 'rgba(255,255,255,0.55)',
+                      transform: likeActive ? 'scale(1.2)' : 'scale(1)',
                       transition: 'transform 0.15s ease, fill 0.15s ease',
+                      filter: likeActive ? 'drop-shadow(0 0 6px rgba(255,59,48,0.5))' : 'none',
                     }}
                   />
                 </button>
               )}
 
-              {/* Gift button (gradient) */}
+              {/* Gift button (gradient with shimmer) */}
               {authUser && (
                 <button
                   onClick={() => vr.setGiftSheetOpen(true)}
-                  className="rounded-full flex items-center justify-center flex-shrink-0 cursor-pointer touch-manipulation"
+                  className="rounded-full flex items-center justify-center flex-shrink-0 cursor-pointer touch-manipulation relative overflow-hidden"
                   style={{
-                    width: 36, height: 36, minWidth: 44, minHeight: 44,
-                    background: 'linear-gradient(135deg, #f59e0b 0%, #ef4444 100%)',
-                    boxShadow: '0 2px 8px rgba(245,158,11,0.3)',
+                    width: 38, height: 38, minWidth: 44, minHeight: 44,
+                    background: 'linear-gradient(135deg, #f59e0b 0%, #ef4444 50%, #f59e0b 100%)',
+                    backgroundSize: '200% 200%',
+                    boxShadow: '0 2px 10px rgba(245,158,11,0.35)',
                     transition: TUI.anim.fast,
+                    animation: 'giftShimmer 3s ease-in-out infinite',
                   }}
                   aria-label="إرسال هدية"
                 >
-                  <Gift size={17} fill={TUI.colors.white} style={{ color: TUI.colors.white }} />
+                  <Gift size={18} fill={TUI.colors.white} style={{ color: TUI.colors.white, zIndex: 1, position: 'relative' }} />
                 </button>
               )}
 
@@ -1130,27 +1211,49 @@ export default function RoomInteriorView({
             top: '50%',
             transform: 'translateY(-50%)',
             zIndex: 20,
-            gap: 6,
+            gap: 8,
           }}
         >
-          {/* Music */}
-          <button className="flex flex-col items-center cursor-pointer touch-manipulation bg-transparent border-none" aria-label="الموسيقى">
+          {/* Chat / Messages */}
+          <button
+            className="flex flex-col items-center cursor-pointer touch-manipulation bg-transparent border-none"
+            onClick={() => inputRef.current?.focus()}
+            aria-label="الرسائل"
+          >
             <div className="flex items-center justify-center" style={{ ...menuBtnStyle, borderRadius: 12 }}>
-              <Music size={16} style={{ color: 'rgba(255,255,255,0.55)' }} />
+              <MessageSquare size={16} style={{ color: 'rgba(255,255,255,0.55)' }} />
             </div>
           </button>
 
-          {/* Playlist */}
-          <button className="flex flex-col items-center cursor-pointer touch-manipulation bg-transparent border-none" aria-label="قائمة الأغاني">
-            <div className="flex items-center justify-center" style={{ ...menuBtnStyle, borderRadius: 12 }}>
-              <ListMusic size={16} style={{ color: 'rgba(255,255,255,0.55)' }} />
-            </div>
-          </button>
+          {/* Seat Management (admin only) */}
+          {isAdmin && (
+            <button
+              className="flex flex-col items-center cursor-pointer touch-manipulation bg-transparent border-none relative"
+              onClick={() => setSeatMgmtOpen(true)}
+              aria-label="إدارة المقاعد"
+            >
+              <div className="flex items-center justify-center" style={{ ...menuBtnStyle, borderRadius: 12 }}>
+                <UserCog size={16} style={{ color: 'rgba(255,255,255,0.55)' }} />
+              </div>
+              {pendingSeatRequests > 0 && (
+                <span
+                  className="absolute -top-1 -right-1 flex items-center justify-center rounded-full"
+                  style={{ width: 14, height: 14, backgroundColor: TUI.colors.red, fontSize: 8, fontWeight: 700, color: '#fff', border: '1.5px solid rgba(10,14,39,0.9)' }}
+                >
+                  {pendingSeatRequests > 9 ? '9' : pendingSeatRequests}
+                </span>
+              )}
+            </button>
+          )}
 
-          {/* DJ / Effects */}
-          <button className="flex flex-col items-center cursor-pointer touch-manipulation bg-transparent border-none" aria-label="تأثيرات">
+          {/* Share */}
+          <button
+            className="flex flex-col items-center cursor-pointer touch-manipulation bg-transparent border-none"
+            onClick={handleShare}
+            aria-label="مشاركة"
+          >
             <div className="flex items-center justify-center" style={{ ...menuBtnStyle, borderRadius: 12 }}>
-              <Music2 size={16} style={{ color: 'rgba(255,255,255,0.55)' }} />
+              <Share2 size={16} style={{ color: 'rgba(255,255,255,0.55)' }} />
             </div>
           </button>
         </div>

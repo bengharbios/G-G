@@ -532,15 +532,17 @@ function RoomCard({ room, onClick }: { room: VoiceRoom; onClick: () => void }) {
 
   return (
     <div
-      className="flex flex-col rounded-xl overflow-hidden cursor-pointer transition-all active:scale-[0.97]"
+      className="flex flex-col rounded-2xl overflow-hidden cursor-pointer transition-all active:scale-[0.97]"
       style={{
         aspectRatio: '1/1',
-        backgroundColor: 'rgba(255,255,255,0.12)',
-        backdropFilter: 'blur(8px)',
-        border: '1px solid rgba(255,255,255,0.1)',
-        boxShadow: '0 2px 10px rgba(0,0,0,0.15)',
+        backgroundColor: 'rgba(255,255,255,0.1)',
+        backdropFilter: 'blur(12px)',
+        border: '1px solid rgba(255,255,255,0.12)',
+        boxShadow: '0 4px 20px rgba(0,0,0,0.2), 0 0 0 0 rgba(0,200,150,0)',
       }}
       onClick={onClick}
+      onMouseEnter={(e) => { e.currentTarget.style.boxShadow = '0 4px 20px rgba(0,0,0,0.25), 0 0 0 2px rgba(0,200,150,0.3)'; }}
+      onMouseLeave={(e) => { e.currentTarget.style.boxShadow = '0 4px 20px rgba(0,0,0,0.2), 0 0 0 0 rgba(0,200,150,0)'; }}
     >
       {/* ── Cover Area (square, shows room avatar as main image) ── */}
       <div className="relative w-full flex-1">
@@ -571,7 +573,7 @@ function RoomCard({ room, onClick }: { room: VoiceRoom; onClick: () => void }) {
           <div
             className="absolute inset-0 flex items-center justify-center"
           >
-            <Mic size={28} style={{ color: 'rgba(255,255,255,0.4)' }} />
+            <Mic size={32} style={{ color: 'rgba(255,255,255,0.3)' }} />
           </div>
         )}
 
@@ -579,28 +581,49 @@ function RoomCard({ room, onClick }: { room: VoiceRoom; onClick: () => void }) {
         <div
           className="absolute inset-x-0 bottom-0"
           style={{
-            height: '55%',
-            background: 'linear-gradient(transparent, rgba(0,0,0,0.65))',
+            height: '60%',
+            background: 'linear-gradient(transparent, rgba(0,0,0,0.75))',
           }}
         />
 
-        {/* Live "On" indicator */}
-        {isLive && (
+        {/* Top badges row */}
+        <div className="absolute top-2 inset-x-0 flex items-center justify-between px-2">
+          {/* Live "On" indicator */}
+          {isLive ? (
+            <div
+              className="flex items-center gap-1 px-2 py-0.5 rounded-full"
+              style={{
+                backgroundColor: 'rgba(41, 204, 106, 0.9)',
+                fontSize: 9,
+                fontWeight: 700,
+                color: TUI.colors.white,
+                boxShadow: '0 1px 4px rgba(41,204,106,0.3)',
+              }}
+            >
+              <div className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
+              On
+            </div>
+          ) : (
+            <div className="w-1" />
+          )}
+
+          {/* Seat count */}
           <div
-            className="absolute top-2 right-2 flex items-center gap-1 px-1.5 py-0.5 rounded-full"
+            className="flex items-center gap-0.5 px-1.5 py-0.5 rounded-full"
             style={{
-              backgroundColor: 'rgba(41, 204, 106, 0.9)',
+              backgroundColor: 'rgba(0,0,0,0.5)',
+              backdropFilter: 'blur(4px)',
               fontSize: 9,
-              fontWeight: 700,
+              fontWeight: 600,
               color: TUI.colors.white,
             }}
           >
-            <div className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
-            On
+            <Mic size={9} />
+            {room.micSeatCount}
           </div>
-        )}
+        </div>
 
-        {/* Participant count badge */}
+        {/* Participant count badge (top-left) */}
         <div
           className="absolute top-2 left-2 flex items-center gap-0.5 px-1.5 py-0.5 rounded-full"
           style={{
@@ -622,21 +645,44 @@ function RoomCard({ room, onClick }: { room: VoiceRoom; onClick: () => void }) {
             className="truncate leading-tight mb-1"
             style={{
               fontSize: 'clamp(12px, 3.2vw, 14px)',
-              fontWeight: 600,
+              fontWeight: 700,
               color: TUI.colors.white,
-              textShadow: '0 1px 3px rgba(0,0,0,0.4)',
+              textShadow: '0 1px 4px rgba(0,0,0,0.5)',
             }}
           >
             {room.name}
           </p>
 
-          {/* Host + Mode badge */}
+          {/* Host avatar + name + Mode badge */}
           <div className="flex items-center gap-1.5">
+            {/* Host mini avatar */}
+            <div
+              className="flex-shrink-0 rounded-full overflow-hidden"
+              style={{
+                width: 16,
+                height: 16,
+                border: '1.5px solid rgba(255,255,255,0.3)',
+              }}
+            >
+              {room.hostName ? (
+                <div
+                  className="w-full h-full flex items-center justify-center"
+                  style={{
+                    backgroundColor: getAvatarColorFromPalette(room.hostId || room.hostName).bg,
+                    color: getAvatarColorFromPalette(room.hostId || room.hostName).text,
+                    fontSize: 7,
+                    fontWeight: 700,
+                  }}
+                >
+                  {room.hostName.charAt(0)}
+                </div>
+              ) : null}
+            </div>
             <span
-              className="truncate"
+              className="truncate flex-1"
               style={{
                 fontSize: 'clamp(10px, 2.6vw, 11px)',
-                color: 'rgba(255,255,255,0.7)',
+                color: 'rgba(255,255,255,0.75)',
                 textShadow: '0 1px 2px rgba(0,0,0,0.3)',
               }}
             >
@@ -648,7 +694,7 @@ function RoomCard({ room, onClick }: { room: VoiceRoom; onClick: () => void }) {
                 fontSize: 8,
                 fontWeight: 600,
                 color: mode.color,
-                backgroundColor: 'rgba(0,0,0,0.45)',
+                backgroundColor: 'rgba(0,0,0,0.5)',
               }}
             >
               <ModeIcon size={8} />
