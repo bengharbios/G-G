@@ -187,3 +187,22 @@ Stage Summary:
 - Arc mic seat layout with speaking animations
 - Music-related icons replacing message icon on right side
 - SettingsSheet preserved unchanged
+---
+Task ID: 1
+Agent: Main Agent
+Task: Redesign room interior to match TUILiveKit screenshots — move icons, three-dots menu, multiple mic layouts, dark navy bg, expanded gifts
+
+Work Log:
+- Analyzed uploaded screenshot via VLM (dark navy bg, 2x4 mic grid, gift panel, three-dots menu)
+- Read all voice-rooms files (26 files) to understand full architecture
+- Updated types.ts: Added MIC_LAYOUTS (8 types: grid2x2, grid2x3, grid2x4, grid3x3, arc, theater, radio, podcast), expanded DEFAULT_GIFTS from 12 to 24 gifts with categories (popular/luxury/special), added getMicLayout() helper, updated MIC_OPTIONS to [4,6,8,9,10]
+- Rewrote RoomInteriorView.tsx: Changed background from teal-green to dark navy (#0f1429 → #1a1f3a → #2d1b4e), moved floating menu from RIGHT to LEFT (music icons: Disc3, ListMusic, Music, Music2 + Crown + Trophy), added ThreeDotsMenu overlay with 9 icon grid (Settings, Edit Room, Seat Mgmt, Roles, Mute/Unmute, Share, Invite, Effects, Exit), implemented MicSeatGrid with 7 layout patterns (grid2x2, grid2x3, grid2x4, grid3x3, arc, theater, radio, podcast), added back arrow to header, purple accent colors, Heart like button in bottom bar
+- Redesigned GiftSheet.tsx: Added top gifts banner (gold star icon), FX badge on gifts with animations, gold coin prices (🪙), purple-themed category tabs and send button with gradient, improved gift grid styling
+- Updated CreateRoomDialog.tsx: Added mic theme/layout selector that dynamically shows available layouts for selected seat count, default changed to 8 seats + grid2x4 layout
+- SettingsSheet.tsx: UNTOUCHED (user approved)
+
+Stage Summary:
+- 4 files modified: types.ts, RoomInteriorView.tsx, GiftSheet.tsx, CreateRoomDialog.tsx
+- SettingsSheet.tsx NOT modified (locked per user request)
+- All voice-rooms changes compile without new TypeScript errors
+- 2 pre-existing TS errors remain (MicMenuSheet.tsx, SeatManagementSheet.tsx)
