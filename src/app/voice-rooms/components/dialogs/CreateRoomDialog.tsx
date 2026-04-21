@@ -6,9 +6,11 @@ import {
   TUI,
   DEFAULT_BG_URLS,
   MIC_OPTIONS,
+  MIC_LAYOUTS,
   ROOM_MODE_OPTIONS,
   type AuthUser,
   type RoomMode,
+  type MicLayoutId,
 } from '../../types';
 
 /* ═══════════════════════════════════════════════════════════════════════
@@ -42,7 +44,8 @@ interface CreateRoomDialogProps {
 export default function CreateRoomDialog({ isOpen, onClose, onCreate }: CreateRoomDialogProps) {
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
-  const [micSeatCount, setMicSeatCount] = useState(5);
+  const [micSeatCount, setMicSeatCount] = useState(8);
+  const [micTheme, setMicTheme] = useState<MicLayoutId>('grid2x4');
   const [roomMode, setRoomMode] = useState<RoomMode>('public');
   const [roomPassword, setRoomPassword] = useState('');
   const [roomImage, setRoomImage] = useState(DEFAULT_BG_URLS[0]);
@@ -52,7 +55,8 @@ export default function CreateRoomDialog({ isOpen, onClose, onCreate }: CreateRo
   const resetForm = useCallback(() => {
     setName('');
     setDescription('');
-    setMicSeatCount(5);
+    setMicSeatCount(8);
+    setMicTheme('grid2x4');
     setRoomMode('public');
     setRoomPassword('');
     setRoomImage(DEFAULT_BG_URLS[0]);
@@ -75,11 +79,11 @@ export default function CreateRoomDialog({ isOpen, onClose, onCreate }: CreateRo
       roomPassword: roomMode === 'key' ? roomPassword : '',
       maxParticipants,
       isAutoMode,
-      micTheme: 'default',
+      micTheme: micTheme,
       roomImage,
     });
     resetForm();
-  }, [name, description, micSeatCount, roomMode, roomPassword, maxParticipants, isAutoMode, roomImage, onCreate, resetForm]);
+  }, [name, description, micSeatCount, micTheme, roomMode, roomPassword, maxParticipants, isAutoMode, roomImage, onCreate, resetForm]);
 
   if (!isOpen) return null;
 
@@ -220,6 +224,51 @@ export default function CreateRoomDialog({ isOpen, onClose, onCreate }: CreateRo
             />
           </div>
         )}
+
+        {/* ── Mic Seat Layout (نمط المايكات) ── */}
+        <div className="flex flex-col gap-1.5">
+          <label style={{ fontSize: '13px', color: TUI.colors.G6 }}>نمط المايكات</label>
+          <div className="flex gap-2 overflow-x-auto pb-1" style={{ scrollbarWidth: 'none' }}>
+            {MIC_LAYOUTS.filter(l => l.seatCounts.includes(micSeatCount)).map((layout) => {
+              const isSelected = micTheme === layout.id;
+              return (
+                <button
+                  key={layout.id}
+                  onClick={() => setMicTheme(layout.id)}
+                  className="flex-shrink-0 flex flex-col items-center justify-center gap-1 rounded-[10px] transition-all cursor-pointer touch-manipulation"
+                  style={{
+                    width: 68,
+                    height: 60,
+                    backgroundColor: isSelected ? 'rgba(123, 97, 255, 0.1)' : TUI.colors.bgInput,
+                    border: isSelected
+                      ? `2px solid ${TUI.colors.purple}`
+                      : `1px solid ${TUI.colors.strokePrimary}`,
+                  }}
+                >
+                  <span style={{ fontSize: 20 }}>{layout.icon}</span>
+                  <span style={{ fontSize: 10, color: isSelected ? TUI.colors.purple : TUI.colors.G5, fontWeight: isSelected ? 600 : 400 }}>
+                    {layout.name}
+                  </span>
+                </button>
+              );
+            })}
+            {/* Fallback: arc for any seat count */}
+            {!MIC_LAYOUTS.some(l => l.seatCounts.includes(micSeatCount)) && (
+              <button
+                onClick={() => setMicTheme('arc')}
+                className="flex-shrink-0 flex flex-col items-center justify-center gap-1 rounded-[10px] transition-all cursor-pointer touch-manipulation"
+                style={{
+                  width: 68, height: 60,
+                  backgroundColor: micTheme === 'arc' ? 'rgba(123, 97, 255, 0.1)' : TUI.colors.bgInput,
+                  border: micTheme === 'arc' ? `2px solid ${TUI.colors.purple}` : `1px solid ${TUI.colors.strokePrimary}`,
+                }}
+              >
+                <span style={{ fontSize: 20 }}>⌢</span>
+                <span style={{ fontSize: 10, color: micTheme === 'arc' ? TUI.colors.purple : TUI.colors.G5 }}>قوس</span>
+              </button>
+            )}
+          </div>
+        </div>
 
         {/* ── Background Image Selector ── */}
         <div className="flex flex-col gap-1.5">

@@ -429,51 +429,81 @@ export const GIFT_ASSETS: { [key: string]: string | string[] | ((emoji: string) 
 };
 
 export const DEFAULT_GIFTS: Gift[] = [
-  // ── Popular ──
-  {
-    id: 'g1', name: 'Rose', nameAr: 'ورد', emoji: '🌹', price: 3, category: 'popular', animation: 'hearts',
-  },
-  {
-    id: 'g2', name: 'Star', nameAr: 'نجمة', emoji: '⭐', price: 9, category: 'popular', animation: 'stars',
-  },
-  {
-    id: 'g3', name: 'Heart', nameAr: 'قلب', emoji: '💖', price: 19, category: 'popular', animation: 'hearts',
-  },
-  {
-    id: 'g4', name: 'Fire', nameAr: 'نار', emoji: '🔥', price: 49, category: 'popular', animation: 'particles',
-  },
-  // ── Luxury ──
-  {
-    id: 'g5', name: 'GiftBox', nameAr: 'هدية', emoji: '🎁', price: 99, category: 'luxury', animation: 'fireworks',
-  },
-  {
-    id: 'g6', name: 'Crown', nameAr: 'تاج', emoji: '👑', price: 199, category: 'luxury', animation: 'stars',
-  },
-  {
-    id: 'g7', name: 'Rose99', nameAr: 'بوكيه ورد', emoji: '💐', price: 520, category: 'luxury', animation: 'hearts',
-  },
-  {
-    id: 'g8', name: 'Rocket', nameAr: 'صاروخ', emoji: '🚀', price: 1314, category: 'luxury',
-    animation: 'fireworks', animationResourceUrl: TUI_SVGA_CAR,
-  },
-  // ── Special ──
-  {
-    id: 'g9', name: 'Diamond', nameAr: 'ماسة', emoji: '💎', price: 2999, category: 'special', animation: 'confetti',
-  },
-  {
-    id: 'g10', name: 'Trophy', nameAr: 'كأس', emoji: '🏆', price: 5200, category: 'special', animation: 'fireworks',
-  },
-  {
-    id: 'g11', name: 'GoldStar', nameAr: 'نجم ذهبي', emoji: '🌟', price: 10000, category: 'special',
-    animation: 'confetti', animationResourceUrl: TUI_SVGA_SPORTS_CAR,
-  },
-  {
-    id: 'g12', name: 'Castle', nameAr: 'قلعة', emoji: '🏰', price: 52000, category: 'special',
-    animation: 'fireworks', animationResourceUrl: TUI_SVGA_CAT,
-  },
+  // ── Popular (الشعبية) ──
+  { id: 'g1',  name: 'Rose',     nameAr: 'وردة',     emoji: '🌹', price: 1,   category: 'popular', animation: 'hearts' },
+  { id: 'g2',  name: 'Lips',     nameAr: 'بوسة',     emoji: '💋', price: 5,   category: 'popular', animation: 'hearts' },
+  { id: 'g3',  name: 'Star',     nameAr: 'نجمة',     emoji: '⭐', price: 9,   category: 'popular', animation: 'stars' },
+  { id: 'g4',  name: 'Heart',    nameAr: 'قلب',      emoji: '💖', price: 19,  category: 'popular', animation: 'hearts' },
+  { id: 'g5',  name: 'Fire',     nameAr: 'نار',      emoji: '🔥', price: 29,  category: 'popular', animation: 'particles' },
+  { id: 'g6',  name: 'BlueOrb',  nameAr: 'كرة زرقاء', emoji: '🔵', price: 39,  category: 'popular', animation: 'particles' },
+  { id: 'g7',  name: 'Balloons', nameAr: 'بالونات',  emoji: '🎈', price: 49,  category: 'popular', animation: 'particles' },
+  { id: 'g8',  name: 'Clap',     nameAr: 'تصفيق',   emoji: '👏', price: 66,  category: 'popular', animation: 'stars' },
+  // ── Luxury (الفاخرة) ──
+  { id: 'g9',  name: 'GiftBox',  nameAr: 'صندوق هدايا', emoji: '🎁', price: 99,   category: 'luxury', animation: 'fireworks' },
+  { id: 'g10', name: 'Crown',    nameAr: 'تاج',       emoji: '👑', price: 199,  category: 'luxury', animation: 'stars' },
+  { id: 'g11', name: 'Rose99',   nameAr: 'بوكيه ورد', emoji: '💐', price: 520,  category: 'luxury', animation: 'hearts' },
+  { id: 'g12', name: 'Rocket',   nameAr: 'صاروخ',    emoji: '🚀', price: 1314, category: 'luxury', animation: 'fireworks', animationResourceUrl: TUI_SVGA_CAR },
+  { id: 'g13', name: 'Beer',     nameAr: 'بيرة',      emoji: '🍺', price: 99,   category: 'luxury', animation: 'particles' },
+  { id: 'g14', name: 'Cake',     nameAr: 'كعكة',     emoji: '🎂', price: 199,  category: 'luxury', animation: 'confetti' },
+  { id: 'g15', name: 'Ring',     nameAr: 'خاتم',     emoji: '💍', price: 520,  category: 'luxury', animation: 'stars' },
+  { id: 'g16', name: 'Bear',     nameAr: 'دب',       emoji: '🧸', price: 666,  category: 'luxury', animation: 'hearts' },
+  // ── Special (المميزة - مع تأثيرات) ──
+  { id: 'g17', name: 'Diamond',  nameAr: 'ماسة',      emoji: '💎', price: 2999,  category: 'special', animation: 'confetti' },
+  { id: 'g18', name: 'Trophy',   nameAr: 'كأس',      emoji: '🏆', price: 5200,  category: 'special', animation: 'fireworks' },
+  { id: 'g19', name: 'GoldStar', nameAr: 'نجم ذهبي',  emoji: '🌟', price: 10000, category: 'special', animation: 'confetti', animationResourceUrl: TUI_SVGA_SPORTS_CAR },
+  { id: 'g20', name: 'Castle',   nameAr: 'قلعة',     emoji: '🏰', price: 52000, category: 'special', animation: 'fireworks', animationResourceUrl: TUI_SVGA_CAT },
+  { id: 'g21', name: 'SportsCar',nameAr: 'سيارة رياضية', emoji: '🏎', price: 13140, category: 'special', animation: 'fireworks', animationResourceUrl: TUI_SVGA_SPORTS_CAR },
+  { id: 'g22', name: 'RocketBig',nameAr: 'صاروخ عملاق', emoji: '🚀', price: 52000, category: 'special', animation: 'fireworks', animationResourceUrl: TUI_SVGA_CAR },
+  { id: 'g23', name: 'Cat',      nameAr: 'قطة',      emoji: '🐱', price: 9999,  category: 'special', animation: 'confetti', animationResourceUrl: TUI_SVGA_CAT },
+  { id: 'g24', name: 'Unicorn',  nameAr: 'يونيكورن',  emoji: '🦄', price: 6666,  category: 'special', animation: 'stars' },
 ];
 
-export const MIC_OPTIONS = [5, 10, 15, 20];
+export const MIC_OPTIONS = [4, 6, 8, 9, 10];
+
+// ─── Mic Seat Layout Types ─────────────────────────────────────────────────
+
+export type MicLayoutId = 'arc' | 'grid2x2' | 'grid2x3' | 'grid2x4' | 'grid3x3' | 'theater' | 'radio' | 'podcast';
+
+export interface MicLayout {
+  id: MicLayoutId;
+  name: string;
+  icon: string;
+  description: string;
+  seatCounts: number[];  // supported seat counts for this layout
+  cols: number;
+  rows: number;
+}
+
+export const MIC_LAYOUTS: MicLayout[] = [
+  { id: 'grid2x2',  name: 'شبكة 2×2',  icon: '⊞', description: '4 مقاعد في صفين', seatCounts: [4], cols: 2, rows: 2 },
+  { id: 'grid2x3',  name: 'شبكة 2×3',  icon: '⊞', description: '6 مقاعد في صفين', seatCounts: [6], cols: 3, rows: 2 },
+  { id: 'grid2x4',  name: 'شبكة 2×4',  icon: '⊞', description: '8 مقاعد في صفين', seatCounts: [8], cols: 4, rows: 2 },
+  { id: 'grid3x3',  name: 'شبكة 3×3',  icon: '⊞', description: '9 مقاعد في 3 صفوف', seatCounts: [9], cols: 3, rows: 3 },
+  { id: 'arc',      name: 'قوس',       icon: '⌢', description: 'ترتيب قوس منحني', seatCounts: [4, 6, 8, 9, 10], cols: 0, rows: 1 },
+  { id: 'theater',  name: 'مسرح',     icon: '🎭', description: 'ترتيب مسرحي', seatCounts: [6, 8, 9, 10], cols: 0, rows: 0 },
+  { id: 'radio',    name: 'راديو',     icon: '📻', description: 'ترتيب راديو دائري', seatCounts: [4, 6, 8], cols: 0, rows: 0 },
+  { id: 'podcast',  name: 'بودكاست',  icon: '🎙', description: 'ترتيب بودكاست', seatCounts: [4, 6, 8, 10], cols: 0, rows: 0 },
+];
+
+/** Get the best layout for a given seat count */
+export function getMicLayout(micTheme: string, seatCount: number): MicLayout {
+  if (micTheme && micTheme !== 'default') {
+    const found = MIC_LAYOUTS.find(l => l.id === micTheme && l.seatCounts.includes(seatCount));
+    if (found) return found;
+  }
+  // Auto-select best layout based on seat count
+  const autoMap: Record<number, MicLayoutId> = {
+    4: 'grid2x2',
+    5: 'arc',
+    6: 'grid2x3',
+    7: 'arc',
+    8: 'grid2x4',
+    9: 'grid3x3',
+    10: 'arc',
+  };
+  const autoId = autoMap[seatCount] || 'arc';
+  return MIC_LAYOUTS.find(l => l.id === autoId) || MIC_LAYOUTS[4]; // fallback to arc
+}
 
 export const ROOM_MODE_OPTIONS: { value: RoomMode; label: string; icon: typeof Globe; desc: string }[] = [
   { value: 'public', label: 'عام', icon: Globe, desc: 'يمكن لأي شخص الدخول' },
