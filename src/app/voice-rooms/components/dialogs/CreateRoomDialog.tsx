@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useCallback } from 'react';
-import { X } from 'lucide-react';
+import { useState, useCallback, useRef } from 'react';
+import { X, Camera } from 'lucide-react';
 import {
   TUI,
   DEFAULT_BG_URLS,
@@ -32,6 +32,7 @@ interface CreateRoomData {
   isAutoMode: boolean;
   micTheme: string;
   roomImage?: string;
+  roomAvatar?: string;
 }
 
 interface CreateRoomDialogProps {
@@ -51,6 +52,8 @@ export default function CreateRoomDialog({ isOpen, onClose, onCreate }: CreateRo
   const [roomImage, setRoomImage] = useState(DEFAULT_BG_URLS[0]);
   const [maxParticipants, setMaxParticipants] = useState(100);
   const [isAutoMode, setIsAutoMode] = useState(false);
+  const [roomAvatar, setRoomAvatar] = useState<string>('');
+  const avatarInputRef = useRef<HTMLInputElement>(null);
 
   const resetForm = useCallback(() => {
     setName('');
@@ -62,6 +65,7 @@ export default function CreateRoomDialog({ isOpen, onClose, onCreate }: CreateRo
     setRoomImage(DEFAULT_BG_URLS[0]);
     setMaxParticipants(100);
     setIsAutoMode(false);
+    setRoomAvatar('');
   }, []);
 
   const handleClose = useCallback(() => {
@@ -81,9 +85,10 @@ export default function CreateRoomDialog({ isOpen, onClose, onCreate }: CreateRo
       isAutoMode,
       micTheme: micTheme,
       roomImage,
+      roomAvatar: roomAvatar || undefined,
     });
     resetForm();
-  }, [name, description, micSeatCount, micTheme, roomMode, roomPassword, maxParticipants, isAutoMode, roomImage, onCreate, resetForm]);
+  }, [name, description, micSeatCount, micTheme, roomMode, roomPassword, maxParticipants, isAutoMode, roomImage, roomAvatar, onCreate, resetForm]);
 
   if (!isOpen) return null;
 
@@ -139,6 +144,88 @@ export default function CreateRoomDialog({ isOpen, onClose, onCreate }: CreateRo
             onChange={(e) => setName(e.target.value)}
             placeholder="أدخل اسم الغرفة..."
             className={inputBase}
+          />
+        </div>
+
+        {/* ── Room Avatar ── */}
+        <div className="flex flex-col gap-1.5">
+          <label style={{ fontSize: '13px', color: TUI.colors.G6 }}>صورة الغرفة</label>
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={() => avatarInputRef.current?.click()}
+              style={{
+                width: 64,
+                height: 64,
+                borderRadius: '50%',
+                border: `2px dashed ${TUI.colors.strokePrimary}`,
+                background: roomAvatar ? 'transparent' : TUI.colors.bgInput,
+                overflow: 'hidden',
+                flexShrink: 0,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                cursor: 'pointer',
+                padding: 0,
+                transition: 'border-color 0.2s ease',
+              }}
+            >
+              {roomAvatar ? (
+                <img
+                  src={roomAvatar}
+                  alt="صورة الغرفة"
+                  style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                />
+              ) : (
+                <Camera size={22} style={{ color: TUI.colors.G5 }} />
+              )}
+            </button>
+            <button
+              type="button"
+              onClick={() => avatarInputRef.current?.click()}
+              style={{
+                fontSize: '12px',
+                color: TUI.colors.B1,
+                background: 'transparent',
+                border: 'none',
+                cursor: 'pointer',
+                fontWeight: 500,
+                whiteSpace: 'nowrap',
+              }}
+            >
+              اختر صورة
+            </button>
+          </div>
+          <input
+            ref={avatarInputRef}
+            type="file"
+            accept="image/*"
+            style={{ display: 'none' }}
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              if (!file) return;
+              const reader = new FileReader();
+              reader.onload = (ev) => {
+                const img = new window.Image();
+                img.onload = () => {
+                  const canvas = document.createElement('canvas');
+                  const max = 200;
+                  let w = img.width;
+                  let h = img.height;
+                  if (w > max || h > max) {
+                    if (w > h) { h = Math.round((h / w) * max); w = max; }
+                    else { w = Math.round((w / h) * max); h = max; }
+                  }
+                  canvas.width = w;
+                  canvas.height = h;
+                  canvas.getContext('2d')!.drawImage(img, 0, 0, w, h);
+                  setRoomAvatar(canvas.toDataURL('image/jpeg', 0.8));
+                };
+                img.src = ev.target?.result as string;
+              };
+              reader.readAsDataURL(file);
+              e.target.value = '';
+            }}
           />
         </div>
 

@@ -562,6 +562,7 @@ async function ensureAdminTables(): Promise<void> {
     if (!vrColNames.includes('isAutoMode')) await c.execute('ALTER TABLE VoiceRoom ADD COLUMN isAutoMode INTEGER DEFAULT 1');
     if (!vrColNames.includes('lockedSeats')) await c.execute("ALTER TABLE VoiceRoom ADD COLUMN lockedSeats TEXT DEFAULT '[]'");
     if (!vrColNames.includes('roomImage')) await c.execute("ALTER TABLE VoiceRoom ADD COLUMN roomImage TEXT DEFAULT ''");
+    if (!vrColNames.includes('roomAvatar')) await c.execute("ALTER TABLE VoiceRoom ADD COLUMN roomAvatar TEXT DEFAULT ''");
     if (!vrColNames.includes('guestMicEnabled')) await c.execute('ALTER TABLE VoiceRoom ADD COLUMN guestMicEnabled INTEGER DEFAULT 0');
     if (!vrColNames.includes('memberMicEnabled')) await c.execute('ALTER TABLE VoiceRoom ADD COLUMN memberMicEnabled INTEGER DEFAULT 1');
     if (!vrColNames.includes('joinPrice')) await c.execute('ALTER TABLE VoiceRoom ADD COLUMN joinPrice INTEGER DEFAULT 0');
@@ -2776,6 +2777,7 @@ export interface VoiceRoom {
   participantCount?: number;
   createdAt: string;
   roomImage: string;
+  roomAvatar: string;
   joinPrice: number;
   guestMicEnabled: boolean;
   memberMicEnabled: boolean;
@@ -2974,6 +2976,7 @@ export async function getRoomById(roomId: string): Promise<VoiceRoom | null> {
     lockedSeats,
     createdAt: row.createdAt as string,
     roomImage: (row.roomImage as string) || '',
+    roomAvatar: (row.roomAvatar as string) || '',
     joinPrice: Number(row.joinPrice) || 0,
     guestMicEnabled: Boolean(row.guestMicEnabled),
     memberMicEnabled: Boolean(row.memberMicEnabled),
@@ -2985,15 +2988,16 @@ export async function createVoiceRoom(
   hostId: string, hostName: string, name: string, description: string,
   maxParticipants: number, isPrivate: boolean, micSeatCount: number = 10,
   roomMode: 'public' | 'key' | 'private' = 'public', roomPassword: string = '',
-  micTheme: string = 'default', isAutoMode: boolean = true
+  micTheme: string = 'default', isAutoMode: boolean = true,
+  roomAvatar: string = ''
 ): Promise<VoiceRoom> {
   const c = getClient();
   await ensureAdminTables();
   const id = crypto.randomUUID();
   await c.execute({
-    sql: `INSERT INTO VoiceRoom (id, name, description, hostId, hostName, maxParticipants, isPrivate, micSeatCount, roomMode, roomPassword, micTheme, isAutoMode, roomImage)
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    args: [id, name, description, hostId, hostName, maxParticipants, isPrivate ? 1 : 0, micSeatCount, roomMode, roomPassword, micTheme, isAutoMode ? 1 : 0, ''],
+    sql: `INSERT INTO VoiceRoom (id, name, description, hostId, hostName, maxParticipants, isPrivate, micSeatCount, roomMode, roomPassword, micTheme, isAutoMode, roomImage, roomAvatar)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    args: [id, name, description, hostId, hostName, maxParticipants, isPrivate ? 1 : 0, micSeatCount, roomMode, roomPassword, micTheme, isAutoMode ? 1 : 0, '', roomAvatar],
   });
   // Insert host as owner on seat 0
   const hostVip = await getUserVipLevel(hostId);
@@ -3038,6 +3042,7 @@ export async function getAllVoiceRooms(): Promise<VoiceRoom[]> {
     participantCount: Number(row.participantCount) || 0,
     createdAt: row.createdAt as string,
     roomImage: (row.roomImage as string) || '',
+    roomAvatar: (row.roomAvatar as string) || '',
   }));
 }
 
@@ -3060,7 +3065,7 @@ export async function getRoomByHostId(hostId: string): Promise<VoiceRoom | null>
     announcement: (row.announcement as string) || '',
     giftSplit: Number(row.giftSplit) || 70, isAutoMode: Boolean(row.isAutoMode),
     participantCount: Number(row.participantCount) || 0,
-    createdAt: row.createdAt as string, roomImage: (row.roomImage as string) || '',
+    createdAt: row.createdAt as string, roomImage: (row.roomImage as string) || '', roomAvatar: (row.roomAvatar as string) || '',
   };
 }
 
@@ -3903,7 +3908,7 @@ export async function updateRoomSettings(roomId: string, settings: Partial<Voice
   // Known VoiceRoom columns (ignore unknown keys)
   const knownColumns = ['roomMode', 'roomPassword', 'micTheme', 'giftSplit', 'micSeatCount',
     'chatMuted', 'bgmEnabled', 'announcement', 'isAutoMode', 'roomLevel', 'name', 'description',
-    'maxParticipants', 'lockedSeats', 'roomImage', 'guestMicEnabled', 'memberMicEnabled'];
+    'maxParticipants', 'lockedSeats', 'roomImage', 'roomAvatar', 'guestMicEnabled', 'memberMicEnabled'];
 
   const setClauses: string[] = [];
   const values: unknown[] = [];

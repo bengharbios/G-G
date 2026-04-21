@@ -685,7 +685,7 @@ export default function RoomInteriorView({
               <ArrowRight size={18} style={{ color: TUI.colors.white }} />
             </button>
 
-            {/* ── Center: host avatar + crown + name + listener count ── */}
+            {/* ── Center: room avatar + crown + name + level badge + listener count ── */}
             <button
               type="button"
               onClick={() => setRoomInfoOpen(true)}
@@ -698,18 +698,20 @@ export default function RoomInteriorView({
                 style={{
                   width: 34,
                   height: 34,
-                  backgroundColor: hostParticipant?.avatar
+                  backgroundColor: vr.room.roomAvatar
                     ? 'transparent'
-                    : (hostParticipant ? getAvatarColor(hostParticipant.userId) : 'rgba(255,255,255,0.12)'),
+                    : getAvatarColorFromPalette(vr.room.id).bg,
                   border: '2px solid rgba(123, 97, 255, 0.5)',
                   boxShadow: '0 0 8px rgba(123, 97, 255, 0.2)',
                 }}
               >
-                {hostParticipant?.avatar ? (
-                  <img src={hostParticipant.avatar} alt={hostParticipant.displayName || hostParticipant.username} className="w-full h-full object-cover rounded-full" loading="lazy" />
+                {vr.room.roomAvatar ? (
+                  <img src={vr.room.roomAvatar} alt={vr.room.name} className="w-full h-full object-cover rounded-full" draggable={false} loading="lazy" />
+                ) : hostParticipant?.avatar ? (
+                  <img src={hostParticipant.avatar} alt={hostParticipant.displayName || hostParticipant.username} className="w-full h-full object-cover rounded-full" draggable={false} loading="lazy" />
                 ) : (
-                  <span className="font-medium" style={{ fontSize: 13, color: TUI.colors.white, lineHeight: 1 }}>
-                    {(hostParticipant?.displayName || hostParticipant?.username || vr.room.hostName || '?').charAt(0)}
+                  <span className="font-medium" style={{ fontSize: 13, color: getAvatarColorFromPalette(vr.room.id).text, lineHeight: 1 }}>
+                    {(vr.room.name?.charAt(0) || hostParticipant?.displayName?.charAt(0) || '?')}
                   </span>
                 )}
               </div>
@@ -719,6 +721,22 @@ export default function RoomInteriorView({
                   <span className="truncate font-bold" style={{ fontSize: 13, fontWeight: 600, color: TUI.colors.white, maxWidth: 150 }}>
                     {vr.room.name}
                   </span>
+                  {vr.room.roomLevel > 0 && (
+                    <span
+                      className="flex items-center gap-0.5 flex-shrink-0 px-1 rounded-full"
+                      style={{
+                        fontSize: 9,
+                        fontWeight: 600,
+                        color: TUI.colors.gold,
+                        backgroundColor: 'rgba(255, 215, 0, 0.12)',
+                        padding: '1px 5px',
+                        lineHeight: '14px',
+                      }}
+                    >
+                      <Trophy size={9} fill={TUI.colors.gold} stroke={TUI.colors.gold} strokeWidth={1.5} />
+                      {vr.room.roomLevel}
+                    </span>
+                  )}
                 </div>
                 <span className="truncate" style={{ fontSize: 11, color: 'rgba(255,255,255,0.45)', maxWidth: 180 }}>
                   {vr.listenerCount} مستمع
@@ -803,6 +821,59 @@ export default function RoomInteriorView({
             layoutId={micLayout.id}
             onSeatClick={vr.handleSeatClick}
           />
+
+          {/* ════════════════════════════════════════════════════════
+              AUDIENCE ROW — horizontal avatars below mic seats
+              ════════════════════════════════════════════════════════ */}
+          {audienceList.length > 0 && (
+            <div
+              className="flex items-center justify-center flex-shrink-0"
+              style={{ padding: '4px 16px', gap: 3 }}
+            >
+              {audienceList.slice(0, 8).map((p) => (
+                <div
+                  key={p.userId}
+                  className="relative rounded-full overflow-hidden flex items-center justify-center flex-shrink-0"
+                  style={{
+                    width: 22,
+                    height: 22,
+                    border: '1.5px solid rgba(123, 97, 255, 0.3)',
+                  }}
+                >
+                  {p.avatar ? (
+                    <img src={p.avatar} alt={p.displayName} className="w-full h-full object-cover rounded-full" draggable={false} loading="lazy" />
+                  ) : (
+                    <div
+                      className="w-full h-full flex items-center justify-center rounded-full"
+                      style={{
+                        backgroundColor: getAvatarColorFromPalette(p.userId).bg,
+                        color: getAvatarColorFromPalette(p.userId).text,
+                        fontSize: 8,
+                        fontWeight: 600,
+                      }}
+                    >
+                      {p.displayName.charAt(0).toUpperCase()}
+                    </div>
+                  )}
+                </div>
+              ))}
+              {audienceList.length > 8 && (
+                <span
+                  className="flex items-center justify-center rounded-full flex-shrink-0"
+                  style={{
+                    width: 22,
+                    height: 22,
+                    backgroundColor: 'rgba(255,255,255,0.08)',
+                    fontSize: 8,
+                    fontWeight: 600,
+                    color: TUI.colors.G6,
+                  }}
+                >
+                  +{audienceList.length - 8}
+                </span>
+              )}
+            </div>
+          )}
 
           {/* ════════════════════════════════════════════
               CHAT PANEL
@@ -1102,6 +1173,8 @@ export default function RoomInteriorView({
           participants={vr.participants}
           weeklyGems={vr.weeklyGems}
           topGifts={vr.topGifts}
+          isOwner={isOwner}
+          onUpdateAvatar={async (avatarBase64: string) => { await vr.handleUpdateSettings({ roomAvatar: avatarBase64 }); }}
         />
 
         {/* ── Kick Duration Dialog ── */}

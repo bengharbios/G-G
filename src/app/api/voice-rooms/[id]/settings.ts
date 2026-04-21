@@ -59,6 +59,7 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
     if (body.announcement !== undefined) settings.announcement = body.announcement;
     if (body.giftSplit !== undefined) settings.giftSplit = Number(body.giftSplit);
     if (body.isAutoMode !== undefined) settings.isAutoMode = Boolean(body.isAutoMode);
+    if (body.roomAvatar !== undefined) settings.roomAvatar = body.roomAvatar;
 
     const updatedRoom = await updateRoomSettings(id, settings, userId);
     if (!updatedRoom) return NextResponse.json({ error: 'فشل تحديث الإعدادات' }, { status: 400 });

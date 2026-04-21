@@ -196,6 +196,7 @@ export default function VoiceRoomsPage() {
       isAutoMode: boolean;
       micTheme: string;
       roomImage?: string;
+      roomAvatar?: string;
     }) => {
       try {
         const res = await fetch('/api/voice-rooms', {

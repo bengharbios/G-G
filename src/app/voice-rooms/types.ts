@@ -41,6 +41,7 @@ export interface VoiceRoom {
   participantCount?: number;
   createdAt: string;
   roomImage?: string;
+  roomAvatar?: string;
 }
 
 export interface VoiceRoomParticipant {

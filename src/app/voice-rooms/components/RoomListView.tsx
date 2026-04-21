@@ -299,14 +299,16 @@ export default function RoomListView({
             >
               {/* Room avatar */}
               <div
-                className="flex-shrink-0 rounded-lg overflow-hidden relative"
-                style={{ width: 48, height: 48 }}
+                className="flex-shrink-0 rounded-full overflow-hidden relative"
+                style={{ width: 48, height: 48, border: '2px solid rgba(123, 97, 255, 0.5)' }}
               >
-                {myRoom.roomImage ? (
-                  <img src={myRoom.roomImage} alt={myRoom.name} className="w-full h-full object-cover" />
+                {myRoom.roomAvatar ? (
+                  <img src={myRoom.roomAvatar} alt={myRoom.name} className="w-full h-full object-cover rounded-full" />
+                ) : myRoom.roomImage ? (
+                  <img src={myRoom.roomImage} alt={myRoom.name} className="w-full h-full object-cover rounded-full" />
                 ) : (
                   <div
-                    className="w-full h-full flex items-center justify-center"
+                    className="w-full h-full flex items-center justify-center rounded-full"
                     style={{ background: getRoomGradient(myRoom.micTheme) }}
                   >
                     <Mic size={20} style={{ color: 'rgba(255,255,255,0.8)' }} />
@@ -553,6 +555,28 @@ function RoomCard({ room, onClick }: { room: VoiceRoom; onClick: () => void }) {
             style={{ background: getRoomGradient(room.micTheme) }}
           >
             <Mic size={24} style={{ color: 'rgba(255,255,255,0.5)' }} />
+          </div>
+        )}
+
+        {/* Room Avatar (bottom-right overlay) */}
+        {room.roomAvatar && (
+          <div
+            className="absolute bottom-2 left-2 rounded-full overflow-hidden flex items-center justify-center"
+            style={{
+              width: 32,
+              height: 32,
+              border: '2px solid rgba(255,255,255,0.8)',
+              boxShadow: '0 2px 8px rgba(0,0,0,0.3)',
+              zIndex: 2,
+            }}
+          >
+            <img
+              src={room.roomAvatar}
+              alt={room.name}
+              className="w-full h-full object-cover rounded-full"
+              draggable={false}
+              loading="lazy"
+            />
           </div>
         )}
 

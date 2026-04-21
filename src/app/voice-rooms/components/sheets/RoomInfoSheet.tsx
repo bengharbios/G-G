@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useRef } from 'react';
 import Image from 'next/image';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -13,6 +13,7 @@ import {
   Sparkles,
   Heart,
   ArrowLeft,
+  Camera,
 } from 'lucide-react';
 import BottomSheetOverlay from '../shared/BottomSheetOverlay';
 import {
@@ -51,6 +52,8 @@ export interface RoomInfoSheetProps {
   isFollowing?: boolean;
   onJoin?: () => void;
   isJoined?: boolean;
+  isOwner?: boolean;
+  onUpdateAvatar?: (avatarBase64: string) => void;
 }
 
 type TabKey = 'info' | 'members' | 'moments';
@@ -129,8 +132,11 @@ export default function RoomInfoSheet({
   isFollowing = false,
   onJoin,
   isJoined = false,
+  isOwner = false,
+  onUpdateAvatar,
 }: RoomInfoSheetProps) {
   const [activeTab, setActiveTab] = useState<TabKey>('info');
+  const avatarInputRef = useRef<HTMLInputElement>(null);
   const tabIndex = TABS.findIndex((t) => t.key === activeTab);
 
   /* ── Derived data ── */
@@ -248,6 +254,87 @@ export default function RoomInfoSheet({
                 gap: 16,
               }}
             >
+              {/* ── Room Avatar (owner only) ── */}
+              {isOwner && onUpdateAvatar && (
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 12,
+                  }}
+                >
+                  <div
+                    style={{
+                      width: 48,
+                      height: 48,
+                      borderRadius: '50%',
+                      overflow: 'hidden',
+                      flexShrink: 0,
+                      border: `2px solid ${TUI.colors.strokePrimary}`,
+                      background: TUI.colors.bgInput,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                    }}
+                  >
+                    {room.roomAvatar ? (
+                      <img
+                        src={room.roomAvatar}
+                        alt="صورة الغرفة"
+                        style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                      />
+                    ) : (
+                      <Camera size={20} style={{ color: TUI.colors.G5 }} />
+                    )}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => avatarInputRef.current?.click()}
+                    style={{
+                      fontSize: '13px',
+                      color: TUI.colors.B1,
+                      background: 'transparent',
+                      border: 'none',
+                      cursor: 'pointer',
+                      fontWeight: 500,
+                    }}
+                  >
+                    تغيير صورة الغرفة
+                  </button>
+                  <input
+                    ref={avatarInputRef}
+                    type="file"
+                    accept="image/*"
+                    style={{ display: 'none' }}
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (!file) return;
+                      const reader = new FileReader();
+                      reader.onload = (ev) => {
+                        const img = new window.Image();
+                        img.onload = () => {
+                          const canvas = document.createElement('canvas');
+                          const max = 200;
+                          let w = img.width;
+                          let h = img.height;
+                          if (w > max || h > max) {
+                            if (w > h) { h = Math.round((h / w) * max); w = max; }
+                            else { w = Math.round((w / h) * max); h = max; }
+                          }
+                          canvas.width = w;
+                          canvas.height = h;
+                          canvas.getContext('2d')!.drawImage(img, 0, 0, w, h);
+                          onUpdateAvatar(canvas.toDataURL('image/jpeg', 0.8));
+                        };
+                        img.src = ev.target?.result as string;
+                      };
+                      reader.readAsDataURL(file);
+                      e.target.value = '';
+                    }}
+                  />
+                </div>
+              )}
+
               {/* ── Room Banner Image ── */}
               {room.roomImage && (
                 <div
