@@ -1,19 +1,19 @@
 'use client';
 
 /* ═══════════════════════════════════════════════════════════════════════
-   RoomListView — Voice Room Lobby (Yalla Ludo–style design)
+   RoomListView — Voice Room Lobby (Exact match to reference screenshots)
 
-   Full-screen room list with:
+   Design from screenshots:
    - Teal-green gradient background + diamond pattern overlay
-   - Header: avatar+shield | 3 tabs (اكتشف / رائج / غرفي) | search
-   - "إنشاء غرفتي" create button
-   - Sub-tabs: مؤخراً / منضم / متابَع (pill-shaped)
-   - Scrollable room cards with image, name, host, participants, badge
-   - Fixed bottom nav (Events, Battle, Chat, Social) with badges
-   - Empty state with illustration + CTA
+   - Header: avatar+badge | 3 pill tabs (اكتشف / رائج / غرفي) | search
+   - "My" tab: White "Create my room" card OR "My Room" banner
+   - Sub-tabs: مؤخراً / منضم / متابَع / أصدقاء (pill-shaped)
+   - Room cards in 2-column grid (white cards, cover image, info, avatars)
+   - Empty state: house illustration + message + yellow CTA button
+   - Fixed bottom nav: 4 items with rounded-square icon containers + badges
    ═══════════════════════════════════════════════════════════════════════ */
 
-import { useState, useRef, useCallback, useEffect } from 'react';
+import { useState, useRef } from 'react';
 import {
   Search,
   Plus,
@@ -29,6 +29,9 @@ import {
   Shield,
   Headphones,
   Star,
+  Home,
+  PartyPopper,
+  Sparkles,
 } from 'lucide-react';
 import {
   TUI,
@@ -42,6 +45,7 @@ import {
 
 interface RoomListViewProps {
   rooms: VoiceRoom[];
+  myRoom: VoiceRoom | null;
   onRoomClick: (room: VoiceRoom) => void;
   onCreateRoom: () => void;
   authUser: AuthUser | null;
@@ -58,17 +62,18 @@ const MAIN_TABS = [
 
 type MainTab = (typeof MAIN_TABS)[number]['id'];
 
-// ─── Sub Tabs (visible on "غرفي" main tab) ───────────────────────────────────
+// ─── Sub Tabs (always visible) ────────────────────────────────────────────────
 
 const SUB_TABS = [
   { id: 'recent', label: 'مؤخراً' },
   { id: 'joined', label: 'منضم' },
   { id: 'following', label: 'متابَع' },
+  { id: 'friends', label: 'أصدقاء' },
 ] as const;
 
 type SubTab = (typeof SUB_TABS)[number]['id'];
 
-// ─── Room theme gradients ─────────────────────────────────────────────────────
+// ─── Room theme gradients (for cover fallback) ────────────────────────────────
 
 const THEME_GRADIENTS: Record<string, string> = {
   blue: 'linear-gradient(135deg, #1C66E5 0%, #6C54E8 100%)',
@@ -78,22 +83,23 @@ const THEME_GRADIENTS: Record<string, string> = {
   teal: 'linear-gradient(135deg, #00E5E5 0%, #1C66E5 100%)',
   red: 'linear-gradient(135deg, #FC5555 0%, #FF643D 100%)',
   gold: 'linear-gradient(135deg, #F59E0B 0%, #FFD700 100%)',
+  default: 'linear-gradient(135deg, #0D8A7A 0%, #00C896 100%)',
 };
 
 function getRoomGradient(theme: string): string {
-  return THEME_GRADIENTS[theme] || THEME_GRADIENTS.teal;
+  return THEME_GRADIENTS[theme] || THEME_GRADIENTS.default;
 }
 
 // ─── Bottom Nav Items ─────────────────────────────────────────────────────────
 
 const BOTTOM_NAV = [
-  { id: 'events', label: 'فعاليات', icon: Headphones, badge: 3 },
-  { id: 'battle', label: 'تحدي', icon: Swords, badge: 0 },
-  { id: 'chat', label: 'محادثة', icon: MessageCircle, badge: 5 },
-  { id: 'social', label: 'اجتماعي', icon: Gift, badge: 12 },
+  { id: 'events', label: 'فعاليات', icon: PartyPopper, color: '#00B894', bgColor: 'rgba(0, 184, 148, 0.15)', badge: 2 },
+  { id: 'battle', label: 'تحدي', icon: Swords, color: '#FDCB6E', bgColor: 'rgba(253, 203, 110, 0.15)', badge: 0 },
+  { id: 'chat', label: 'محادثة', icon: Home, color: '#00B894', bgColor: 'rgba(0, 184, 148, 0.15)', badge: 5 },
+  { id: 'social', label: 'اجتماعي', icon: Gift, color: '#E17055', bgColor: 'rgba(225, 112, 85, 0.15)', badge: 1 },
 ] as const;
 
-// ─── Diamond pattern SVG (inline for no external deps) ───────────────────────
+// ─── Diamond pattern SVG (inline) ─────────────────────────────────────────────
 
 function DiamondPattern() {
   return (
@@ -103,11 +109,44 @@ function DiamondPattern() {
       style={{ opacity: 0.04 }}
     >
       <defs>
-        <pattern id="diamondPattern" x="0" y="0" width="32" height="32" patternUnits="userSpaceOnUse">
+        <pattern id="lobbyDiamondPattern" x="0" y="0" width="32" height="32" patternUnits="userSpaceOnUse">
           <path d="M16 0 L32 16 L16 32 L0 16 Z" fill="white" />
         </pattern>
       </defs>
-      <rect width="100%" height="100%" fill="url(#diamondPattern)" />
+      <rect width="100%" height="100%" fill="url(#lobbyDiamondPattern)" />
+    </svg>
+  );
+}
+
+// ─── House SVG Illustration (empty state) ─────────────────────────────────────
+
+function HouseIllustration() {
+  return (
+    <svg width="120" height="100" viewBox="0 0 120 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+      {/* Main house */}
+      <path d="M60 15L25 45V85H95V45L60 15Z" stroke="rgba(255,255,255,0.25)" strokeWidth="2" fill="none" strokeLinejoin="round" />
+      {/* Roof */}
+      <path d="M20 48L60 12L100 48" stroke="rgba(255,255,255,0.3)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+      {/* Door */}
+      <rect x="48" y="58" width="24" height="27" rx="2" stroke="rgba(255,255,255,0.25)" strokeWidth="2" fill="none" />
+      {/* Door knob */}
+      <circle cx="66" cy="72" r="2" fill="rgba(255,255,255,0.25)" />
+      {/* Window left */}
+      <rect x="32" y="55" width="12" height="10" rx="1" stroke="rgba(255,255,255,0.2)" strokeWidth="1.5" fill="none" />
+      <line x1="38" y1="55" x2="38" y2="65" stroke="rgba(255,255,255,0.15)" strokeWidth="1" />
+      <line x1="32" y1="60" x2="44" y2="60" stroke="rgba(255,255,255,0.15)" strokeWidth="1" />
+      {/* Window right */}
+      <rect x="76" y="55" width="12" height="10" rx="1" stroke="rgba(255,255,255,0.2)" strokeWidth="1.5" fill="none" />
+      <line x1="82" y1="55" x2="82" y2="65" stroke="rgba(255,255,255,0.15)" strokeWidth="1" />
+      <line x1="76" y1="60" x2="88" y2="60" stroke="rgba(255,255,255,0.15)" strokeWidth="1" />
+      {/* Tree left */}
+      <rect x="6" y="68" width="4" height="17" rx="1" fill="rgba(255,255,255,0.12)" />
+      <ellipse cx="8" cy="60" rx="12" ry="16" fill="rgba(255,255,255,0.08)" stroke="rgba(255,255,255,0.15)" strokeWidth="1" />
+      {/* Tree right */}
+      <rect x="110" y="70" width="4" height="15" rx="1" fill="rgba(255,255,255,0.12)" />
+      <ellipse cx="112" cy="62" rx="10" ry="14" fill="rgba(255,255,255,0.08)" stroke="rgba(255,255,255,0.15)" strokeWidth="1" />
+      {/* Ground */}
+      <line x1="0" y1="85" x2="120" y2="85" stroke="rgba(255,255,255,0.1)" strokeWidth="1" />
     </svg>
   );
 }
@@ -116,6 +155,7 @@ function DiamondPattern() {
 
 export default function RoomListView({
   rooms,
+  myRoom,
   onRoomClick,
   onCreateRoom,
   authUser,
@@ -125,29 +165,26 @@ export default function RoomListView({
   const [subTab, setSubTab] = useState<SubTab>('recent');
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  // ── Show sub-tabs only when on "غرفي" ──
-  const showSubTabs = mainTab === 'mine';
-
-  // ── Filter rooms by main tab ──
-  // For 'explore' show all, 'hot' show rooms with >10 participants, 'mine' show based on subTab
-  const displayRooms = rooms.filter((room) => {
-    if (mainTab === 'explore') return true;
-    if (mainTab === 'hot') return (room.participantCount || 0) > 10;
-    // 'mine' — all rooms (in a real app would filter by user history)
-    return true;
-  });
-
   // ── Avatar palette for user ──
   const avatarPalette = authUser
     ? getAvatarColorFromPalette(authUser.id)
     : { bg: '#E0F7FA', text: '#0D8A7A' };
+
+  // ── Filter rooms by main tab ──
+  const displayRooms = rooms.filter((room) => {
+    // Don't show user's own room in the list (it's shown separately)
+    if (myRoom && room.id === myRoom.id) return false;
+    if (mainTab === 'explore') return true;
+    if (mainTab === 'hot') return (room.participantCount || 0) > 5;
+    return true; // 'mine' — all other rooms
+  });
 
   return (
     <div
       className="fixed inset-0 flex flex-col overflow-hidden"
       dir="rtl"
       style={{
-        background: `linear-gradient(180deg, ${TUI.colors.teal} 0%, ${TUI.colors.tealDark} 40%, #074a42 100%)`,
+        background: `linear-gradient(180deg, #0D8A7A 0%, #0A6B5E 30%, #074a42 100%)`,
         fontFamily: "'Cairo', 'Segoe UI', sans-serif",
       }}
     >
@@ -155,7 +192,7 @@ export default function RoomListView({
       <DiamondPattern />
 
       {/* ══════════════════════════════════════════════════════════════
-          HEADER — Avatar+Shield | Tabs | Search
+          HEADER — Avatar+Badge | Main Tabs | Search
           ══════════════════════════════════════════════════════════════ */}
       <header
         className="relative z-10 flex flex-col"
@@ -163,7 +200,7 @@ export default function RoomListView({
       >
         {/* ── Top Row: Avatar | Search ── */}
         <div className="flex items-center justify-between px-4 pt-3 pb-2">
-          {/* User Avatar + Shield Badge */}
+          {/* User Avatar + Badge */}
           <div className="relative flex-shrink-0">
             <div
               className="flex items-center justify-center rounded-full overflow-hidden"
@@ -188,32 +225,22 @@ export default function RoomListView({
                 </div>
               )}
             </div>
-            {/* Shield / VIP badge */}
-            {authUser?.vipLevel && authUser.vipLevel > 0 ? (
-              <div
-                className="absolute -bottom-0.5 -left-0.5 flex items-center justify-center rounded-full"
-                style={{
-                  width: 18,
-                  height: 18,
-                  backgroundColor: TUI.colors.gold,
-                  border: `2px solid ${TUI.colors.teal}`,
-                }}
-              >
-                <Crown size={10} style={{ color: TUI.colors.tealDark }} />
-              </div>
-            ) : (
-              <div
-                className="absolute -bottom-0.5 -left-0.5 flex items-center justify-center rounded-full"
-                style={{
-                  width: 18,
-                  height: 18,
-                  backgroundColor: TUI.colors.tealLight,
-                  border: `2px solid ${TUI.colors.teal}`,
-                }}
-              >
-                <Shield size={9} style={{ color: TUI.colors.white }} />
-              </div>
-            )}
+            {/* Notification badge */}
+            <div
+              className="absolute -top-1 -left-1 flex items-center justify-center rounded-full"
+              style={{
+                width: 18,
+                height: 18,
+                backgroundColor: TUI.colors.red,
+                border: `2px solid #0A6B5E`,
+                fontSize: 9,
+                fontWeight: 700,
+                color: TUI.colors.white,
+                lineHeight: '14px',
+              }}
+            >
+              1
+            </div>
           </div>
 
           {/* Search Icon */}
@@ -230,33 +257,24 @@ export default function RoomListView({
         </div>
 
         {/* ── Main Tabs: اكتشف | رائج | غرفي ── */}
-        <div className="flex items-center justify-center gap-1 px-4 pb-1">
+        <div className="flex items-center justify-center gap-2 px-4 pb-2">
           {MAIN_TABS.map((tab) => {
             const isActive = mainTab === tab.id;
             return (
               <button
                 key={tab.id}
                 onClick={() => setMainTab(tab.id)}
-                className="relative flex-shrink-0 px-4 py-2 transition-colors"
+                className="flex-shrink-0 px-5 py-2 rounded-full transition-all active:scale-95"
                 style={{
-                  fontSize: 'clamp(14px, 3.8vw, 16px)',
+                  fontSize: 'clamp(13px, 3.5vw, 15px)',
                   fontWeight: isActive ? 700 : 500,
-                  color: isActive ? TUI.colors.white : 'rgba(255,255,255,0.6)',
-                  minHeight: 44,
+                  backgroundColor: isActive ? 'rgba(255,255,255,0.95)' : 'transparent',
+                  color: isActive ? '#0D8A7A' : 'rgba(255,255,255,0.7)',
+                  minHeight: 38,
+                  boxShadow: isActive ? '0 2px 12px rgba(0,0,0,0.15)' : 'none',
                 }}
               >
                 {tab.label}
-                {/* Active underline */}
-                {isActive && (
-                  <span
-                    className="absolute bottom-0 left-1/2 -translate-x-1/2 rounded-full"
-                    style={{
-                      width: 32,
-                      height: 3,
-                      backgroundColor: TUI.colors.tealLight,
-                    }}
-                  />
-                )}
               </button>
             );
           })}
@@ -264,69 +282,141 @@ export default function RoomListView({
       </header>
 
       {/* ══════════════════════════════════════════════════════════════
-          CREATE ROOM BUTTON
+          MY ROOM SECTION (visible on "غرفي" tab)
           ══════════════════════════════════════════════════════════════ */}
-      <div className="relative z-10 px-4 pt-2 pb-1">
-        <button
-          onClick={onCreateRoom}
-          className="flex items-center justify-center gap-2 w-full py-3 rounded-xl transition-all active:scale-[0.98]"
-          style={{
-            background: `linear-gradient(135deg, ${TUI.colors.tealLight} 0%, ${TUI.colors.teal} 100%)`,
-            color: TUI.colors.white,
-            fontSize: 'clamp(14px, 3.8vw, 16px)',
-            fontWeight: 700,
-            boxShadow: `0 4px 15px rgba(0, 200, 150, 0.3)`,
-            minHeight: 48,
-          }}
-        >
-          <Plus size={20} strokeWidth={3} />
-          <span>إنشاء غرفتي</span>
-        </button>
-      </div>
+      {mainTab === 'mine' && (
+        <div className="relative z-10 px-4 pt-1 pb-1">
+          {myRoom ? (
+            /* ── My Room Banner ── */
+            <div
+              className="flex items-center gap-3 p-3 rounded-xl transition-all cursor-pointer active:scale-[0.98]"
+              style={{
+                backgroundColor: 'rgba(255,255,255,0.15)',
+                backdropFilter: 'blur(8px)',
+                border: '1px solid rgba(255,255,255,0.12)',
+              }}
+              onClick={() => onRoomClick(myRoom)}
+            >
+              {/* Room avatar */}
+              <div
+                className="flex-shrink-0 rounded-lg overflow-hidden relative"
+                style={{ width: 48, height: 48 }}
+              >
+                {myRoom.roomImage ? (
+                  <img src={myRoom.roomImage} alt={myRoom.name} className="w-full h-full object-cover" />
+                ) : (
+                  <div
+                    className="w-full h-full flex items-center justify-center"
+                    style={{ background: getRoomGradient(myRoom.micTheme) }}
+                  >
+                    <Mic size={20} style={{ color: 'rgba(255,255,255,0.8)' }} />
+                  </div>
+                )}
+                {/* Live dot */}
+                <div
+                  className="absolute top-0.5 right-0.5 w-2.5 h-2.5 rounded-full"
+                  style={{ backgroundColor: TUI.colors.green, boxShadow: `0 0 6px ${TUI.colors.green}` }}
+                />
+              </div>
 
-      {/* ══════════════════════════════════════════════════════════════
-          SUB-TABS (pill-shaped, shown on "غرفي" only)
-          ══════════════════════════════════════════════════════════════ */}
-      {showSubTabs && (
-        <div className="relative z-10 flex items-center justify-center gap-2 px-4 py-2">
-          {SUB_TABS.map((tab) => {
-            const isActive = subTab === tab.id;
-            return (
-              <button
-                key={tab.id}
-                onClick={() => setSubTab(tab.id)}
-                className="flex-shrink-0 px-5 py-1.5 rounded-full transition-all active:scale-95"
+              {/* Room info */}
+              <div className="flex-1 min-w-0">
+                <p
+                  className="truncate"
+                  style={{ fontSize: 'clamp(14px, 3.6vw, 16px)', fontWeight: 700, color: TUI.colors.white }}
+                >
+                  {myRoom.name}
+                </p>
+                <p
+                  className="truncate"
+                  style={{ fontSize: 'clamp(11px, 2.8vw, 12px)', color: 'rgba(255,255,255,0.55)' }}
+                >
+                  {myRoom.description || 'غرفتي'}
+                </p>
+              </div>
+
+              {/* Join arrow */}
+              <div
+                className="flex-shrink-0 flex items-center justify-center w-8 h-8 rounded-full"
+                style={{ backgroundColor: 'rgba(255,255,255,0.1)' }}
+              >
+                <ChevronLeft size={16} style={{ color: 'rgba(255,255,255,0.5)' }} />
+              </div>
+            </div>
+          ) : (
+            /* ── Create My Room Card (white card with green plus) ── */
+            <div
+              className="flex flex-col items-center justify-center py-4 rounded-xl transition-all cursor-pointer active:scale-[0.98]"
+              style={{
+                backgroundColor: 'rgba(255,255,255,0.95)',
+                boxShadow: '0 4px 16px rgba(0,0,0,0.1)',
+              }}
+              onClick={onCreateRoom}
+            >
+              {/* Green plus icon in rounded square */}
+              <div
+                className="flex items-center justify-center rounded-xl mb-2"
                 style={{
-                  fontSize: 'clamp(12px, 3.2vw, 13px)',
-                  fontWeight: isActive ? 600 : 400,
-                  backgroundColor: isActive
-                    ? TUI.colors.tealLight
-                    : 'rgba(255,255,255,0.12)',
-                  color: TUI.colors.white,
-                  minHeight: 36,
-                  boxShadow: isActive ? `0 2px 10px rgba(0, 200, 150, 0.25)` : 'none',
+                  width: 44,
+                  height: 44,
+                  backgroundColor: '#E0F7FA',
                 }}
               >
-                {tab.label}
-              </button>
-            );
-          })}
+                <Plus size={24} style={{ color: TUI.colors.teal }} strokeWidth={2.5} />
+              </div>
+              <p
+                style={{
+                  fontSize: 'clamp(13px, 3.5vw, 15px)',
+                  fontWeight: 600,
+                  color: '#757575',
+                }}
+              >
+                إنشاء غرفتي
+              </p>
+            </div>
+          )}
         </div>
       )}
+
+      {/* ══════════════════════════════════════════════════════════════
+          SUB-TABS (pill-shaped, always visible)
+          ══════════════════════════════════════════════════════════════ */}
+      <div className="relative z-10 flex items-center justify-center gap-2 px-4 py-2">
+        {SUB_TABS.map((tab) => {
+          const isActive = subTab === tab.id;
+          return (
+            <button
+              key={tab.id}
+              onClick={() => setSubTab(tab.id)}
+              className="flex-shrink-0 px-4 py-1.5 rounded-full transition-all active:scale-95"
+              style={{
+                fontSize: 'clamp(11px, 3vw, 13px)',
+                fontWeight: isActive ? 600 : 400,
+                backgroundColor: isActive ? 'rgba(255,255,255,0.95)' : 'rgba(255,255,255,0.12)',
+                color: isActive ? '#0D8A7A' : 'rgba(255,255,255,0.65)',
+                minHeight: 34,
+                boxShadow: isActive ? '0 2px 8px rgba(0,0,0,0.1)' : 'none',
+              }}
+            >
+              {tab.label}
+            </button>
+          );
+        })}
+      </div>
 
       {/* ══════════════════════════════════════════════════════════════
           ROOM LIST (scrollable area)
           ══════════════════════════════════════════════════════════════ */}
       <div
         ref={scrollRef}
-        className="relative z-10 flex-1 overflow-y-auto px-3 pt-2"
-        style={{ paddingBottom: 80 }}
+        className="relative z-10 flex-1 overflow-y-auto px-3 pt-1"
+        style={{ paddingBottom: 85 }}
       >
         {/* Loading State */}
         {loading && (
           <div className="flex items-center justify-center py-24">
             <div
-              className="w-8 h-8 rounded-full border-3 border-t-transparent animate-spin"
+              className="w-8 h-8 rounded-full animate-spin"
               style={{
                 borderColor: 'rgba(255,255,255,0.2)',
                 borderTopColor: TUI.colors.tealLight,
@@ -338,12 +428,15 @@ export default function RoomListView({
 
         {/* Empty State */}
         {!loading && displayRooms.length === 0 && (
-          <EmptyState onCreateRoom={onCreateRoom} mainTab={mainTab} />
+          <EmptyState onCreateRoom={onCreateRoom} mainTab={mainTab} hasMyRoom={!!myRoom} />
         )}
 
-        {/* Room Cards */}
+        {/* Room Cards Grid */}
         {!loading && displayRooms.length > 0 && (
-          <div className="flex flex-col gap-3">
+          <div
+            className="grid grid-cols-2 gap-3"
+            style={{ paddingBottom: 10 }}
+          >
             {displayRooms.map((room) => (
               <RoomCard key={room.id} room={room} onClick={() => onRoomClick(room)} />
             ))}
@@ -352,15 +445,16 @@ export default function RoomListView({
       </div>
 
       {/* ══════════════════════════════════════════════════════════════
-          BOTTOM NAV BAR (fixed)
+          BOTTOM NAV BAR (fixed, rounded-square icon containers)
           ══════════════════════════════════════════════════════════════ */}
       <nav
-        className="fixed bottom-0 left-0 right-0 z-20 flex items-center justify-around"
+        className="fixed bottom-0 left-0 right-0 z-20 flex items-start justify-around"
         style={{
-          height: 64,
+          height: 72,
           paddingBottom: 'env(safe-area-inset-bottom, 0px)',
+          paddingTop: 8,
           background: 'linear-gradient(180deg, rgba(10,107,94,0.95) 0%, rgba(7,74,66,0.98) 100%)',
-          borderTop: `1px solid rgba(255,255,255,0.08)`,
+          borderTop: '1px solid rgba(255,255,255,0.08)',
           backdropFilter: 'blur(12px)',
         }}
       >
@@ -370,12 +464,22 @@ export default function RoomListView({
           return (
             <button
               key={item.id}
-              className="relative flex flex-col items-center justify-center gap-0.5 flex-1 transition-transform active:scale-95"
-              style={{ minHeight: 64 }}
+              className="relative flex flex-col items-center justify-center gap-1.5 flex-1 transition-transform active:scale-95"
+              style={{ minHeight: 50 }}
               aria-label={item.label}
             >
+              {/* Icon container (rounded square) */}
               <div className="relative">
-                <Icon size={22} style={{ color: 'rgba(255,255,255,0.7)' }} />
+                <div
+                  className="flex items-center justify-center rounded-xl"
+                  style={{
+                    width: 38,
+                    height: 38,
+                    backgroundColor: item.bgColor,
+                  }}
+                >
+                  <Icon size={20} style={{ color: item.color }} />
+                </div>
                 {hasBadge && (
                   <span
                     className="absolute -top-1.5 -right-2.5 flex items-center justify-center rounded-full text-white"
@@ -393,6 +497,7 @@ export default function RoomListView({
                   </span>
                 )}
               </div>
+              {/* Label */}
               <span
                 style={{
                   fontSize: 10,
@@ -410,34 +515,32 @@ export default function RoomListView({
   );
 }
 
-// ─── Room Card ────────────────────────────────────────────────────────────────
+// ─── Room Card (Grid Item) ─────────────────────────────────────────────────────
 
 function RoomCard({ room, onClick }: { room: VoiceRoom; onClick: () => void }) {
   const modeConfig: Record<RoomMode, { icon: typeof Mic; label: string; color: string }> = {
-    public: { icon: Eye, label: 'عام', color: TUI.colors.tealLight },
-    key: { icon: Lock, label: 'بسر', color: TUI.colors.gold },
-    private: { icon: Star, label: 'خاص', color: TUI.colors.purple },
+    public: { icon: Eye, label: 'عام', color: '#29CC6A' },
+    key: { icon: Lock, label: 'بسر', color: '#F59E0B' },
+    private: { icon: Star, label: 'خاص', color: '#7B61FF' },
   };
 
   const mode = modeConfig[room.roomMode] || modeConfig.public;
   const ModeIcon = mode.icon;
+  const isLive = (room.participantCount || 0) > 0;
 
   return (
     <div
-      className="flex items-center gap-3 p-3 rounded-xl transition-all cursor-pointer active:scale-[0.98]"
+      className="flex flex-col rounded-xl overflow-hidden cursor-pointer transition-all active:scale-[0.97] h-full"
       style={{
-        backgroundColor: 'rgba(255,255,255,0.1)',
+        backgroundColor: 'rgba(255,255,255,0.12)',
         backdropFilter: 'blur(8px)',
-        border: '1px solid rgba(255,255,255,0.08)',
-        minHeight: 80,
+        border: '1px solid rgba(255,255,255,0.1)',
+        boxShadow: '0 2px 10px rgba(0,0,0,0.15)',
       }}
       onClick={onClick}
     >
-      {/* ── Room Cover ── */}
-      <div
-        className="flex-shrink-0 rounded-lg overflow-hidden relative"
-        style={{ width: 64, height: 64 }}
-      >
+      {/* ── Cover Image Area ── */}
+      <div className="relative w-full" style={{ aspectRatio: '16/10' }}>
         {room.roomImage ? (
           <img
             src={room.roomImage}
@@ -449,26 +552,58 @@ function RoomCard({ room, onClick }: { room: VoiceRoom; onClick: () => void }) {
             className="w-full h-full flex items-center justify-center"
             style={{ background: getRoomGradient(room.micTheme) }}
           >
-            <Mic size={22} style={{ color: 'rgba(255,255,255,0.6)' }} />
+            <Mic size={24} style={{ color: 'rgba(255,255,255,0.5)' }} />
           </div>
         )}
-        {/* Live indicator dot */}
+
+        {/* Gradient overlay at bottom of cover */}
         <div
-          className="absolute top-1 right-1 w-2.5 h-2.5 rounded-full"
+          className="absolute inset-x-0 bottom-0"
           style={{
-            backgroundColor: TUI.colors.green,
-            boxShadow: `0 0 6px ${TUI.colors.green}`,
+            height: '50%',
+            background: 'linear-gradient(transparent, rgba(0,0,0,0.6))',
           }}
         />
+
+        {/* Live "On" indicator */}
+        {isLive && (
+          <div
+            className="absolute top-2 right-2 flex items-center gap-1 px-1.5 py-0.5 rounded-full"
+            style={{
+              backgroundColor: 'rgba(41, 204, 106, 0.9)',
+              fontSize: 9,
+              fontWeight: 700,
+              color: TUI.colors.white,
+            }}
+          >
+            <div className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
+            On
+          </div>
+        )}
+
+        {/* Participant count badge */}
+        <div
+          className="absolute top-2 left-2 flex items-center gap-0.5 px-1.5 py-0.5 rounded-full"
+          style={{
+            backgroundColor: 'rgba(0,0,0,0.5)',
+            backdropFilter: 'blur(4px)',
+            fontSize: 10,
+            fontWeight: 600,
+            color: TUI.colors.white,
+          }}
+        >
+          <Users size={10} />
+          {room.participantCount || 0}
+        </div>
       </div>
 
       {/* ── Room Info ── */}
-      <div className="flex-1 min-w-0 flex flex-col justify-center gap-1">
+      <div className="flex flex-col gap-1.5 p-2.5 flex-1">
         {/* Room Name */}
         <p
-          className="truncate"
+          className="truncate leading-tight"
           style={{
-            fontSize: 'clamp(13px, 3.6vw, 15px)',
+            fontSize: 'clamp(12px, 3.2vw, 14px)',
             fontWeight: 600,
             color: TUI.colors.white,
           }}
@@ -477,50 +612,42 @@ function RoomCard({ room, onClick }: { room: VoiceRoom; onClick: () => void }) {
         </p>
 
         {/* Host + Mode badge */}
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5">
           <span
             className="truncate"
             style={{
-              fontSize: 'clamp(11px, 2.8vw, 12px)',
-              color: 'rgba(255,255,255,0.55)',
+              fontSize: 'clamp(10px, 2.6vw, 11px)',
+              color: 'rgba(255,255,255,0.5)',
             }}
           >
             {room.hostName}
           </span>
-          {/* Mode pill */}
           <span
             className="flex-shrink-0 inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full"
             style={{
-              fontSize: 9,
+              fontSize: 8,
               fontWeight: 600,
               color: mode.color,
               backgroundColor: `${mode.color}20`,
             }}
           >
-            <ModeIcon size={9} />
+            <ModeIcon size={8} />
             {mode.label}
           </span>
         </div>
 
-        {/* Participants */}
-        <div
-          className="flex items-center gap-1"
-          style={{
-            fontSize: 'clamp(10px, 2.6vw, 11px)',
-            color: 'rgba(255,255,255,0.45)',
-          }}
-        >
-          <Users size={12} />
-          <span>{room.participantCount || 0} / {room.maxParticipants || 200}</span>
-        </div>
-      </div>
-
-      {/* ── Join arrow ── */}
-      <div
-        className="flex-shrink-0 flex items-center justify-center w-8 h-8 rounded-full"
-        style={{ backgroundColor: 'rgba(255,255,255,0.1)' }}
-      >
-        <ChevronLeft size={16} style={{ color: 'rgba(255,255,255,0.5)' }} />
+        {/* Description (if available) */}
+        {room.description && (
+          <p
+            className="truncate leading-tight"
+            style={{
+              fontSize: 'clamp(10px, 2.4vw, 11px)',
+              color: 'rgba(255,255,255,0.35)',
+            }}
+          >
+            {room.description}
+          </p>
+        )}
       </div>
     </div>
   );
@@ -531,45 +658,18 @@ function RoomCard({ room, onClick }: { room: VoiceRoom; onClick: () => void }) {
 function EmptyState({
   onCreateRoom,
   mainTab,
+  hasMyRoom,
 }: {
   onCreateRoom: () => void;
   mainTab: string;
+  hasMyRoom: boolean;
 }) {
   const isMine = mainTab === 'mine';
 
   return (
-    <div className="flex flex-col items-center justify-center py-16 gap-4 px-6">
-      {/* Illustration: empty room icon */}
-      <div
-        className="relative flex items-center justify-center"
-        style={{
-          width: 120,
-          height: 120,
-        }}
-      >
-        {/* Outer ring */}
-        <div
-          className="absolute inset-0 rounded-full"
-          style={{
-            border: `2px dashed rgba(255,255,255,0.15)`,
-          }}
-        />
-        {/* Inner circle with icon */}
-        <div
-          className="flex items-center justify-center rounded-full"
-          style={{
-            width: 80,
-            height: 80,
-            backgroundColor: 'rgba(255,255,255,0.08)',
-          }}
-        >
-          {isMine ? (
-            <Mic size={36} style={{ color: 'rgba(255,255,255,0.3)' }} />
-          ) : (
-            <Headphones size={36} style={{ color: 'rgba(255,255,255,0.3)' }} />
-          )}
-        </div>
-      </div>
+    <div className="flex flex-col items-center justify-center py-10 gap-4 px-6">
+      {/* House Illustration */}
+      <HouseIllustration />
 
       {/* Text */}
       <p
@@ -577,18 +677,20 @@ function EmptyState({
         style={{
           fontSize: 'clamp(14px, 3.8vw, 16px)',
           fontWeight: 600,
-          color: 'rgba(255,255,255,0.6)',
+          color: 'rgba(255,255,255,0.7)',
           lineHeight: 1.8,
         }}
       >
-        {isMine ? 'لم تزر أي غرفة مؤخراً' : 'لا توجد غرف صوتية حالياً'}
+        {isMine
+          ? 'لم تزر أي غرفة مؤخراً'
+          : 'لا توجد غرف صوتية حالياً'}
       </p>
 
       <p
         className="text-center"
         style={{
           fontSize: 'clamp(12px, 3.2vw, 13px)',
-          color: 'rgba(255,255,255,0.35)',
+          color: 'rgba(255,255,255,0.4)',
         }}
       >
         {isMine
@@ -596,14 +698,14 @@ function EmptyState({
           : 'كن أول من ينشئ غرفة وابدأ المحادثة'}
       </p>
 
-      {/* CTA Button */}
+      {/* CTA Button (yellow, matching screenshot) */}
       <button
         onClick={onCreateRoom}
         className="flex items-center justify-center gap-2 px-8 py-3 rounded-xl text-white font-bold transition-all active:scale-95 mt-2"
         style={{
-          backgroundColor: TUI.colors.orange,
+          backgroundColor: '#F59E0B',
           fontSize: 'clamp(14px, 3.8vw, 16px)',
-          boxShadow: `0 4px 15px rgba(255, 152, 0, 0.35)`,
+          boxShadow: '0 4px 15px rgba(245, 158, 11, 0.35)',
           minHeight: 48,
         }}
       >

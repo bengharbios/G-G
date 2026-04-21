@@ -28,7 +28,8 @@ interface CreateRoomData {
   roomPassword: string;
   maxParticipants: number;
   isAutoMode: boolean;
-  roomImage: string;
+  micTheme: string;
+  roomImage?: string;
 }
 
 interface CreateRoomDialogProps {
@@ -74,6 +75,7 @@ export default function CreateRoomDialog({ isOpen, onClose, onCreate }: CreateRo
       roomPassword: roomMode === 'key' ? roomPassword : '',
       maxParticipants,
       isAutoMode,
+      micTheme: 'default',
       roomImage,
     });
     resetForm();

@@ -9,6 +9,7 @@ import InjectStyles from './components/shared/InjectStyles';
 import RoomListView from './components/RoomListView';
 import RoomInteriorView from './components/RoomInteriorView';
 import PasswordDialog from './components/dialogs/PasswordDialog';
+import CreateRoomDialog from './components/dialogs/CreateRoomDialog';
 import type { VoiceRoom, AuthUser, RoomMode } from './types';
 
 /* ═══════════════════════════════════════════════════════════════════════
@@ -17,6 +18,7 @@ import type { VoiceRoom, AuthUser, RoomMode } from './types';
    Handles auth state, room restore, join, create, exit flows.
    InjectStyles is rendered globally for Cairo font + animations.
    PasswordDialog is always mounted for key-mode rooms.
+   CreateRoomDialog is managed here and triggered from RoomListView.
    ═══════════════════════════════════════════════════════════════════════ */
 
 export default function VoiceRoomsPage() {
@@ -25,6 +27,12 @@ export default function VoiceRoomsPage() {
   const [authUser, setAuthUser] = useState<AuthUser | null>(null);
   const [restoring, setRestoring] = useState(true);
   const [pendingPasswordRoom, setPendingPasswordRoom] = useState<VoiceRoom | null>(null);
+
+  // Lobby state
+  const [rooms, setRooms] = useState<VoiceRoom[]>([]);
+  const [myRoom, setMyRoom] = useState<VoiceRoom | null>(null);
+  const [loadingRooms, setLoadingRooms] = useState(true);
+  const [createDialogOpen, setCreateDialogOpen] = useState(false);
 
   /* ── Fetch auth user ── */
   useEffect(() => {
@@ -77,6 +85,29 @@ export default function VoiceRoomsPage() {
     init();
     return () => { cancelled = true; };
   }, []);
+
+  /* ── Fetch rooms for lobby (when no active room) ── */
+  const fetchLobbyRooms = useCallback(async () => {
+    try {
+      setLoadingRooms(true);
+      const res = await fetch('/api/voice-rooms');
+      const data = await res.json();
+      if (data.success) {
+        setRooms(data.rooms || []);
+        setMyRoom(data.myRoom || null);
+      }
+    } catch {
+      // silent fail
+    } finally {
+      setLoadingRooms(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!restoring && !activeRoom) {
+      fetchLobbyRooms();
+    }
+  }, [restoring, activeRoom, fetchLobbyRooms]);
 
   const handleRoomUpdate = useCallback((updatedRoom: VoiceRoom) => {
     setActiveRoom(updatedRoom);
@@ -164,6 +195,7 @@ export default function VoiceRoomsPage() {
       maxParticipants: number;
       isAutoMode: boolean;
       micTheme: string;
+      roomImage?: string;
     }) => {
       try {
         const res = await fetch('/api/voice-rooms', {
@@ -194,11 +226,14 @@ export default function VoiceRoomsPage() {
             });
           } catch { /* ignore */ }
 
+          // Update lobby data after creating
+          fetchLobbyRooms();
+          setCreateDialogOpen(false);
           handleJoinRoom(result.room);
         }
       } catch { /* ignore */ }
     },
-    [authUser, handleJoinRoom],
+    [authUser, handleJoinRoom, fetchLobbyRooms],
   );
 
   /* ── Exit room ── */
@@ -217,7 +252,9 @@ export default function VoiceRoomsPage() {
     try {
       localStorage.removeItem('vr_active_room');
     } catch {}
-  }, []);
+    // Refresh lobby rooms when returning
+    fetchLobbyRooms();
+  }, [fetchLobbyRooms]);
 
   /* ── Loading while restoring room ── */
   if (restoring) {
@@ -246,9 +283,12 @@ export default function VoiceRoomsPage() {
         />
       ) : (
         <RoomListView
-          onJoinRoom={handleRoomClick}
-          onCreateRoom={handleCreateRoom}
+          rooms={rooms}
+          myRoom={myRoom}
+          onRoomClick={handleRoomClick}
+          onCreateRoom={() => setCreateDialogOpen(true)}
           authUser={authUser}
+          loading={loadingRooms}
         />
       )}
 
@@ -257,6 +297,14 @@ export default function VoiceRoomsPage() {
         isOpen={!!pendingPasswordRoom}
         onClose={() => setPendingPasswordRoom(null)}
         onSubmit={handlePasswordSubmit}
+      />
+
+      {/* Create Room dialog */}
+      <CreateRoomDialog
+        isOpen={createDialogOpen}
+        onClose={() => setCreateDialogOpen(false)}
+        onCreate={handleCreateRoom}
+        authUser={authUser}
       />
     </>
   );

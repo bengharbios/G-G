@@ -5,20 +5,24 @@
 
    Shows up to `max` circular avatars with a "+N" overflow badge.
    Used inside RoomListView room cards to display participant previews.
+   Supports both light and dark context backgrounds.
    ═══════════════════════════════════════════════════════════════════════ */
 
-import { TUI, getAvatarColor } from '../types';
+import { getAvatarColor } from '../types';
 
 interface AudienceRowProps {
   participants: { avatar: string; userId?: string }[];
   max?: number;
+  borderColor?: string;
+  darkContext?: boolean;
 }
 
-export default function AudienceRow({ participants, max = 3 }: AudienceRowProps) {
+export default function AudienceRow({ participants, max = 3, borderColor, darkContext = false }: AudienceRowProps) {
   if (!participants.length) return null;
 
   const visible = participants.slice(0, max);
   const overflow = participants.length - max;
+  const border = borderColor || (darkContext ? '#1E293B' : '#0D8A7A');
 
   return (
     <div className="flex items-center" style={{ gap: 2 }}>
@@ -29,7 +33,7 @@ export default function AudienceRow({ participants, max = 3 }: AudienceRowProps)
           style={{
             width: 20,
             height: 20,
-            borderColor: TUI.colors.G2,
+            borderColor: border,
             zIndex: visible.length - i,
           }}
         >
@@ -60,10 +64,10 @@ export default function AudienceRow({ participants, max = 3 }: AudienceRowProps)
           style={{
             width: 20,
             height: 20,
-            backgroundColor: TUI.colors.bgInput,
+            backgroundColor: darkContext ? '#2B2C30' : 'rgba(255,255,255,0.2)',
             fontSize: 9,
             fontWeight: 600,
-            color: TUI.colors.G7,
+            color: darkContext ? '#D5E0F2' : '#FFFFFF',
           }}
         >
           +{overflow}

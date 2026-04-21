@@ -132,3 +132,31 @@ Stage Summary:
 - ProfileSheet restored with full old design (stats, role management, admin actions, action buttons)
 - Zero new lint errors in voice-rooms files
 - Pushed as commit 23814de to origin/main
+---
+Task ID: 1
+Agent: Main Agent
+Task: Redesign voice room lobby to match reference screenshots exactly
+
+Work Log:
+- Analyzed 3 lobby screenshots using VLM (before room creation, after room creation, room grid)
+- Identified key design elements: teal-green gradient, 2-column room grid, white create card, pill tabs, square icon bottom nav
+- Fixed page.tsx: added rooms/myRoom state, fetchLobbyRooms function, CreateRoomDialog mounting, fixed RoomListView props (rooms, myRoom, onRoomClick, onCreateRoom, loading)
+- Completely rewrote RoomListView.tsx to match screenshots:
+  - Teal-green gradient background (#0D8A7A → #0A6B5E → #074a42) with diamond pattern overlay
+  - Header: avatar with notification badge, 3 pill-shaped main tabs (Explore/Hot/Mine), search icon
+  - "My" tab: White "Create my room" card (green plus icon + text) when no room, or room banner when room exists
+  - 4 sub-tabs always visible (Recently/Joined/Following/Friends) with active pill styling
+  - Room cards in 2-column CSS grid with cover images, On indicator, participant count badge, mode badge
+  - Empty state with house SVG illustration, message text, yellow CTA button
+  - Bottom nav with rounded-square icon containers (teal/yellow/orange), badges, labels
+- Updated CreateRoomDialog.tsx: added micTheme to CreateRoomData interface
+- Updated AudienceRow.tsx: added darkContext prop for flexible background contexts
+- Verified no TypeScript errors in modified files
+- Verified no ESLint errors in voice-rooms files
+
+Stage Summary:
+- page.tsx: Fixed prop mismatch, added room fetching, mounted CreateRoomDialog
+- RoomListView.tsx: Complete rewrite matching screenshot design (grid cards, create card, empty state, bottom nav)
+- CreateRoomDialog.tsx: Added micTheme field
+- AudienceRow.tsx: Added darkContext prop
+- All files compile without errors
