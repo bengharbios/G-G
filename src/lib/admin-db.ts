@@ -3584,8 +3584,16 @@ export async function requestSeat(roomId: string, userId: string, username: stri
     let targetSeat = requestedSeat >= 0 ? requestedSeat : -1;
     // Check if target seat is valid
     if (targetSeat >= 0) {
-      if (occupied.has(targetSeat) || lockedSeats.includes(targetSeat) || targetSeat >= micCount) {
-        targetSeat = -1; // Invalid target, find another
+      if (lockedSeats.includes(targetSeat) || targetSeat >= micCount) {
+        targetSeat = -1; // Locked or invalid, find another
+      } else if (occupied.has(targetSeat)) {
+        // If admin/owner moving to an occupied seat, kick the occupant first
+        if (canSitDirectly) {
+          // Remove the person currently on this seat
+          await c.execute({ sql: 'UPDATE VoiceRoomParticipant SET seatIndex = -1, seatStatus = ?, isMuted = 0 WHERE roomId = ? AND seatIndex = ?', args: ['open', roomId, targetSeat] });
+        } else {
+          targetSeat = -1; // Regular user can't take occupied seat
+        }
       }
     }
     if (targetSeat < 0) {
