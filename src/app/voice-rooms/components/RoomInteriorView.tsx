@@ -43,12 +43,12 @@ import MicInviteDialog from './dialogs/MicInviteDialog';
 import type { VoiceRoom, AuthUser } from '../types';
 
 /* ═══════════════════════════════════════════════════════════════════════
-   RoomInteriorView — TUILiveKit Room Interior (Screenshot-matched)
+   RoomInteriorView — TUILiveKit Room Interior (Matching Lobby + Settings)
 
    Structure (h-screen flex flex-col relative):
-     ├── Background (dark navy: #0f1429 → #1a1f3a → #2d1b4e)
+     ├── Background (teal-green: #0D8A7A → #0A6B5E → #074a42 — same as lobby)
      ├── z-10 flex flex-col h-full
-     │   ├── Header (semi-transparent: avatar+crown+name | share+3dots+power)
+     │   ├── Header (semi-transparent teal: avatar+crown+name | share+3dots+power)
      │   ├── Announcement Bar (subtle dark with megaphone)
      │   ├── Mic Seat Area (layout based on micTheme: chat5/broadcast5/chat10/team10/chat15)
      │   ├── ChatPanel (compact, floating messages)
@@ -80,7 +80,7 @@ function SpeakingBars({ active }: { active: boolean }) {
             width: 3,
             height: 8 + (i === 1 ? 6 : 3),
             borderRadius: '1.5px',
-            backgroundColor: TUI.colors.purple,
+            backgroundColor: TUI.colors.tealLight,
             animation: `speakBar 0.6s ease-in-out ${i * 0.15}s infinite alternate`,
           }}
         />
@@ -131,14 +131,14 @@ function SeatCircle({
           height: size,
           backgroundColor: isEmpty ? 'rgba(255,255,255,0.06)' : 'transparent',
           border: isOccupied
-            ? `2.5px solid ${TUI.colors.purple}`
+            ? `2.5px solid ${TUI.colors.tealLight}`
             : isLocked
               ? '2px solid rgba(255,255,255,0.12)'
               : '2px solid rgba(255,255,255,0.08)',
           boxShadow: isOccupied
-            ? `0 0 12px rgba(123, 97, 255, 0.4), 0 0 24px rgba(123, 97, 255, 0.15)`
+            ? `0 0 12px rgba(0, 200, 150, 0.4), 0 0 24px rgba(0, 200, 150, 0.15)`
             : isSpeaking
-              ? `0 0 12px rgba(123, 97, 255, 0.3)`
+              ? `0 0 12px rgba(0, 200, 150, 0.3)`
               : 'none',
           transition: 'box-shadow 0.3s ease, border-color 0.3s ease',
         }}
@@ -309,7 +309,7 @@ function MicSeatGrid({
                 style={{
                   width: 2,
                   height: seatSize + 16,
-                  backgroundColor: 'rgba(123, 97, 255, 0.35)',
+                  backgroundColor: 'rgba(0, 200, 150, 0.35)',
                   borderRadius: 1,
                   margin: '0 6px',
                 }}
@@ -415,7 +415,7 @@ function ThreeDotsMenu({
           top: 48,
           right: 12,
           width: 200,
-          backgroundColor: 'rgba(26, 31, 58, 0.98)',
+          backgroundColor: 'rgba(10, 107, 94, 0.98)',
           borderRadius: 12,
           border: '1px solid rgba(255,255,255,0.08)',
           boxShadow: '0 8px 32px rgba(0,0,0,0.4)',
@@ -458,7 +458,7 @@ function ThreeDotsMenu({
                       fontSize: 10,
                       fontWeight: 700,
                       color: TUI.colors.white,
-                      border: '2px solid rgba(26, 31, 58, 0.98)',
+                      border: '2px solid rgba(10, 107, 94, 0.98)',
                     }}
                   >
                     {item.badge > 9 ? '9+' : item.badge}
@@ -607,8 +607,8 @@ export default function RoomInteriorView({
     [handleSendChat],
   );
 
-  /* ── Dark navy gradient background (matching screenshot) ── */
-  const bgGradient = 'linear-gradient(180deg, #0f1429 0%, #1a1f3a 40%, #2d1b4e 100%)';
+  /* ── Teal-green gradient background (matching lobby & settings) ── */
+  const bgGradient = 'linear-gradient(180deg, #0D8A7A 0%, #0A6B5E 30%, #074a42 100%)';
 
   /* ── Left side menu icon style (shared) ── */
   const menuBtnStyle: React.CSSProperties = {
@@ -639,7 +639,7 @@ export default function RoomInteriorView({
 
       {/* ═══════════════════════════════════════════════════════════════════════
           ROOT CONTAINER
-          Background: dark navy gradient matching screenshot
+          Background: teal-green gradient matching lobby & settings
           ═══════════════════════════════════════════════════════════════════════ */}
       <div
         className="fixed inset-0 flex flex-col"
@@ -662,10 +662,10 @@ export default function RoomInteriorView({
               height: 56,
               minHeight: 56,
               padding: '0 16px',
-              backgroundColor: 'rgba(15, 20, 41, 0.6)',
+              backgroundColor: 'rgba(7, 74, 66, 0.6)',
               backdropFilter: 'blur(16px)',
               WebkitBackdropFilter: 'blur(16px)',
-              borderBottom: '1px solid rgba(255,255,255,0.04)',
+              borderBottom: '1px solid rgba(255,255,255,0.06)',
             }}
           >
             {/* ── Back arrow ── */}
@@ -701,8 +701,8 @@ export default function RoomInteriorView({
                   backgroundColor: vr.room.roomAvatar
                     ? 'transparent'
                     : getAvatarColorFromPalette(vr.room.id).bg,
-                  border: '2px solid rgba(123, 97, 255, 0.5)',
-                  boxShadow: '0 0 8px rgba(123, 97, 255, 0.2)',
+                  border: '2px solid rgba(0, 200, 150, 0.5)',
+                  boxShadow: '0 0 8px rgba(0, 200, 150, 0.2)',
                 }}
               >
                 {vr.room.roomAvatar ? (
@@ -837,7 +837,7 @@ export default function RoomInteriorView({
                   style={{
                     width: 22,
                     height: 22,
-                    border: '1.5px solid rgba(123, 97, 255, 0.3)',
+                    border: '1.5px solid rgba(0, 200, 150, 0.3)',
                   }}
                 >
                   {p.avatar ? (
@@ -912,10 +912,10 @@ export default function RoomInteriorView({
             style={{
               padding: '8px 12px',
               paddingBottom: 'max(8px, env(safe-area-inset-bottom, 8px))',
-              backgroundColor: 'rgba(15, 20, 41, 0.7)',
+              backgroundColor: 'rgba(7, 74, 66, 0.7)',
               backdropFilter: 'blur(12px)',
               WebkitBackdropFilter: 'blur(12px)',
-              borderTop: '1px solid rgba(255,255,255,0.04)',
+              borderTop: '1px solid rgba(255,255,255,0.06)',
             }}
           >
             <div className="flex items-center w-full" style={{ gap: 8 }}>
@@ -945,14 +945,14 @@ export default function RoomInteriorView({
                   className="rounded-full flex items-center justify-center flex-shrink-0 cursor-pointer touch-manipulation"
                   style={{
                     width: 38, height: 38, minWidth: 44, minHeight: 44,
-                    backgroundColor: vr.isMicMuted ? 'rgba(252, 85, 85, 0.15)' : 'rgba(123, 97, 255, 0.15)',
+                    backgroundColor: vr.isMicMuted ? 'rgba(252, 85, 85, 0.15)' : 'rgba(0, 200, 150, 0.15)',
                     transition: TUI.anim.fast,
                   }}
                   aria-label={vr.isMicMuted ? 'إلغاء الكتم' : 'كتم الميك'}
                 >
                   {vr.isMicMuted
                     ? <MicOff size={18} style={{ color: TUI.colors.red }} />
-                    : <Mic size={18} style={{ color: TUI.colors.purple }} />}
+                    : <Mic size={18} style={{ color: TUI.colors.tealLight }} />}
                 </button>
               )}
 
@@ -982,13 +982,13 @@ export default function RoomInteriorView({
                   maxLength={200}
                   dir="rtl"
                   className="flex-1 min-w-0 bg-transparent outline-none"
-                  style={{ fontSize: 13, color: TUI.colors.white, caretColor: TUI.colors.purple }}
+                  style={{ fontSize: 13, color: TUI.colors.white, caretColor: TUI.colors.tealLight }}
                 />
                 {chatInput.trim() && !vr.isRoomMuted && authUser && (
                   <button
                     onClick={() => { handleSendChat(); inputRef.current?.focus(); }}
                     className="flex items-center justify-center flex-shrink-0 cursor-pointer touch-manipulation"
-                    style={{ width: 28, height: 28, color: TUI.colors.purple, transition: TUI.anim.fast }}
+                    style={{ width: 28, height: 28, color: TUI.colors.tealLight, transition: TUI.anim.fast }}
                     aria-label="إرسال"
                   >
                     <Send size={14} />
@@ -1023,9 +1023,9 @@ export default function RoomInteriorView({
                   className="rounded-full flex items-center justify-center flex-shrink-0 cursor-pointer touch-manipulation"
                   style={{
                     width: 38, height: 38, minWidth: 44, minHeight: 44,
-                    background: 'linear-gradient(135deg, #7B61FF 0%, #C084FC 100%)',
+                    background: 'linear-gradient(135deg, #00C896 0%, #0D8A7A 100%)',
                     transition: TUI.anim.fast,
-                    boxShadow: '0 0 12px rgba(123, 97, 255, 0.3)',
+                    boxShadow: '0 0 12px rgba(0, 200, 150, 0.3)',
                   }}
                   aria-label="إرسال هدية"
                 >
@@ -1051,7 +1051,7 @@ export default function RoomInteriorView({
           }}
         >
           <button className="rounded-full flex items-center justify-center cursor-pointer touch-manipulation" style={menuBtnStyle} aria-label="تشغيل">
-            <Disc3 size={17} style={{ color: TUI.colors.purple }} />
+            <Disc3 size={17} style={{ color: TUI.colors.tealLight }} />
           </button>
           <button className="rounded-full flex items-center justify-center cursor-pointer touch-manipulation" style={menuBtnStyle} aria-label="قائمة التشغيل">
             <ListMusic size={17} style={{ color: TUI.colors.white }} />
@@ -1212,7 +1212,7 @@ export default function RoomInteriorView({
             <div
               className="flex flex-col items-center w-[300px] p-6"
               style={{
-                backgroundColor: '#1a1f3a',
+                backgroundColor: '#0A6B5E',
                 borderRadius: 16,
                 border: '1px solid rgba(255,255,255,0.08)',
                 animation: TUI.anim.drawer,
