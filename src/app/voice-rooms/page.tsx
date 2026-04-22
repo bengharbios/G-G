@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { Loader2, Headphones } from 'lucide-react';
+import { Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { LoginModal, RegisterModal } from '@/components/AuthModals';
 
@@ -9,6 +9,7 @@ const TUI_COLORS_G1 = '#0F1014';
 import InjectStyles from './components/shared/InjectStyles';
 import RoomListView from './components/RoomListView';
 import RoomInteriorView from './components/RoomInteriorView';
+import FloatingRoomWidget from './components/FloatingRoomWidget';
 import PasswordDialog from './components/dialogs/PasswordDialog';
 import CreateRoomDialog from './components/dialogs/CreateRoomDialog';
 import type { VoiceRoom, AuthUser, RoomMode } from './types';
@@ -342,74 +343,12 @@ export default function VoiceRoomsPage() {
         />
       ) : null}
 
-      {/* ── Floating Minimized Room Widget ── */}
+      {/* ── Floating Minimized Room Widget (draggable) ── */}
       {activeRoom && isMinimized && (
-        <button
-          type="button"
+        <FloatingRoomWidget
+          roomName={activeRoom.name}
           onClick={handleRestoreFromMinimize}
-          className="fixed flex items-center gap-2 rounded-2xl cursor-pointer touch-manipulation"
-          style={{
-            bottom: 24,
-            right: 16,
-            zIndex: 100,
-            padding: '10px 16px',
-            backgroundColor: 'linear-gradient(135deg, #0D8A7A 0%, #0A6B5E 100%)',
-            border: '1.5px solid rgba(255,255,255,0.15)',
-            boxShadow: '0 4px 24px rgba(0,0,0,0.5), 0 0 16px rgba(13,138,122,0.3)',
-            color: '#fff',
-            maxWidth: 220,
-            animation: 'minimizeSlideIn 0.3s ease',
-          }}
-          aria-label="فتح الغرفة"
-        >
-          {/* Room icon */}
-          <div
-            className="flex items-center justify-center rounded-xl flex-shrink-0"
-            style={{
-              width: 36,
-              height: 36,
-              backgroundColor: 'rgba(255,255,255,0.15)',
-            }}
-          >
-            <Headphones size={18} style={{ color: '#fff' }} />
-          </div>
-
-          {/* Room name */}
-          <div className="flex flex-col items-start min-w-0" style={{ gap: 1 }}>
-            <span
-              className="truncate block"
-              style={{ fontSize: 12, fontWeight: 600, lineHeight: '16px', maxWidth: 150 }}
-            >
-              {activeRoom.name}
-            </span>
-            <span style={{ fontSize: 9, color: 'rgba(255,255,255,0.5)', lineHeight: '12px' }}>
-              اضغط للعودة
-            </span>
-          </div>
-
-          {/* Pulse indicator — room is live */}
-          <span
-            className="flex-shrink-0 rounded-full"
-            style={{
-              width: 8,
-              height: 8,
-              backgroundColor: '#22c55e',
-              boxShadow: '0 0 6px rgba(34,197,94,0.6)',
-              animation: 'pulse 2s ease-in-out infinite',
-            }}
-          />
-
-          <style>{`
-            @keyframes minimizeSlideIn {
-              from { opacity: 0; transform: translateY(20px) scale(0.9); }
-              to { opacity: 1; transform: translateY(0) scale(1); }
-            }
-            @keyframes pulse {
-              0%, 100% { opacity: 1; }
-              50% { opacity: 0.4; }
-            }
-          `}</style>
-        </button>
+        />
       )}
 
       {/* Login/Register modals for unauthenticated users */}
