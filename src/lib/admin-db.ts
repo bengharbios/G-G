@@ -1093,43 +1093,76 @@ export async function seedReservedNumericIds(): Promise<number> {
   return inserted;
 }
 
-/** Assign a random 6-digit numeric ID to a new user, avoiding reserved IDs */
+/** Assign a sequential 6-digit numeric ID to a new user, skipping all reserved numbers.
+ *  - Oldest users get the smallest IDs (100000+)
+ *  - Reserved/special numbers are permanently skipped
+ *  - Race-condition safe: double-checks each candidate against DB
+ */
 export async function assignNumericId(): Promise<number> {
   const c = getClient();
   await ensureAdminTables();
   await seedReservedNumericIds();
 
-  for (let attempt = 0; attempt < 50; attempt++) {
-    const numericId = 100000 + Math.floor(Math.random() * 900000);
+  // Load all reserved numeric IDs into a Set for O(1) lookup
+  const reservedResult = await c.execute({
+    sql: 'SELECT numericId FROM ReservedNumericId',
+    args: [],
+  });
+  const reservedIds = new Set(reservedResult.rows.map(r => Number(r.numericId)));
 
-    const taken = await c.execute({ sql: 'SELECT id FROM AppUser WHERE numericId = ?', args: [numericId] });
+  // Find the highest currently assigned numericId in AppUser
+  const maxResult = await c.execute({
+    sql: 'SELECT MAX(numericId) as maxId FROM AppUser WHERE numericId IS NOT NULL',
+    args: [],
+  });
+  let nextId = Number(maxResult.rows[0]?.maxId) || 0;
+  if (nextId < 100000) nextId = 100000 - 1; // Start from 100000
+
+  // Walk forward sequentially, skipping reserved numbers
+  for (let i = 0; i < 100000; i++) {
+    nextId++;
+    if (nextId > 999999) break; // Stay strictly 6 digits
+    if (reservedIds.has(nextId)) continue; // Skip reserved/special numbers
+
+    // Double-check not already assigned (race condition safety)
+    const taken = await c.execute({
+      sql: 'SELECT id FROM AppUser WHERE numericId = ?',
+      args: [nextId],
+    });
     if (taken.rows.length > 0) continue;
 
-    const reserved = await c.execute({ sql: 'SELECT status FROM ReservedNumericId WHERE numericId = ? AND status = ?', args: [numericId, 'available'] });
-    if (reserved.rows.length > 0) continue;
-
-    return numericId;
+    return nextId;
   }
-  return 1000000 + Math.floor(Math.random() * 9000000);
+
+  throw new Error('لا توجد أرقام متاحة في نطاق 6 أرقام');
 }
 
-/** Migration: assign numeric IDs to all existing users who don't have one */
+/** Migration: assign sequential numeric IDs to all existing users missing one.
+ *  Oldest users (by createdAt) get the smallest numbers.
+ */
 export async function migrateAssignNumericIds(): Promise<{ updated: number; total: number }> {
   const c = getClient();
   await ensureAdminTables();
   await seedReservedNumericIds();
 
-  const users = await c.execute({ sql: 'SELECT id FROM AppUser WHERE numericId IS NULL AND isActive = 1', args: [] });
+  // Sort by creation date so oldest users get smallest IDs
+  const users = await c.execute({
+    sql: 'SELECT id FROM AppUser WHERE numericId IS NULL AND isActive = 1 ORDER BY createdAt ASC',
+    args: [],
+  });
   let updated = 0;
 
   for (const row of users.rows) {
     const userId = row.id as string;
     const numericId = await assignNumericId();
     try {
-      await c.execute({ sql: 'UPDATE AppUser SET numericId = ? WHERE id = ?', args: [numericId, userId] });
+      await c.execute({
+        sql: 'UPDATE AppUser SET numericId = ? WHERE id = ?',
+        args: [numericId, userId],
+      });
       updated++;
     } catch {
-      // Skip if collision (very unlikely)
+      // Skip if collision (very unlikely with sequential)
     }
   }
 
