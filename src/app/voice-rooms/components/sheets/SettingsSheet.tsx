@@ -1151,8 +1151,8 @@ export default function SettingsSheet({
                 ) : bgList.length === 0 ? (
                   <div className="flex flex-col items-center justify-center py-8 gap-2">
                     <ImageIcon size={32} color={TUI.colors.textMuted} />
-                    <span style={{ fontSize: '14px', color: TUI.colors.textGray }}>لا توجد خلفيات متاحة</span>
-                    <span style={{ fontSize: '12px', color: TUI.colors.textMuted }}>أضف خلفيات من لوحة تحكم الأدمن</span>
+                    <span style={{ fontSize: '14px', color: TUI.colors.textGray }}>لا توجد خلفيات متاحة حالياً</span>
+                    <span style={{ fontSize: '12px', color: TUI.colors.textMuted }}>احصل على خلفيات من النشاطات أو المتجر</span>
                   </div>
                 ) : (
                   <div className="grid grid-cols-3 gap-2.5">
