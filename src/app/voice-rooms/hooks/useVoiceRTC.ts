@@ -106,6 +106,9 @@ const SPEAKING_HYSTERESIS = 0.01;
 const MAX_ICE_RETRIES = 3;
 const ICE_RETRY_DELAY = 2000;
 
+// ── Audio streams ref (exposed for compatibility) ──
+// All audio playback is handled internally by this hook via audio elements
+
 export function useVoiceRTC({
   roomId,
   userId,
