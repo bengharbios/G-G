@@ -733,9 +733,10 @@ export default function RoomInteriorView({
   );
 
   /* ── Background: use roomImage if set, otherwise teal-green gradient ── */
-  const bgStyle: React.CSSProperties = room.roomImage
+  const currentBgImage = vr.room.roomImage || '';
+  const bgStyle: React.CSSProperties = currentBgImage
     ? {
-        backgroundImage: `url(${room.roomImage})`,
+        backgroundImage: `url(${currentBgImage})`,
         backgroundSize: 'cover',
         backgroundPosition: 'center',
         backgroundRepeat: 'no-repeat',
@@ -743,7 +744,7 @@ export default function RoomInteriorView({
     : { background: 'linear-gradient(180deg, #0D8A7A 0%, #0A6B5E 30%, #074a42 100%)' };
 
   // Overlay to ensure text readability over background images
-  const bgOverlay = room.roomImage
+  const bgOverlay = currentBgImage
     ? 'rgba(0,0,0,0.35)'
     : 'transparent';
 
@@ -782,7 +783,7 @@ export default function RoomInteriorView({
         className="fixed inset-0 flex flex-col"
         style={{ ...bgStyle }}>
         {/* Dark overlay for readability when background image is set */}
-        {room.roomImage && (
+        {currentBgImage && (
           <div
             className="absolute inset-0"
             style={{ backgroundColor: bgOverlay, zIndex: 1 }}
@@ -791,7 +792,7 @@ export default function RoomInteriorView({
         {/* ════════════════════════════════════════════════════════
             MAIN CONTENT LAYER (z-10)
             ════════════════════════════════════════════════════════ */}
-        <div className="relative z-10 flex flex-col h-full" style={room.roomImage ? { zIndex: 2 } : undefined}>
+        <div className="relative z-10 flex flex-col h-full" style={currentBgImage ? { zIndex: 2 } : undefined}>
 
           {/* ════════════════════════════════════════════
               HEADER — Room name + ID + Share/Exit buttons
