@@ -3472,27 +3472,22 @@ export async function leaveVoiceRoom(roomId: string, userId: string): Promise<bo
 
   await logAction(roomId, userId, leavingName, 'leave_room', '', '', '');
 
-  // Transfer ownership if owner left — but do NOT delete the room
+  // Transfer acting ownership if owner left — but NEVER change VoiceRoom.hostId
+  // The room always belongs to the original creator (hostId stays permanent).
+  // We only transfer the "acting manager" role in VoiceRoomParticipant.
   if (leavingRole === 'owner') {
-    const roomResult = await c.execute({ sql: 'SELECT hostId, hostName FROM VoiceRoom WHERE id = ?', args: [roomId] });
-    if (roomResult.rows.length > 0) {
-      const room = roomResult.rows[0];
-      if (room.hostId === userId) {
-        // Find successor: oldest coowner > oldest admin > oldest member
-        const successor = await c.execute({
-          sql: `SELECT * FROM VoiceRoomParticipant WHERE roomId = ? AND role IN ('coowner', 'admin', 'member')
-                ORDER BY CASE role WHEN 'coowner' THEN 0 WHEN 'admin' THEN 1 WHEN 'member' THEN 2 END, joinedAt ASC LIMIT 1`,
-          args: [roomId],
-        });
-        if (successor.rows.length > 0) {
-          const s = successor.rows[0] as Record<string, unknown>;
-          await c.execute({ sql: "UPDATE VoiceRoomParticipant SET role = 'owner' WHERE roomId = ? AND userId = ?", args: [roomId, s.userId] });
-          await c.execute({ sql: 'UPDATE VoiceRoom SET hostId = ?, hostName = ? WHERE id = ?', args: [s.userId, s.username || s.displayName || '', roomId] });
-          await logAction(roomId, userId, leavingName, 'transfer_ownership', s.userId as string, (s.username as string) || '', 'Auto-transfer on leave');
-        }
-        // If no successor, the room keeps its original hostId — it persists and shows in "غرفتي"
-      }
+    // Find successor: oldest coowner > oldest admin > oldest member
+    const successor = await c.execute({
+      sql: `SELECT * FROM VoiceRoomParticipant WHERE roomId = ? AND role IN ('coowner', 'admin', 'member')
+            ORDER BY CASE role WHEN 'coowner' THEN 0 WHEN 'admin' THEN 1 WHEN 'member' THEN 2 END, joinedAt ASC LIMIT 1`,
+      args: [roomId],
+    });
+    if (successor.rows.length > 0) {
+      const s = successor.rows[0] as Record<string, unknown>;
+      await c.execute({ sql: "UPDATE VoiceRoomParticipant SET role = 'owner' WHERE roomId = ? AND userId = ?", args: [roomId, s.userId] });
+      await logAction(roomId, userId, leavingName, 'acting_manager_transfer', s.userId as string, (s.username as string) || '', 'Temporary manager while host is away');
     }
+    // If no successor, nobody gets acting owner — room stays without a manager until host returns
   }
 
   // NOTE: We NO LONGER delete the room when empty. The room persists so the owner
