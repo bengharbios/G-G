@@ -716,9 +716,6 @@ export default function RoomInteriorView({
     vr.handleCopyLink();
   }
 
-  /* ── Audience list ── */
-  const audienceList = vr.participants.filter(p => p.seatIndex < 0);
-
   /* ── Host participant ── */
   const hostParticipant = vr.participants.find(p => p.userId === vr.room.hostId);
 
@@ -1123,59 +1120,6 @@ export default function RoomInteriorView({
             layoutId={micLayout.id}
             onSeatClick={vr.handleSeatClick}
           />
-
-          {/* ════════════════════════════════════════════════════════
-              AUDIENCE ROW — horizontal avatars below mic seats
-              ════════════════════════════════════════════════════════ */}
-          {audienceList.length > 0 && (
-            <div
-              className="flex items-center justify-center flex-shrink-0"
-              style={{ padding: '4px 16px', gap: 3 }}
-            >
-              {audienceList.slice(0, 8).map((p) => (
-                <div
-                  key={p.userId}
-                  className="relative rounded-full overflow-hidden flex items-center justify-center flex-shrink-0"
-                  style={{
-                    width: 22,
-                    height: 22,
-                    border: '1.5px solid rgba(0, 200, 150, 0.3)',
-                  }}
-                >
-                  {p.avatar ? (
-                    <img src={p.avatar} alt={p.displayName} className="w-full h-full object-cover rounded-full" draggable={false} loading="lazy" />
-                  ) : (
-                    <div
-                      className="w-full h-full flex items-center justify-center rounded-full"
-                      style={{
-                        backgroundColor: getAvatarColorFromPalette(p.userId).bg,
-                        color: getAvatarColorFromPalette(p.userId).text,
-                        fontSize: 8,
-                        fontWeight: 600,
-                      }}
-                    >
-                      {p.displayName.charAt(0).toUpperCase()}
-                    </div>
-                  )}
-                </div>
-              ))}
-              {audienceList.length > 8 && (
-                <span
-                  className="flex items-center justify-center rounded-full flex-shrink-0"
-                  style={{
-                    width: 22,
-                    height: 22,
-                    backgroundColor: 'rgba(255,255,255,0.08)',
-                    fontSize: 8,
-                    fontWeight: 600,
-                    color: TUI.colors.G6,
-                  }}
-                >
-                  +{audienceList.length - 8}
-                </span>
-              )}
-            </div>
-          )}
 
           {/* ════════════════════════════════════════════
               CHAT PANEL
