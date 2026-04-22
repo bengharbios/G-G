@@ -38,7 +38,7 @@ export default function MicSeat({
   onClick,
 }: MicSeatProps) {
   const { seatIndex, participant, status } = seatData;
-  const isLocked = status === 'locked';
+  const isLocked = !participant && status === 'locked';
   const isEmpty = !participant && !isLocked;
   const isOccupied = !!participant;
   const isMySeat = isOwner;
@@ -65,7 +65,7 @@ export default function MicSeat({
         style={{
           width: 'clamp(40px, 12vw, 50px)',
           height: 'clamp(40px, 12vw, 50px)',
-          backgroundColor: isEmpty || isLocked ? TUI.colors.emptySeatBg : 'transparent',
+          backgroundColor: isEmpty ? TUI.colors.emptySeatBg : 'transparent',
           border: isMySeat ? `2px solid ${TUI.colors.seatSelectedBorder}` : '2px solid transparent',
         }}
       >
@@ -122,7 +122,7 @@ export default function MicSeat({
         </span>
 
         {/* ── Empty / Locked State ── */}
-        {(isEmpty || isLocked) && (
+        {!isOccupied && (
           <>
             {isLocked ? (
               <Lock

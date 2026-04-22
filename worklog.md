@@ -369,3 +369,51 @@ Stage Summary:
 - GiftSheet supports 3 recipient modes: everyone, on mic, specific person
 - ProfileSheet → GiftSheet flow now correctly passes target user info
 - Polling keeps gem balance fresh (10-second interval)
+---
+Task ID: 1
+Agent: Main Agent
+Task: Fix mic transfer bug (owner), stale participant cleanup, and missing toggle-lock handler
+
+Work Log:
+- Bug 1 — Mic transfer for owner: `requestSeat()` in admin-db.ts set `seatStatus = 'locked'` when moving to new seat, causing MicSeat.tsx to render BOTH lock icon AND avatar simultaneously
+  - Fixed admin-db.ts lines 3633/3636: Changed `seatStatus` from `'locked'` to `'open'` in both branches (user already on seat, new to mic)
+  - Fixed MicSeat.tsx: Changed `isLocked` to only be true when `!participant && status === 'locked'` (no participant sitting)
+  - Fixed MicSeat.tsx: Changed empty/locked rendering from `{(isEmpty || isLocked) && ...}` to `{!isOccupied && ...}` to prevent double-render
+  - Fixed MicSeat.tsx: Background uses `isEmpty` only (not `|| isLocked`) since locked seats with participants should be transparent
+- Bug 2 — Users hung in room after closing browser: `joinVoiceRoom()` didn't set `lastSeen`, defaulting to NULL; `cleanupStaleParticipants()` only cleaned non-NULL lastSeen
+  - Fixed admin-db.ts joinVoiceRoom INSERT: Added `lastSeen` column with `datetime('now')` default
+  - Fixed admin-db.ts cleanupStaleParticipants: Now also deletes participants with `lastSeen IS NULL AND joinedAt < datetime('now', '-30 seconds')`
+  - Added `beforeunload` event listener in useVoiceRoom.ts: Sends POST leave request with `keepalive: true` on browser/tab close, properly cleaned up on unmount
+- Bonus fix: Added missing `'toggle-lock'` case in `handleMicMenuAction` switch in useVoiceRoom.ts
+  - Checks `room.lockedSeats` array for current lock state, toggles between 'open' and 'locked'
+  - Added `room` to dependency array to avoid stale closure
+
+Stage Summary:
+- 3 files modified: src/lib/admin-db.ts, src/app/voice-rooms/components/MicSeat.tsx, src/app/voice-rooms/hooks/useVoiceRoom.ts
+- Owner mic transfer now visually updates correctly (avatar shows, no duplicate lock icon)
+- Stale participants properly cleaned up even if they close browser before first heartbeat
+- `beforeunload` handler provides immediate cleanup on browser close
+- `toggle-lock` mic menu action now works for empty seats
+---
+Task ID: 1
+Agent: main
+Task: Fix mic transfer bug for room owner + user hang issue + unauthenticated join UX
+
+Work Log:
+- Analyzed mic transfer flow: owner clicks "نقل" → MicMenuSheet dispatches 'change-mic' → handleMicMenuAction → handleRequestSeat → requestSeat API → DB update
+- Found root cause: `requestSeat()` in admin-db.ts sets `seatStatus = 'locked'` when moving seats, causing MicSeat to render BOTH Lock icon AND avatar simultaneously
+- Fixed `requestSeat()`: changed `seatStatus` from `'locked'` to `'open'` in both branches (lines 3635, 3638)
+- Fixed `MicSeat.tsx`: `isLocked` now only true when `!participant && status === 'locked'`, preventing visual corruption
+- Fixed `MicSeat.tsx`: background color now uses `isEmpty` only (not `|| isLocked`)
+- Fixed `MicSeat.tsx`: empty/locked state rendering changed from `{(isEmpty || isLocked) && ...}` to `{!isOccupied && ...}`
+- Fixed `joinVoiceRoom()`: added `lastSeen` to INSERT with `datetime('now')` so participants get timestamp immediately
+- Fixed `cleanupStaleParticipants()`: now also removes participants with `lastSeen IS NULL AND joinedAt < 30 seconds ago`
+- Added `beforeunload` event listener in `useVoiceRoom.ts` to call leave API when user closes browser/tab (with keepalive: true)
+- Added missing `'toggle-lock'` handler in `handleMicMenuAction` — toggles between 'open' and 'locked'
+- Verified unauthenticated join already shows login dialog in page.tsx (line 168-170)
+
+Stage Summary:
+- Mic transfer should now work correctly for owner (seatStatus 'open' instead of 'locked')
+- Users who close browser will be cleaned up within 30 seconds (lastSeen initialized on join + beforeunload + improved cleanup query)
+- Login dialog already implemented for unauthenticated users clicking rooms
+- Toggle-lock action now works from MicMenuSheet

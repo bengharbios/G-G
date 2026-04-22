@@ -256,6 +256,17 @@ export function useVoiceRoom(
       }
     }, 8000);
 
+    // Send leave request when user closes browser/tab
+    const handleBeforeUnload = () => {
+      if (authUser) {
+        fetch(`/api/voice-rooms/${roomId}?action=leave`, {
+          method: 'POST',
+          keepalive: true,
+        }).catch(() => {});
+      }
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+
     return () => {
       cancelled = true;
       if (partPoll) clearInterval(partPoll);
@@ -265,6 +276,7 @@ export function useVoiceRoom(
       if (gemsPoll) clearInterval(gemsPoll);
       if (myGemsPoll) clearInterval(myGemsPoll);
       if (heartbeatPoll) clearInterval(heartbeatPoll);
+      window.removeEventListener('beforeunload', handleBeforeUnload);
     };
   }, [roomId]);
 
@@ -566,8 +578,14 @@ export function useVoiceRoom(
           await fetchMyParticipant();
         } catch { /* ignore */ }
         break;
+      case 'toggle-lock': {
+        const isCurrentlyLocked = (room.lockedSeats || []).includes(seatIndex);
+        await handleSetSeatStatus(seatIndex, isCurrentlyLocked ? 'open' : 'locked');
+        await fetchRoomDetails();
+        break;
+      }
     }
-  }, [roomId, handleRequestSeat, handleSetSeatStatus, handleKickFromMic, handleBan, fetchRoomDetails, fetchParticipants, fetchMyParticipant]);
+  }, [roomId, room, handleRequestSeat, handleSetSeatStatus, handleKickFromMic, handleBan, fetchRoomDetails, fetchParticipants, fetchMyParticipant]);
 
   /* ── Update settings ── */
   const handleUpdateSettings = useCallback(async (data: Record<string, unknown>) => {

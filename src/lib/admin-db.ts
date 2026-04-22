@@ -3164,8 +3164,8 @@ export async function joinVoiceRoom(roomId: string, userId: string, username: st
   const joinStatus = isHost ? 'locked' : 'open';
 
   await c.execute({
-    sql: `INSERT INTO VoiceRoomParticipant (id, roomId, userId, username, displayName, avatar, isMuted, role, seatIndex, seatStatus, micFrozen, vipLevel)
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    sql: `INSERT INTO VoiceRoomParticipant (id, roomId, userId, username, displayName, avatar, isMuted, role, seatIndex, seatStatus, micFrozen, vipLevel, lastSeen)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))`,
     args: [crypto.randomUUID(), roomId, userId, username, displayName, avatar, 0, joinRole, joinSeat, joinStatus, 0, vipLevel],
   });
   await logAction(roomId, userId, username, 'join_room', '', '', '');
@@ -3228,8 +3228,10 @@ export async function cleanupStaleParticipants(roomId: string): Promise<number> 
   const result = await c.execute({
     sql: `DELETE FROM VoiceRoomParticipant 
           WHERE roomId = ? 
-          AND lastSeen IS NOT NULL 
-          AND lastSeen < datetime('now', '-30 seconds')`,
+          AND (
+            (lastSeen IS NOT NULL AND lastSeen < datetime('now', '-30 seconds'))
+            OR (lastSeen IS NULL AND joinedAt < datetime('now', '-30 seconds'))
+          )`,
     args: [roomId],
   });
   return result.rowsAffected;
@@ -3630,10 +3632,10 @@ export async function requestSeat(roomId: string, userId: string, username: stri
     if (targetSeat >= 0) {
       // If user is already on a different seat, free it up
       if (currentSeat >= 0) {
-        await c.execute({ sql: 'UPDATE VoiceRoomParticipant SET seatIndex = ?, seatStatus = ?, isMuted = 1 WHERE roomId = ? AND userId = ?', args: [targetSeat, 'locked', roomId, userId] });
+        await c.execute({ sql: "UPDATE VoiceRoomParticipant SET seatIndex = ?, seatStatus = 'open', isMuted = 1 WHERE roomId = ? AND userId = ?", args: [targetSeat, roomId, userId] });
       } else {
         // New to mic: default to muted (1) so mic doesn't appear active
-        await c.execute({ sql: "UPDATE VoiceRoomParticipant SET seatIndex = ?, seatStatus = 'locked', isMuted = 1 WHERE roomId = ? AND userId = ?", args: [targetSeat, roomId, userId] });
+        await c.execute({ sql: "UPDATE VoiceRoomParticipant SET seatIndex = ?, seatStatus = 'open', isMuted = 1 WHERE roomId = ? AND userId = ?", args: [targetSeat, roomId, userId] });
       }
       return { success: true, autoAssigned: true, seatIndex: targetSeat };
     }
