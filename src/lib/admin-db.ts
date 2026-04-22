@@ -3652,6 +3652,11 @@ export async function requestSeat(roomId: string, userId: string, username: stri
         if (canSitDirectly) {
           // Remove the person currently on this seat
           await c.execute({ sql: 'UPDATE VoiceRoomParticipant SET seatIndex = -1, seatStatus = ?, isMuted = 0 WHERE roomId = ? AND seatIndex = ?', args: ['open', roomId, targetSeat] });
+          // Re-check: another admin may have taken this seat between our check and update
+          const recheck = await c.execute({ sql: 'SELECT seatIndex FROM VoiceRoomParticipant WHERE roomId = ? AND seatIndex = ? AND userId != ?', args: [roomId, targetSeat, userId] });
+          if (recheck.rows.length > 0) {
+            targetSeat = -1; // Seat was taken by someone else after our kick
+          }
         } else {
           targetSeat = -1; // Regular user can't take occupied seat
         }
@@ -3669,10 +3674,34 @@ export async function requestSeat(roomId: string, userId: string, username: stri
         // Get current mute state to preserve it
         const muteResult = await c.execute({ sql: 'SELECT isMuted FROM VoiceRoomParticipant WHERE roomId = ? AND userId = ?', args: [roomId, userId] });
         const currentMute = muteResult.rows.length > 0 ? Number(muteResult.rows[0].isMuted) : 1;
-        await c.execute({ sql: "UPDATE VoiceRoomParticipant SET seatIndex = ?, seatStatus = 'open', isMuted = ? WHERE roomId = ? AND userId = ?", args: [targetSeat, currentMute, roomId, userId] });
+        // Atomic claim: check seat is still free AND assign in one update
+        const claimResult = await c.execute({
+          sql: `UPDATE VoiceRoomParticipant SET seatIndex = ?, seatStatus = 'open', isMuted = ?
+                WHERE roomId = ? AND userId = ?
+                AND NOT EXISTS (
+                  SELECT 1 FROM VoiceRoomParticipant p2
+                  WHERE p2.roomId = ? AND p2.seatIndex = ? AND p2.userId != ?
+                )`,
+          args: [targetSeat, currentMute, roomId, userId, roomId, targetSeat, userId],
+        });
+        if (claimResult.rowsAffected === 0) {
+          // Seat was taken between our check and assignment — find another seat
+          return { success: false, error: 'المقعد لم يعد متاحاً، حاول مرة أخرى' };
+        }
       } else {
-        // New to mic: default to muted (1) so mic doesn't appear active
-        await c.execute({ sql: "UPDATE VoiceRoomParticipant SET seatIndex = ?, seatStatus = 'open', isMuted = 1 WHERE roomId = ? AND userId = ?", args: [targetSeat, roomId, userId] });
+        // New to mic: atomic claim — only succeed if seat is still free
+        const claimResult = await c.execute({
+          sql: `UPDATE VoiceRoomParticipant SET seatIndex = ?, seatStatus = 'open', isMuted = 1
+                WHERE roomId = ? AND userId = ? AND seatIndex < 0
+                AND NOT EXISTS (
+                  SELECT 1 FROM VoiceRoomParticipant p2
+                  WHERE p2.roomId = ? AND p2.seatIndex = ? AND p2.userId != ?
+                )`,
+          args: [targetSeat, roomId, userId, roomId, targetSeat, userId],
+        });
+        if (claimResult.rowsAffected === 0) {
+          return { success: false, error: 'المقعد لم يعد متاحاً، حاول مرة أخرى' };
+        }
       }
       return { success: true, autoAssigned: true, seatIndex: targetSeat };
     }

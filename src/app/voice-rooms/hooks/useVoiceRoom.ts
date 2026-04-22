@@ -244,10 +244,10 @@ export function useVoiceRoom(
     };
     init();
 
-    partPoll = setInterval(() => { if (!cancelled) fetchParticipantsRef.current(); }, 4000);
-    chatPoll = setInterval(() => { if (!cancelled) fetchChatMessagesRef.current(); }, 3000);
+    partPoll = setInterval(() => { if (!cancelled) fetchParticipantsRef.current(); }, 2500);
+    chatPoll = setInterval(() => { if (!cancelled) fetchChatMessagesRef.current(); }, 2000);
     roomPoll = setInterval(() => { if (!cancelled) fetchRoomDetailsRef.current(); }, 6000);
-    const myPoll = setInterval(() => { if (!cancelled) fetchMyParticipantRef.current(); }, 4000);
+    const myPoll = setInterval(() => { if (!cancelled) fetchMyParticipantRef.current(); }, 3000);
     const gemsPoll = setInterval(() => { if (!cancelled) fetchWeeklyGemsRef.current(); }, 10000);
     const myGemsPoll = setInterval(() => { if (!cancelled) fetchMyGemsBalanceRef.current(); }, 10000);
     const heartbeatPoll = setInterval(() => {
@@ -306,6 +306,8 @@ export function useVoiceRoom(
           avatar: authUser.avatar,
         }),
       });
+      // Immediately refresh chat so sender sees their own message without waiting for poll
+      await fetchChatMessagesRef.current();
     } catch { /* ignore */ }
   }, [isRoomMuted, authUser, roomId]);
 
