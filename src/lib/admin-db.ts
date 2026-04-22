@@ -169,6 +169,7 @@ export interface AppUser {
   isActive: boolean;
   subscriptionId: string | null;
   lastLoginAt: string | null;
+  numericId: number | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -612,13 +613,26 @@ async function ensureAdminTables(): Promise<void> {
     await c.execute("UPDATE VoiceRoom SET micTheme = 'chat10', micSeatCount = 10 WHERE micTheme IN ('grid2x3', 'grid2x4', 'grid3x3', 'theater', 'broadcast5') AND micSeatCount >= 6");
   } catch { /* ignore */ }
 
-  // Migration: add vipLevel to AppUser
+  // Migration: add numericId to AppUser
   try {
-    const auCols = await c.execute('PRAGMA table_info(AppUser)');
-    if (!auCols.rows.some(r => r.name === 'vipLevel')) {
-      await c.execute('ALTER TABLE AppUser ADD COLUMN vipLevel INTEGER DEFAULT 0');
+    const auCols2 = await c.execute('PRAGMA table_info(AppUser)');
+    const auColNames2 = auCols2.rows.map(r => r.name);
+    if (!auColNames2.includes('numericId')) {
+      await c.execute('ALTER TABLE AppUser ADD COLUMN numericId INTEGER UNIQUE');
     }
   } catch { /* ignore */ }
+
+  // ReservedNumericId table — premium/special IDs for future sale
+  await c.execute(`
+    CREATE TABLE IF NOT EXISTS ReservedNumericId (
+      id TEXT PRIMARY KEY,
+      numericId INTEGER UNIQUE NOT NULL,
+      status TEXT DEFAULT 'available',
+      soldTo TEXT DEFAULT '',
+      soldAt TEXT DEFAULT '',
+      price INTEGER DEFAULT 0,
+      createdAt TEXT DEFAULT (datetime('now')))
+  `);
 
   // RoomBan table
   await c.execute(`
@@ -959,6 +973,7 @@ function toAppUser(row: Record<string, unknown>): AppUser {
     isActive: !!(row.isActive && row.isActive !== 0),
     subscriptionId: (row.subscriptionId as string) ?? null,
     lastLoginAt: (row.lastLoginAt as string) ?? null,
+    numericId: row.numericId != null ? Number(row.numericId) : null,
     createdAt: (row.createdAt as string) ?? new Date().toISOString(),
     updatedAt: (row.updatedAt as string) ?? new Date().toISOString(),
   };
@@ -1000,6 +1015,135 @@ function toUserFrame(row: Record<string, unknown>): UserFrame {
     obtainedNote: (row.obtainedNote as string) ?? '',
     obtainedAt: (row.obtainedAt as string) ?? new Date().toISOString(),
   };
+}
+
+// ─── Numeric ID system ──────────────────────────────────────────────
+
+/** Generate all "special" 6-digit numbers (repeating, sequential, palindromes, etc.) */
+function generateReservedNumericIds(): number[] {
+  const reserved = new Set<number>();
+
+  for (let d = 0; d <= 9; d++) {
+    // All same digit: 111111, 222222, ..., 999999
+    reserved.add(d * 111111);
+    // 5 same + 1 different at start/end: 111112, 211111, etc.
+    for (let diff = 0; diff <= 9; diff++) {
+      if (diff !== d) {
+        reserved.add(d * 100000 + d * 10000 + d * 1000 + d * 100 + d * 10 + diff);
+        reserved.add(diff * 100000 + d * 10000 + d * 1000 + d * 100 + d * 10 + d);
+      }
+    }
+  }
+
+  // Sequential ascending: 123456, 234567, ..., 456789
+  for (let start = 1; start <= 4; start++) {
+    let num = 0;
+    for (let i = 0; i < 6; i++) num = num * 10 + (start + i);
+    reserved.add(num);
+  }
+
+  // Sequential descending: 654321, 543210
+  reserved.add(654321);
+  reserved.add(543210);
+
+  // Palindromes (6 digits): abccba
+  for (let a = 1; a <= 9; a++) {
+    for (let b = 0; b <= 9; b++) {
+      for (let c = 0; c <= 9; c++) {
+        reserved.add(a * 100000 + b * 10000 + c * 1000 + c * 100 + b * 10 + a);
+      }
+    }
+  }
+
+  // Double triple: aaabbb patterns (e.g., 111222, 333444)
+  for (let a = 1; a <= 9; a++) {
+    for (let b = 0; b <= 9; b++) {
+      reserved.add(a * 111000 + b * 111);
+    }
+  }
+
+  // Round numbers: 100000, 200000, ..., 900000
+  for (let m = 1; m <= 9; m++) reserved.add(m * 100000);
+
+  reserved.delete(0);
+  const result = Array.from(reserved).filter(n => n >= 100000 && n <= 999999);
+  return [...new Set(result)].sort((a, b) => a - b);
+}
+
+/** Seed reserved numeric IDs into the database */
+export async function seedReservedNumericIds(): Promise<number> {
+  const c = getClient();
+  await ensureAdminTables();
+
+  const count = await c.execute({ sql: 'SELECT COUNT(*) as cnt FROM ReservedNumericId', args: [] });
+  if (Number(count.rows[0]?.cnt || 0) > 0) return Number(count.rows[0]?.cnt);
+
+  const ids = generateReservedNumericIds();
+  let inserted = 0;
+  for (const numId of ids) {
+    try {
+      await c.execute({
+        sql: 'INSERT INTO ReservedNumericId (id, numericId, status, price) VALUES (?, ?, ?, ?)',
+        args: [crypto.randomUUID(), numId, 'available', 0],
+      });
+      inserted++;
+    } catch { /* duplicate skip */ }
+  }
+  console.log(`[seedReservedNumericIds] Seeded ${inserted} reserved IDs`);
+  return inserted;
+}
+
+/** Assign a random 6-digit numeric ID to a new user, avoiding reserved IDs */
+export async function assignNumericId(): Promise<number> {
+  const c = getClient();
+  await ensureAdminTables();
+  await seedReservedNumericIds();
+
+  for (let attempt = 0; attempt < 50; attempt++) {
+    const numericId = 100000 + Math.floor(Math.random() * 900000);
+
+    const taken = await c.execute({ sql: 'SELECT id FROM AppUser WHERE numericId = ?', args: [numericId] });
+    if (taken.rows.length > 0) continue;
+
+    const reserved = await c.execute({ sql: 'SELECT status FROM ReservedNumericId WHERE numericId = ? AND status = ?', args: [numericId, 'available'] });
+    if (reserved.rows.length > 0) continue;
+
+    return numericId;
+  }
+  return 1000000 + Math.floor(Math.random() * 9000000);
+}
+
+/** Get all reserved numeric IDs (for admin panel) */
+export async function getReservedNumericIds(): Promise<Array<{ numericId: number; status: string; soldTo: string; soldAt: string; price: number }>> {
+  const c = getClient();
+  await ensureAdminTables();
+  const result = await c.execute({
+    sql: 'SELECT numericId, status, soldTo, soldAt, price FROM ReservedNumericId ORDER BY numericId ASC',
+    args: [],
+  });
+  return result.rows.map(r => ({
+    numericId: Number(r.numericId),
+    status: (r.status as string) || 'available',
+    soldTo: (r.soldTo as string) || '',
+    soldAt: (r.soldAt as string) || '',
+    price: Number(r.price) || 0,
+  }));
+}
+
+/** Assign a reserved numeric ID to a user (admin action) */
+export async function assignReservedId(numericId: number, userId: string, price: number = 0): Promise<boolean> {
+  const c = getClient();
+  await ensureAdminTables();
+
+  const check = await c.execute({ sql: 'SELECT status FROM ReservedNumericId WHERE numericId = ?', args: [numericId] });
+  if (check.rows.length === 0 || check.rows[0].status !== 'available') return false;
+
+  await c.execute({
+    sql: "UPDATE ReservedNumericId SET status = 'sold', soldTo = ?, soldAt = datetime('now'), price = ? WHERE numericId = ?",
+    args: [userId, price, numericId],
+  });
+  await c.execute({ sql: 'UPDATE AppUser SET numericId = ? WHERE id = ?', args: [numericId, userId] });
+  return true;
 }
 
 // ─── GameConfig operations ────────────────────────────────────────────
@@ -2298,11 +2442,12 @@ export async function createUser(data: {
   }
 
   const id = crypto.randomUUID();
+  const numericId = await assignNumericId();
   const passwordHash = hashPassword(data.password);
 
   await c.execute({
-    sql: `INSERT INTO AppUser (id, username, email, passwordHash, displayName, phone)
-          VALUES (?, ?, ?, ?, ?, ?)`,
+    sql: `INSERT INTO AppUser (id, username, email, passwordHash, displayName, phone, numericId)
+          VALUES (?, ?, ?, ?, ?, ?, ?)`,
     args: [
       id,
       data.username,
@@ -2310,6 +2455,7 @@ export async function createUser(data: {
       passwordHash,
       data.displayName || '',
       data.phone || '',
+      numericId,
     ],
   });
 
@@ -3014,7 +3160,21 @@ export async function createVoiceRoom(
 ): Promise<VoiceRoom> {
   const c = getClient();
   await ensureAdminTables();
-  const id = crypto.randomUUID();
+
+  // Get user's numericId to use as room ID
+  const userResult = await c.execute({ sql: 'SELECT numericId FROM AppUser WHERE id = ?', args: [hostId] });
+  const numericId = userResult.rows.length > 0 ? Number(userResult.rows[0].numericId) : null;
+
+  // Check if user already has a room (one room per user)
+  const existingRoom = await c.execute({ sql: 'SELECT id, name FROM VoiceRoom WHERE hostId = ?', args: [hostId] });
+  if (existingRoom.rows.length > 0) {
+    const existingName = existingRoom.rows[0].name as string;
+    throw new Error(`لديك غرفة بالفعل: ${existingName}`);
+  }
+
+  // Room ID = user's numericId (e.g., "123456") or fallback to UUID
+  const id = numericId ? String(numericId) : crypto.randomUUID();
+
   await c.execute({
     sql: `INSERT INTO VoiceRoom (id, name, description, hostId, hostName, maxParticipants, isPrivate, micSeatCount, roomMode, roomPassword, micTheme, isAutoMode, roomImage, roomAvatar)
           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
@@ -3198,6 +3358,29 @@ export async function joinVoiceRoom(roomId: string, userId: string, username: st
     args: [crypto.randomUUID(), roomId, userId, username, displayName, avatar, 0, joinRole, joinSeat, joinStatus, 0, vipLevel],
   });
 
+  // If the original host is joining and someone else currently has owner role,
+  // restore ownership to the original host and demote the other to their saved role
+  if (isHost) {
+    const currentOwner = await c.execute({
+      sql: `SELECT userId, role FROM VoiceRoomParticipant WHERE roomId = ? AND userId != ? AND role = 'owner'`,
+      args: [roomId, userId],
+    });
+    if (currentOwner.rows.length > 0) {
+      const otherOwner = currentOwner.rows[0];
+      const otherId = otherOwner.userId as string;
+      // Check if the other owner has a saved role in RoomMember
+      const savedRole = await c.execute({
+        sql: 'SELECT role FROM RoomMember WHERE roomId = ? AND userId = ?',
+        args: [roomId, otherId],
+      });
+      const restoreRole = savedRole.rows.length > 0 ? (savedRole.rows[0].role as string) : 'member';
+      await c.execute({
+        sql: 'UPDATE VoiceRoomParticipant SET role = ? WHERE roomId = ? AND userId = ?',
+        args: [restoreRole, roomId, otherId],
+      });
+    }
+  }
+
   // If role was restored from RoomMember, ensure it's still in sync
   if (joinRole !== 'visitor' && joinRole !== 'owner') {
     await logAction(roomId, userId, username, 'restore_role', '', '', `Restored role: ${joinRole}`);
@@ -3258,15 +3441,16 @@ export async function cleanupStaleParticipants(roomId: string): Promise<number> 
   const c = getClient();
   await ensureAdminTables();
   // Remove participants whose lastSeen is older than 30 seconds
-  // This handles users who closed browser/tab without clicking "leave"
+  // IMPORTANT: Never delete the room host
   const result = await c.execute({
     sql: `DELETE FROM VoiceRoomParticipant 
           WHERE roomId = ? 
+          AND userId != (SELECT hostId FROM VoiceRoom WHERE id = ?)
           AND (
             (lastSeen IS NOT NULL AND lastSeen < datetime('now', '-30 seconds'))
             OR (lastSeen IS NULL AND joinedAt < datetime('now', '-30 seconds'))
           )`,
-    args: [roomId],
+    args: [roomId, roomId],
   });
   return result.rowsAffected;
 }

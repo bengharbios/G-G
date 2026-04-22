@@ -87,6 +87,7 @@ export async function POST(request: NextRequest) {
         phone: user.phone,
         avatar: user.avatar,
         role: user.role,
+        numericId: user.numericId,
       },
       token,
     });
