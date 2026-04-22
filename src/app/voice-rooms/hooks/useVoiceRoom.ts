@@ -455,7 +455,9 @@ export function useVoiceRoom(
         return;
       }
       const totalCost = unitPrice * (quantity || 1);
-      const receiverName = target === 'everyone' ? 'الجميع' : profileSheet?.displayName || 'شخص';
+      // Look up recipient name from participants list (more reliable than profileSheet which may be null)
+      const receiverParticipant = toUserId ? participants.find(p => p.userId === toUserId) : null;
+      const receiverName = target === 'everyone' ? 'الجميع' : (receiverParticipant?.displayName || 'شخص');
 
       const giftMsg: ChatMessage = {
         id: genId(),
@@ -496,7 +498,7 @@ export function useVoiceRoom(
       console.error('[Gift Send Error]', err);
       toast({ title: 'فشل إرسال الهدية', description: 'حاول مرة أخرى' });
     }
-  }, [roomId, authUser, gifts, profileSheet, toast, fetchWeeklyGems, fetchTopGifts, fetchMyGemsBalance]);
+  }, [roomId, authUser, gifts, participants, profileSheet, toast, fetchWeeklyGems, fetchTopGifts, fetchMyGemsBalance]);
 
   /* ── Seat click handler ── */
   const handleSeatClick = useCallback((seatIndex: number) => {
@@ -620,11 +622,16 @@ export function useVoiceRoom(
       });
       const data = await res.json();
       if (data.success) {
-        toast({ title: 'تم قبول الدعوة! ⭐', description: `أصبحت ${ROLE_LABELS[pendingInvite as RoomRole] || pendingInvite}` });
+        const acceptedRole = data.role || pendingInvite;
+        toast({ title: 'تم قبول الدعوة! ⭐', description: `أصبحت ${ROLE_LABELS[acceptedRole as RoomRole] || acceptedRole}` });
         setPendingInvite('');
         await Promise.all([fetchParticipants(), fetchMyParticipant()]);
       } else {
-        toast({ title: 'فشل قبول الدعوة', description: data.error || 'حاول مرة أخرى' });
+        // On failure, clear the pending invite to prevent infinite loop
+        // The server already cleared pendingRole if it was a DB issue
+        setPendingInvite('');
+        toast({ title: 'فشل قبول الدعوة', description: data.error || 'الدعوة لم تعد متاحة، اطلب دعوة جديدة' });
+        await fetchMyParticipant();
       }
     } catch {
       toast({ title: 'خطأ في الاتصال', description: 'تحقق من الإنترنت وحاول مرة أخرى' });

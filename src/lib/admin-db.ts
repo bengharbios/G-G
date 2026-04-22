@@ -3838,34 +3838,35 @@ export async function inviteRoleToRoom(roomId: string, targetUserId: string, new
   return true;
 }
 
-export async function acceptRoleInvite(roomId: string, userId: string): Promise<boolean> {
+export async function acceptRoleInvite(roomId: string, userId: string): Promise<{ success: boolean; role?: string }> {
   const c = getClient();
   await ensureAdminTables();
   
-  // Force-ensure pendingRole column exists before any operation
-  const colExists = await ensureColumn('VoiceRoomParticipant', 'pendingRole', "TEXT DEFAULT ''");
-  if (!colExists) {
-    console.error('[acceptRoleInvite] Cannot ensure pendingRole column exists');
-    return false;
-  }
-  
   try {
-    const result = await c.execute({ sql: 'SELECT pendingRole FROM VoiceRoomParticipant WHERE roomId = ? AND userId = ?', args: [roomId, userId] });
-    if (result.rows.length === 0) {
-      console.log(`[acceptRoleInvite] No participant found: roomId=${roomId} userId=${userId}`);
-      return false;
+    // Use atomic UPDATE: set role = pendingRole and clear pendingRole in one query
+    // Only succeeds if pendingRole is set and user exists
+    const result = await c.execute({
+      sql: `UPDATE VoiceRoomParticipant 
+            SET role = COALESCE(pendingRole, role), pendingRole = '' 
+            WHERE roomId = ? AND userId = ? 
+            AND pendingRole IS NOT NULL AND pendingRole != ''`,
+      args: [roomId, userId],
+    });
+    
+    if (result.rowsAffected === 0) {
+      // No rows updated — either participant not found or no pending role
+      console.log(`[acceptRoleInvite] No pending role to accept: roomId=${roomId} userId=${userId}`);
+      return { success: false };
     }
     
-    const pendingRole = String(result.rows[0].pendingRole || '').trim();
-    console.log(`[acceptRoleInvite] pendingRole='${pendingRole}' for userId=${userId}`);
-    if (!pendingRole) return false;
-    
-    await c.execute({ sql: 'UPDATE VoiceRoomParticipant SET role = ?, pendingRole = "" WHERE roomId = ? AND userId = ?', args: [pendingRole, roomId, userId] });
-    console.log(`[acceptRoleInvite] Accepted! role='${pendingRole}' for userId=${userId}`);
-    return true;
+    // Read back the new role
+    const readBack = await c.execute({ sql: 'SELECT role FROM VoiceRoomParticipant WHERE roomId = ? AND userId = ?', args: [roomId, userId] });
+    const newRole = readBack.rows.length > 0 ? (readBack.rows[0].role as string) : 'member';
+    console.log(`[acceptRoleInvite] Accepted! role='${newRole}' for userId=${userId}`);
+    return { success: true, role: newRole };
   } catch (err) {
-    console.error('[acceptRoleInvite] DB error after column check:', err);
-    return false;
+    console.error('[acceptRoleInvite] DB error:', err);
+    return { success: false };
   }
 }
 

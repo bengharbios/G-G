@@ -1333,7 +1333,7 @@ export default function RoomInteriorView({
             onSendGift={handleGiftSend}
             gems={vr.myGemsBalance}
             preselectedRecipient={giftRecipient}
-            micParticipants={vr.participants.filter(p => p.seatIndex >= 0).map(p => ({
+            micParticipants={vr.participants.filter(p => p.userId !== authUser?.id).map(p => ({
               userId: p.userId,
               displayName: p.displayName,
               avatar: p.avatar,

@@ -46,6 +46,7 @@ export default function GiftSheet({ isOpen, onClose, onSendGift, gems, preselect
   const [recipientMode, setRecipientMode] = useState<'everyone' | 'mic' | 'specific'>(
     preselectedRecipient?.type || 'everyone',
   );
+  const [selectedParticipant, setSelectedParticipant] = useState<{ userId: string; displayName: string } | null>(null);
   const tabsRef = useRef<HTMLDivElement>(null);
   const [activeTabScroll, setActiveTabScroll] = useState(false);
 
@@ -67,20 +68,30 @@ export default function GiftSheet({ isOpen, onClose, onSendGift, gems, preselect
   // Handle send
   const handleSend = () => {
     if (selectedGift && canSend) {
+      const specificUserId = preselectedRecipient?.userId || selectedParticipant?.userId;
       const recipient = {
         type: recipientMode,
-        userId: recipientMode === 'specific' && preselectedRecipient ? preselectedRecipient.userId : undefined,
+        userId: recipientMode === 'specific' ? specificUserId : undefined,
       };
+      if (recipientMode === 'specific' && !recipient.userId) return;
       onSendGift(selectedGift.id, quantity, recipient);
       setSelectedGift(null);
       setQuantity(1);
+      setSelectedParticipant(null);
     }
+  };
+
+  // Handle mode change — reset participant selection when leaving 'specific' mode
+  const handleRecipientModeChange = (mode: 'everyone' | 'mic' | 'specific') => {
+    setRecipientMode(mode);
+    if (mode !== 'specific') setSelectedParticipant(null);
   };
 
   // Handle close
   const handleClose = () => {
     setSelectedGift(null);
     setQuantity(1);
+    setSelectedParticipant(null);
     onClose();
   };
 
@@ -237,7 +248,7 @@ export default function GiftSheet({ isOpen, onClose, onSendGift, gems, preselect
                 return (
                   <button
                     key={opt.key}
-                    onClick={() => setRecipientMode(opt.key)}
+                    onClick={() => handleRecipientModeChange(opt.key)}
                     className="shrink-0 flex items-center gap-1.5 px-3.5 py-1.5 rounded-full border-none cursor-pointer touch-manipulation transition-all"
                     style={{
                       fontSize: 11,
@@ -256,8 +267,8 @@ export default function GiftSheet({ isOpen, onClose, onSendGift, gems, preselect
                   </button>
                 );
               })}
-              {/* Preselected recipient name */}
-              {preselectedRecipient?.displayName && recipientMode === 'specific' && (
+              {/* Selected participant name */}
+              {((preselectedRecipient?.displayName && recipientMode === 'specific') || (selectedParticipant && recipientMode === 'specific')) && (
                 <span
                   className="flex items-center gap-1 shrink-0 px-2 py-1 rounded-full"
                   style={{
@@ -267,10 +278,62 @@ export default function GiftSheet({ isOpen, onClose, onSendGift, gems, preselect
                     backgroundColor: 'rgba(13, 138, 122, 0.12)',
                   }}
                 >
-                  إرسال إلى: {preselectedRecipient.displayName}
+                  إرسال إلى: {preselectedRecipient?.displayName || selectedParticipant?.displayName}
                 </span>
               )}
             </div>
+
+            {/* ═══════════════════════════════════════════════════════════════
+                Participant Selection List — when "لشخص محدد" without preselected
+                ═══════════════════════════════════════════════════════════════ */}
+            {recipientMode === 'specific' && !preselectedRecipient?.userId && (micParticipants && micParticipants.length > 0) && (
+              <div
+                className="shrink-0 overflow-x-auto"
+                style={{
+                  background: '#10111A',
+                  padding: '8px 12px',
+                  borderBottom: '1px solid rgba(255,255,255,0.06)',
+                }}
+              >
+                <div className="flex items-center gap-2" style={{ minWidth: 'max-content' }}>
+                  {micParticipants.map((p) => {
+                    const isSelected = selectedParticipant?.userId === p.userId;
+                    return (
+                      <button
+                        key={p.userId}
+                        onClick={() => setSelectedParticipant({ userId: p.userId, displayName: p.displayName })}
+                        className="flex items-center gap-1.5 shrink-0 px-2.5 py-1.5 rounded-full border-none cursor-pointer touch-manipulation transition-all"
+                        style={{
+                          fontSize: 11,
+                          fontWeight: isSelected ? 600 : 500,
+                          color: isSelected ? TUI.colors.white : TUI.colors.G5,
+                          backgroundColor: isSelected
+                            ? 'rgba(13, 138, 122, 0.25)'
+                            : 'rgba(255,255,255,0.04)',
+                          border: isSelected
+                            ? '1.5px solid rgba(13, 138, 122, 0.5)'
+                            : '1.5px solid transparent',
+                        }}
+                      >
+                        <div
+                          className="shrink-0 overflow-hidden rounded-full"
+                          style={{ width: 20, height: 20, backgroundColor: 'rgba(255,255,255,0.1)' }}
+                        >
+                          {p.avatar ? (
+                            <img src={p.avatar} alt={p.displayName} className="w-full h-full object-cover" />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center" style={{ fontSize: 9, color: TUI.colors.G5 }}>
+                              {p.displayName.charAt(0)}
+                            </div>
+                          )}
+                        </div>
+                        {p.displayName}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
 
             {/* ═══════════════════════════════════════════════════════════════
                 Gift Grid — 4 columns, scrollable

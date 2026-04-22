@@ -190,8 +190,8 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
 
     if (action === 'accept-invite') {
       try {
-        const ok = await acceptRoleInvite(id, userId);
-        return NextResponse.json({ success: ok });
+        const result = await acceptRoleInvite(id, userId);
+        return NextResponse.json({ success: result.success, role: result.role });
       } catch (e: any) {
         console.error('[accept-invite] error:', e);
         return NextResponse.json({ success: false, error: e?.message || 'خطأ في قبول الدعوة' });
