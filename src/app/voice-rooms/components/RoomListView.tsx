@@ -13,7 +13,7 @@
    - Fixed bottom nav: 4 items with rounded-square icon containers + badges
    ═══════════════════════════════════════════════════════════════════════ */
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import {
   Search,
   Plus,
@@ -32,6 +32,10 @@ import {
   Home,
   PartyPopper,
   Sparkles,
+  X,
+  Copy,
+  LogOut,
+  User as UserIcon,
 } from 'lucide-react';
 import {
   TUI,
@@ -165,6 +169,20 @@ export default function RoomListView({
   const [subTab, setSubTab] = useState<SubTab>('recent');
   const scrollRef = useRef<HTMLDivElement>(null);
 
+  // ── Profile popup state ──
+  const [showProfile, setShowProfile] = useState(false);
+
+  // Close profile on outside click
+  useEffect(() => {
+    if (!showProfile) return;
+    const handler = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      if (!target.closest('[data-profile-popover]')) setShowProfile(false);
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [showProfile]);
+
   // ── Avatar palette for user ──
   const avatarPalette = authUser
     ? getAvatarColorFromPalette(authUser.id)
@@ -200,15 +218,17 @@ export default function RoomListView({
       >
         {/* ── Top Row: Avatar | Search ── */}
         <div className="flex items-center justify-between px-4 pt-3 pb-2">
-          {/* User Avatar + Badge */}
+          {/* User Avatar + Badge — Click to show profile */}
           <div className="relative flex-shrink-0">
-            <div
-              className="flex items-center justify-center rounded-full overflow-hidden"
+            <button
+              className="flex items-center justify-center rounded-full overflow-hidden active:scale-95 transition-transform"
+              onClick={() => setShowProfile((v) => !v)}
               style={{
                 width: 42,
                 height: 42,
                 border: `2px solid ${TUI.colors.gold}`,
               }}
+              aria-label="الملف الشخصي"
             >
               {authUser?.avatar ? (
                 <img
@@ -224,10 +244,10 @@ export default function RoomListView({
                   {(authUser?.displayName || 'م')[0]}
                 </div>
               )}
-            </div>
+            </button>
             {/* Notification badge */}
             <div
-              className="absolute -top-1 -left-1 flex items-center justify-center rounded-full"
+              className="absolute -top-1 -left-1 flex items-center justify-center rounded-full pointer-events-none"
               style={{
                 width: 18,
                 height: 18,
@@ -241,6 +261,71 @@ export default function RoomListView({
             >
               1
             </div>
+
+            {/* Profile popover */}
+            {showProfile && authUser && (
+              <div
+                data-profile-popover
+                className="absolute top-12 right-0 z-50 rounded-2xl shadow-2xl overflow-hidden"
+                style={{
+                  width: 240,
+                  backgroundColor: '#1a1a2e',
+                  border: '1px solid rgba(255,255,255,0.08)',
+                }}
+              >
+                {/* Header: avatar + name + numericId */}
+                <div className="flex items-center gap-3 p-4 pb-3" style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+                  <div
+                    className="shrink-0 rounded-full overflow-hidden"
+                    style={{
+                      width: 48, height: 48,
+                      border: `2px solid ${TUI.colors.gold}`,
+                    }}
+                  >
+                    {authUser.avatar ? (
+                      <img src={authUser.avatar} alt="" className="w-full h-full object-cover" />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center text-base font-bold"
+                        style={{ backgroundColor: avatarPalette.bg, color: avatarPalette.text }}>
+                        {(authUser.displayName || 'م')[0]}
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="truncate font-bold text-sm" style={{ color: '#f0f0f8' }}>
+                      {authUser.displayName || authUser.username}
+                    </div>
+                    <div className="flex items-center gap-1.5 mt-0.5">
+                      <span className="font-mono text-xs px-1.5 py-0.5 rounded"
+                        style={{ backgroundColor: 'rgba(13,138,122,0.2)', color: '#0D8A7A' }}>
+                        ID: {authUser.numericId || '---'}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+                {/* Actions */}
+                <div className="p-2">
+                  <button
+                    className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs transition-colors"
+                    style={{ color: TUI.colors.G4 }}
+                    onClick={() => {
+                      if (authUser.numericId) {
+                        navigator.clipboard.writeText(String(authUser.numericId));
+                      }
+                    }}
+                  >
+                    <Copy size={14} /> نسخ الأيدي
+                  </button>
+                  <button
+                    className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs transition-colors"
+                    style={{ color: TUI.colors.G4 }}
+                    onClick={() => setShowProfile(false)}
+                  >
+                    <UserIcon size={14} /> الملف الشخصي
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Search Icon */}

@@ -41,6 +41,7 @@ export async function GET(request: NextRequest) {
       user: {
         id: user.id,
         username: user.username,
+        numericId: user.numericId,
         email: user.email,
         displayName: user.displayName || user.username,
         phone: user.phone,

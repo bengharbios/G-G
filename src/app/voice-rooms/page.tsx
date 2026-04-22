@@ -52,6 +52,7 @@ export default function VoiceRoomsPage() {
             username: d.user.username,
             displayName: d.user.displayName || d.user.username,
             avatar: d.user.avatar || '',
+            numericId: d.user.numericId || null,
             vipLevel: d.user.vipLevel || 0,
           });
         }
@@ -204,6 +205,7 @@ export default function VoiceRoomsPage() {
       username: user.username,
       displayName: user.displayName || user.username,
       avatar: user.avatar || '',
+      numericId: user.numericId || null,
       vipLevel: 0,
     });
     setLoginDialogOpen(false);

@@ -12,6 +12,7 @@ export interface AuthUser {
   username: string;
   displayName: string;
   avatar: string;
+  numericId?: number | null;
   vipLevel?: number;
 }
 
@@ -51,6 +52,7 @@ export interface VoiceRoomParticipant {
   username: string;
   displayName: string;
   avatar: string;
+  numericId?: number | null;
   isMuted: boolean;
   micFrozen: boolean;
   role: RoomRole;

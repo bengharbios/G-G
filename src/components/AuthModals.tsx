@@ -39,6 +39,7 @@ export interface AuthUser {
   phone: string;
   avatar: string;
   role: string;
+  numericId?: number | null;
 }
 
 interface LoginModalProps {

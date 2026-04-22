@@ -3342,7 +3342,8 @@ export async function getVoiceRoomParticipants(roomId: string): Promise<VoiceRoo
   const c = getClient();
   await ensureAdminTables();
   const result = await c.execute({
-    sql: `SELECT vrp.* FROM VoiceRoomParticipant vrp
+    sql: `SELECT vrp.*, au.numericId FROM VoiceRoomParticipant vrp
+          LEFT JOIN AppUser au ON vrp.userId = au.id
           WHERE vrp.roomId = ? AND vrp.userId NOT IN (SELECT userId FROM RoomBan WHERE roomId = ?)
           ORDER BY CASE WHEN vrp.seatIndex >= 0 THEN 0 ELSE 1 END, vrp.seatIndex ASC, vrp.joinedAt ASC`,
     args: [roomId, roomId],
@@ -3350,7 +3351,8 @@ export async function getVoiceRoomParticipants(roomId: string): Promise<VoiceRoo
   return result.rows.map(row => ({
     id: row.id as string, roomId: row.roomId as string, userId: row.userId as string,
     username: row.username as string, displayName: (row.displayName as string) || '',
-    avatar: (row.avatar as string) || '', isMuted: Boolean(row.isMuted),
+    avatar: (row.avatar as string) || '', numericId: row.numericId ? Number(row.numericId) : null,
+    isMuted: Boolean(row.isMuted),
     micFrozen: Boolean(row.micFrozen),
     role: (row.role as RoomRole) || 'visitor',
     seatIndex: Number(row.seatIndex) ?? -1,

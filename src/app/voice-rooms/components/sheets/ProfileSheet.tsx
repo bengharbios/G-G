@@ -249,7 +249,7 @@ export default function ProfileSheet({
             )}
           </div>
 
-          {/* Subtitle line: role label or guest */}
+          {/* Subtitle line: numeric ID or guest indicator */}
           <span
             className="block mt-0.5"
             style={{
@@ -259,7 +259,9 @@ export default function ProfileSheet({
           >
             {isGuest
               ? 'زائر • مستخدم غير مسجل'
-              : `@${participant.username || participant.userId.slice(0, 10)}`}
+              : participant.numericId
+                ? `ID: ${participant.numericId}`
+                : `@${participant.username || participant.userId.slice(0, 10)}`}
           </span>
         </div>
       </div>
