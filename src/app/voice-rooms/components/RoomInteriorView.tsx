@@ -801,41 +801,63 @@ export default function RoomInteriorView({
               backgroundColor: 'rgba(7, 74, 66, 0.4)',
             }}
           >
-            {/* ── Top Row: Room info + Action buttons ── */}
+            {/* ── Top Row: Room avatar + Room info + Action buttons ── */}
             <div className="flex items-center justify-between">
-              {/* Right: Room name + ID */}
+              {/* Right: Room avatar + name + ID */}
               <button
                 type="button"
                 onClick={() => setRoomInfoOpen(true)}
-                className="flex flex-col items-start min-w-0 bg-transparent border-none cursor-pointer touch-manipulation"
-                style={{ gap: 0, flex: 1 }}
+                className="flex items-center gap-2 min-w-0 bg-transparent border-none cursor-pointer touch-manipulation"
+                style={{ flex: 1 }}
                 aria-label="معلومات الغرفة"
               >
-                <span
-                  className="truncate"
+                {/* Room avatar */}
+                <div
+                  className="shrink-0 rounded-full overflow-hidden"
                   style={{
-                    fontSize: 14,
-                    fontWeight: 700,
-                    color: TUI.colors.white,
-                    maxWidth: 180,
-                    lineHeight: '20px',
+                    width: 40,
+                    height: 40,
+                    border: '2px solid rgba(255,255,255,0.25)',
+                    backgroundColor: 'rgba(255,255,255,0.08)',
                   }}
                 >
-                  {vr.room.name}
-                </span>
-                <span
-                  className="truncate"
-                  style={{
-                    fontSize: 10,
-                    color: 'rgba(255,255,255,0.45)',
-                    maxWidth: 150,
-                    lineHeight: '14px',
-                    direction: 'ltr',
-                    textAlign: 'right',
-                  }}
-                >
-                  {vr.room.id}
-                </span>
+                  {vr.room.roomAvatar ? (
+                    <img src={vr.room.roomAvatar} alt="" className="w-full h-full object-cover" />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center">
+                      <Mic size={18} color="rgba(255,255,255,0.5)" />
+                    </div>
+                  )}
+                </div>
+
+                {/* Name + ID */}
+                <div className="flex flex-col items-start min-w-0">
+                  <span
+                    className="truncate"
+                    style={{
+                      fontSize: 14,
+                      fontWeight: 700,
+                      color: TUI.colors.white,
+                      maxWidth: 180,
+                      lineHeight: '20px',
+                    }}
+                  >
+                    {vr.room.name}
+                  </span>
+                  <span
+                    className="truncate"
+                    style={{
+                      fontSize: 10,
+                      color: 'rgba(255,255,255,0.45)',
+                      maxWidth: 150,
+                      lineHeight: '14px',
+                      direction: 'ltr',
+                      textAlign: 'right',
+                    }}
+                  >
+                    {vr.room.id}
+                  </span>
+                </div>
               </button>
 
               {/* Left: Settings (admin) + Share + Exit buttons */}
