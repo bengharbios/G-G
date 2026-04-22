@@ -13,10 +13,28 @@
    ═══════════════════════════════════════════════════════════════════════ */
 
 import { Server } from 'socket.io';
+import { createServer } from 'http';
 
-const PORT = 3010;
+const PORT = parseInt(process.env.PORT || '3010', 10);
 
-const io = new Server(PORT, {
+// ── HTTP Server for health checks (Render requires this) ──
+const httpServer = createServer((req, res) => {
+  if (req.url === '/health' || req.url === '/') {
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({
+      status: 'ok',
+      service: 'voice-signal',
+      rooms: rooms.size,
+      connections: io.sockets.sockets.size,
+      uptime: process.uptime(),
+    }));
+  } else {
+    res.writeHead(404);
+    res.end('Not Found');
+  }
+});
+
+const io = new Server(httpServer, {
   cors: {
     origin: '*',
     methods: ['GET', 'POST'],
@@ -386,4 +404,6 @@ io.on('connection', (socket) => {
   });
 });
 
-console.log(`[VoiceSignal] 🎙️ Voice signaling service running on port ${PORT}`);
+httpServer.listen(PORT, () => {
+  console.log(`[VoiceSignal] 🎙️ Voice signaling service running on port ${PORT}`);
+});
