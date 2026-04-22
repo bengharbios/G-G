@@ -62,3 +62,43 @@ Stage Summary:
 - Race condition: All 4 seat assignment functions now have verify-after-write
 - Chat polling: Adaptive (600ms fast / 900ms active / 2000ms idle)
 - No new lint errors introduced in changed files
+
+---
+Task ID: 4
+Agent: Main
+Task: Add WebRTC P2P real voice audio to voice rooms
+
+Work Log:
+- Created WebSocket signaling mini-service (`mini-services/voice-signal/index.ts`) on port 3010
+  - Socket.io server with rooms mapped by room_id
+  - Events: join-room, leave-room, offer, answer, ice-candidate, mic-toggle, seat-change, request-offers, peer-joined, peer-leave, peer-mic-toggle, peer-seat-change, heartbeat
+  - Auto-cleanup of stale clients every 60s
+  - Broadcasts to room participants
+- Created `useVoiceRTC` hook (`src/app/voice-rooms/hooks/useVoiceRTC.ts`)
+  - One RTCPeerConnection per on-mic participant (mesh topology)
+  - getUserMedia() for local mic (audio only, 48kHz, echo cancellation, noise suppression)
+  - ICE servers: 3 Google STUN + 3 Open Relay TURN (free tier)
+  - Independent mic mute (stops audio track) and speaker mute (local playback toggle)
+  - Real speaking detection via AudioContext + AnalyserNode (RMS volume with hysteresis)
+  - Remote speaking detection for each peer
+  - Auto-cleanup on unmount, leave, or seat change
+  - Auto-reconnect on disconnect
+  - Socket.IO client with dynamic import
+- Integrated voice into `RoomInteriorView.tsx`:
+  - Bottom bar mic button now calls both `voiceRTC.toggleMic()` (real audio) + `vr.handleToggleMic()` (DB state)
+  - Bottom bar speaker button now calls `voiceRTC.toggleSpeaker()` (local audio mute)
+  - Non-seat users can also toggle speaker (mute/unmute all remote audio)
+  - Admin room mute button still controls chat (separate from audio)
+  - Added `VoiceAudioRenderer` component: creates hidden `<audio>` elements for each remote stream with autoplay
+  - Added `isRtcSpeaking` prop to `SeatCircle` — overrides database-based speaking detection with real audio analysis
+  - `MicSeatGrid` passes `speakingPeers` ref and `localSpeaking` to all layouts
+  - Mic icon turns teal-green (#00C896) when local user is actually speaking
+
+Stage Summary:
+- Real P2P voice enabled via WebRTC mesh topology
+- WebSocket signaling on port 3010 (free, no Turso dependency)
+- STUN + TURN (openrelay.metered.ca free tier) for NAT traversal
+- No limit on mic seat count
+- Independent mic/speaker mute controls
+- Real-time speaking indicators on seat circles
+- Audio elements auto-created and auto-cleaned

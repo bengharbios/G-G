@@ -11,6 +11,7 @@ import {
   MessageSquare, UserCog, Trophy, LogIn, Minimize2, MoreHorizontal,
 } from 'lucide-react';
 import { useVoiceRoom } from '../hooks/useVoiceRoom';
+import { useVoiceRTC } from '../hooks/useVoiceRTC';
 import {
   TUI, DEFAULT_BG_URLS, ROLE_LABELS, canDo, getAvatarColor,
   getAvatarColorFromPalette, getMicLayout,
@@ -132,15 +133,17 @@ function SeatCircle({
   seat,
   size = 50,
   onSeatClick,
+  isRtcSpeaking = false,
 }: {
   seat: SeatData;
   size?: number;
   onSeatClick: (idx: number) => void;
+  isRtcSpeaking?: boolean;
 }) {
   const isLocked = !seat.participant && seat.status === 'locked';
   const isEmpty = !seat.participant && !isLocked;
   const isOccupied = !!seat.participant;
-  const isSpeaking = isOccupied && !seat.participant!.isMuted && !seat.participant!.micFrozen;
+  const isSpeaking = isOccupied && (isRtcSpeaking || (!seat.participant!.isMuted && !seat.participant!.micFrozen));
   const seatRole = isOccupied ? seat.participant!.role : 'visitor';
   const innerSize = size - 6;
   const fontSize = size <= 46 ? 10 : size <= 50 ? 11 : 12;
@@ -334,13 +337,26 @@ function MicSeatGrid({
   seats,
   layoutId,
   onSeatClick,
+  speakingPeers,
+  localUserId,
+  localSpeaking,
 }: {
   seats: SeatData[];
   layoutId: MicLayoutId;
   onSeatClick: (idx: number) => void;
+  speakingPeers?: React.MutableRefObject<Map<string, boolean>>;
+  localUserId?: string;
+  localSpeaking?: boolean;
 }) {
   const seatSize = seats.length <= 5 ? 54 : seats.length <= 10 ? 50 : 46;
   const rowGap = seats.length <= 5 ? 0 : seats.length <= 10 ? 12 : 10;
+
+  // Helper: check if a participant is speaking via WebRTC
+  const isSpeakingViaRTC = (participant: VoiceRoomParticipant | null): boolean => {
+    if (!participant || !speakingPeers) return false;
+    if (localUserId && participant.userId === localUserId) return !!localSpeaking;
+    return speakingPeers.current.get(participant.userId) || false;
+  };
 
   // ── Chat 5: 1 row of 5 (horizontal line) ──
   if (layoutId === 'chat5') {
@@ -350,7 +366,7 @@ function MicSeatGrid({
         style={{ padding: '24px 12px 8px', gap: 10 }}
       >
         {seats.map((seat) => (
-          <SeatCircle key={seat.seatIndex} seat={seat} size={seatSize} onSeatClick={onSeatClick} />
+          <SeatCircle key={seat.seatIndex} seat={seat} size={seatSize} onSeatClick={onSeatClick} isRtcSpeaking={isSpeakingViaRTC(seat.participant)} />
         ))}
       </div>
     );
@@ -366,12 +382,12 @@ function MicSeatGrid({
       >
         {/* Top row: seat 0 */}
         <div className="flex items-center justify-center">
-          <SeatCircle seat={seats[0]} size={seatSize + 6} onSeatClick={onSeatClick} />
+          <SeatCircle seat={seats[0]} size={seatSize + 6} onSeatClick={onSeatClick} isRtcSpeaking={isSpeakingViaRTC(seats[0].participant)} />
         </div>
         {/* Bottom row: seats 1-4 */}
         <div className="flex items-center justify-center" style={{ gap: 10 }}>
           {seats.slice(1).map((seat) => (
-            <SeatCircle key={seat.seatIndex} seat={seat} size={seatSize} onSeatClick={onSeatClick} />
+            <SeatCircle key={seat.seatIndex} seat={seat} size={seatSize} onSeatClick={onSeatClick} isRtcSpeaking={isSpeakingViaRTC(seat.participant)} />
           ))}
         </div>
       </div>
@@ -388,7 +404,7 @@ function MicSeatGrid({
         {Array.from({ length: Math.ceil(seats.length / 5) }).map((_, row) => (
           <div key={row} className="flex items-center justify-center" style={{ gap: 8 }}>
             {seats.slice(row * 5, (row + 1) * 5).map((seat) => (
-              <SeatCircle key={seat.seatIndex} seat={seat} size={seatSize} onSeatClick={onSeatClick} />
+              <SeatCircle key={seat.seatIndex} seat={seat} size={seatSize} onSeatClick={onSeatClick} isRtcSpeaking={isSpeakingViaRTC(seat.participant)} />
             ))}
           </div>
         ))}
@@ -410,7 +426,7 @@ function MicSeatGrid({
               {/* Team A: seats 0, 1 */}
               {rowSeats.slice(0, 2).map((seat) => (
                 <div key={seat.seatIndex} style={{ padding: '0 4px' }}>
-                  <SeatCircle seat={seat} size={seatSize} onSeatClick={onSeatClick} />
+                  <SeatCircle seat={seat} size={seatSize} onSeatClick={onSeatClick} isRtcSpeaking={isSpeakingViaRTC(seat.participant)} />
                 </div>
               ))}
               {/* Divider */}
@@ -426,7 +442,7 @@ function MicSeatGrid({
               {/* Team B: seats 2, 3, 4 */}
               {rowSeats.slice(2, 5).map((seat) => (
                 <div key={seat.seatIndex} style={{ padding: '0 4px' }}>
-                  <SeatCircle seat={seat} size={seatSize} onSeatClick={onSeatClick} />
+                  <SeatCircle seat={seat} size={seatSize} onSeatClick={onSeatClick} isRtcSpeaking={isSpeakingViaRTC(seat.participant)} />
                 </div>
               ))}
             </div>
@@ -446,7 +462,7 @@ function MicSeatGrid({
         {Array.from({ length: Math.ceil(seats.length / 5) }).map((_, row) => (
           <div key={row} className="flex items-center justify-center" style={{ gap: 6 }}>
             {seats.slice(row * 5, (row + 1) * 5).map((seat) => (
-              <SeatCircle key={seat.seatIndex} seat={seat} size={seatSize} onSeatClick={onSeatClick} />
+              <SeatCircle key={seat.seatIndex} seat={seat} size={seatSize} onSeatClick={onSeatClick} isRtcSpeaking={isSpeakingViaRTC(seat.participant)} />
             ))}
           </div>
         ))}
@@ -461,7 +477,7 @@ function MicSeatGrid({
       style={{ padding: '16px 12px 8px', gap: 10 }}
     >
       {seats.map((seat) => (
-        <SeatCircle key={seat.seatIndex} seat={seat} size={seatSize} onSeatClick={onSeatClick} />
+        <SeatCircle key={seat.seatIndex} seat={seat} size={seatSize} onSeatClick={onSeatClick} isRtcSpeaking={isSpeakingViaRTC(seat.participant)} />
       ))}
     </div>
   );
@@ -595,6 +611,61 @@ function ThreeDotsMenu({
   );
 }
 
+// ─── Hidden Audio Renderer for WebRTC Streams ───────────────────────────────
+
+function VoiceAudioRenderer({ audioStreams }: { audioStreams: React.MutableRefObject<Map<string, MediaStream>> }) {
+  const [, forceUpdate] = useState(0);
+  const audioRefs = useRef<Map<string, HTMLAudioElement>>(new Map());
+
+  useEffect(() => {
+    // Poll for stream changes every 500ms
+    const interval = setInterval(() => {
+      const streams = audioStreams.current;
+      const currentKeys = new Set(audioRefs.current.keys());
+      const streamKeys = new Set(streams.keys());
+
+      // Add new streams
+      for (const [key, stream] of streams.entries()) {
+        if (!audioRefs.current.has(key)) {
+          const audio = new Audio();
+          audio.srcObject = stream;
+          audio.autoplay = true;
+          audio.playsInline = true;
+          audio.style.display = 'none';
+          audioRef_holder.push(audio); // prevent GC
+          audioRefs.current.set(key, audio);
+          document.body.appendChild(audio);
+        }
+      }
+
+      // Check if keys changed
+      const changed = currentKeys.size !== streamKeys.size ||
+        [...currentKeys].some(k => !streamKeys.has(k)) ||
+        [...streamKeys].some(k => !currentKeys.has(k));
+
+      if (changed) {
+        forceUpdate(prev => prev + 1);
+      }
+    }, 500);
+
+    return () => {
+      clearInterval(interval);
+      // Cleanup audio elements
+      for (const [, audio] of audioRefs.current.entries()) {
+        audio.pause();
+        audio.srcObject = null;
+        if (audio.parentNode) audio.parentNode.removeChild(audio);
+      }
+      audioRefs.current.clear();
+    };
+  }, [audioStreams]);
+
+  return null;
+}
+
+// Hold audio elements to prevent garbage collection
+const audioRef_holder: HTMLAudioElement[] = [];
+
 // ─── Main Component ─────────────────────────────────────────────────────────
 
 export default function RoomInteriorView({
@@ -605,6 +676,15 @@ export default function RoomInteriorView({
 }: RoomInteriorViewProps) {
   /* ── Voice room hook — all state and actions ── */
   const vr = useVoiceRoom(initialRoom, authUser, onRoomUpdate);
+
+  /* ── WebRTC Voice hook — real P2P audio ── */
+  const voiceRTC = useVoiceRTC({
+    roomId: vr.room.id,
+    userId: authUser?.id || '',
+    displayName: authUser?.displayName || '',
+    isOnSeat: !!vr.isOnSeat,
+    isMicMuted: vr.isMicMuted,
+  });
 
   /* ── Derived state ── */
   const isOwner = vr.myRole === 'owner';
@@ -789,6 +869,9 @@ export default function RoomInteriorView({
         {/* ════════════════════════════════════════════════════════
             MAIN CONTENT LAYER (z-10)
             ════════════════════════════════════════════════════════ */}
+        {/* Hidden audio elements for WebRTC remote streams */}
+        <VoiceAudioRenderer audioStreams={voiceRTC.audioStreams} />
+
         <div className="relative z-10 flex flex-col h-full" style={currentBgImage ? { zIndex: 2 } : undefined}>
 
           {/* ════════════════════════════════════════════
@@ -1141,6 +1224,9 @@ export default function RoomInteriorView({
             seats={vr.seats}
             layoutId={micLayout.id}
             onSeatClick={vr.handleSeatClick}
+            speakingPeers={voiceRTC.speakingPeers}
+            localUserId={authUser?.id || ''}
+            localSpeaking={voiceRTC.localSpeaking}
           />
 
           {/* ════════════════════════════════════════════
@@ -1294,7 +1380,7 @@ export default function RoomInteriorView({
                 </button>
               )}
 
-              {/* Admin: room mute toggle | On seat: mic + speaker | Others: speaker toggle */}
+              {/* Voice control buttons */}
               {isAdmin ? (
                 <button
                   onClick={vr.handleToggleRoomMute}
@@ -1312,49 +1398,52 @@ export default function RoomInteriorView({
                 </button>
               ) : vr.isOnSeat ? (
                 <>
-                  {/* Mic toggle — mute/unmute own mic */}
+                  {/* Mic toggle — mute/unmute own mic (real WebRTC) */}
                   <button
-                    onClick={vr.handleToggleMic}
+                    onClick={async () => {
+                      voiceRTC.toggleMic();
+                      await vr.handleToggleMic();
+                    }}
                     className="rounded-full flex items-center justify-center flex-shrink-0 cursor-pointer touch-manipulation"
                     style={{
                       width: 36, height: 36, minWidth: 44, minHeight: 44,
-                      backgroundColor: vr.isMicMuted ? 'rgba(252, 85, 85, 0.15)' : 'rgba(255,255,255,0.07)',
+                      backgroundColor: voiceRTC.isLocalMicMuted ? 'rgba(252, 85, 85, 0.15)' : 'rgba(255,255,255,0.07)',
                       transition: TUI.anim.fast,
                     }}
-                    aria-label={vr.isMicMuted ? 'إلغاء كتم المايك' : 'كتم المايك'}
+                    aria-label={voiceRTC.isLocalMicMuted ? 'إلغاء كتم المايك' : 'كتم المايك'}
                   >
-                    {vr.isMicMuted
+                    {voiceRTC.isLocalMicMuted
                       ? <MicOff size={17} style={{ color: TUI.colors.red }} />
-                      : <Mic size={17} style={{ color: 'rgba(255,255,255,0.6)' }} />}
+                      : <Mic size={17} style={{ color: voiceRTC.localSpeaking ? TUI.colors.tealLight : 'rgba(255,255,255,0.6)' }} />}
                   </button>
-                  {/* Speaker toggle — mute/unmute room audio */}
+                  {/* Speaker toggle — mute/unmute room audio (local playback) */}
                   <button
-                    onClick={vr.handleToggleRoomMute}
+                    onClick={voiceRTC.toggleSpeaker}
                     className="rounded-full flex items-center justify-center flex-shrink-0 cursor-pointer touch-manipulation"
                     style={{
                       width: 36, height: 36, minWidth: 44, minHeight: 44,
-                      backgroundColor: vr.isRoomMuted ? 'rgba(252, 85, 85, 0.15)' : 'rgba(255,255,255,0.07)',
+                      backgroundColor: voiceRTC.isSpeakerMuted ? 'rgba(252, 85, 85, 0.15)' : 'rgba(255,255,255,0.07)',
                       transition: TUI.anim.fast,
                     }}
-                    aria-label={vr.isRoomMuted ? 'تشغيل الصوت' : 'كتم الصوت'}
+                    aria-label={voiceRTC.isSpeakerMuted ? 'تشغيل الصوت' : 'كتم الصوت'}
                   >
-                    {vr.isRoomMuted
+                    {voiceRTC.isSpeakerMuted
                       ? <VolumeX size={17} style={{ color: TUI.colors.red }} />
                       : <Volume2 size={17} style={{ color: 'rgba(255,255,255,0.6)' }} />}
                   </button>
                 </>
               ) : (
                 <button
-                  onClick={vr.handleToggleRoomMute}
+                  onClick={voiceRTC.toggleSpeaker}
                   className="rounded-full flex items-center justify-center flex-shrink-0 cursor-pointer touch-manipulation"
                   style={{
                     width: 36, height: 36, minWidth: 44, minHeight: 44,
-                    backgroundColor: vr.isRoomMuted ? 'rgba(252, 85, 85, 0.15)' : 'rgba(255,255,255,0.07)',
+                    backgroundColor: voiceRTC.isSpeakerMuted ? 'rgba(252, 85, 85, 0.15)' : 'rgba(255,255,255,0.07)',
                     transition: TUI.anim.fast,
                   }}
-                  aria-label={vr.isRoomMuted ? 'تشغيل الصوت' : 'كتم الصوت'}
+                  aria-label={voiceRTC.isSpeakerMuted ? 'تشغيل الصوت' : 'كتم الصوت'}
                 >
-                  {vr.isRoomMuted
+                  {voiceRTC.isSpeakerMuted
                     ? <VolumeX size={17} style={{ color: TUI.colors.red }} />
                     : <Volume2 size={17} style={{ color: 'rgba(255,255,255,0.6)' }} />}
                 </button>
