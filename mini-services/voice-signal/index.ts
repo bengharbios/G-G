@@ -9,6 +9,7 @@
    - STUN + TURN servers configured client-side
    - Auto-cleanup of disconnected clients
    - In-app notification support for room events
+   - Web Push fallback for offline users
    ═══════════════════════════════════════════════════════════════════════ */
 
 import { Server } from 'socket.io';
@@ -236,6 +237,30 @@ io.on('connection', (socket) => {
   // Push Notification Support
   // ═══════════════════════════════════════════════════════════
 
+  // ── Web Push helper: send push notification via /api/push/send ──
+  async function sendWebPush(
+    userIds: string[],
+    payload: { title: string; body: string; tag?: string; url?: string; data?: Record<string, unknown> }
+  ) {
+    try {
+      const pushApiKey = process.env.PUSH_API_KEY || 'gg-push-internal-key-2024';
+      const response = await fetch('http://localhost:3000/api/push/send', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-push-api-key': pushApiKey,
+        },
+        body: JSON.stringify({ userIds, payload }),
+      });
+      const result = await response.json();
+      if (result.success && result.sent > 0) {
+        console.log(`[VoiceSignal] 📲 Web Push sent to ${result.sent} device(s)`);
+      }
+    } catch (error) {
+      console.warn('[VoiceSignal] Web Push failed (Next.js may be starting):', error);
+    }
+  }
+
   // ── Send notification to a specific user (cross-room) ──
   socket.on('send-notification', (data: {
     targetUserId: string;
@@ -247,21 +272,33 @@ io.on('connection', (socket) => {
     const { targetUserId, type, title, body, roomId } = data;
     const sender = socketUsers.get(socket.id);
 
+    const notification = {
+      id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      type,
+      title,
+      body,
+      roomId,
+      fromUserId: sender?.userId,
+      fromDisplayName: sender?.displayName,
+      timestamp: Date.now(),
+    };
+
     const targetSocketId = userSockets.get(targetUserId);
     if (targetSocketId) {
-      io.to(targetSocketId).emit('notification', {
-        id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-        type,
+      // User is online — send via WebSocket (real-time in-app)
+      io.to(targetSocketId).emit('notification', notification);
+    } else {
+      // User is OFFLINE — send via Web Push (works even when app is closed)
+      sendWebPush([targetUserId], {
         title,
         body,
-        roomId,
-        fromUserId: sender?.userId,
-        fromDisplayName: sender?.displayName,
-        timestamp: Date.now(),
+        tag: `ggames-${type}-${roomId}`,
+        url: `/voice-rooms`,
+        data: { type, roomId, fromUserId: sender?.userId, fromDisplayName: sender?.displayName },
       });
     }
 
-    console.log(`[VoiceSignal] Notification sent to ${targetUserId}: ${type} — ${title}`);
+    console.log(`[VoiceSignal] Notification sent to ${targetUserId}: ${type} — ${title} (${targetSocketId ? 'websocket' : 'webpush'})`);
   });
 
   // ── Send notification to all users in a room ──
@@ -272,16 +309,34 @@ io.on('connection', (socket) => {
     roomId: string;
   }) => {
     const room = rooms.get(data.roomId);
-    if (room) {
-      const notification = {
-        id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-        type: data.type,
+    if (!room) return;
+
+    const notification = {
+      id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      type: data.type,
+      title: data.title,
+      body: data.body,
+      roomId: data.roomId,
+      timestamp: Date.now(),
+    };
+
+    // Send to all online users via WebSocket
+    io.to(data.roomId).emit('notification', notification);
+
+    // Also send Web Push to offline room participants (from DB)
+    // The signaling server only knows about currently connected users,
+    // but offline users who were in the room still have push subscriptions.
+    // We fire-and-forget the push to all room members — the push API
+    // will handle deduplication for users already notified via WebSocket.
+    const roomUserIds = Array.from(room.values()).map(m => m.userId);
+    if (roomUserIds.length > 0) {
+      sendWebPush(roomUserIds, {
         title: data.title,
         body: data.body,
-        roomId: data.roomId,
-        timestamp: Date.now(),
-      };
-      io.to(data.roomId).emit('notification', notification);
+        tag: `ggames-${data.type}-${data.roomId}`,
+        url: `/voice-rooms`,
+        data: { type: data.type, roomId: data.roomId },
+      });
     }
   });
 

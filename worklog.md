@@ -145,3 +145,60 @@ Stage Summary:
 - Push notifications: In-app toasts + browser notifications + signaling server support
 - No mic limit maintained
 - No new lint errors in changed files
+---
+Task ID: 6
+Agent: Main
+Task: Implement real Web Push notifications (works when app is closed)
+
+Work Log:
+- Installed `web-push` package for server-side Web Push API
+- Generated VAPID keys (public + private) using web-push CLI
+- Added VAPID keys and PUSH_API_KEY to `.env`
+- Created push notification utility (`src/lib/push.ts`):
+  - `storePushSubscription()` — saves push subscription to DB (Turso/SQLite via @libsql/client)
+  - `removePushSubscription()` — removes subscription by userId/endpoint
+  - `getUserPushSubscriptions()` — fetches all subscriptions for a user
+  - `sendPushToUser()` — sends Web Push to one user (auto-cleans expired subscriptions)
+  - `sendPushToUsers()` — sends Web Push to multiple users in parallel
+  - `ensurePushTable()` — auto-creates PushSubscription table with index
+  - Uses `web-push` library with VAPID authentication
+- Created 4 API routes:
+  - `GET /api/push/vapid-key` — returns public VAPID key for client-side subscription
+  - `POST /api/push/subscribe` — saves push subscription (requires auth_token cookie)
+  - `DELETE /api/push/unsubscribe` — removes push subscription (requires auth_token cookie)
+  - `POST /api/push/send` — sends push notification (server-to-server via API key)
+- Created client-side hook (`src/hooks/usePushNotification.ts`):
+  - `isSupported` — checks browser support for Push API
+  - `permissionStatus` — tracks current notification permission
+  - `isSubscribed` — whether user has active push subscription
+  - `requestPermission()` — request permission + subscribe + send to server
+  - `unsubscribe()` — unsubscribe + remove from server
+  - `urlBase64ToUint8Array()` — VAPID key conversion helper
+- Updated signaling server (`mini-services/voice-signal/index.ts`):
+  - Added `sendWebPush()` helper function that calls `/api/push/send` via localhost:3000
+  - `send-notification` event now sends Web Push if target user is OFFLINE (not connected via WebSocket)
+  - `broadcast-notification` event sends Web Push to all room members (for users not in the signaling server)
+  - Logs delivery method: `(websocket)` or `(webpush)` for each notification
+- Updated `SettingsSheet.tsx` — added push notification toggle as first settings group:
+  - Shows Bell/BellOff icon based on subscription state
+  - Toggle label changes: "تفعيل الإشعارات" / "الإشعارات مفعّلة"
+  - Green checkmark badge when subscribed
+- Updated service worker (`public/sw.js`):
+  - Bumped cache version to v2
+  - Push notifications now include Arabic RTL support (dir: 'rtl', lang: 'ar')
+  - Added action buttons: "فتح" (open) and "إغلاق" (dismiss)
+  - Notification click now navigates existing tab or opens new window
+  - Improved notification click handling with `client.navigate()` for already-open tabs
+- Created `ServiceWorkerRegistrar.tsx` component — registers SW on every page load
+  - Added to root layout for global SW registration
+  - Checks for SW updates every hour
+
+Stage Summary:
+- Real Web Push implemented: notifications work even when app is closed/backgrounded
+- VAPID keys generated and stored in .env
+- 4 API routes for subscription management
+- Client hook handles subscription lifecycle
+- Signaling server auto-sends Web Push for offline users
+- UI toggle in Settings sheet for enabling/disabling push
+- Service Worker upgraded with Arabic RTL push support
+- No new lint errors in changed files

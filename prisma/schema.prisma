@@ -51,3 +51,15 @@ model RoomPlayer {
   joinedAt        DateTime @default(now())
   updatedAt       DateTime @updatedAt
 }
+
+// ── Push Notification Subscriptions ──
+model PushSubscription {
+  id        String   @id @default(cuid())
+  userId    String                             // User ID who subscribed
+  endpoint  String   @unique                    // Push subscription endpoint (unique per subscription)
+  keysAuth  String                             // auth key from subscription
+  keysP256dh String                             // p256dh key from subscription
+  userAgent String?                             // Browser/device info for debugging
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}

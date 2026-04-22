@@ -19,7 +19,11 @@ import {
   ScrollText,
   Sparkles,
   ImageIcon,
+  Bell,
+  BellOff,
+  Loader2,
 } from 'lucide-react';
+import { usePushNotification } from '@/hooks/usePushNotification';
 // SettingsSheet renders directly as a full overlay (no BottomSheetOverlay wrapper to avoid double-window effect)
 import { TUI, type VoiceRoom } from '../../types';
 
@@ -685,8 +689,35 @@ export default function SettingsSheet({
     [onUpdate],
   );
 
+  // ── Push Notification Hook ──
+  // We use a placeholder userId since the actual user ID is not passed to SettingsSheet.
+  // Push permission is stored in the browser via Service Worker.
+  const push = usePushNotification({ userId: undefined });
+
+  const handlePushToggle = useCallback(async () => {
+    if (push.isSubscribed) {
+      await push.unsubscribe();
+    } else {
+      await push.requestPermission();
+    }
+  }, [push]);
+
   // ── Settings rows ──
   const settingsGroups: SettingRow[][] = [
+    // Group 0: Notifications (push)
+    [
+      {
+        id: 'push-notifications',
+        label: push.isSubscribed ? 'الإشعارات مفعّلة' : 'تفعيل الإشعارات',
+        icon: push.isSubscribed
+          ? <Bell size={20} color={TUI.colors.teal} />
+          : <BellOff size={20} color={TUI.colors.textGray} />,
+        iconBg: push.isSubscribed ? 'rgba(13,138,122,0.1)' : 'rgba(158,158,158,0.1)',
+        badge: push.isSubscribed ? '✓' : undefined,
+        badgeColor: TUI.colors.teal,
+        onClick: handlePushToggle,
+      },
+    ],
     // Group 1: Mic & Permissions
     [
       {

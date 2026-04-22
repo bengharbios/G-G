@@ -3,6 +3,7 @@ import { Cairo } from "next/font/google";
 import "./globals.css";
 import { Toaster } from "@/components/ui/toaster";
 import ChatWidget from "@/components/ChatWidget";
+import ServiceWorkerRegistrar from "@/components/ServiceWorkerRegistrar";
 
 const cairo = Cairo({
   variable: "--font-cairo",
@@ -39,6 +40,7 @@ export default function RootLayout({
         {children}
         <ChatWidget />
         <Toaster />
+        <ServiceWorkerRegistrar />
       </body>
     </html>
   );
