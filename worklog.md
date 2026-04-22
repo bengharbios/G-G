@@ -41,3 +41,24 @@ Stage Summary:
 - Owner mic movement: Removed broadcast5 owner-always-top behavior, all layouts now sequential
 - Minimize: Complete implementation with floating widget, room stays alive during minimize
 - No lint errors in changed files
+
+---
+Task ID: 3
+Agent: Main
+Task: Fix mic seat race condition + chat slowness optimization
+
+Work Log:
+- Fixed race condition in `requestSeat()` in admin-db.ts: Added verify-after-write pattern — after the atomic UPDATE with NOT EXISTS, do a SELECT to confirm WE actually own the seat. If verification fails, undo the assignment and return error.
+- Applied same fix to `assignSeat()`, `approveWaitlist()`, and `acceptMicInvite()` functions — all seat assignment operations now verify ownership after write.
+- Replaced fixed 2000ms chat polling interval with adaptive polling:
+  - Fast mode (600ms): triggered when new messages are detected or user sends a message
+  - Active mode (900ms): when there was recent conversation activity
+  - Idle mode (2000ms): when no new messages for a while
+  - Uses setTimeout chain instead of setInterval for flexible scheduling
+  - Tracks `prevTimestampRef` to detect if new messages arrived between polls
+- Committed and pushed to main: fa1f3f5
+
+Stage Summary:
+- Race condition: All 4 seat assignment functions now have verify-after-write
+- Chat polling: Adaptive (600ms fast / 900ms active / 2000ms idle)
+- No new lint errors introduced in changed files
