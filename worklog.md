@@ -102,3 +102,46 @@ Stage Summary:
 - Independent mic/speaker mute controls
 - Real-time speaking indicators on seat circles
 - Audio elements auto-created and auto-cleaned
+---
+Task ID: 5
+Agent: Main
+Task: Mobile audio fix + speaker button fix + push notifications
+
+Work Log:
+- Rewrote `useVoiceRTC` hook with comprehensive mobile support:
+  - Added `unlockAudio()` function that resumes suspended AudioContext on iOS (requires user gesture)
+  - Auto-unlock on first touch/click event via document event listeners
+  - Audio elements now use `audio.play()` instead of `autoplay` attribute (iOS blocks autoplay)
+  - Pending audio streams queued and played on first user gesture
+  - Each peer gets its own AudioContext (tracked in `remoteAudioContextsRef`)
+  - Removed `sampleRate: 48000` from constraints (not supported on all mobile browsers)
+  - Added `playsInline: true` for iOS inline video/audio playback
+  - ICE restart with retry (up to 3 attempts) on connection failure
+  - Delayed disconnect cleanup (5s) to handle mobile temporary disconnections
+  - `bundlePolicy: 'max-bundle'` and `rtcpMuxPolicy: 'require'` for mobile bandwidth optimization
+  - Increased reconnection attempts to 15 with max delay 8s
+- Updated `VoiceAudioRenderer` → removed entirely (audio now handled inside useVoiceRTC hook directly)
+- Updated `BottomBar.tsx` to show both mic AND speaker buttons:
+  - Mic toggle: only shown when on seat (was already correct)
+  - Speaker toggle: shown for ALL users (admin, on-seat, visitors)
+  - Speaker button mutes/unmutes all remote audio playback
+- Updated `RoomInteriorView.tsx`:
+  - Added `NotificationToasts` component for in-app push notifications
+  - Imports `Bell` icon and `RoomNotification` type
+  - Removed old `VoiceAudioRenderer` component (no longer needed)
+- Updated signaling server (`mini-services/voice-signal/index.ts`):
+  - Added `userSockets` and `socketUsers` mappings for cross-room user tracking
+  - Added `send-notification` event for targeted push to specific user
+  - Added `broadcast-notification` event for room-wide push
+  - Notifications carry: id, type, title, body, roomId, fromUserId, fromDisplayName, timestamp
+- Added browser Notification API integration in useVoiceRTC:
+  - Requests permission on first notification
+  - Shows native browser notifications when permission granted
+
+Stage Summary:
+- iOS audio: Fully unlocked via user gesture + AudioContext resume
+- Android audio: Compatible constraints (no forced sampleRate)
+- Speaker button: Available to all users in bottom bar
+- Push notifications: In-app toasts + browser notifications + signaling server support
+- No mic limit maintained
+- No new lint errors in changed files

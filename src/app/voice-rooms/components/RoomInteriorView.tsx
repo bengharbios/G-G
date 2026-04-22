@@ -9,9 +9,10 @@ import {
   PencilLine, Sparkles,
   UserPlus, LogOut, Heart, AlertTriangle,
   MessageSquare, UserCog, Trophy, LogIn, Minimize2, MoreHorizontal,
+  Bell, BellOff,
 } from 'lucide-react';
 import { useVoiceRoom } from '../hooks/useVoiceRoom';
-import { useVoiceRTC } from '../hooks/useVoiceRTC';
+import { useVoiceRTC, type RoomNotification } from '../hooks/useVoiceRTC';
 import {
   TUI, DEFAULT_BG_URLS, ROLE_LABELS, canDo, getAvatarColor,
   getAvatarColorFromPalette, getMicLayout,
@@ -611,60 +612,100 @@ function ThreeDotsMenu({
   );
 }
 
-// ─── Hidden Audio Renderer for WebRTC Streams ───────────────────────────────
+// ─── Notification Toasts (In-App Push) ───────────────────────────────────────
 
-function VoiceAudioRenderer({ audioStreams }: { audioStreams: React.MutableRefObject<Map<string, MediaStream>> }) {
-  const [, forceUpdate] = useState(0);
-  const audioRefs = useRef<Map<string, HTMLAudioElement>>(new Map());
+function NotificationToasts({
+  notifications,
+  onDismiss,
+}: {
+  notifications: RoomNotification[];
+  onDismiss: (id: string) => void;
+}) {
+  // Only show the latest 3 notifications
+  const visible = notifications.slice(0, 3);
 
-  useEffect(() => {
-    // Poll for stream changes every 500ms
-    const interval = setInterval(() => {
-      const streams = audioStreams.current;
-      const currentKeys = new Set(audioRefs.current.keys());
-      const streamKeys = new Set(streams.keys());
+  if (visible.length === 0) return null;
 
-      // Add new streams
-      for (const [key, stream] of streams.entries()) {
-        if (!audioRefs.current.has(key)) {
-          const audio = new Audio();
-          audio.srcObject = stream;
-          audio.autoplay = true;
-          audio.playsInline = true;
-          audio.style.display = 'none';
-          audioRef_holder.push(audio); // prevent GC
-          audioRefs.current.set(key, audio);
-          document.body.appendChild(audio);
+  return (
+    <div
+      className="fixed flex flex-col"
+      style={{
+        top: 60,
+        left: 12,
+        right: 12,
+        gap: 8,
+        zIndex: 45,
+        pointerEvents: 'none',
+      }}
+    >
+      {visible.map((notif) => (
+        <div
+          key={notif.id}
+          className="flex items-start gap-3 px-4 py-3 rounded-xl cursor-pointer touch-manipulation"
+          style={{
+            backgroundColor: 'rgba(10, 40, 36, 0.95)',
+            border: '1px solid rgba(0, 200, 150, 0.2)',
+            backdropFilter: 'blur(16px)',
+            boxShadow: '0 4px 20px rgba(0,0,0,0.3)',
+            animation: 'notifSlideIn 0.3s ease-out',
+            pointerEvents: 'auto',
+            direction: 'rtl',
+          }}
+          onClick={() => onDismiss(notif.id)}
+        >
+          {/* Icon */}
+          <div
+            className="flex items-center justify-center flex-shrink-0 rounded-full"
+            style={{
+              width: 32,
+              height: 32,
+              backgroundColor: notif.type === 'invite' ? 'rgba(0, 200, 150, 0.2)' :
+                               notif.type === 'kick' ? 'rgba(252, 85, 85, 0.2)' :
+                               notif.type === 'seat_granted' ? 'rgba(96, 165, 250, 0.2)' :
+                               'rgba(255, 255, 255, 0.08)',
+            }}
+          >
+            <Bell size={14} style={{
+              color: notif.type === 'invite' ? TUI.colors.tealLight :
+                     notif.type === 'kick' ? TUI.colors.red :
+                     notif.type === 'seat_granted' ? '#60a5fa' :
+                     TUI.colors.white,
+            }} />
+          </div>
+
+          {/* Content */}
+          <div className="flex flex-col flex-1 min-w-0" style={{ gap: 2 }}>
+            <span style={{ fontSize: 12, fontWeight: 600, color: TUI.colors.white }}>
+              {notif.title}
+            </span>
+            <span
+              className="truncate"
+              style={{ fontSize: 11, color: 'rgba(255,255,255,0.6)', lineHeight: '16px' }}
+            >
+              {notif.body}
+            </span>
+          </div>
+
+          {/* Dismiss */}
+          <button
+            className="flex items-center justify-center flex-shrink-0 bg-transparent border-none cursor-pointer"
+            style={{ color: 'rgba(255,255,255,0.3)', padding: 4 }}
+            aria-label="إغلاق"
+          >
+            <X size={14} />
+          </button>
+        </div>
+      ))}
+
+      <style>{`
+        @keyframes notifSlideIn {
+          from { opacity: 0; transform: translateY(-12px); }
+          to { opacity: 1; transform: translateY(0); }
         }
-      }
-
-      // Check if keys changed
-      const changed = currentKeys.size !== streamKeys.size ||
-        [...currentKeys].some(k => !streamKeys.has(k)) ||
-        [...streamKeys].some(k => !currentKeys.has(k));
-
-      if (changed) {
-        forceUpdate(prev => prev + 1);
-      }
-    }, 500);
-
-    return () => {
-      clearInterval(interval);
-      // Cleanup audio elements
-      for (const [, audio] of audioRefs.current.entries()) {
-        audio.pause();
-        audio.srcObject = null;
-        if (audio.parentNode) audio.parentNode.removeChild(audio);
-      }
-      audioRefs.current.clear();
-    };
-  }, [audioStreams]);
-
-  return null;
+      `}</style>
+    </div>
+  );
 }
-
-// Hold audio elements to prevent garbage collection
-const audioRef_holder: HTMLAudioElement[] = [];
 
 // ─── Main Component ─────────────────────────────────────────────────────────
 
@@ -869,8 +910,7 @@ export default function RoomInteriorView({
         {/* ════════════════════════════════════════════════════════
             MAIN CONTENT LAYER (z-10)
             ════════════════════════════════════════════════════════ */}
-        {/* Hidden audio elements for WebRTC remote streams */}
-        <VoiceAudioRenderer audioStreams={voiceRTC.audioStreams} />
+        {/* Hidden audio elements for WebRTC remote streams — handled inside useVoiceRTC hook directly */}
 
         <div className="relative z-10 flex flex-col h-full" style={currentBgImage ? { zIndex: 2 } : undefined}>
 
@@ -1512,6 +1552,14 @@ export default function RoomInteriorView({
         {/* ════════════════════════════════════════════════════════════════════
             THREE-DOTS MENU OVERLAY
             ════════════════════════════════════════════════════════════════════ */}
+        {/* ════════════════════════════════════════════════════════
+            PUSH NOTIFICATION TOASTS (in-app)
+            ════════════════════════════════════════════════════════ */}
+        <NotificationToasts
+          notifications={voiceRTC.notifications}
+          onDismiss={voiceRTC.clearNotification}
+        />
+
         <ThreeDotsMenu
           isOpen={showDotsMenu}
           onClose={() => setShowDotsMenu(false)}

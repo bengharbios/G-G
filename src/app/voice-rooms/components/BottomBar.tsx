@@ -1,28 +1,30 @@
 'use client';
 
 import { useCallback, useRef } from 'react';
-import { Volume2, VolumeX, Mic, MicOff, Gift, ArrowLeft, Send } from 'lucide-react';
+import { Volume2, VolumeX, Mic, MicOff, Gift, Send } from 'lucide-react';
 import { TUI } from '../types';
 import type { AuthUser, RoomRole } from '../types';
 
 /* ═══════════════════════════════════════════════════════════════════════
-   BottomBar — Old-style full-width footer bar
+   BottomBar — Footer bar with mic, speaker, chat, and gift
 
-   Layout: fixed bottom, full-width, border-t
-   Items: Mute room (admin+) | Mic toggle (on seat) | Chat input (flex-1) | Gift button
-   The chat input is ALWAYS visible as a text field.
+   Layout: fixed bottom, full-width
+   Items: Mute room (admin+) | Mic (on seat) | Speaker (all users) |
+          Chat input (flex-1) | Gift button
    ═══════════════════════════════════════════════════════════════════════ */
 
 interface BottomBarProps {
   myRole: RoomRole;
   isOnSeat: boolean;
   isMicMuted: boolean;
+  isSpeakerMuted: boolean;
   isRoomMuted: boolean;
   authUser: AuthUser | null;
   chatInput: string;
   setChatInput: (val: string) => void;
   onSendChat: () => void;
   onToggleMic: () => void;
+  onToggleSpeaker: () => void;
   onToggleRoomMute: () => void;
   onGiftOpen: () => void;
 }
@@ -31,12 +33,14 @@ export default function BottomBar({
   myRole,
   isOnSeat,
   isMicMuted,
+  isSpeakerMuted,
   isRoomMuted,
   authUser,
   chatInput,
   setChatInput,
   onSendChat,
   onToggleMic,
+  onToggleSpeaker,
   onToggleRoomMute,
   onGiftOpen,
 }: BottomBarProps) {
@@ -71,7 +75,7 @@ export default function BottomBar({
         backgroundColor: TUI.colors.G1,
       }}
     >
-      <div className="flex items-center w-full" style={{ gap: 8 }}>
+      <div className="flex items-center w-full" style={{ gap: 6 }}>
         {/* ── Mute Room button (admin+ only) ── */}
         {isAdmin && (
           <button
@@ -85,7 +89,7 @@ export default function BottomBar({
               backgroundColor: isRoomMuted ? 'rgba(252, 85, 85, 0.15)' : 'rgba(255,255,255,0.08)',
               transition: TUI.anim.fast,
             }}
-            aria-label={isRoomMuted ? 'Unmute room' : 'Mute room'}
+            aria-label={isRoomMuted ? 'إلغاء كتم الغرفة' : 'كتم الغرفة'}
           >
             {isRoomMuted ? (
               <VolumeX size={18} style={{ color: TUI.colors.red }} />
@@ -108,7 +112,7 @@ export default function BottomBar({
               backgroundColor: isMicMuted ? 'rgba(252, 85, 85, 0.15)' : 'rgba(255,255,255,0.08)',
               transition: TUI.anim.fast,
             }}
-            aria-label={isMicMuted ? 'Unmute mic' : 'Mute mic'}
+            aria-label={isMicMuted ? 'فتح المايك' : 'كتم المايك'}
           >
             {isMicMuted ? (
               <MicOff size={18} style={{ color: TUI.colors.red }} />
@@ -117,6 +121,27 @@ export default function BottomBar({
             )}
           </button>
         )}
+
+        {/* ── Speaker toggle (ALL users — mute/unmute all remote audio) ── */}
+        <button
+          onClick={onToggleSpeaker}
+          className="rounded-full flex items-center justify-center flex-shrink-0 cursor-pointer touch-manipulation"
+          style={{
+            width: 38,
+            height: 38,
+            minWidth: 44,
+            minHeight: 44,
+            backgroundColor: isSpeakerMuted ? 'rgba(252, 85, 85, 0.15)' : 'rgba(255,255,255,0.08)',
+            transition: TUI.anim.fast,
+          }}
+          aria-label={isSpeakerMuted ? 'فتح السماعة' : 'كتم السماعة'}
+        >
+          {isSpeakerMuted ? (
+            <VolumeX size={18} style={{ color: TUI.colors.red }} />
+          ) : (
+            <Volume2 size={18} style={{ color: TUI.colors.G7 }} />
+          )}
+        </button>
 
         {/* ── Chat Input (always visible, flex-1) ── */}
         <div
@@ -152,7 +177,6 @@ export default function BottomBar({
             }}
           />
 
-          {/* ── Send button ── */}
           {chatInput.trim() && !isDisabled && (
             <button
               onClick={handleSend}
