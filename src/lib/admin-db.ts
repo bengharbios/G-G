@@ -3588,16 +3588,25 @@ export async function assignSeat(roomId: string, userId: string, seatIndex: numb
   });
 
   // Assign the user to the seat
-  const result = await c.execute({
+  await c.execute({
     sql: "UPDATE VoiceRoomParticipant SET seatIndex = ?, seatStatus = 'open' WHERE roomId = ? AND userId = ?",
     args: [seatIndex, roomId, userId],
   });
+
+  // Verify after write: confirm the target user actually owns the seat
+  const verifyAssign = await c.execute({
+    sql: 'SELECT userId FROM VoiceRoomParticipant WHERE roomId = ? AND seatIndex = ?',
+    args: [roomId, seatIndex],
+  });
+  if (!verifyAssign.rows.some(r => r.userId === userId)) {
+    return false; // Race condition: someone else took the seat
+  }
 
   const targetResult = await c.execute({ sql: 'SELECT username, displayName FROM VoiceRoomParticipant WHERE roomId = ? AND userId = ?', args: [roomId, userId] });
   const targetName = (targetResult.rows[0]?.username || targetResult.rows[0]?.displayName || '') as string;
 
   await logAction(roomId, actorId, actorName, 'assign_seat', userId, targetName, `Seat ${seatIndex}`);
-  return result.rowsAffected > 0;
+  return true;
 }
 
 // 15. requestSeat
@@ -3675,7 +3684,7 @@ export async function requestSeat(roomId: string, userId: string, username: stri
         const muteResult = await c.execute({ sql: 'SELECT isMuted FROM VoiceRoomParticipant WHERE roomId = ? AND userId = ?', args: [roomId, userId] });
         const currentMute = muteResult.rows.length > 0 ? Number(muteResult.rows[0].isMuted) : 1;
         // Atomic claim: check seat is still free AND assign in one update
-        const claimResult = await c.execute({
+        await c.execute({
           sql: `UPDATE VoiceRoomParticipant SET seatIndex = ?, seatStatus = 'open', isMuted = ?
                 WHERE roomId = ? AND userId = ?
                 AND NOT EXISTS (
@@ -3684,13 +3693,9 @@ export async function requestSeat(roomId: string, userId: string, username: stri
                 )`,
           args: [targetSeat, currentMute, roomId, userId, roomId, targetSeat, userId],
         });
-        if (claimResult.rowsAffected === 0) {
-          // Seat was taken between our check and assignment — find another seat
-          return { success: false, error: 'المقعد لم يعد متاحاً، حاول مرة أخرى' };
-        }
       } else {
         // New to mic: atomic claim — only succeed if seat is still free
-        const claimResult = await c.execute({
+        await c.execute({
           sql: `UPDATE VoiceRoomParticipant SET seatIndex = ?, seatStatus = 'open', isMuted = 1
                 WHERE roomId = ? AND userId = ? AND seatIndex < 0
                 AND NOT EXISTS (
@@ -3699,9 +3704,21 @@ export async function requestSeat(roomId: string, userId: string, username: stri
                 )`,
           args: [targetSeat, roomId, userId, roomId, targetSeat, userId],
         });
-        if (claimResult.rowsAffected === 0) {
-          return { success: false, error: 'المقعد لم يعد متاحاً، حاول مرة أخرى' };
-        }
+      }
+      // ── Verify after write: confirm WE actually own this seat ──
+      // This catches race conditions where rowsAffected may be unreliable
+      // (libsql/Turso distributed edge case)
+      const verify = await c.execute({
+        sql: 'SELECT userId FROM VoiceRoomParticipant WHERE roomId = ? AND seatIndex = ?',
+        args: [roomId, targetSeat],
+      });
+      if (!verify.rows.some(r => r.userId === userId)) {
+        // Someone else got the seat — undo our assignment
+        await c.execute({
+          sql: 'UPDATE VoiceRoomParticipant SET seatIndex = -1, isMuted = 1 WHERE roomId = ? AND userId = ? AND seatIndex = ?',
+          args: [roomId, userId, targetSeat],
+        });
+        return { success: false, error: 'المقعد لم يعد متاحاً، حاول مرة أخرى' };
       }
       return { success: true, autoAssigned: true, seatIndex: targetSeat };
     }
@@ -3763,6 +3780,16 @@ export async function approveWaitlist(waitlistId: string, actorId: string): Prom
     sql: "UPDATE VoiceRoomParticipant SET seatIndex = ?, seatStatus = 'open' WHERE roomId = ? AND userId = ?",
     args: [targetSeat, wl.roomId, wl.userId],
   });
+
+  // Verify after write: confirm seat is ours
+  const verifyWL = await c.execute({
+    sql: 'SELECT userId FROM VoiceRoomParticipant WHERE roomId = ? AND seatIndex = ?',
+    args: [wl.roomId, targetSeat],
+  });
+  if (!verifyWL.rows.some(r => r.userId === wl.userId)) {
+    // Race condition: seat taken by someone else
+    return false;
+  }
 
   // Remove from waitlist
   await c.execute({ sql: 'DELETE FROM RoomWaitlist WHERE id = ?', args: [waitlistId] });
@@ -4049,7 +4076,18 @@ export async function acceptMicInvite(roomId: string, userId: string): Promise<{
   }
 
   // Assign seat
-  await c.execute({ sql: "UPDATE VoiceRoomParticipant SET seatIndex = ?, seatStatus = 'locked', pendingMicInvite = -1 WHERE roomId = ? AND userId = ?", args: [seatIndex, roomId, userId] });
+  await c.execute({ sql: "UPDATE VoiceRoomParticipant SET seatIndex = ?, seatStatus = 'open', pendingMicInvite = -1 WHERE roomId = ? AND userId = ?", args: [seatIndex, roomId, userId] });
+
+  // Verify after write: confirm seat is ours
+  const verifyMic = await c.execute({
+    sql: 'SELECT userId FROM VoiceRoomParticipant WHERE roomId = ? AND seatIndex = ?',
+    args: [roomId, seatIndex],
+  });
+  if (!verifyMic.rows.some(r => r.userId === userId)) {
+    // Race condition: seat taken
+    await c.execute({ sql: 'UPDATE VoiceRoomParticipant SET pendingMicInvite = -1 WHERE roomId = ? AND userId = ?', args: [roomId, userId] });
+    return { success: false };
+  }
 
   return { success: true, seatIndex };
 }

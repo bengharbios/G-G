@@ -31,6 +31,9 @@ export function useVoiceRoom(
   const [profileStats, setProfileStats] = useState<{ giftsSent: number; giftsReceived: number; totalReceivedValue: number } | null>(null);
   const [isMicMuted, setIsMicMuted] = useState(false);
   const [loading, setLoading] = useState(true);
+
+  // ── Refs for adaptive chat polling ──
+  const prevTimestampRef = useRef(0); // track last seen timestamp to detect new messages
   const [weeklyGems, setWeeklyGems] = useState(0);
   const [myGemsBalance, setMyGemsBalance] = useState(0);
   const [topGifts, setTopGifts] = useState<Array<{
@@ -163,7 +166,10 @@ export function useVoiceRoom(
               isGift: m.isGift as boolean,
             }));
           const maxTs = Math.max(...data.messages.map((m: Record<string, unknown>) => m.timestamp as number));
-          if (maxTs > lastChatTimestamp) setLastChatTimestamp(maxTs);
+          if (maxTs > lastChatTimestamp) {
+            setLastChatTimestamp(maxTs);
+            prevTimestampRef.current = maxTs;
+          }
           return [...prev, ...newMsgs];
         });
       }
@@ -214,10 +220,40 @@ export function useVoiceRoom(
   useEffect(() => { checkKickedRef.current = checkKicked; }, [checkKicked]);
   useEffect(() => { toastRef.current = toast; }, [toast]);
 
+  // ── Adaptive chat polling state ──
+  const chatActivityRef = useRef(0); // higher = more active conversation
+  const chatPollTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const scheduleNextChatPollRef = useRef<(fast?: boolean) => void>(() => {});
+
+  const scheduleNextChatPoll = useCallback((fast = false) => {
+    if (chatPollTimerRef.current) clearTimeout(chatPollTimerRef.current);
+    // Fast mode: 600ms when active conversation detected
+    // Active mode: 900ms when there was recent activity
+    // Idle mode: 2000ms when no new messages
+    const delay = fast ? 600 : (chatActivityRef.current > 0 ? 900 : 2000);
+    if (fast) chatActivityRef.current = Math.min(chatActivityRef.current + 4, 10);
+    else chatActivityRef.current = Math.max(0, chatActivityRef.current - 1);
+
+    chatPollTimerRef.current = setTimeout(async () => {
+      const tsBefore = prevTimestampRef.current;
+      await fetchChatMessagesRef.current();
+      const tsAfter = prevTimestampRef.current;
+      // New messages arrived if timestamp changed
+      const newMsgsArrived = tsAfter > tsBefore;
+      if (newMsgsArrived) {
+        chatActivityRef.current = Math.min(chatActivityRef.current + 3, 10);
+        scheduleNextChatPollRef.current(true); // Poll fast
+      } else {
+        scheduleNextChatPollRef.current(false); // Poll slow
+      }
+    }, delay);
+  }, []);
+
+  scheduleNextChatPollRef.current = scheduleNextChatPoll; // eslint-disable-line react-hooks/refs
+
   useEffect(() => {
     let cancelled = false;
     let partPoll: ReturnType<typeof setInterval> | null = null;
-    let chatPoll: ReturnType<typeof setInterval> | null = null;
     let roomPoll: ReturnType<typeof setInterval> | null = null;
 
     const init = async () => {
@@ -240,12 +276,13 @@ export function useVoiceRoom(
           fetchMyGemsBalanceRef.current(),
         ]);
         setLoading(false);
+        // Start adaptive chat polling after init
+        scheduleNextChatPollRef.current(false);
       }
     };
     init();
 
     partPoll = setInterval(() => { if (!cancelled) fetchParticipantsRef.current(); }, 2500);
-    chatPoll = setInterval(() => { if (!cancelled) fetchChatMessagesRef.current(); }, 2000);
     roomPoll = setInterval(() => { if (!cancelled) fetchRoomDetailsRef.current(); }, 6000);
     const myPoll = setInterval(() => { if (!cancelled) fetchMyParticipantRef.current(); }, 3000);
     const gemsPoll = setInterval(() => { if (!cancelled) fetchWeeklyGemsRef.current(); }, 10000);
@@ -270,12 +307,12 @@ export function useVoiceRoom(
     return () => {
       cancelled = true;
       if (partPoll) clearInterval(partPoll);
-      if (chatPoll) clearInterval(chatPoll);
       if (roomPoll) clearInterval(roomPoll);
       if (myPoll) clearInterval(myPoll);
       if (gemsPoll) clearInterval(gemsPoll);
       if (myGemsPoll) clearInterval(myGemsPoll);
       if (heartbeatPoll) clearInterval(heartbeatPoll);
+      if (chatPollTimerRef.current) clearTimeout(chatPollTimerRef.current);
       window.removeEventListener('beforeunload', handleBeforeUnload);
     };
   }, [roomId]);
@@ -306,10 +343,12 @@ export function useVoiceRoom(
           avatar: authUser.avatar,
         }),
       });
-      // Immediately refresh chat so sender sees their own message without waiting for poll
+      // Immediately refresh chat + trigger fast polling so recipient sees it quickly
+      chatActivityRef.current = 5;
       await fetchChatMessagesRef.current();
+      scheduleNextChatPoll(true);
     } catch { /* ignore */ }
-  }, [isRoomMuted, authUser, roomId]);
+  }, [isRoomMuted, authUser, roomId, scheduleNextChatPoll]);
 
   const handleToggleMic = useCallback(async () => {
     if (myParticipant?.micFrozen) {
