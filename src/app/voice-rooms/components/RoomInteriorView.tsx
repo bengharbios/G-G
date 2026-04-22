@@ -1294,7 +1294,7 @@ export default function RoomInteriorView({
                 </button>
               )}
 
-              {/* Speaker / Volume (admin) or Mic toggle (non-admin on seat) */}
+              {/* Admin: room mute toggle | On seat: mic toggle | Others: speaker toggle */}
               {isAdmin ? (
                 <button
                   onClick={vr.handleToggleRoomMute}
@@ -1325,7 +1325,22 @@ export default function RoomInteriorView({
                     ? <MicOff size={17} style={{ color: TUI.colors.red }} />
                     : <Mic size={17} style={{ color: 'rgba(255,255,255,0.6)' }} />}
                 </button>
-              ) : null}
+              ) : (
+                <button
+                  onClick={vr.handleToggleRoomMute}
+                  className="rounded-full flex items-center justify-center flex-shrink-0 cursor-pointer touch-manipulation"
+                  style={{
+                    width: 36, height: 36, minWidth: 44, minHeight: 44,
+                    backgroundColor: vr.isRoomMuted ? 'rgba(252, 85, 85, 0.15)' : 'rgba(255,255,255,0.07)',
+                    transition: TUI.anim.fast,
+                  }}
+                  aria-label={vr.isRoomMuted ? 'تشغيل الصوت' : 'كتم الصوت'}
+                >
+                  {vr.isRoomMuted
+                    ? <VolumeX size={17} style={{ color: TUI.colors.red }} />
+                    : <Volume2 size={17} style={{ color: 'rgba(255,255,255,0.6)' }} />}
+                </button>
+              )}
             </div>
           </footer>
         </div>
