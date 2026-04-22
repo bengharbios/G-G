@@ -732,8 +732,20 @@ export default function RoomInteriorView({
     [handleSendChat],
   );
 
-  /* ── Teal-green gradient background (matching lobby & WAFA Ludo design) ── */
-  const bgGradient = 'linear-gradient(180deg, #0D8A7A 0%, #0A6B5E 30%, #074a42 100%)';
+  /* ── Background: use roomImage if set, otherwise teal-green gradient ── */
+  const bgStyle: React.CSSProperties = room.roomImage
+    ? {
+        backgroundImage: `url(${room.roomImage})`,
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+        backgroundRepeat: 'no-repeat',
+      }
+    : { background: 'linear-gradient(180deg, #0D8A7A 0%, #0A6B5E 30%, #074a42 100%)' };
+
+  // Overlay to ensure text readability over background images
+  const bgOverlay = room.roomImage
+    ? 'rgba(0,0,0,0.35)'
+    : 'transparent';
 
   /* ── Left side menu icon style (shared) ── */
   const menuBtnStyle: React.CSSProperties = {
@@ -750,7 +762,7 @@ export default function RoomInteriorView({
     return (
       <div
         className="fixed inset-0 flex flex-col items-center justify-center"
-        style={{ background: bgGradient }}
+        style={{ ...bgStyle }}
       >
         <Loader2 size={40} className="animate-spin mb-4" style={{ color: TUI.colors.white }} />
         <span style={{ fontSize: TUI.font.body14.size, color: TUI.colors.white }}>جاري تحميل الغرفة...</span>
@@ -768,13 +780,18 @@ export default function RoomInteriorView({
           ═══════════════════════════════════════════════════════════════════════ */}
       <div
         className="fixed inset-0 flex flex-col"
-        style={{ background: bgGradient }}
-        dir="rtl"
-      >
+        style={{ ...bgStyle }}>
+        {/* Dark overlay for readability when background image is set */}
+        {room.roomImage && (
+          <div
+            className="absolute inset-0"
+            style={{ backgroundColor: bgOverlay, zIndex: 1 }}
+          />
+        )}
         {/* ════════════════════════════════════════════════════════
             MAIN CONTENT LAYER (z-10)
             ════════════════════════════════════════════════════════ */}
-        <div className="relative z-10 flex flex-col h-full">
+        <div className="relative z-10 flex flex-col h-full" style={room.roomImage ? { zIndex: 2 } : undefined}>
 
           {/* ════════════════════════════════════════════
               HEADER — Room name + ID + Share/Exit buttons

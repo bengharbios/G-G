@@ -696,6 +696,18 @@ async function ensureAdminTables(): Promise<void> {
       UNIQUE(userId, backgroundId))
   `);
 
+  // RoomMember - persistent room membership (survives leave/rejoin)
+  await c.execute(`
+    CREATE TABLE IF NOT EXISTS RoomMember (
+      id TEXT PRIMARY KEY,
+      roomId TEXT NOT NULL,
+      userId TEXT NOT NULL,
+      role TEXT NOT NULL DEFAULT 'member',
+      grantedBy TEXT NOT NULL DEFAULT '',
+      grantedAt TEXT DEFAULT (datetime('now')),
+      UNIQUE(roomId, userId))
+  `);
+
   _tablesReady = true;
 }
 
@@ -2998,7 +3010,7 @@ export async function createVoiceRoom(
   maxParticipants: number, isPrivate: boolean, micSeatCount: number = 10,
   roomMode: 'public' | 'key' | 'private' = 'public', roomPassword: string = '',
   micTheme: string = 'default', isAutoMode: boolean = true,
-  roomAvatar: string = ''
+  roomAvatar: string = '', roomImage: string = ''
 ): Promise<VoiceRoom> {
   const c = getClient();
   await ensureAdminTables();
@@ -3006,7 +3018,7 @@ export async function createVoiceRoom(
   await c.execute({
     sql: `INSERT INTO VoiceRoom (id, name, description, hostId, hostName, maxParticipants, isPrivate, micSeatCount, roomMode, roomPassword, micTheme, isAutoMode, roomImage, roomAvatar)
           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    args: [id, name, description, hostId, hostName, maxParticipants, isPrivate ? 1 : 0, micSeatCount, roomMode, roomPassword, micTheme, isAutoMode ? 1 : 0, '', roomAvatar],
+    args: [id, name, description, hostId, hostName, maxParticipants, isPrivate ? 1 : 0, micSeatCount, roomMode, roomPassword, micTheme, isAutoMode ? 1 : 0, roomImage, roomAvatar],
   });
   // Insert host as owner on seat 0
   const hostVip = await getUserVipLevel(hostId);
@@ -3020,6 +3032,7 @@ export async function createVoiceRoom(
     id, name, description, hostId, hostName, maxParticipants, isPrivate, micSeatCount,
     roomMode, roomPassword, roomLevel: 1, micTheme, bgmEnabled: false, chatMuted: false,
     announcement: '', giftSplit: 70, isAutoMode, createdAt: new Date().toISOString(),
+    roomImage, roomAvatar,
   };
 }
 
@@ -3157,9 +3170,25 @@ export async function joinVoiceRoom(roomId: string, userId: string, username: st
     if (!password || password !== room.roomPassword) return { success: false, error: 'كلمة المرور غير صحيحة' };
   }
 
-  // Get VIP level and host info to determine role
+  // Get VIP level and check persistent membership
   const vipLevel = await getUserVipLevel(userId);
-  const joinRole = isHost ? 'owner' : 'visitor';
+  let joinRole: string = 'visitor';
+  if (isHost) {
+    joinRole = 'owner';
+  } else {
+    // Check RoomMember table for saved role (member/admin/coowner)
+    const savedMember = await c.execute({
+      sql: 'SELECT role FROM RoomMember WHERE roomId = ? AND userId = ?',
+      args: [roomId, userId],
+    });
+    if (savedMember.rows.length > 0) {
+      const savedRole = savedMember.rows[0].role as string;
+      // Only restore if it's a higher role than visitor
+      if (savedRole === 'coowner' || savedRole === 'admin' || savedRole === 'member') {
+        joinRole = savedRole;
+      }
+    }
+  }
   const joinSeat = isHost ? 0 : -1;
   const joinStatus = isHost ? 'locked' : 'open';
 
@@ -3168,6 +3197,11 @@ export async function joinVoiceRoom(roomId: string, userId: string, username: st
           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))`,
     args: [crypto.randomUUID(), roomId, userId, username, displayName, avatar, 0, joinRole, joinSeat, joinStatus, 0, vipLevel],
   });
+
+  // If role was restored from RoomMember, ensure it's still in sync
+  if (joinRole !== 'visitor' && joinRole !== 'owner') {
+    await logAction(roomId, userId, username, 'restore_role', '', '', `Restored role: ${joinRole}`);
+  }
   await logAction(roomId, userId, username, 'join_room', '', '', '');
   return { success: true };
 }
@@ -3783,6 +3817,20 @@ export async function changeUserRole(roomId: string, targetUserId: string, newRo
   }
 
   await c.execute({ sql: 'UPDATE VoiceRoomParticipant SET role = ?, pendingRole = "" WHERE roomId = ? AND userId = ?', args: [newRole, roomId, targetUserId] });
+
+  // Persist membership in RoomMember table (survives leave/rejoin)
+  if (newRole === 'member' || newRole === 'admin' || newRole === 'coowner') {
+    await c.execute({
+      sql: `INSERT INTO RoomMember (id, roomId, userId, role, grantedBy)
+            VALUES (?, ?, ?, ?, ?)
+            ON CONFLICT(roomId, userId) DO UPDATE SET role = excluded.role, grantedBy = excluded.grantedAt`,
+      args: [crypto.randomUUID(), roomId, targetUserId, newRole, actorId],
+    });
+  } else if (newRole === 'visitor') {
+    // If demoted to visitor, remove persistent membership
+    await c.execute({ sql: 'DELETE FROM RoomMember WHERE roomId = ? AND userId = ?', args: [roomId, targetUserId] });
+  }
+
   await logAction(roomId, actorId, actorName, 'change_role', targetUserId, targetName, `${targetRole} -> ${newRole}`);
   return true;
 }
@@ -4029,7 +4077,7 @@ export async function updateRoomSettings(roomId: string, settings: Partial<Voice
   const actorName = (actor.username || actor.displayName || '') as string;
 
   // Owner-only settings
-  const ownerOnlyKeys = ['roomMode', 'roomPassword', 'micTheme', 'giftSplit', 'micSeatCount'];
+  const ownerOnlyKeys = ['roomMode', 'roomPassword', 'micTheme', 'giftSplit', 'micSeatCount', 'roomImage'];
   // Owner/coowner settings
   const adminKeys = ['chatMuted', 'bgmEnabled', 'announcement', 'isAutoMode', 'roomLevel'];
   // Known VoiceRoom columns (ignore unknown keys)

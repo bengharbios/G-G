@@ -18,6 +18,7 @@ import {
   Pencil,
   ScrollText,
   Sparkles,
+  ImageIcon,
 } from 'lucide-react';
 // SettingsSheet renders directly as a full overlay (no BottomSheetOverlay wrapper to avoid double-window effect)
 import { TUI, type VoiceRoom } from '../../types';
@@ -650,6 +651,9 @@ export default function SettingsSheet({
   // ── Sub-dialog states ──
   const [showMicModeDialog, setShowMicModeDialog] = useState(false);
   const [showAdminPermDialog, setShowAdminPermDialog] = useState(false);
+  const [showBgPicker, setShowBgPicker] = useState(false);
+  const [bgList, setBgList] = useState<Array<{id:string; name:string; imageUrl:string; thumbnailUrl:string; rarity:string; price:number; isFree:number}>>([]);
+  const [loadingBg, setLoadingBg] = useState(false);
 
   const [adminPerms, setAdminPerms] = useState<AdminPermissionState>({
     useClock: true,
@@ -708,8 +712,19 @@ export default function SettingsSheet({
         onClick: () => setShowAdminPermDialog(true),
       },
     ],
-    // Group 2: Room Management
+    // Group 2: Room Appearance
     [
+      {
+        id: 'room-background',
+        label: 'خلفية الغرفة',
+        icon: <ImageIcon size={20} color={TUI.colors.teal} />,
+        iconBg: 'rgba(13,138,122,0.1)',
+        value: room.roomImage ? 'مخصصة' : 'افتراضية',
+        onClick: () => {
+          setShowBgPicker(true);
+          fetchBgList();
+        },
+      },
       {
         id: 'membership-fee',
         label: 'رسوم العضوية',
@@ -751,6 +766,26 @@ export default function SettingsSheet({
       },
     ],
   ];
+
+  // ── Fetch backgrounds catalog ──
+  const fetchBgList = useCallback(async () => {
+    if (bgList.length > 0) return; // already loaded
+    setLoadingBg(true);
+    try {
+      const res = await fetch('/api/admin/backgrounds');
+      const data = await res.json();
+      if (data.success && data.backgrounds) {
+        setBgList(data.backgrounds);
+      }
+    } catch { /* ignore */ }
+    setLoadingBg(false);
+  }, [bgList.length]);
+
+  // ── Set room background ──
+  const handleSetBackground = useCallback((imageUrl: string) => {
+    onUpdate({ roomImage: imageUrl });
+    setShowBgPicker(false);
+  }, [onUpdate]);
 
   return (
     <>
@@ -1036,6 +1071,143 @@ export default function SettingsSheet({
         onConfirm={handleAdminPermConfirm}
         initialState={adminPerms}
       />
+
+      {/* ── Background Picker Dialog ── */}
+      <AnimatePresence>
+        {showBgPicker && (
+          <motion.div
+            className="fixed inset-0 z-[60] flex items-end justify-center"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
+          >
+            <div
+              className="absolute inset-0"
+              style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}
+              onClick={() => setShowBgPicker(false)}
+            />
+            <motion.div
+              className="relative w-full flex flex-col"
+              style={{
+                maxWidth: 420,
+                maxHeight: '75vh',
+                borderTopLeftRadius: TUI.radius.xl,
+                borderTopRightRadius: TUI.radius.xl,
+                backgroundColor: TUI.colors.white,
+                overflow: 'hidden',
+              }}
+              initial={{ y: '100%' }}
+              animate={{ y: 0 }}
+              exit={{ y: '100%' }}
+              transition={{ type: 'tween', duration: 0.3, ease: [0.4, 0, 0.2, 1] }}
+            >
+              {/* Header */}
+              <div
+                className="flex items-center justify-center relative"
+                style={{
+                  height: 52,
+                  background: `linear-gradient(135deg, ${TUI.colors.tealDark}, ${TUI.colors.teal})`,
+                }}
+              >
+                <span style={{ fontSize: '17px', fontWeight: 600, color: TUI.colors.white }}>
+                  خلفية الغرفة
+                </span>
+                <button
+                  onClick={() => setShowBgPicker(false)}
+                  className="absolute left-4 flex items-center justify-center rounded-full"
+                  style={{ width: 32, height: 32, color: TUI.colors.white }}
+                >
+                  <X size={20} />
+                </button>
+              </div>
+
+              {/* Remove background button */}
+              {room.roomImage && (
+                <div className="px-4 pt-3">
+                  <button
+                    onClick={() => handleSetBackground('')}
+                    className="w-full flex items-center justify-center gap-2 py-2.5 rounded-lg transition-all active:scale-[0.98]"
+                    style={{
+                      border: `1.5px dashed ${TUI.colors.teal}`,
+                      backgroundColor: 'transparent',
+                      color: TUI.colors.teal,
+                      fontSize: '13px',
+                      fontWeight: 600,
+                    }}
+                  >
+                    <X size={16} />
+                    إزالة الخلفية المخصصة
+                  </button>
+                </div>
+              )}
+
+              {/* Backgrounds Grid */}
+              <div className="flex-1 overflow-y-auto p-4" style={{ direction: 'rtl' }}>
+                {loadingBg ? (
+                  <div className="flex items-center justify-center py-8">
+                    <span style={{ fontSize: '14px', color: TUI.colors.textGray }}>جاري التحميل...</span>
+                  </div>
+                ) : bgList.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center py-8 gap-2">
+                    <ImageIcon size={32} color={TUI.colors.textMuted} />
+                    <span style={{ fontSize: '14px', color: TUI.colors.textGray }}>لا توجد خلفيات متاحة</span>
+                    <span style={{ fontSize: '12px', color: TUI.colors.textMuted }}>أضف خلفيات من لوحة تحكم الأدمن</span>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-3 gap-2.5">
+                    {bgList.map((bg) => (
+                      <button
+                        key={bg.id}
+                        onClick={() => handleSetBackground(bg.imageUrl)}
+                        className="relative rounded-lg overflow-hidden transition-all active:scale-[0.96]"
+                        style={{
+                          aspectRatio: '3/4',
+                          border: room.roomImage === bg.imageUrl
+                            ? `2.5px solid ${TUI.colors.teal}`
+                            : `1.5px solid ${TUI.colors.cardBorder}`,
+                          cursor: 'pointer',
+                        }}
+                      >
+                        {/* Thumbnail */}
+                        <img
+                          src={bg.thumbnailUrl || bg.imageUrl}
+                          alt={bg.name}
+                          className="w-full h-full object-cover"
+                          loading="lazy"
+                        />
+                        {/* Selected checkmark */}
+                        {room.roomImage === bg.imageUrl && (
+                          <div
+                            className="absolute top-1 right-1 flex items-center justify-center rounded-full"
+                            style={{ width: 20, height: 20, backgroundColor: TUI.colors.tealLight }}
+                          >
+                            <Check size={11} color={TUI.colors.white} strokeWidth={3} />
+                          </div>
+                        )}
+                        {/* Name overlay */}
+                        <div
+                          className="absolute bottom-0 left-0 right-0 px-1.5 py-1"
+                          style={{
+                            background: 'linear-gradient(transparent, rgba(0,0,0,0.7))',
+                          }}
+                        >
+                          <span
+                            className="block truncate text-center"
+                            style={{ fontSize: '10px', fontWeight: 500, color: '#fff' }}
+                          >
+                            {bg.name}
+                          </span>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </>
   );
 }

@@ -38,7 +38,7 @@ export async function POST(request: NextRequest) {
 
     const {
       name, description, hostName, maxParticipants, isPrivate, micSeatCount,
-      roomMode, roomPassword, micTheme, isAutoMode, roomAvatar,
+      roomMode, roomPassword, micTheme, isAutoMode, roomAvatar, roomImage,
     } = await request.json();
     if (!name) return NextResponse.json({ error: 'اسم الغرفة مطلوب' }, { status: 400 });
 
@@ -46,7 +46,7 @@ export async function POST(request: NextRequest) {
       userId, hostName || 'مستخدم', name, description || '',
       maxParticipants || 10, isPrivate || false, micSeatCount || 10,
       roomMode || 'public', roomPassword || '', micTheme || 'default', isAutoMode !== false,
-      roomAvatar || '',
+      roomAvatar || '', roomImage || '',
     );
     return NextResponse.json({ success: true, room });
   } catch (e) {
