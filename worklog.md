@@ -202,3 +202,25 @@ Stage Summary:
 - UI toggle in Settings sheet for enabling/disabling push
 - Service Worker upgraded with Arabic RTL push support
 - No new lint errors in changed files
+---
+Task ID: 7
+Agent: Main
+Task: Prepare project for Vercel deployment (voice rooms + push notifications)
+
+Work Log:
+- Reviewed full project structure and confirmed push notification system is fully implemented (VAPID keys, SW, manifest, hook, API routes, signaling integration)
+- Updated `useVoiceRTC.ts` to support configurable signal server URL:
+  - Added `NEXT_PUBLIC_SIGNAL_SERVER_URL` env variable support
+  - Falls back to `/?XTransformPort=3010` for local dev (Caddy proxy)
+  - Production: connects directly to deployed signaling server
+- Added `web-push` to `serverExternalPackages` in `next.config.ts` (required for Vercel serverless functions)
+- Updated `.env` with comprehensive documentation of all production variables needed
+- Verified no lint errors in modified files
+- Verified dev server and voice signal service are running correctly
+
+Stage Summary:
+- Socket.IO URL now configurable for production (NEXT_PUBLIC_SIGNAL_SERVER_URL)
+- web-push added to server external packages for Vercel compatibility
+- .env documented with all Vercel deployment variables
+- Project is ready for Vercel deployment with Turso cloud DB
+- Voice signal mini-service needs separate deployment (Railway/Render/Fly.io)

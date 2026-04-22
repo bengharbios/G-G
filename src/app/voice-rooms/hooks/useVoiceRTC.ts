@@ -268,7 +268,10 @@ export function useVoiceRTC({
     if (socketRef.current?.connected) return;
 
     import('socket.io-client').then(({ io }) => {
-      const socket = io('/?XTransformPort=3010', {
+      // Signal server URL: production uses NEXT_PUBLIC_SIGNAL_SERVER_URL,
+      // development falls back to Caddy proxy (XTransformPort=3010)
+      const signalUrl = process.env.NEXT_PUBLIC_SIGNAL_SERVER_URL || '/?XTransformPort=3010';
+      const socket = io(signalUrl, {
         transports: ['websocket', 'polling'],
         reconnection: true,
         reconnectionAttempts: 15,
