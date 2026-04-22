@@ -47,7 +47,7 @@ import type { VoiceRoom, AuthUser } from '../types';
    RoomInteriorView — TUILiveKit Room Interior (Improved Match)
 
    Structure (h-screen flex flex-col relative):
-     ├── Background (dark cosmic: #0A0E27 → #1A237E)
+     ├── Background (teal-green: #0D8A7A → #0A6B5E → #074a42)
      ├── z-10 flex flex-col h-full
      │   ├── Header (room avatar+name+Lv | audience avatars | close+⋮)
      │   ├── Announcement bar
@@ -728,8 +728,8 @@ export default function RoomInteriorView({
     [handleSendChat],
   );
 
-  /* ── Dark cosmic gradient background (matching screenshot) ── */
-  const bgGradient = 'linear-gradient(180deg, #0A0E27 0%, #1A237E 50%, #0D1442 100%)';
+  /* ── Teal-green gradient background (matching lobby & WAFA Ludo design) ── */
+  const bgGradient = 'linear-gradient(180deg, #0D8A7A 0%, #0A6B5E 30%, #074a42 100%)';
 
   /* ── Left side menu icon style (shared) ── */
   const menuBtnStyle: React.CSSProperties = {
@@ -760,7 +760,7 @@ export default function RoomInteriorView({
 
       {/* ═══════════════════════════════════════════════════════════════════════
           ROOT CONTAINER
-          Background: dark cosmic gradient matching screenshot
+          Background: teal-green gradient (matching lobby & WAFA Ludo design)
           ═══════════════════════════════════════════════════════════════════════ */}
       <div
         className="fixed inset-0 flex flex-col"
@@ -781,7 +781,7 @@ export default function RoomInteriorView({
               height: 52,
               minHeight: 52,
               padding: '0 12px',
-              backgroundColor: 'rgba(10, 14, 39, 0.65)',
+              backgroundColor: 'rgba(7, 74, 66, 0.65)',
               backdropFilter: 'blur(16px)',
               WebkitBackdropFilter: 'blur(16px)',
             }}
@@ -816,7 +816,7 @@ export default function RoomInteriorView({
                 {/* Online indicator dot */}
                 <div
                   className="absolute"
-                  style={{ bottom: -1, left: -1, width: 10, height: 10, borderRadius: '50%', backgroundColor: TUI.colors.green, border: '2px solid rgba(10, 14, 39, 0.9)', boxShadow: `0 0 4px ${TUI.colors.green}` }}
+                  style={{ bottom: -1, left: -1, width: 10, height: 10, borderRadius: '50%', backgroundColor: TUI.colors.green, border: '2px solid rgba(7, 74, 66, 0.9)', boxShadow: `0 0 4px ${TUI.colors.green}` }}
                 />
               </div>
               <div className="flex flex-col items-start min-w-0" style={{ gap: 1 }}>
@@ -848,7 +848,7 @@ export default function RoomInteriorView({
                         width: 24,
                         height: 24,
                         marginLeft: i > 0 ? -7 : 0,
-                        border: '2px solid rgba(10, 14, 39, 0.85)',
+                        border: '2px solid rgba(7, 74, 66, 0.85)',
                         zIndex: 5 - i,
                       }}
                     >
@@ -880,7 +880,7 @@ export default function RoomInteriorView({
                         fontSize: 8,
                         fontWeight: 700,
                         color: TUI.colors.tealLight,
-                        border: '2px solid rgba(10, 14, 39, 0.85)',
+                        border: '2px solid rgba(7, 74, 66, 0.85)',
                         zIndex: 0,
                       }}
                     >
@@ -944,7 +944,7 @@ export default function RoomInteriorView({
                       fontWeight: 700,
                       color: TUI.colors.white,
                       boxShadow: `0 0 6px ${TUI.colors.red}`,
-                      border: '1.5px solid rgba(10, 14, 39, 0.9)',
+                      border: '1.5px solid rgba(7, 74, 66, 0.9)',
                     }}
                   >
                     {pendingSeatRequests > 9 ? '9' : pendingSeatRequests}
@@ -1081,7 +1081,7 @@ export default function RoomInteriorView({
             style={{
               padding: '6px 10px',
               paddingBottom: 'max(6px, env(safe-area-inset-bottom, 6px))',
-              backgroundColor: 'rgba(10, 14, 39, 0.75)',
+              backgroundColor: 'rgba(7, 74, 66, 0.75)',
               backdropFilter: 'blur(16px)',
               WebkitBackdropFilter: 'blur(16px)',
               borderTop: '1px solid rgba(255,255,255,0.04)',
@@ -1188,7 +1188,7 @@ export default function RoomInteriorView({
                         fontWeight: 700,
                         color: TUI.colors.white,
                         boxShadow: `0 0 6px ${TUI.colors.red}`,
-                        border: '2px solid rgba(10, 14, 39, 0.9)',
+                        border: '2px solid rgba(7, 74, 66, 0.9)',
                         zIndex: 2,
                       }}
                     >
