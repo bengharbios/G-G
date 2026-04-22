@@ -3422,33 +3422,8 @@ export async function joinVoiceRoom(roomId: string, userId: string, username: st
     args: [crypto.randomUUID(), roomId, userId, username, displayName, avatar, 0, joinRole, joinSeat, joinStatus, 0, vipLevel],
   });
 
-  // If the original host is joining and someone else currently has owner role,
-  // restore ownership to the original host and demote the other to their saved role
-  if (isHost) {
-    const currentOwner = await c.execute({
-      sql: `SELECT userId, role FROM VoiceRoomParticipant WHERE roomId = ? AND userId != ? AND role = 'owner'`,
-      args: [roomId, userId],
-    });
-    if (currentOwner.rows.length > 0) {
-      const otherOwner = currentOwner.rows[0];
-      const otherId = otherOwner.userId as string;
-      // Check if the other owner has a saved role in RoomMember
-      const savedRole = await c.execute({
-        sql: 'SELECT role FROM RoomMember WHERE roomId = ? AND userId = ?',
-        args: [roomId, otherId],
-      });
-      const restoreRole = savedRole.rows.length > 0 ? (savedRole.rows[0].role as string) : 'member';
-      await c.execute({
-        sql: 'UPDATE VoiceRoomParticipant SET role = ? WHERE roomId = ? AND userId = ?',
-        args: [restoreRole, roomId, otherId],
-      });
-    }
-  }
-
-  // If role was restored from RoomMember, ensure it's still in sync
-  if (joinRole !== 'visitor' && joinRole !== 'owner') {
-    await logAction(roomId, userId, username, 'restore_role', '', '', `Restored role: ${joinRole}`);
-  }
+  // Roles are PERMANENT — no one affects anyone else's role.
+  // Each user gets their fixed role from RoomMember, nothing more.
   await logAction(roomId, userId, username, 'join_room', '', '', '');
   return { success: true };
 }
@@ -3472,26 +3447,11 @@ export async function leaveVoiceRoom(roomId: string, userId: string): Promise<bo
 
   await logAction(roomId, userId, leavingName, 'leave_room', '', '', '');
 
-  // Transfer acting ownership if owner left — but NEVER change VoiceRoom.hostId
-  // The room always belongs to the original creator (hostId stays permanent).
-  // We only transfer the "acting manager" role in VoiceRoomParticipant.
-  if (leavingRole === 'owner') {
-    // Find successor: oldest coowner > oldest admin > oldest member
-    const successor = await c.execute({
-      sql: `SELECT * FROM VoiceRoomParticipant WHERE roomId = ? AND role IN ('coowner', 'admin', 'member')
-            ORDER BY CASE role WHEN 'coowner' THEN 0 WHEN 'admin' THEN 1 WHEN 'member' THEN 2 END, joinedAt ASC LIMIT 1`,
-      args: [roomId],
-    });
-    if (successor.rows.length > 0) {
-      const s = successor.rows[0] as Record<string, unknown>;
-      await c.execute({ sql: "UPDATE VoiceRoomParticipant SET role = 'owner' WHERE roomId = ? AND userId = ?", args: [roomId, s.userId] });
-      await logAction(roomId, userId, leavingName, 'acting_manager_transfer', s.userId as string, (s.username as string) || '', 'Temporary manager while host is away');
-    }
-    // If no successor, nobody gets acting owner — room stays without a manager until host returns
-  }
+  // Roles are PERMANENT — leaving does NOT affect anyone else's role.
+  // Owner leaves? The room stays. Others keep their roles unchanged.
+  // No ownership transfer, no role swapping, no confusion.
 
-  // NOTE: We NO LONGER delete the room when empty. The room persists so the owner
-  // can rejoin it. It stays pinned in their "غرفتي" section.
+  // Room persists even when empty — owner can rejoin anytime.
 
   return true;
 }
@@ -4131,8 +4091,11 @@ export async function changeUserRole(roomId: string, targetUserId: string, newRo
   // Cannot change role of someone with higher or equal role
   if (ROLE_HIERARCHY[targetRole] >= ROLE_HIERARCHY[actorRole]) return false;
 
-  // Only owner can set coowner
-  if (newRole === 'coowner' && ROLE_HIERARCHY[actorRole] < ROLE_HIERARCHY.owner) return false;
+  // Only owner can set coowner or admin
+  if ((newRole === 'coowner' || newRole === 'admin') && ROLE_HIERARCHY[actorRole] < ROLE_HIERARCHY.owner) return false;
+
+  // Coowner can ONLY give membership (member role) — nothing else
+  if (ROLE_HIERARCHY[actorRole] === ROLE_HIERARCHY.coowner && newRole !== 'member') return false;
 
   // Cannot promote someone to your level or above
   if (ROLE_HIERARCHY[newRole] >= ROLE_HIERARCHY[actorRole]) return false;
