@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { jwtVerify } from 'jose';
 import {
   getAllVoiceRooms, createVoiceRoom, getRoomByHostId, updateRoomImage,
+  migrateAssignNumericIds,
 } from '@/lib/admin-db';
 
 const JWT_SECRET = new TextEncoder().encode(process.env.JWT_SECRET || 'gg-platform-secret-key-2024');
@@ -15,6 +16,9 @@ async function getUserId(request: NextRequest): Promise<string | null> {
 
 export async function GET(request: NextRequest) {
   try {
+    // Auto-migrate: assign numeric IDs to existing users who don't have one
+    try { await migrateAssignNumericIds(); } catch { /* silent */ }
+
     const userId = await getUserId(request);
     const myRoom = userId ? await getRoomByHostId(userId) : null;
     const rooms = await getAllVoiceRooms();

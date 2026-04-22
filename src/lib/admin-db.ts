@@ -1113,6 +1113,29 @@ export async function assignNumericId(): Promise<number> {
   return 1000000 + Math.floor(Math.random() * 9000000);
 }
 
+/** Migration: assign numeric IDs to all existing users who don't have one */
+export async function migrateAssignNumericIds(): Promise<{ updated: number; total: number }> {
+  const c = getClient();
+  await ensureAdminTables();
+  await seedReservedNumericIds();
+
+  const users = await c.execute({ sql: 'SELECT id FROM AppUser WHERE numericId IS NULL AND isActive = 1', args: [] });
+  let updated = 0;
+
+  for (const row of users.rows) {
+    const userId = row.id as string;
+    const numericId = await assignNumericId();
+    try {
+      await c.execute({ sql: 'UPDATE AppUser SET numericId = ? WHERE id = ?', args: [numericId, userId] });
+      updated++;
+    } catch {
+      // Skip if collision (very unlikely)
+    }
+  }
+
+  return { updated, total: users.rows.length };
+}
+
 /** Get all reserved numeric IDs (for admin panel) */
 export async function getReservedNumericIds(): Promise<Array<{ numericId: number; status: string; soldTo: string; soldAt: string; price: number }>> {
   const c = getClient();
