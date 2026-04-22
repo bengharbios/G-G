@@ -26,6 +26,7 @@ export interface VoiceRoom {
   description: string;
   hostId: string;
   hostName: string;
+  hostNumericId?: number | null;
   maxParticipants: number;
   isPrivate: boolean;
   micSeatCount: number;

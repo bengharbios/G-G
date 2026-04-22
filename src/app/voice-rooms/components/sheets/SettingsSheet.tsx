@@ -911,7 +911,7 @@ export default function SettingsSheet({
                         color: TUI.colors.textGray,
                       }}
                     >
-                      ID: {room.hostId?.slice(0, 8) || '----'}
+                      ID: {room.hostNumericId || '----'}
                     </span>
                     <span
                       className="flex items-center justify-center px-2 py-0.5 rounded-full"

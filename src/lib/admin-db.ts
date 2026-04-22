@@ -3182,7 +3182,12 @@ async function getUserVipLevel(userId: string): Promise<number> {
 export async function getRoomById(roomId: string): Promise<VoiceRoom | null> {
   const c = getClient();
   await ensureAdminTables();
-  const result = await c.execute({ sql: 'SELECT * FROM VoiceRoom WHERE id = ?', args: [roomId] });
+  const result = await c.execute({
+    sql: `SELECT vr.*, au.numericId as hostNumericId FROM VoiceRoom vr
+          LEFT JOIN AppUser au ON vr.hostId = au.id
+          WHERE vr.id = ?`,
+    args: [roomId],
+  });
   if (result.rows.length === 0) return null;
   const row = result.rows[0];
   let lockedSeats: number[] = [];
@@ -3193,6 +3198,7 @@ export async function getRoomById(roomId: string): Promise<VoiceRoom | null> {
   return {
     id: row.id as string, name: row.name as string, description: (row.description as string) || '',
     hostId: row.hostId as string, hostName: (row.hostName as string) || '',
+    hostNumericId: row.hostNumericId ? Number(row.hostNumericId) : null,
     maxParticipants: Number(row.maxParticipants) || 10, isPrivate: Boolean(row.isPrivate),
     micSeatCount: Number(row.micSeatCount) || 10,
     roomMode: (row.roomMode as VoiceRoom['roomMode']) || 'public',
@@ -3265,8 +3271,10 @@ export async function getAllVoiceRooms(): Promise<VoiceRoom[]> {
   const c = getClient();
   await ensureAdminTables();
   const result = await c.execute({
-    sql: `SELECT vr.*, COUNT(vrp.id) as participantCount
-          FROM VoiceRoom vr LEFT JOIN VoiceRoomParticipant vrp ON vr.id = vrp.roomId
+    sql: `SELECT vr.*, COUNT(vrp.id) as participantCount, au.numericId as hostNumericId
+          FROM VoiceRoom vr
+          LEFT JOIN VoiceRoomParticipant vrp ON vr.id = vrp.roomId
+          LEFT JOIN AppUser au ON vr.hostId = au.id
           WHERE vr.roomMode IN ('public', 'key')
           GROUP BY vr.id ORDER BY vr.createdAt DESC`,
     args: [],
@@ -3274,6 +3282,7 @@ export async function getAllVoiceRooms(): Promise<VoiceRoom[]> {
   return result.rows.map(row => ({
     id: row.id as string, name: row.name as string, description: (row.description as string) || '',
     hostId: row.hostId as string, hostName: (row.hostName as string) || '',
+    hostNumericId: row.hostNumericId ? Number(row.hostNumericId) : null,
     maxParticipants: Number(row.maxParticipants) || 10, isPrivate: Boolean(row.isPrivate),
     micSeatCount: Number(row.micSeatCount) || 10,
     roomMode: (row.roomMode as VoiceRoom['roomMode']) || 'public',

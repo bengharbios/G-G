@@ -834,7 +834,7 @@ export default function RoomInteriorView({
                     textAlign: 'right',
                   }}
                 >
-                  ID: {vr.room.id.slice(0, 10)}
+                  {vr.room.id}
                 </span>
               </button>
 
