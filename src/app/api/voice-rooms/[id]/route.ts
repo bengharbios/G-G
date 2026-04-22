@@ -14,6 +14,7 @@ import {
   inviteToMic, acceptMicInvite, rejectMicInvite,
   ROLE_HIERARCHY, RoomRole, getRoomWeeklyGems, getRoomTopGifts,
   getUserGemsBalance,
+  cleanupStaleParticipants, updateParticipantLastSeen,
 } from '@/lib/admin-db';
 
 const JWT_SECRET = new TextEncoder().encode(process.env.JWT_SECRET || 'gg-platform-secret-key-2024');
@@ -31,7 +32,15 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     const { searchParams } = new URL(request.url);
     const action = searchParams.get('action');
 
+    if (action === 'heartbeat') {
+      const p = await getPayload(request);
+      if (!p) return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
+      await updateParticipantLastSeen(id, p.userId as string);
+      return NextResponse.json({ success: true });
+    }
     if (action === 'participants') {
+      // Clean up stale participants (users who left without clicking "leave")
+      try { await cleanupStaleParticipants(id); } catch { /* ignore */ }
       const p = await getVoiceRoomParticipants(id);
       return NextResponse.json({ success: true, participants: p });
     }

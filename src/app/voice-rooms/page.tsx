@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { LoginModal, RegisterModal } from '@/components/AuthModals';
 
 const TUI_COLORS_G1 = '#0F1014';
 import InjectStyles from './components/shared/InjectStyles';
@@ -11,6 +12,7 @@ import RoomInteriorView from './components/RoomInteriorView';
 import PasswordDialog from './components/dialogs/PasswordDialog';
 import CreateRoomDialog from './components/dialogs/CreateRoomDialog';
 import type { VoiceRoom, AuthUser, RoomMode } from './types';
+import type { AuthUser as AuthUserFull } from '@/components/AuthModals';
 
 /* ═══════════════════════════════════════════════════════════════════════
    VoiceRoomsPage — Entry point
@@ -33,6 +35,10 @@ export default function VoiceRoomsPage() {
   const [myRoom, setMyRoom] = useState<VoiceRoom | null>(null);
   const [loadingRooms, setLoadingRooms] = useState(true);
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
+
+  // Auth dialog state
+  const [loginDialogOpen, setLoginDialogOpen] = useState(false);
+  const [registerDialogOpen, setRegisterDialogOpen] = useState(false);
 
   /* ── Fetch auth user ── */
   useEffect(() => {
@@ -158,6 +164,11 @@ export default function VoiceRoomsPage() {
   /* ── Public entry: when clicking a room card ── */
   const handleRoomClick = useCallback(
     (room: VoiceRoom) => {
+      // Check if user is authenticated — show login dialog if not
+      if (!authUser) {
+        setLoginDialogOpen(true);
+        return;
+      }
       // Owner always bypasses password — server-side will handle it
       if (room.hostId === authUser?.id) {
         handleJoinRoom(room);
@@ -170,7 +181,7 @@ export default function VoiceRoomsPage() {
         handleJoinRoom(room);
       }
     },
-    [handleJoinRoom, authUser?.id],
+    [handleJoinRoom, authUser?.id, authUser],
   );
 
   /* ── Password dialog callback ── */
@@ -183,6 +194,19 @@ export default function VoiceRoomsPage() {
     },
     [pendingPasswordRoom, handleJoinRoom],
   );
+
+  /* ── Auth callback: after successful login/register ── */
+  const handleAuthSuccess = useCallback((user: AuthUserFull) => {
+    setAuthUser({
+      id: user.id,
+      username: user.username,
+      displayName: user.displayName || user.username,
+      avatar: user.avatar || '',
+      vipLevel: 0,
+    });
+    setLoginDialogOpen(false);
+    setRegisterDialogOpen(false);
+  }, []);
 
   /* ── Create room ── */
   const handleCreateRoom = useCallback(
@@ -292,6 +316,20 @@ export default function VoiceRoomsPage() {
           loading={loadingRooms}
         />
       )}
+
+      {/* Login/Register modals for unauthenticated users */}
+      <LoginModal
+        open={loginDialogOpen}
+        onOpenChange={setLoginDialogOpen}
+        onSwitchToRegister={() => { setLoginDialogOpen(false); setTimeout(() => setRegisterDialogOpen(true), 150); }}
+        onLoginSuccess={handleAuthSuccess}
+      />
+      <RegisterModal
+        open={registerDialogOpen}
+        onOpenChange={setRegisterDialogOpen}
+        onSwitchToLogin={() => { setRegisterDialogOpen(false); setTimeout(() => setLoginDialogOpen(true), 150); }}
+        onRegisterSuccess={handleAuthSuccess}
+      />
 
       {/* Password dialog for key-mode rooms */}
       <PasswordDialog

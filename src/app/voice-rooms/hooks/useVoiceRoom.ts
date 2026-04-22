@@ -250,6 +250,11 @@ export function useVoiceRoom(
     const myPoll = setInterval(() => { if (!cancelled) fetchMyParticipantRef.current(); }, 4000);
     const gemsPoll = setInterval(() => { if (!cancelled) fetchWeeklyGemsRef.current(); }, 10000);
     const myGemsPoll = setInterval(() => { if (!cancelled) fetchMyGemsBalanceRef.current(); }, 10000);
+    const heartbeatPoll = setInterval(() => {
+      if (!cancelled && authUser) {
+        fetch(`/api/voice-rooms/${roomId}?action=heartbeat`, { method: 'GET' }).catch(() => {});
+      }
+    }, 8000);
 
     return () => {
       cancelled = true;
@@ -259,6 +264,7 @@ export function useVoiceRoom(
       if (myPoll) clearInterval(myPoll);
       if (gemsPoll) clearInterval(gemsPoll);
       if (myGemsPoll) clearInterval(myGemsPoll);
+      if (heartbeatPoll) clearInterval(heartbeatPoll);
     };
   }, [roomId]);
 

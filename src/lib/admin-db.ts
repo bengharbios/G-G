@@ -586,6 +586,7 @@ async function ensureAdminTables(): Promise<void> {
     { name: 'vipLevel', def: 'INTEGER DEFAULT 0' },
     { name: 'pendingRole', def: "TEXT DEFAULT ''" },
     { name: 'pendingMicInvite', def: 'INTEGER DEFAULT -1' },
+    { name: 'lastSeen', def: "TEXT DEFAULT (datetime('now'))" },
   ];
   for (const col of vrpColumns) {
     try {
@@ -3217,6 +3218,30 @@ export async function leaveVoiceRoom(roomId: string, userId: string): Promise<bo
   // can rejoin it. It stays pinned in their "غرفتي" section.
 
   return true;
+}
+
+export async function cleanupStaleParticipants(roomId: string): Promise<number> {
+  const c = getClient();
+  await ensureAdminTables();
+  // Remove participants whose lastSeen is older than 30 seconds
+  // This handles users who closed browser/tab without clicking "leave"
+  const result = await c.execute({
+    sql: `DELETE FROM VoiceRoomParticipant 
+          WHERE roomId = ? 
+          AND lastSeen IS NOT NULL 
+          AND lastSeen < datetime('now', '-30 seconds')`,
+    args: [roomId],
+  });
+  return result.rowsAffected;
+}
+
+export async function updateParticipantLastSeen(roomId: string, userId: string): Promise<void> {
+  const c = getClient();
+  await ensureAdminTables();
+  await c.execute({
+    sql: `UPDATE VoiceRoomParticipant SET lastSeen = datetime('now') WHERE roomId = ? AND userId = ?`,
+    args: [roomId, userId],
+  });
 }
 
 export async function toggleMicInRoom(roomId: string, userId: string): Promise<boolean> {
