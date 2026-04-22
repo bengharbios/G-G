@@ -67,9 +67,10 @@ export default function VoiceRoomsPage() {
       try {
         const savedRoomId = localStorage.getItem('vr_active_room');
         if (savedRoomId) {
+          // Always bypass cache — room may have been deleted
           const [roomData, partData] = await Promise.all([
-            fetch(`/api/voice-rooms/${savedRoomId}?action=room-details`).then((r) => r.json()),
-            fetch(`/api/voice-rooms/${savedRoomId}?action=my-participant`).then((r) => r.json()),
+            fetch(`/api/voice-rooms/${savedRoomId}?action=room-details&_t=${Date.now()}`).then((r) => r.json()),
+            fetch(`/api/voice-rooms/${savedRoomId}?action=my-participant&_t=${Date.now()}`).then((r) => r.json()),
           ]);
           if (!cancelled) {
             if (roomData.success && roomData.room && partData.success && partData.participant) {
