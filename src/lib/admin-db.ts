@@ -3876,15 +3876,23 @@ export async function changeUserRole(roomId: string, targetUserId: string, newRo
 
   // Persist membership in RoomMember table (survives leave/rejoin)
   if (newRole === 'member' || newRole === 'admin' || newRole === 'coowner') {
-    await c.execute({
-      sql: `INSERT INTO RoomMember (id, roomId, userId, role, grantedBy)
-            VALUES (?, ?, ?, ?, ?)
-            ON CONFLICT(roomId, userId) DO UPDATE SET role = excluded.role, grantedBy = excluded.grantedAt`,
-      args: [crypto.randomUUID(), roomId, targetUserId, newRole, actorId],
-    });
+    try {
+      await c.execute({
+        sql: `INSERT INTO RoomMember (id, roomId, userId, role, grantedBy)
+              VALUES (?, ?, ?, ?, ?)
+              ON CONFLICT(roomId, userId) DO UPDATE SET role = excluded.role, grantedBy = excluded.grantedBy`,
+        args: [crypto.randomUUID(), roomId, targetUserId, newRole, actorId],
+      });
+    } catch (err) {
+      console.error('[changeUserRole] Failed to persist RoomMember:', err);
+    }
   } else if (newRole === 'visitor') {
     // If demoted to visitor, remove persistent membership
-    await c.execute({ sql: 'DELETE FROM RoomMember WHERE roomId = ? AND userId = ?', args: [roomId, targetUserId] });
+    try {
+      await c.execute({ sql: 'DELETE FROM RoomMember WHERE roomId = ? AND userId = ?', args: [roomId, targetUserId] });
+    } catch (err) {
+      console.error('[changeUserRole] Failed to remove RoomMember:', err);
+    }
   }
 
   await logAction(roomId, actorId, actorName, 'change_role', targetUserId, targetName, `${targetRole} -> ${newRole}`);
@@ -3980,6 +3988,21 @@ export async function acceptRoleInvite(roomId: string, userId: string): Promise<
       await c.execute({ sql: "UPDATE VoiceRoomParticipant SET pendingRole = '' WHERE roomId = ? AND userId = ?", args: [roomId, userId] });
       console.log(`[acceptRoleInvite] Failed to update but cleared pendingRole: roomId=${roomId} userId=${userId}`);
       return { success: false };
+    }
+    
+    // Persist membership in RoomMember table so it survives leave/rejoin
+    if (currentPending === 'member' || currentPending === 'admin' || currentPending === 'coowner') {
+      try {
+        await c.execute({
+          sql: `INSERT INTO RoomMember (id, roomId, userId, role, grantedBy)
+                VALUES (?, ?, ?, ?, '')
+                ON CONFLICT(roomId, userId) DO UPDATE SET role = excluded.role`,
+          args: [crypto.randomUUID(), roomId, userId, currentPending],
+        });
+        console.log(`[acceptRoleInvite] Persisted RoomMember: role='${currentPending}' for userId=${userId}`);
+      } catch (err) {
+        console.error('[acceptRoleInvite] Failed to persist RoomMember:', err);
+      }
     }
     
     console.log(`[acceptRoleInvite] Accepted! role='${currentPending}' (was '${currentRole}') for userId=${userId}`);
