@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { Loader2 } from 'lucide-react';
+import { Loader2, Headphones } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { LoginModal, RegisterModal } from '@/components/AuthModals';
 
@@ -18,14 +18,14 @@ import type { AuthUser as AuthUserFull } from '@/components/AuthModals';
    VoiceRoomsPage — Entry point
 
    Handles auth state, room restore, join, create, exit flows.
-   InjectStyles is rendered globally for Cairo font + animations.
-   PasswordDialog is always mounted for key-mode rooms.
-   CreateRoomDialog is managed here and triggered from RoomListView.
+   When a room is minimized, the RoomInteriorView stays mounted (hidden)
+   and a floating mini-widget is shown for quick re-expand.
    ═══════════════════════════════════════════════════════════════════════ */
 
 export default function VoiceRoomsPage() {
   const { toast } = useToast();
   const [activeRoom, setActiveRoom] = useState<VoiceRoom | null>(null);
+  const [isMinimized, setIsMinimized] = useState(false);
   const [authUser, setAuthUser] = useState<AuthUser | null>(null);
   const [restoring, setRestoring] = useState(true);
   const [pendingPasswordRoom, setPendingPasswordRoom] = useState<VoiceRoom | null>(null);
@@ -92,7 +92,7 @@ export default function VoiceRoomsPage() {
     return () => { cancelled = true; };
   }, []);
 
-  /* ── Fetch rooms for lobby (when no active room) ── */
+  /* ── Fetch rooms for lobby (when no active room or minimized) ── */
   const fetchLobbyRooms = useCallback(async () => {
     try {
       setLoadingRooms(true);
@@ -110,10 +110,10 @@ export default function VoiceRoomsPage() {
   }, []);
 
   useEffect(() => {
-    if (!restoring && !activeRoom) {
+    if (!restoring && (!activeRoom || isMinimized)) {
       fetchLobbyRooms();
     }
-  }, [restoring, activeRoom, fetchLobbyRooms]);
+  }, [restoring, activeRoom, isMinimized, fetchLobbyRooms]);
 
   const handleRoomUpdate = useCallback((updatedRoom: VoiceRoom) => {
     setActiveRoom(updatedRoom);
@@ -145,6 +145,7 @@ export default function VoiceRoomsPage() {
         const data = await res.json();
         if (data.success) {
           setActiveRoom(room);
+          setIsMinimized(false);
           try {
             localStorage.setItem('vr_active_room', room.id);
           } catch {}
@@ -261,25 +262,37 @@ export default function VoiceRoomsPage() {
     [authUser, handleJoinRoom, fetchLobbyRooms],
   );
 
-  /* ── Exit room ── */
+  /* ── Exit room ──
+     alreadyCalledLeave=false → minimize (keep room alive, show floating widget)
+     alreadyCalledLeave=true  → actually leave (clear room, back to lobby)
+  */
   const handleExitRoom = useCallback(async (alreadyCalledLeave?: boolean) => {
-    try {
-      if (!alreadyCalledLeave) {
+    if (alreadyCalledLeave) {
+      // Actually leaving the room
+      try {
         const savedRoomId = localStorage.getItem('vr_active_room');
         if (savedRoomId) {
           await fetch(`/api/voice-rooms/${savedRoomId}?action=leave`, {
             method: 'POST',
           });
         }
-      }
-    } catch { /* ignore */ }
-    setActiveRoom(null);
-    try {
-      localStorage.removeItem('vr_active_room');
-    } catch {}
-    // Refresh lobby rooms when returning
-    fetchLobbyRooms();
+      } catch { /* ignore */ }
+      setActiveRoom(null);
+      setIsMinimized(false);
+      try {
+        localStorage.removeItem('vr_active_room');
+      } catch {}
+      fetchLobbyRooms();
+    } else {
+      // Minimize: keep room alive, show floating widget
+      setIsMinimized(true);
+    }
   }, [fetchLobbyRooms]);
+
+  /* ── Restore from minimize ── */
+  const handleRestoreFromMinimize = useCallback(() => {
+    setIsMinimized(false);
+  }, []);
 
   /* ── Loading while restoring room ── */
   if (restoring) {
@@ -299,14 +312,26 @@ export default function VoiceRoomsPage() {
       {/* Global styles injection (Cairo font + animations) */}
       <InjectStyles />
 
-      {activeRoom ? (
-        <RoomInteriorView
-          room={activeRoom}
-          onExit={handleExitRoom}
-          authUser={authUser}
-          onRoomUpdate={handleRoomUpdate}
-        />
-      ) : (
+      {/* ── Room Interior View (mounted when activeRoom exists, hidden when minimized) ──
+           Keep mounted during minimize so heartbeat/polling continue running.
+           Using pointer-events-none and visibility:hidden instead of conditional render. */}
+      {activeRoom && (
+        <div
+          style={{
+            display: isMinimized ? 'none' : 'block',
+          }}
+        >
+          <RoomInteriorView
+            room={activeRoom}
+            onExit={handleExitRoom}
+            authUser={authUser}
+            onRoomUpdate={handleRoomUpdate}
+          />
+        </div>
+      )}
+
+      {/* ── Lobby View (shown when no room or minimized) ── */}
+      {!activeRoom || isMinimized ? (
         <RoomListView
           rooms={rooms}
           myRoom={myRoom}
@@ -315,6 +340,76 @@ export default function VoiceRoomsPage() {
           authUser={authUser}
           loading={loadingRooms}
         />
+      ) : null}
+
+      {/* ── Floating Minimized Room Widget ── */}
+      {activeRoom && isMinimized && (
+        <button
+          type="button"
+          onClick={handleRestoreFromMinimize}
+          className="fixed flex items-center gap-2 rounded-2xl cursor-pointer touch-manipulation"
+          style={{
+            bottom: 24,
+            right: 16,
+            zIndex: 100,
+            padding: '10px 16px',
+            backgroundColor: 'linear-gradient(135deg, #0D8A7A 0%, #0A6B5E 100%)',
+            border: '1.5px solid rgba(255,255,255,0.15)',
+            boxShadow: '0 4px 24px rgba(0,0,0,0.5), 0 0 16px rgba(13,138,122,0.3)',
+            color: '#fff',
+            maxWidth: 220,
+            animation: 'minimizeSlideIn 0.3s ease',
+          }}
+          aria-label="فتح الغرفة"
+        >
+          {/* Room icon */}
+          <div
+            className="flex items-center justify-center rounded-xl flex-shrink-0"
+            style={{
+              width: 36,
+              height: 36,
+              backgroundColor: 'rgba(255,255,255,0.15)',
+            }}
+          >
+            <Headphones size={18} style={{ color: '#fff' }} />
+          </div>
+
+          {/* Room name */}
+          <div className="flex flex-col items-start min-w-0" style={{ gap: 1 }}>
+            <span
+              className="truncate block"
+              style={{ fontSize: 12, fontWeight: 600, lineHeight: '16px', maxWidth: 150 }}
+            >
+              {activeRoom.name}
+            </span>
+            <span style={{ fontSize: 9, color: 'rgba(255,255,255,0.5)', lineHeight: '12px' }}>
+              اضغط للعودة
+            </span>
+          </div>
+
+          {/* Pulse indicator — room is live */}
+          <span
+            className="flex-shrink-0 rounded-full"
+            style={{
+              width: 8,
+              height: 8,
+              backgroundColor: '#22c55e',
+              boxShadow: '0 0 6px rgba(34,197,94,0.6)',
+              animation: 'pulse 2s ease-in-out infinite',
+            }}
+          />
+
+          <style>{`
+            @keyframes minimizeSlideIn {
+              from { opacity: 0; transform: translateY(20px) scale(0.9); }
+              to { opacity: 1; transform: translateY(0) scale(1); }
+            }
+            @keyframes pulse {
+              0%, 100% { opacity: 1; }
+              50% { opacity: 0.4; }
+            }
+          `}</style>
+        </button>
       )}
 
       {/* Login/Register modals for unauthenticated users */}

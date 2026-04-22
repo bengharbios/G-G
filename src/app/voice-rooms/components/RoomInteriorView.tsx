@@ -8,7 +8,7 @@ import {
   Lock, MoreVertical, Users, Settings2, Shield,
   PencilLine, Sparkles,
   UserPlus, LogOut, Heart, AlertTriangle,
-  MessageSquare, UserCog, Trophy, LogIn, Minimize2,
+  MessageSquare, UserCog, Trophy, LogIn, Minimize2, MoreHorizontal,
 } from 'lucide-react';
 import { useVoiceRoom } from '../hooks/useVoiceRoom';
 import {
@@ -357,21 +357,20 @@ function MicSeatGrid({
   }
 
   // ── Broadcast 5: 1 top (host) + 4 bottom (pyramid) ──
+  // NOTE: All seats rendered sequentially — owner moves like everyone else
   if (layoutId === 'broadcast5') {
-    const hostSeat = seats.find(s => s.participant?.role === 'owner') || seats[0];
-    const bottomSeats = seats.filter(s => s.seatIndex !== hostSeat.seatIndex);
     return (
       <div
         className="flex flex-col items-center flex-shrink-0"
         style={{ padding: '16px 16px 8px', gap: 14 }}
       >
-        {/* Top row: Host (slightly larger) */}
+        {/* Top row: seat 0 */}
         <div className="flex items-center justify-center">
-          <SeatCircle seat={hostSeat} size={seatSize + 6} onSeatClick={onSeatClick} />
+          <SeatCircle seat={seats[0]} size={seatSize + 6} onSeatClick={onSeatClick} />
         </div>
-        {/* Bottom row: 4 seats */}
+        {/* Bottom row: seats 1-4 */}
         <div className="flex items-center justify-center" style={{ gap: 10 }}>
-          {bottomSeats.map((seat) => (
+          {seats.slice(1).map((seat) => (
             <SeatCircle key={seat.seatIndex} seat={seat} size={seatSize} onSeatClick={onSeatClick} />
           ))}
         </div>
@@ -824,8 +823,27 @@ export default function RoomInteriorView({
                 </span>
               </button>
 
-              {/* Left: Share + Exit buttons */}
+              {/* Left: Settings (admin) + Share + Exit buttons */}
               <div className="flex items-center flex-shrink-0" style={{ gap: 6 }}>
+                {/* Settings button — admin/owner only, opens three-dots menu */}
+                {isAdmin && (
+                  <button
+                    onClick={() => setShowDotsMenu(true)}
+                    className="rounded-full flex items-center justify-center cursor-pointer touch-manipulation"
+                    style={{
+                      width: 34,
+                      height: 34,
+                      minWidth: 44,
+                      minHeight: 44,
+                      backgroundColor: 'rgba(255,255,255,0.08)',
+                      border: '1px solid rgba(255,255,255,0.1)',
+                      transition: TUI.anim.fast,
+                    }}
+                    aria-label="الإعدادات"
+                  >
+                    <Settings2 size={16} style={{ color: TUI.colors.white }} />
+                  </button>
+                )}
                 {/* Share button */}
                 <button
                   onClick={handleShare}
@@ -887,12 +905,13 @@ export default function RoomInteriorView({
                           boxShadow: '0 8px 24px rgba(0,0,0,0.4)',
                         }}
                       >
-                        {/* Minimize / Keep room */}
+                        {/* Minimize / Keep room alive */}
                         <button
                           onClick={() => {
                             setShowExitMenu(false);
-                            // Minimize room — exit view but keep room alive
-                            vr.handleLeaveRoom().then(() => onExit(false));
+                            // Minimize room — hide view but keep room running
+                            // DO NOT call handleLeaveRoom — just signal minimize
+                            onExit(false);
                           }}
                           className="flex items-center gap-2.5 px-4 py-2.5 bg-transparent border-none cursor-pointer touch-manipulation w-full"
                           style={{ transition: TUI.anim.fast }}
