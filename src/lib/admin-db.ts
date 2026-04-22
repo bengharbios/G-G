@@ -3839,6 +3839,34 @@ export async function getWaitlist(roomId: string): Promise<RoomWaitlist[]> {
 }
 
 // 19. changeUserRole
+// Get persistent room members (includes members not currently in room)
+export async function getRoomMembers(roomId: string): Promise<Array<{ userId: string; username: string; displayName: string; avatar: string; role: string; grantedAt: string }>> {
+  const c = getClient();
+  await ensureAdminTables();
+  const result = await c.execute({
+    sql: `SELECT rm.userId, rm.role as memberRole, rm.grantedAt,
+                 COALESCE(vrp.username, au.username, '') as username,
+                 COALESCE(vrp.displayName, au.displayName, '') as displayName,
+                 COALESCE(vrp.avatar, au.avatar, '') as avatar
+          FROM RoomMember rm
+          LEFT JOIN VoiceRoomParticipant vrp ON vrp.roomId = rm.roomId AND vrp.userId = rm.userId
+          LEFT JOIN AppUser au ON au.id = rm.userId
+          WHERE rm.roomId = ?
+          ORDER BY CASE rm.role
+            WHEN 'coowner' THEN 0 WHEN 'admin' THEN 1 WHEN 'member' THEN 2 ELSE 3 END,
+            rm.grantedAt ASC`,
+    args: [roomId],
+  });
+  return result.rows.map(r => ({
+    userId: r.userId as string,
+    username: (r.username as string) || '',
+    displayName: (r.displayName as string) || '',
+    avatar: (r.avatar as string) || '',
+    role: (r.memberRole as string) || 'member',
+    grantedAt: (r.grantedAt as string) || '',
+  }));
+}
+
 export async function changeUserRole(roomId: string, targetUserId: string, newRole: RoomRole, actorId: string): Promise<boolean> {
   const c = getClient();
   await ensureAdminTables();

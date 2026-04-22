@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo, useRef } from 'react';
+import { useState, useMemo, useRef, useEffect } from 'react';
 import Image from 'next/image';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -38,6 +38,15 @@ interface TopGiftItem {
   receiverName: string;
   receiverAvatar: string;
   createdAt: string;
+}
+
+interface PersistentMember {
+  userId: string;
+  username: string;
+  displayName: string;
+  avatar: string;
+  role: string;
+  grantedAt: string;
 }
 
 export interface RoomInfoSheetProps {
@@ -136,17 +145,80 @@ export default function RoomInfoSheet({
   onUpdateAvatar,
 }: RoomInfoSheetProps) {
   const [activeTab, setActiveTab] = useState<TabKey>('info');
+  const [persistentMembers, setPersistentMembers] = useState<PersistentMember[]>([]);
   const avatarInputRef = useRef<HTMLInputElement>(null);
   const tabIndex = TABS.findIndex((t) => t.key === activeTab);
 
+  /* ── Fetch persistent room members ── */
+  useEffect(() => {
+    if (!isOpen || !room.id) return;
+    fetch(`/api/voice-rooms/${room.id}?action=room-members`)
+      .then(r => r.json())
+      .then(d => { if (d.success) setPersistentMembers(d.members || []); })
+      .catch(() => {});
+  }, [isOpen, room.id]);
+
   /* ── Derived data ── */
 
+  // Merge persistent members (RoomMember) with current participants
+  // Persistent members always show, even when offline
   const sortedMembers = useMemo(() => {
-    if (!participants) return [];
-    return [...participants]
-      .filter((p) => p.role !== 'visitor')
-      .sort((a, b) => (ROLE_LEVELS[b.role] || 0) - (ROLE_LEVELS[a.role] || 0));
-  }, [participants]);
+    // Map of current participants by userId for quick lookup
+    const onlineMap = new Map<string, VoiceRoomParticipant>();
+    if (participants) {
+      participants.forEach(p => onlineMap.set(p.userId, p));
+    }
+
+    // Build merged list from persistent members
+    const merged: Array<{
+      id: string;
+      userId: string;
+      displayName: string;
+      avatar: string;
+      role: string;
+      joinedAt: string;
+      isOnline: boolean;
+    }> = [];
+
+    const seen = new Set<string>();
+
+    // Add all persistent members
+    for (const m of persistentMembers) {
+      if (seen.has(m.userId)) continue;
+      seen.add(m.userId);
+      const online = onlineMap.get(m.userId);
+      merged.push({
+        id: online?.id || m.userId,
+        userId: m.userId,
+        displayName: online?.displayName || m.displayName || m.username,
+        avatar: online?.avatar || m.avatar,
+        role: online?.role || m.role,
+        joinedAt: online?.joinedAt || m.grantedAt,
+        isOnline: !!online,
+      });
+    }
+
+    // Add online participants who are owner/admin but not in persistent list
+    if (participants) {
+      for (const p of participants) {
+        if (p.role !== 'visitor' && !seen.has(p.userId)) {
+          seen.add(p.userId);
+          merged.push({
+            id: p.id,
+            userId: p.userId,
+            displayName: p.displayName,
+            avatar: p.avatar,
+            role: p.role,
+            joinedAt: p.joinedAt,
+            isOnline: true,
+          });
+        }
+      }
+    }
+
+    // Sort by role hierarchy
+    return merged.sort((a, b) => (ROLE_LEVELS[b.role] || 0) - (ROLE_LEVELS[a.role] || 0));
+  }, [participants, persistentMembers]);
 
   const sortedGifts = useMemo(() => {
     return [...topGifts].sort((a, b) => b.gems - a.gems);
@@ -771,7 +843,7 @@ export default function RoomInfoSheet({
                             marginTop: 2,
                           }}
                         >
-                          {daysSince(p.joinedAt)}
+                          {p.isOnline ? '🟢 متصل الآن' : `⚫ ${daysSince(p.joinedAt)}`}
                         </p>
                       </div>
 

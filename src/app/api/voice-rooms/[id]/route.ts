@@ -15,6 +15,7 @@ import {
   ROLE_HIERARCHY, RoomRole, getRoomWeeklyGems, getRoomTopGifts,
   getUserGemsBalance,
   cleanupStaleParticipants, updateParticipantLastSeen,
+  getRoomMembers,
 } from '@/lib/admin-db';
 
 const JWT_SECRET = new TextEncoder().encode(process.env.JWT_SECRET || 'gg-platform-secret-key-2024');
@@ -118,6 +119,10 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       const limit = Number(searchParams.get('limit')) || 20;
       const gifts = await getRoomTopGifts(id, limit);
       return NextResponse.json({ success: true, gifts });
+    }
+    if (action === 'room-members') {
+      const members = await getRoomMembers(id);
+      return NextResponse.json({ success: true, members });
     }
 
     return NextResponse.json({ error: 'طلب غير صالح' }, { status: 400 });
