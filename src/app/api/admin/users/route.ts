@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAdminFromRequest } from '@/lib/admin-auth';
-import { getAllUsers } from '@/lib/admin-db';
+import { getAllUsers, migrateAssignNumericIds } from '@/lib/admin-db';
 import { createClient } from '@libsql/client';
 
 export async function GET(request: NextRequest) {
@@ -69,6 +69,32 @@ export async function GET(request: NextRequest) {
     });
   } catch (error) {
     console.error('[Admin Users GET] Error:', error);
+    return NextResponse.json(
+      { error: 'حدث خطأ في الخادم', success: false },
+      { status: 500 }
+    );
+  }
+}
+
+/** POST /api/admin/users - Trigger numeric ID migration for all users missing one */
+export async function POST(request: NextRequest) {
+  try {
+    const { authorized } = await getAdminFromRequest(request);
+    if (!authorized) {
+      return NextResponse.json({ error: 'غير مصرح', success: false }, { status: 401 });
+    }
+
+    const body = await request.json().catch(() => ({}));
+    const action = (body.action as string) || '';
+
+    if (action === 'migrate-ids') {
+      const result = await migrateAssignNumericIds();
+      return NextResponse.json({ success: true, ...result });
+    }
+
+    return NextResponse.json({ error: 'إجراء غير معروف', success: false }, { status: 400 });
+  } catch (error) {
+    console.error('[Admin Users POST] Error:', error);
     return NextResponse.json(
       { error: 'حدث خطأ في الخادم', success: false },
       { status: 500 }

@@ -449,12 +449,20 @@ async function ensureAdminTables(): Promise<void> {
       avatar TEXT DEFAULT '',
       role TEXT DEFAULT 'user',
       isActive INTEGER DEFAULT 1,
+      numericId INTEGER,
       subscriptionId TEXT,
       lastLoginAt TEXT,
       createdAt TEXT DEFAULT (datetime('now')),
       updatedAt TEXT DEFAULT (datetime('now'))
     )
   `);
+
+  // Migrate: add numericId column if missing
+  try {
+    await c.execute(`ALTER TABLE AppUser ADD COLUMN numericId INTEGER`);
+  } catch {
+    // Column already exists — ignore
+  }
 
   // PlayerFrame table - frame catalog
   await c.execute(`
