@@ -992,6 +992,6 @@ export function useVoiceRTC({
     toggleSpeaker,
     setLocalMuted,
     unlockAudio,
-    audioStreams,
+    audioStreams: audioStreamsRef,
   };
 }
