@@ -8,7 +8,7 @@ import {
   Lock, MoreVertical, Users, Settings2, Shield,
   PencilLine, Sparkles,
   UserPlus, LogOut, Heart, AlertTriangle,
-  MessageSquare, UserCog,
+  MessageSquare, UserCog, Trophy, LogIn, Minimize2,
 } from 'lucide-react';
 import { useVoiceRoom } from '../hooks/useVoiceRoom';
 import {
@@ -137,7 +137,7 @@ function SeatCircle({
   size?: number;
   onSeatClick: (idx: number) => void;
 }) {
-  const isLocked = seat.status === 'locked';
+  const isLocked = !seat.participant && seat.status === 'locked';
   const isEmpty = !seat.participant && !isLocked;
   const isOccupied = !!seat.participant;
   const isSpeaking = isOccupied && !seat.participant!.isMuted && !seat.participant!.micFrozen;
@@ -621,6 +621,9 @@ export default function RoomInteriorView({
   /* ── End Live confirmation dialog (owner only) ── */
   const [showEndLiveDialog, setShowEndLiveDialog] = useState(false);
 
+  /* ── Exit menu state (share/exit dropdown) ── */
+  const [showExitMenu, setShowExitMenu] = useState(false);
+
   /* ── Seat management sheet state ── */
   const [seatMgmtOpen, setSeatMgmtOpen] = useState(false);
 
@@ -666,8 +669,10 @@ export default function RoomInteriorView({
 
   /* ── GiftSheet onSendGift adapter ── */
   function handleGiftSend(giftId: string, quantity: number, recipient?: { type: 'everyone' | 'mic' | 'specific'; userId?: string }) {
+    // Pass recipient display name for better notification text
+    const recipientName = giftRecipient?.displayName;
     if (recipient?.type === 'specific' && recipient.userId) {
-      vr.handleSendGift(giftId, 'specific', quantity, recipient.userId);
+      vr.handleSendGift(giftId, 'specific', quantity, recipient.userId, recipientName);
     } else if (recipient?.type === 'mic') {
       vr.handleSendGift(giftId, 'everyone', quantity);
     } else {
@@ -773,83 +778,198 @@ export default function RoomInteriorView({
         <div className="relative z-10 flex flex-col h-full">
 
           {/* ════════════════════════════════════════════
-              HEADER — TUILiveKit exact: room info (right) | audience avatars (center) | close (left)
+              HEADER — Room name + ID + Share/Exit buttons
               ════════════════════════════════════════════ */}
-          <header
-            className="flex items-center justify-between flex-shrink-0"
+          <div
+            className="flex flex-col flex-shrink-0"
             style={{
-              height: 52,
-              minHeight: 52,
-              padding: '0 12px',
-              backgroundColor: 'rgba(7, 74, 66, 0.65)',
-              backdropFilter: 'blur(16px)',
-              WebkitBackdropFilter: 'blur(16px)',
+              padding: '8px 12px 0',
+              backgroundColor: 'rgba(7, 74, 66, 0.4)',
             }}
           >
-            {/* ── Right: Room avatar + name + level ── */}
-            <button
-              type="button"
-              onClick={() => setRoomInfoOpen(true)}
-              className="flex items-center gap-2.5 bg-transparent border-none cursor-pointer touch-manipulation min-w-0"
-              style={{ padding: 0, flex: '0 1 auto' }}
-              aria-label="معلومات الغرفة"
-            >
-              <div
-                className="relative rounded-full overflow-hidden flex items-center justify-center flex-shrink-0"
-                style={{
-                  width: 32,
-                  height: 32,
-                  backgroundColor: vr.room.roomAvatar
-                    ? 'transparent'
-                    : getAvatarColorFromPalette(vr.room.id).bg,
-                  border: '2px solid rgba(255,255,255,0.2)',
-                  boxShadow: '0 0 8px rgba(0,200,150,0.2)',
-                }}
+            {/* ── Top Row: Room info + Action buttons ── */}
+            <div className="flex items-center justify-between">
+              {/* Right: Room name + ID */}
+              <button
+                type="button"
+                onClick={() => setRoomInfoOpen(true)}
+                className="flex flex-col items-start min-w-0 bg-transparent border-none cursor-pointer touch-manipulation"
+                style={{ gap: 0, flex: 1 }}
+                aria-label="معلومات الغرفة"
               >
-                {vr.room.roomAvatar ? (
-                  <img src={vr.room.roomAvatar} alt={vr.room.name} className="w-full h-full object-cover rounded-full" draggable={false} loading="lazy" />
-                ) : (
-                  <span className="font-medium" style={{ fontSize: 13, color: getAvatarColorFromPalette(vr.room.id).text, lineHeight: 1 }}>
-                    {(vr.room.name?.charAt(0) || '?')}
-                  </span>
-                )}
-                {/* Online indicator dot */}
-                <div
-                  className="absolute"
-                  style={{ bottom: -1, left: -1, width: 10, height: 10, borderRadius: '50%', backgroundColor: TUI.colors.green, border: '2px solid rgba(7, 74, 66, 0.9)', boxShadow: `0 0 4px ${TUI.colors.green}` }}
-                />
-              </div>
-              <div className="flex flex-col items-start min-w-0" style={{ gap: 1 }}>
-                <span className="truncate" style={{ fontSize: 13, fontWeight: 600, color: TUI.colors.white, maxWidth: 110, lineHeight: '16px' }}>
+                <span
+                  className="truncate"
+                  style={{
+                    fontSize: 14,
+                    fontWeight: 700,
+                    color: TUI.colors.white,
+                    maxWidth: 180,
+                    lineHeight: '20px',
+                  }}
+                >
                   {vr.room.name}
                 </span>
-                <span className="truncate flex items-center gap-1" style={{ fontSize: 9, color: 'rgba(255,255,255,0.4)', maxWidth: 90, lineHeight: '12px' }}>
-                  <span style={{ width: 5, height: 5, borderRadius: '50%', backgroundColor: TUI.colors.green, display: 'inline-block' }} />
-                  Lv.{vr.room.roomLevel || 0}
+                <span
+                  className="truncate"
+                  style={{
+                    fontSize: 10,
+                    color: 'rgba(255,255,255,0.45)',
+                    maxWidth: 150,
+                    lineHeight: '14px',
+                    direction: 'ltr',
+                    textAlign: 'right',
+                  }}
+                >
+                  ID: {vr.room.id.slice(0, 10)}
                 </span>
-              </div>
-            </button>
+              </button>
 
-            {/* ── Center: Audience avatar row with count ── */}
-            <button
-              type="button"
-              className="flex items-center overflow-hidden flex-shrink-0 mx-2 bg-transparent border-none cursor-pointer touch-manipulation"
-              style={{ maxWidth: 120, transition: TUI.anim.fast }}
-              onClick={() => setRoomInfoOpen(true)}
-              aria-label="قائمة الحضور"
+              {/* Left: Share + Exit buttons */}
+              <div className="flex items-center flex-shrink-0" style={{ gap: 6 }}>
+                {/* Share button */}
+                <button
+                  onClick={handleShare}
+                  className="rounded-full flex items-center justify-center cursor-pointer touch-manipulation"
+                  style={{
+                    width: 34,
+                    height: 34,
+                    minWidth: 44,
+                    minHeight: 44,
+                    backgroundColor: 'rgba(255,255,255,0.08)',
+                    border: '1px solid rgba(255,255,255,0.1)',
+                    transition: TUI.anim.fast,
+                  }}
+                  aria-label="مشاركة الغرفة"
+                >
+                  <Share2 size={16} style={{ color: TUI.colors.white }} />
+                </button>
+
+                {/* Exit button with dropdown */}
+                <div className="relative">
+                  <button
+                    onClick={() => setShowExitMenu(prev => !prev)}
+                    className="rounded-full flex items-center justify-center cursor-pointer touch-manipulation"
+                    style={{
+                      width: 34,
+                      height: 34,
+                      minWidth: 44,
+                      minHeight: 44,
+                      backgroundColor: 'rgba(255,255,255,0.08)',
+                      border: '1px solid rgba(255,255,255,0.1)',
+                      transition: TUI.anim.fast,
+                    }}
+                    aria-label="خروج"
+                  >
+                    {isOwner
+                      ? <X size={16} style={{ color: TUI.colors.red }} strokeWidth={2.5} />
+                      : <LogIn size={16} style={{ color: TUI.colors.white }} />
+                    }
+                  </button>
+
+                  {/* Exit dropdown menu */}
+                  {showExitMenu && (
+                    <>
+                      <div
+                        className="fixed inset-0 z-40"
+                        onClick={() => setShowExitMenu(false)}
+                      />
+                      <div
+                        className="absolute z-50 flex flex-col"
+                        style={{
+                          top: 40,
+                          left: 0,
+                          backgroundColor: 'rgba(10, 40, 36, 0.95)',
+                          border: '1px solid rgba(255,255,255,0.1)',
+                          borderRadius: 12,
+                          padding: '4px 0',
+                          minWidth: 150,
+                          backdropFilter: 'blur(16px)',
+                          boxShadow: '0 8px 24px rgba(0,0,0,0.4)',
+                        }}
+                      >
+                        {/* Minimize / Keep room */}
+                        <button
+                          onClick={() => {
+                            setShowExitMenu(false);
+                            // Minimize room — exit view but keep room alive
+                            vr.handleLeaveRoom().then(() => onExit(false));
+                          }}
+                          className="flex items-center gap-2.5 px-4 py-2.5 bg-transparent border-none cursor-pointer touch-manipulation w-full"
+                          style={{ transition: TUI.anim.fast }}
+                        >
+                          <Minimize2 size={15} style={{ color: TUI.colors.G6 }} />
+                          <span style={{ fontSize: 12, color: TUI.colors.white }}>
+                            تصغير الغرفة
+                          </span>
+                        </button>
+                        <div style={{ height: 1, backgroundColor: 'rgba(255,255,255,0.06)', margin: '2px 12px' }} />
+                        {/* Leave and close room */}
+                        <button
+                          onClick={() => {
+                            setShowExitMenu(false);
+                            handleClose();
+                          }}
+                          className="flex items-center gap-2.5 px-4 py-2.5 bg-transparent border-none cursor-pointer touch-manipulation w-full"
+                          style={{ transition: TUI.anim.fast }}
+                        >
+                          <LogOut size={15} style={{ color: TUI.colors.red }} />
+                          <span style={{ fontSize: 12, color: TUI.colors.red }}>
+                            {isOwner ? 'إنهاء البث' : 'مغادرة الغرفة'}
+                          </span>
+                        </button>
+                      </div>
+                    </>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* ════════════════════════════════════════════
+              INFO ROW — Trophy/club + Online avatars + Count
+              ════════════════════════════════════════════ */}
+          <div
+            className="flex items-center flex-shrink-0"
+            style={{
+              padding: '6px 12px 4px',
+              gap: 10,
+              backgroundColor: 'rgba(7, 74, 66, 0.25)',
+            }}
+          >
+            {/* ── Left: Trophy — Member Club weekly gems ── */}
+            <div
+              className="flex items-center gap-1.5 flex-shrink-0"
+              style={{
+                backgroundColor: 'rgba(255,255,255,0.06)',
+                border: '1px solid rgba(255,255,255,0.08)',
+                borderRadius: 20,
+                padding: '4px 10px 4px 6px',
+              }}
             >
-              {audienceList.length > 0 ? (
-                <>
-                  {audienceList.slice(0, 5).map((p, i) => (
+              <Trophy size={14} fill="#f59e0b" stroke="#f59e0b" />
+              <span style={{ fontSize: 10, fontWeight: 600, color: TUI.colors.gold }}>
+                {vr.weeklyGems > 0 ? vr.weeklyGems.toLocaleString() : '0'}
+              </span>
+              <span style={{ fontSize: 9, color: 'rgba(255,255,255,0.35)' }}>💎</span>
+            </div>
+
+            {/* ── Center: Online avatars (overlapping, no names) ── */}
+            <div className="flex items-center flex-1 min-w-0 overflow-hidden">
+              <div
+                className="flex items-center"
+                style={{ marginRight: -6 }}
+              >
+                {vr.participants.length > 0 ? (
+                  vr.participants.slice(0, 8).map((p, i) => (
                     <div
                       key={p.userId}
                       className="relative rounded-full overflow-hidden flex items-center justify-center flex-shrink-0"
                       style={{
-                        width: 24,
-                        height: 24,
-                        marginLeft: i > 0 ? -7 : 0,
-                        border: '2px solid rgba(7, 74, 66, 0.85)',
-                        zIndex: 5 - i,
+                        width: 22,
+                        height: 22,
+                        marginLeft: i > 0 ? -6 : 0,
+                        border: '1.5px solid rgba(7, 74, 66, 0.9)',
+                        zIndex: 8 - i,
                       }}
                     >
                       {p.avatar ? (
@@ -867,92 +987,65 @@ export default function RoomInteriorView({
                           {p.displayName.charAt(0)}
                         </div>
                       )}
+                      {/* Owner crown badge */}
+                      {p.role === 'owner' && (
+                        <div
+                          className="absolute flex items-center justify-center"
+                          style={{
+                            top: -4,
+                            right: -4,
+                            width: 12,
+                            height: 12,
+                            backgroundColor: '#a78bfa',
+                            borderRadius: '50%',
+                            border: '1.5px solid rgba(7, 74, 66, 0.9)',
+                          }}
+                        >
+                          <Crown size={7} fill="#fff" stroke="#fff" strokeWidth={1.5} />
+                        </div>
+                      )}
                     </div>
-                  ))}
-                  {audienceList.length > 5 && (
-                    <span
-                      className="flex items-center justify-center rounded-full flex-shrink-0"
-                      style={{
-                        width: 24,
-                        height: 24,
-                        marginLeft: -7,
-                        backgroundColor: 'rgba(0,200,150,0.2)',
-                        fontSize: 8,
-                        fontWeight: 700,
-                        color: TUI.colors.tealLight,
-                        border: '2px solid rgba(7, 74, 66, 0.85)',
-                        zIndex: 0,
-                      }}
-                    >
-                      +{audienceList.length - 5}
-                    </span>
-                  )}
-                </>
-              ) : (
-                <div
-                  className="flex items-center justify-center rounded-full flex-shrink-0"
-                  style={{
-                    width: 24,
-                    height: 24,
-                    backgroundColor: 'rgba(255,255,255,0.08)',
-                    fontSize: 9,
-                    color: TUI.colors.G5,
-                  }}
-                >
-                  <Users size={12} style={{ color: TUI.colors.G5 }} />
-                </div>
-              )}
-              {/* Total count badge */}
+                  ))
+                ) : (
+                  <div
+                    className="flex items-center justify-center rounded-full"
+                    style={{
+                      width: 22,
+                      height: 22,
+                      backgroundColor: 'rgba(255,255,255,0.08)',
+                    }}
+                  >
+                    <Users size={10} style={{ color: TUI.colors.G5 }} />
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* ── Right: Online count badge ── */}
+            <div
+              className="flex items-center gap-1 flex-shrink-0"
+              style={{
+                backgroundColor: 'rgba(255,255,255,0.06)',
+                border: '1px solid rgba(255,255,255,0.08)',
+                borderRadius: 20,
+                padding: '4px 10px',
+              }}
+            >
               <span
-                className="flex-shrink-0 mr-1"
-                style={{ fontSize: 10, fontWeight: 600, color: 'rgba(255,255,255,0.5)' }}
+                style={{
+                  fontSize: 12,
+                  fontWeight: 700,
+                  color: TUI.colors.white,
+                  lineHeight: '14px',
+                }}
               >
                 {vr.participants.length}
               </span>
-            </button>
-
-            {/* ── Left: Close button + Three-dots ── */}
-            <div className="flex items-center flex-shrink-0" style={{ gap: 2 }}>
-              {/* Close / Exit */}
-              <button
-                onClick={handleClose}
-                className="rounded-full flex items-center justify-center cursor-pointer touch-manipulation"
-                style={{ width: 32, height: 32, minWidth: 44, minHeight: 44, transition: TUI.anim.fast }}
-                aria-label={isOwner ? 'إنهاء البث' : 'مغادرة'}
-              >
-                {isOwner
-                  ? <X size={18} style={{ color: TUI.colors.red }} strokeWidth={2.5} />
-                  : <ArrowRight size={18} style={{ color: TUI.colors.white }} strokeWidth={2} />}
-              </button>
-
-              {/* Three dots menu */}
-              <button
-                onClick={() => setShowDotsMenu(prev => !prev)}
-                className="rounded-full flex items-center justify-center cursor-pointer touch-manipulation relative"
-                style={{ width: 32, height: 32, minWidth: 44, minHeight: 44, transition: TUI.anim.fast }}
-                aria-label="القائمة"
-              >
-                <MoreVertical size={18} style={{ color: TUI.colors.white }} />
-                {pendingSeatRequests > 0 && (
-                  <span
-                    className="absolute top-0 right-0 flex items-center justify-center rounded-full"
-                    style={{
-                      width: 15,
-                      height: 15,
-                      backgroundColor: TUI.colors.red,
-                      fontSize: 8,
-                      fontWeight: 700,
-                      color: TUI.colors.white,
-                      boxShadow: `0 0 6px ${TUI.colors.red}`,
-                      border: '1.5px solid rgba(7, 74, 66, 0.9)',
-                    }}
-                  >
-                    {pendingSeatRequests > 9 ? '9' : pendingSeatRequests}
-                  </span>
-                )}
-              </button>
+              <span style={{ fontSize: 9, color: 'rgba(255,255,255,0.4)' }}>
+                متواجد
+              </span>
             </div>
-          </header>
+          </div>
 
           {/* ════════════════════════════════════════════
               ANNOUNCEMENT BAR — subtle dark

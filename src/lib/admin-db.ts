@@ -3555,7 +3555,7 @@ export async function assignSeat(roomId: string, userId: string, seatIndex: numb
 
   // Assign the user to the seat
   const result = await c.execute({
-    sql: "UPDATE VoiceRoomParticipant SET seatIndex = ?, seatStatus = 'locked' WHERE roomId = ? AND userId = ?",
+    sql: "UPDATE VoiceRoomParticipant SET seatIndex = ?, seatStatus = 'open' WHERE roomId = ? AND userId = ?",
     args: [seatIndex, roomId, userId],
   });
 
@@ -3630,9 +3630,12 @@ export async function requestSeat(roomId: string, userId: string, username: stri
     }
 
     if (targetSeat >= 0) {
-      // If user is already on a different seat, free it up
+      // If user is already on a different seat, move them (preserve mute state)
       if (currentSeat >= 0) {
-        await c.execute({ sql: "UPDATE VoiceRoomParticipant SET seatIndex = ?, seatStatus = 'open', isMuted = 1 WHERE roomId = ? AND userId = ?", args: [targetSeat, roomId, userId] });
+        // Get current mute state to preserve it
+        const muteResult = await c.execute({ sql: 'SELECT isMuted FROM VoiceRoomParticipant WHERE roomId = ? AND userId = ?', args: [roomId, userId] });
+        const currentMute = muteResult.rows.length > 0 ? Number(muteResult.rows[0].isMuted) : 1;
+        await c.execute({ sql: "UPDATE VoiceRoomParticipant SET seatIndex = ?, seatStatus = 'open', isMuted = ? WHERE roomId = ? AND userId = ?", args: [targetSeat, currentMute, roomId, userId] });
       } else {
         // New to mic: default to muted (1) so mic doesn't appear active
         await c.execute({ sql: "UPDATE VoiceRoomParticipant SET seatIndex = ?, seatStatus = 'open', isMuted = 1 WHERE roomId = ? AND userId = ?", args: [targetSeat, roomId, userId] });
@@ -3694,7 +3697,7 @@ export async function approveWaitlist(waitlistId: string, actorId: string): Prom
 
   // Assign seat
   await c.execute({
-    sql: "UPDATE VoiceRoomParticipant SET seatIndex = ?, seatStatus = 'locked' WHERE roomId = ? AND userId = ?",
+    sql: "UPDATE VoiceRoomParticipant SET seatIndex = ?, seatStatus = 'open' WHERE roomId = ? AND userId = ?",
     args: [targetSeat, wl.roomId, wl.userId],
   });
 
@@ -3842,30 +3845,47 @@ export async function acceptRoleInvite(roomId: string, userId: string): Promise<
   const c = getClient();
   await ensureAdminTables();
   
+  // Force-ensure pendingRole column exists
+  await ensureColumn('VoiceRoomParticipant', 'pendingRole', "TEXT DEFAULT ''");
+  
   try {
-    // Use atomic UPDATE: set role = pendingRole and clear pendingRole in one query
-    // Only succeeds if pendingRole is set and user exists
-    const result = await c.execute({
-      sql: `UPDATE VoiceRoomParticipant 
-            SET role = COALESCE(pendingRole, role), pendingRole = '' 
-            WHERE roomId = ? AND userId = ? 
-            AND pendingRole IS NOT NULL AND pendingRole != ''`,
-      args: [roomId, userId],
-    });
+    // First, check current state
+    const check = await c.execute({ sql: 'SELECT pendingRole, role FROM VoiceRoomParticipant WHERE roomId = ? AND userId = ?', args: [roomId, userId] });
+    if (check.rows.length === 0) {
+      console.log(`[acceptRoleInvite] Participant not found: roomId=${roomId} userId=${userId}`);
+      return { success: false };
+    }
+    const currentPending = String(check.rows[0].pendingRole || '').trim();
+    const currentRole = String(check.rows[0].role || 'visitor');
     
-    if (result.rowsAffected === 0) {
-      // No rows updated — either participant not found or no pending role
-      console.log(`[acceptRoleInvite] No pending role to accept: roomId=${roomId} userId=${userId}`);
+    if (!currentPending) {
+      console.log(`[acceptRoleInvite] No pending role: roomId=${roomId} userId=${userId}, pendingRole='${check.rows[0].pendingRole}'`);
       return { success: false };
     }
     
-    // Read back the new role
-    const readBack = await c.execute({ sql: 'SELECT role FROM VoiceRoomParticipant WHERE roomId = ? AND userId = ?', args: [roomId, userId] });
-    const newRole = readBack.rows.length > 0 ? (readBack.rows[0].role as string) : 'member';
-    console.log(`[acceptRoleInvite] Accepted! role='${newRole}' for userId=${userId}`);
-    return { success: true, role: newRole };
+    // Atomic UPDATE: set role = pendingRole and clear pendingRole
+    const result = await c.execute({
+      sql: `UPDATE VoiceRoomParticipant 
+            SET role = ?, pendingRole = '' 
+            WHERE roomId = ? AND userId = ?`,
+      args: [currentPending, roomId, userId],
+    });
+    
+    if (result.rowsAffected === 0) {
+      // Fallback: try to clear pendingRole to prevent infinite loop
+      await c.execute({ sql: "UPDATE VoiceRoomParticipant SET pendingRole = '' WHERE roomId = ? AND userId = ?", args: [roomId, userId] });
+      console.log(`[acceptRoleInvite] Failed to update but cleared pendingRole: roomId=${roomId} userId=${userId}`);
+      return { success: false };
+    }
+    
+    console.log(`[acceptRoleInvite] Accepted! role='${currentPending}' (was '${currentRole}') for userId=${userId}`);
+    return { success: true, role: currentPending };
   } catch (err) {
     console.error('[acceptRoleInvite] DB error:', err);
+    // On DB error, try to clear pendingRole to prevent infinite dialog loop
+    try {
+      await c.execute({ sql: "UPDATE VoiceRoomParticipant SET pendingRole = '' WHERE roomId = ? AND userId = ?", args: [roomId, userId] });
+    } catch { /* ignore */ }
     return { success: false };
   }
 }

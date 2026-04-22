@@ -433,7 +433,7 @@ export function useVoiceRoom(
     } catch { /* ignore */ }
   }, [roomId, fetchParticipants, toast]);
 
-  const handleSendGift = useCallback(async (giftId: string, target: string, quantity: number, specificUserId?: string) => {
+  const handleSendGift = useCallback(async (giftId: string, target: string, quantity: number, specificUserId?: string, specificDisplayName?: string) => {
     if (!authUser) return;
     try {
       const toUserId = target === 'specific' ? (specificUserId || profileSheet?.userId) : undefined;
@@ -455,18 +455,25 @@ export function useVoiceRoom(
         return;
       }
       const totalCost = unitPrice * (quantity || 1);
-      // Look up recipient name from participants list (more reliable than profileSheet which may be null)
-      const receiverParticipant = toUserId ? participants.find(p => p.userId === toUserId) : null;
-      const receiverName = target === 'everyone' ? 'الجميع' : (receiverParticipant?.displayName || 'شخص');
+      // Resolve recipient name: prefer explicit displayName, then lookup from participants, fallback
+      let receiverName: string;
+      if (specificDisplayName) {
+        receiverName = specificDisplayName;
+      } else if (toUserId) {
+        const receiverParticipant = participants.find(p => p.userId === toUserId);
+        receiverName = receiverParticipant?.displayName || 'شخص';
+      } else {
+        receiverName = 'الجميع';
+      }
 
       const giftMsg: ChatMessage = {
         id: genId(),
         userId: authUser.id,
         displayName: authUser.displayName,
         avatar: authUser.avatar,
-        text: quantity && quantity > 1
-          ? "⭐ " + authUser.displayName + " أرسل " + (quantity) + "× " + (giftData?.nameAr || 'هدية') + " " + (target === 'everyone' ? 'للجميع' : "لـ " + receiverName)
-          : "⭐ " + authUser.displayName + " أرسل " + (giftData?.nameAr || 'هدية') + " " + (target === 'everyone' ? 'للجميع' : "لـ " + receiverName),
+        text: (quantity && quantity > 1
+          ? `⭐ ${authUser.displayName} أرسل ${quantity}× ${giftData?.nameAr || 'هدية'} لـ ${receiverName}`
+          : `⭐ ${authUser.displayName} أرسل ${giftData?.nameAr || 'هدية'} لـ ${receiverName}`),
         time: new Date().toLocaleTimeString('ar-SA', { hour: '2-digit', minute: '2-digit' }),
         isGift: true,
         giftEmoji: giftData?.emoji,
@@ -614,6 +621,9 @@ export function useVoiceRoom(
 
   /* ── Accept/Reject role invitation ── */
   const handleAcceptInvite = useCallback(async () => {
+    if (!pendingInvite) return;
+    const inviteRole = pendingInvite;
+    setPendingInvite(''); // Clear immediately to prevent re-trigger
     try {
       const res = await fetch(`/api/voice-rooms/${roomId}?action=accept-invite`, {
         method: 'PUT',
@@ -622,17 +632,12 @@ export function useVoiceRoom(
       });
       const data = await res.json();
       if (data.success) {
-        const acceptedRole = data.role || pendingInvite;
+        const acceptedRole = data.role || inviteRole;
         toast({ title: 'تم قبول الدعوة! ⭐', description: `أصبحت ${ROLE_LABELS[acceptedRole as RoomRole] || acceptedRole}` });
-        setPendingInvite('');
-        await Promise.all([fetchParticipants(), fetchMyParticipant()]);
       } else {
-        // On failure, clear the pending invite to prevent infinite loop
-        // The server already cleared pendingRole if it was a DB issue
-        setPendingInvite('');
         toast({ title: 'فشل قبول الدعوة', description: data.error || 'الدعوة لم تعد متاحة، اطلب دعوة جديدة' });
-        await fetchMyParticipant();
       }
+      await Promise.all([fetchParticipants(), fetchMyParticipant()]);
     } catch {
       toast({ title: 'خطأ في الاتصال', description: 'تحقق من الإنترنت وحاول مرة أخرى' });
     }
