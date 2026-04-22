@@ -238,13 +238,31 @@ io.on('connection', (socket) => {
   // ═══════════════════════════════════════════════════════════
 
   // ── Web Push helper: send push notification via /api/push/send ──
+  // Uses PUSH_API_URL for Vercel production, falls back to localhost for dev
+  const PUSH_API_URL = process.env.PUSH_API_URL || process.env.NEXT_PUBLIC_APP_URL || '';
+  const PUSH_API_LOCAL = 'http://localhost:3000';
+
+  function getPushApiBaseUrl(): string {
+    // Production: use explicit PUSH_API_URL or derive from NEXT_PUBLIC_APP_URL
+    if (PUSH_API_URL) return PUSH_API_URL.replace(/\/$/, '');
+    // If NEXT_PUBLIC_APP_URL is set (Vercel sets NEXT_PUBLIC vars), use it
+    if (process.env.NEXT_PUBLIC_APP_URL) return process.env.NEXT_PUBLIC_APP_URL.replace(/\/$/, '');
+    // Local development
+    return PUSH_API_LOCAL;
+  }
+
   async function sendWebPush(
     userIds: string[],
     payload: { title: string; body: string; tag?: string; url?: string; data?: Record<string, unknown> }
   ) {
     try {
       const pushApiKey = process.env.PUSH_API_KEY || 'gg-push-internal-key-2024';
-      const response = await fetch('http://localhost:3000/api/push/send', {
+      const baseUrl = getPushApiBaseUrl();
+      const url = `${baseUrl}/api/push/send`;
+
+      console.log(`[VoiceSignal] Sending Web Push to ${url} for ${userIds.length} user(s)`);
+
+      const response = await fetch(url, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -257,7 +275,7 @@ io.on('connection', (socket) => {
         console.log(`[VoiceSignal] 📲 Web Push sent to ${result.sent} device(s)`);
       }
     } catch (error) {
-      console.warn('[VoiceSignal] Web Push failed (Next.js may be starting):', error);
+      console.warn('[VoiceSignal] Web Push failed:', error);
     }
   }
 
