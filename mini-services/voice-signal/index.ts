@@ -19,7 +19,7 @@ const PORT = parseInt(process.env.PORT || '3010', 10);
 
 // ── HTTP Server for health checks (Render requires this) ──
 const httpServer = createServer((req, res) => {
-  if (req.url === '/health' || req.url === '/') {
+  if (req.url === '/health' || req.url === '/healthz' || req.url === '/') {
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({
       status: 'ok',
