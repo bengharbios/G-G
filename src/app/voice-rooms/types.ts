@@ -43,6 +43,8 @@ export interface VoiceRoom {
   participantCount?: number;
   createdAt: string;
   roomImage?: string;
+  guestMicEnabled?: boolean;
+  memberMicEnabled?: boolean;
   roomAvatar?: string;
 }
 

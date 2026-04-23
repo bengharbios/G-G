@@ -593,6 +593,21 @@ export function useVoiceRTC({
       }
     };
 
+    // Handle negotiation needed (renegotiation for track changes)
+    pc.onnegotiationneeded = async () => {
+      try {
+        const offer = await pc.createOffer({ offerToReceiveAudio: true, offerToReceiveVideo: false });
+        await pc.setLocalDescription(offer);
+        socket.emit('offer', {
+          targetSocketId: socketId,
+          roomId: configRef.current.roomId,
+          offer,
+        });
+      } catch (err) {
+        console.warn('[VoiceRTC] Negotiation needed failed:', err);
+      }
+    };
+
     // ICE candidate
     pc.onicecandidate = (event) => {
       if (event.candidate) {
@@ -608,29 +623,23 @@ export function useVoiceRTC({
     pc.onconnectionstatechange = () => {
       console.log(`[VoiceRTC] Connection state (${socketId}): ${pc.connectionState}`);
       if (pc.connectionState === 'disconnected') {
-        // On mobile, temporary disconnections are common — wait before closing
         setTimeout(() => {
           if (pc.connectionState === 'disconnected') {
             closePeerConnection(socketId, '');
+            if (socketRef.current?.connected && configRef.current.isOnSeat) {
+              socketRef.current.emit('request-offers', {
+                roomId: configRef.current.roomId,
+              });
+            }
           }
-        }, 5000);
+        }, 3000);
       }
-      if (pc.connectionState === 'failed' || pc.connectionState === 'closed') {
-        closePeerConnection(socketId, '');
-      }
-    };
-
-    pc.oniceconnectionstatechange = () => {
-      console.log(`[VoiceRTC] ICE state (${socketId}): ${pc.iceConnectionState}`);
-
-      if (pc.iceConnectionState === 'failed') {
+      if (pc.connectionState === 'failed') {
         const retries = iceRetriesRef.current.get(socketId) || 0;
         if (retries < MAX_ICE_RETRIES) {
           iceRetriesRef.current.set(socketId, retries + 1);
-          console.log(`[VoiceRTC] ICE failed, restart attempt ${retries + 1}/${MAX_ICE_RETRIES}`);
           try {
             pc.restartIce();
-            // Force renegotiation
             pc.setLocalDescription(pc.createOffer({ offerToReceiveAudio: true, offerToReceiveVideo: false }))
               .then(offer => {
                 socket.emit('offer', {
@@ -642,9 +651,25 @@ export function useVoiceRTC({
               .catch(() => {});
           } catch { /* ignore */ }
         } else {
-          console.log(`[VoiceRTC] Max ICE retries reached for ${socketId}`);
           closePeerConnection(socketId, '');
         }
+      }
+      if (pc.connectionState === 'closed') {
+        closePeerConnection(socketId, '');
+      }
+    };
+
+    pc.oniceconnectionstatechange = () => {
+      console.log(`[VoiceRTC] ICE state (${socketId}): ${pc.iceConnectionState}`);
+      if (pc.iceConnectionState === 'failed') {
+        return;
+      }
+      if (pc.iceConnectionState === 'disconnected') {
+        console.log(`[VoiceRTC] ICE disconnected for ${socketId}, waiting...`);
+      }
+      if (pc.iceConnectionState === 'connected' || pc.iceConnectionState === 'completed') {
+        iceRetriesRef.current.delete(socketId);
+        console.log(`[VoiceRTC] ICE connected for ${socketId}`);
       }
     };
 
@@ -943,13 +968,11 @@ export function useVoiceRTC({
   /* ── Handle seat change ── */
   useEffect(() => {
     if (!socketRef.current?.connected) return;
-
     socketRef.current.emit('seat-change', {
       roomId: configRef.current.roomId,
       onMic: configRef.current.isOnSeat,
       micMuted: isLocalMicMuted,
     });
-
     if (!configRef.current.isOnSeat) {
       for (const [socketId] of connectionsRef.current.entries()) {
         closePeerConnection(socketId, '');
@@ -961,14 +984,31 @@ export function useVoiceRTC({
       audioContextRef.current?.close().catch(() => {});
       audioContextRef.current = null;
       analyserRef.current = null;
+      if (speakingCheckRef.current) {
+        cancelAnimationFrame(speakingCheckRef.current);
+        speakingCheckRef.current = null;
+      }
+    } else {
+      ensureLocalStream().then(() => {
+        if (socketRef.current?.connected) {
+          socketRef.current.emit('request-offers', {
+            roomId: configRef.current.roomId,
+          });
+        }
+      });
     }
-  }, [isOnSeat, closePeerConnection]);
+  }, [isOnSeat, closePeerConnection, ensureLocalStream]);
 
   /* ── Handle external mic mute sync ── */
   useEffect(() => {
     if (localStreamRef.current) {
       localStreamRef.current.getAudioTracks().forEach(t => {
         t.enabled = !isMicMuted;
+      });
+    }
+    if (!isMicMuted && configRef.current.isOnSeat && socketRef.current?.connected) {
+      socketRef.current.emit('request-offers', {
+        roomId: configRef.current.roomId,
       });
     }
   }, [isMicMuted]);

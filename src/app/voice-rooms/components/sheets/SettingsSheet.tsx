@@ -22,6 +22,7 @@ import {
   Bell,
   BellOff,
   Loader2,
+  MicOff,
 } from 'lucide-react';
 import { usePushNotification } from '@/hooks/usePushNotification';
 // SettingsSheet renders directly as a full overlay (no BottomSheetOverlay wrapper to avoid double-window effect)
@@ -728,6 +729,15 @@ export default function SettingsSheet({
         value: getMicModeDisplay(),
         onClick: () => setShowMicModeDialog(true),
       },
+      ...(room.guestMicEnabled !== undefined ? [{
+        id: 'guest-mic',
+        label: room.guestMicEnabled ? 'الزوار يمكنهم فتح المايك' : 'منع الزوار من المايك',
+        icon: room.guestMicEnabled ? <Mic size={20} color={TUI.colors.teal} /> : <MicOff size={20} color={TUI.colors.red} />,
+        iconBg: room.guestMicEnabled ? 'rgba(13,138,122,0.1)' : 'rgba(252,85,85,0.1)',
+        badge: room.guestMicEnabled ? '✓' : undefined,
+        badgeColor: TUI.colors.teal,
+        onClick: () => onUpdate({ guestMicEnabled: !room.guestMicEnabled }),
+      }] : []),
       {
         id: 'mic-permission',
         label: 'صلاحية المايك',

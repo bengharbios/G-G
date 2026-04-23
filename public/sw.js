@@ -131,7 +131,7 @@ self.addEventListener('push', (event) => {
     icon: '/icons/icon-192.png',
     badge: '/icons/icon-72.png',
     tag: 'ggames-notification',
-    dir: 'rtl' as NotificationDirection,
+    dir: 'rtl',
     lang: 'ar',
     vibrate: [200, 100, 200, 100, 200],
     requireInteraction: false,

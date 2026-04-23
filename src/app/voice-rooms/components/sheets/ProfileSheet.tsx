@@ -127,11 +127,11 @@ export default function ProfileSheet({
       if (targetRole === 'visitor') {
         h += 48; // Grant membership
       }
-      if (targetRole !== 'owner' && targetRole !== 'visitor') {
+      if (!isGuest && targetRole !== 'owner' && targetRole !== 'visitor') {
         h += 48; // Change role button
         if (showRoleMenu) h += 50; // Expanded pill menu
       }
-      if (targetRole !== 'owner' && targetRole !== 'visitor' && onRemoveRole) {
+      if (!isGuest && targetRole !== 'owner' && targetRole !== 'visitor' && onRemoveRole) {
         h += 44; // Remove role
       }
     }
@@ -322,7 +322,7 @@ export default function ProfileSheet({
         >
           <User size={16} color={TUI.colors.G5} />
           <span style={{ fontSize: '12px', color: TUI.colors.G5 }}>
-            مستخدم غير مسجل • لا يمكن إدارة هذا المستخدم
+            مستخدم غير مسجل • يمكن منح العضوية لهذا المستخدم
           </span>
         </div>
       )}
@@ -330,7 +330,7 @@ export default function ProfileSheet({
       {/* ══════════════════════════════════════════════════════════════════════
           4. ROLE MANAGEMENT — Owner/CoOwner only
          ══════════════════════════════════════════════════════════════════════ */}
-      {isOwnerOrCoowner && !isMe && !isGuest && (
+      {isOwnerOrCoowner && !isMe && (
         <div className="mb-3">
           {/* Grant Membership — for visitors */}
           {targetRole === 'visitor' && (
@@ -366,7 +366,7 @@ export default function ProfileSheet({
           )}
 
           {/* Change Role — for members, admins, coowners */}
-          {targetRole !== 'owner' && targetRole !== 'visitor' && (
+          {!isGuest && targetRole !== 'owner' && targetRole !== 'visitor' && (
             <div className="flex flex-col gap-2">
               {/* Role change trigger */}
               <button
@@ -438,7 +438,7 @@ export default function ProfileSheet({
               )}
 
               {/* Remove Role button */}
-              {onRemoveRole && (
+              {!isGuest && onRemoveRole && (
                 <button
                   onClick={handleRemoveRole}
                   className="flex items-center gap-3 w-full rounded-xl px-3 py-2.5 transition-colors"

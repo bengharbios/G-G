@@ -50,6 +50,7 @@ export function useVoiceRoom(
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [kickDialogOpen, setKickDialogOpen] = useState(false);
   const [pendingInvite, setPendingInvite] = useState<string>('');
+  const pendingInviteDismissedRef = useRef(false);
   const [pendingMicInvite, setPendingMicInvite] = useState<number>(-1);
   const [micMenuSheet, setMicMenuSheet] = useState<MicMenuSheetState>({
     isOpen: false, seatIndex: -1, participant: null, mySeatIndex: -1,
@@ -104,7 +105,7 @@ export function useVoiceRoom(
         setMyParticipant(data.participant);
         setMyRole(data.participant.role);
         setIsMicMuted(data.participant.isMuted);
-        if (data.participant.pendingRole && data.participant.pendingRole !== '') {
+        if (data.participant.pendingRole && data.participant.pendingRole !== '' && !pendingInviteDismissedRef.current) {
           setPendingInvite(data.participant.pendingRole);
         }
         if (data.participant.pendingMicInvite !== undefined && Number(data.participant.pendingMicInvite) >= 0) {
@@ -318,6 +319,13 @@ export function useVoiceRoom(
   }, [roomId]);
 
   /* ── Profile stats ── */
+
+  useEffect(() => {
+    if (myParticipant?.pendingRole && pendingInvite) {
+      pendingInviteDismissedRef.current = false;
+    }
+  }, [myParticipant?.pendingRole]);
+
   useEffect(() => {
     if (!profileSheet) return;
     let cancelled = false;
@@ -665,6 +673,7 @@ export function useVoiceRoom(
     if (!pendingInvite) return;
     const inviteRole = pendingInvite;
     setPendingInvite(''); // Clear immediately to prevent re-trigger
+    pendingInviteDismissedRef.current = true;
     try {
       const res = await fetch(`/api/voice-rooms/${roomId}?action=accept-invite`, {
         method: 'PUT',
@@ -692,6 +701,7 @@ export function useVoiceRoom(
         body: JSON.stringify({}),
       });
       setPendingInvite('');
+      pendingInviteDismissedRef.current = true;
       toast({ title: 'تم رفض الدعوة' });
     } catch { /* ignore */ }
   }, [roomId, toast]);

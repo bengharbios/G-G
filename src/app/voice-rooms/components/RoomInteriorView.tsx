@@ -789,8 +789,11 @@ export default function RoomInteriorView({
 
   /* ── GiftSheet onSendGift adapter ── */
   function handleGiftSend(giftId: string, quantity: number, recipient?: { type: 'everyone' | 'mic' | 'specific'; userId?: string }) {
-    // Pass recipient display name for better notification text
-    const recipientName = giftRecipient?.displayName;
+    let recipientName: string | undefined = giftRecipient?.displayName;
+    if (recipient?.type === 'specific' && recipient.userId && !recipientName) {
+      const found = vr.participants.find(p => p.userId === recipient.userId);
+      recipientName = found?.displayName;
+    }
     if (recipient?.type === 'specific' && recipient.userId) {
       vr.handleSendGift(giftId, 'specific', quantity, recipient.userId, recipientName);
     } else if (recipient?.type === 'mic') {
