@@ -224,3 +224,27 @@ Stage Summary:
 - .env documented with all Vercel deployment variables
 - Project is ready for Vercel deployment with Turso cloud DB
 - Voice signal mini-service needs separate deployment (Railway/Render/Fly.io)
+---
+Task ID: 1
+Agent: Main Agent
+Task: Fix mobile users cannot hear audio in voice rooms
+
+Work Log:
+- Analyzed useVoiceRTC.ts to find root cause of mobile audio issue
+- Identified three root causes:
+  1. On-mic peers only created WebRTC offers to OTHER on-mic peers
+  2. Non-mic (listening) peers never requested offers from on-mic peers
+  3. unlockAudio() returned early after first unlock, missing new audio elements
+- Fixed room-members handler: on-mic peers now offer to ALL peers (not just on-mic)
+- Fixed room-members handler: non-mic peers emit request-offers when on-mic peers exist
+- Fixed peer-joined handler: on-mic peers offer to any joining peer
+- Fixed peer-joined handler: non-mic peers request offers when on-mic peer joins
+- Fixed peer-seat-change handler: non-mic peers request offers when peer goes on mic
+- Fixed unlockAudio(): no longer returns early, always processes paused/pending audio
+- Added signaling state check in createOfferToPeer to prevent negotiation conflicts
+- Pushed commit 5d9ae06 to bengharbios/G-G main branch
+
+Stage Summary:
+- Mobile audio fix pushed to GitHub (5d9ae06)
+- Vercel should auto-deploy from this push
+- Key insight: WebRTC offers were only being created between on-mic peers, leaving listeners without any audio connection
