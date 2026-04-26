@@ -129,7 +129,8 @@ export interface ActiveGiftAnimation {
   bmType?: number;        // 0=none, 1=fullscreen, 2=halfscreen
   senderAvatar?: string;  // Sender avatar URL
   video?: string;         // MP4 video URL for VAP gifts
-  timeLength?: number;    // Video duration in seconds
+  giftImageUrl?: string;  // Custom gift image URL for animated display
+  timeLength?: number;    // Video/animation duration in seconds
 }
 
 export interface SeatData {

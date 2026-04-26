@@ -485,10 +485,24 @@ export default function GiftAnimations({
 
   const grade = activeAnimation.grade ?? 0;
   const hasVideo = !!activeAnimation.video;
+  const hasGiftImage = !!activeAnimation.giftImageUrl;
+  const hasMediaOverlay = hasVideo || hasGiftImage;
 
   return (
     <div className="fixed inset-0 pointer-events-none z-40">
-      {/* VAP Video overlay for video-based gifts */}
+      {/* Dark backdrop for media overlays */}
+      {hasMediaOverlay && (
+        <div
+          className="absolute inset-0"
+          style={{
+            backgroundColor: 'rgba(0,0,0,0.5)',
+            animation: 'giftOverlayFadeIn 0.3s ease-out forwards',
+            zIndex: 0,
+          }}
+        />
+      )}
+
+      {/* VAP Video overlay */}
       {hasVideo && (
         <div
           className="absolute inset-0 flex items-center justify-center"
@@ -505,17 +519,73 @@ export default function GiftAnimations({
               maxWidth: 420,
               height: activeAnimation.bmType === 1 ? '100%' : 'auto',
               objectFit: 'contain',
-              animation: 'vapGiftFadeIn 0.3s ease-out forwards',
+              animation: 'giftMediaScaleIn 0.4s cubic-bezier(.175,.885,.32,1.275) forwards',
             }}
-            onEnded={() => {
-              // Video ended — animation will be cleared by the setTimeout
-            }}
+            onEnded={() => {}}
           />
         </div>
       )}
 
-      {/* Canvas for custom particles (grades 1-4, non-video) */}
-      {grade > 0 && !hasVideo && (
+      {/* Custom gift image — animated cinematic overlay */}
+      {hasGiftImage && !hasVideo && (
+        <div
+          className="absolute inset-0 flex items-center justify-center"
+          style={{ zIndex: 1 }}
+        >
+          <div
+            className="relative"
+            style={{
+              animation: 'giftImageCinematic 3.5s cubic-bezier(.25,.46,.45,.94) forwards',
+            }}
+          >
+            {/* Glow ring behind image */}
+            <div
+              className="absolute rounded-full"
+              style={{
+                inset: -20,
+                background: `radial-gradient(circle, ${getGradeConfig(grade).color}40 0%, transparent 70%)`,
+                animation: 'giftGlowPulse 1.5s ease-in-out infinite',
+              }}
+            />
+            {/* Sparkle particles around image */}
+            {[...Array(6)].map((_, i) => (
+              <span
+                key={i}
+                className="absolute"
+                style={{
+                  width: 4,
+                  height: 4,
+                  borderRadius: '50%',
+                  backgroundColor: ['#FFD700', '#FF9500', '#AF52DE', '#34C759', '#FF3B30', '#00E5E5'][i],
+                  top: `${20 + Math.sin(i * 1.05) * 45}%`,
+                  left: `${20 + Math.cos(i * 1.05) * 45}%`,
+                  animation: `sparkleFloat ${1.2 + i * 0.3}s ease-in-out infinite`,
+                  animationDelay: `${i * 0.15}s`,
+                  opacity: 0,
+                }}
+              />
+            ))}
+            {/* Gift image */}
+            <img
+              src={activeAnimation.giftImageUrl}
+              alt={activeAnimation.giftName}
+              draggable={false}
+              style={{
+                width: activeAnimation.bmType === 1 ? '70vw' : '55vw',
+                maxWidth: 320,
+                height: 'auto',
+                objectFit: 'contain',
+                filter: 'drop-shadow(0 8px 32px rgba(0,0,0,0.4))',
+                position: 'relative',
+                zIndex: 2,
+              }}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* Canvas for custom particles (grades 1-4, no media overlay) */}
+      {grade > 0 && !hasMediaOverlay && (
         <canvas
           ref={canvasRef}
           width={400}
@@ -528,8 +598,8 @@ export default function GiftAnimations({
       {/* Gift Banner (all grades) */}
       <GiftBanner anim={activeAnimation} />
 
-      {/* Grade indicator glow (grade >= 3, non-video) */}
-      {grade >= 3 && !hasVideo && (
+      {/* Grade indicator glow (grade >= 3, no media overlay) */}
+      {grade >= 3 && !hasMediaOverlay && (
         <div
           className="absolute inset-0"
           style={{
@@ -546,9 +616,32 @@ export default function GiftAnimations({
           20% { opacity: 1; }
           100% { opacity: 0; }
         }
-        @keyframes vapGiftFadeIn {
-          from { opacity: 0; transform: scale(0.85); }
-          to { opacity: 1; transform: scale(1); }
+        @keyframes giftMediaScaleIn {
+          0% { opacity: 0; transform: scale(0.7); }
+          100% { opacity: 1; transform: scale(1); }
+        }
+        @keyframes giftOverlayFadeIn {
+          0% { opacity: 0; }
+          100% { opacity: 1; }
+        }
+        @keyframes giftImageCinematic {
+          0% { opacity: 0; transform: scale(0.5) translateY(40px); }
+          15% { opacity: 1; transform: scale(1.08) translateY(-5px); }
+          25% { transform: scale(1) translateY(0); }
+          50% { transform: scale(1) translateY(-10px); }
+          70% { opacity: 1; transform: scale(1.02) translateY(0); }
+          85% { opacity: 0.6; transform: scale(1.05) translateY(-15px); }
+          100% { opacity: 0; transform: scale(1.1) translateY(-30px); }
+        }
+        @keyframes giftGlowPulse {
+          0%, 100% { opacity: 0.5; transform: scale(1); }
+          50% { opacity: 0.8; transform: scale(1.08); }
+        }
+        @keyframes sparkleFloat {
+          0% { opacity: 0; transform: translateY(0) scale(0.5); }
+          30% { opacity: 1; transform: translateY(-12px) scale(1); }
+          70% { opacity: 0.8; transform: translateY(-24px) scale(0.8); }
+          100% { opacity: 0; transform: translateY(-40px) scale(0.3); }
         }
       `}</style>
     </div>

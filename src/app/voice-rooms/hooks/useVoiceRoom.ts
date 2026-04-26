@@ -543,6 +543,7 @@ export function useVoiceRoom(
           grade: giftData.grade,
           bmType: giftData.bmType,
           video: giftData.video,
+          giftImageUrl: giftData.giftImageUrl,
           timeLength: giftData.timeLength,
         };
         setActiveGiftAnimation(anim);
