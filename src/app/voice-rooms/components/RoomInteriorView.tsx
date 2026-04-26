@@ -9,7 +9,7 @@ import {
   PencilLine, Sparkles,
   UserPlus, LogOut, Heart, AlertTriangle,
   MessageSquare, UserCog, Trophy, LogIn, Minimize2, MoreHorizontal,
-  Bell, BellOff,
+  Bell, BellOff, AudioWaveform,
 } from 'lucide-react';
 import { useVoiceRoom } from '../hooks/useVoiceRoom';
 import { useVoiceRTC, type RoomNotification } from '../hooks/useVoiceRTC';
@@ -40,6 +40,7 @@ import RoomInfoSheet from './sheets/RoomInfoSheet';
 import KickDurationDialog from './dialogs/KickDurationDialog';
 import MembershipDialog from './dialogs/MembershipDialog';
 import MicInviteDialog from './dialogs/MicInviteDialog';
+import AudioSettingsDialog from './dialogs/AudioSettingsDialog';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -753,6 +754,9 @@ export default function RoomInteriorView({
   /* ── Three-dots menu state ── */
   const [showDotsMenu, setShowDotsMenu] = useState(false);
 
+  /* ── Audio settings dialog state ── */
+  const [showAudioSettings, setShowAudioSettings] = useState(false);
+
   /* ── Gift recipient preselection ── */
   const [giftRecipient, setGiftRecipient] = useState<{ type: 'everyone' | 'mic' | 'specific'; userId?: string; displayName?: string } | null>(null);
 
@@ -1423,6 +1427,20 @@ export default function RoomInteriorView({
                 </button>
               )}
 
+              {/* Audio Settings button — ALL users can access this */}
+              <button
+                onClick={() => setShowAudioSettings(true)}
+                className="rounded-full flex items-center justify-center flex-shrink-0 cursor-pointer touch-manipulation"
+                style={{
+                  width: 36, height: 36, minWidth: 44, minHeight: 44,
+                  backgroundColor: 'rgba(255,255,255,0.07)',
+                  transition: TUI.anim.fast,
+                }}
+                aria-label="إعدادات الصوت"
+              >
+                <AudioWaveform size={17} style={{ color: 'rgba(255,255,255,0.6)' }} />
+              </button>
+
               {/* Voice control buttons */}
               {isAdmin ? (
                 <button
@@ -1696,6 +1714,14 @@ export default function RoomInteriorView({
           onAccept={vr.handleAcceptInvite}
           onReject={vr.handleRejectInvite}
           roleLabel={ROLE_LABELS[vr.pendingInvite as RoomRole] || vr.pendingInvite}
+        />
+
+        {/* ── Audio Settings Dialog (all users) ── */}
+        <AudioSettingsDialog
+          isOpen={showAudioSettings}
+          onClose={() => setShowAudioSettings(false)}
+          onMicChange={voiceRTC.changeMicDevice}
+          onSpeakerChange={voiceRTC.changeSpeakerDevice}
         />
 
         {/* ── Mic Invite Dialog ── */}

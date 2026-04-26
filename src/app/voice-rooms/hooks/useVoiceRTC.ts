@@ -66,6 +66,10 @@ interface VoiceRTCReturn {
   unlockAudio: () => Promise<void>;
   /** Audio elements for each peer (to attach to DOM) */
   audioStreams: React.MutableRefObject<Map<string, MediaStream>>;
+  /** Change microphone device (stops old stream, creates new one) */
+  changeMicDevice: (deviceId: string) => Promise<void>;
+  /** Change speaker output device (setSinkId on all audio elements) */
+  changeSpeakerDevice: (deviceId: string) => void;
 }
 
 // ── ICE Configuration ──
@@ -839,6 +843,79 @@ export function useVoiceRTC({
     speakingPeersRef.current.delete(socketId);
   }, []);
 
+  /* ── Change microphone device ── */
+  const changeMicDevice = useCallback(async (deviceId: string) => {
+    // Stop old local stream
+    if (localStreamRef.current) {
+      localStreamRef.current.getTracks().forEach(t => t.stop());
+      localStreamRef.current = null;
+    }
+    // Close old audio context / analyser
+    if (audioContextRef.current) {
+      audioContextRef.current.close().catch(() => {});
+      audioContextRef.current = null;
+      analyserRef.current = null;
+    }
+    if (speakingCheckRef.current) {
+      cancelAnimationFrame(speakingCheckRef.current);
+      speakingCheckRef.current = null;
+    }
+
+    // Get new stream with specified device
+    try {
+      const constraints: MediaStreamConstraints = {
+        audio: {
+          deviceId: deviceId !== 'default' ? { exact: deviceId } : undefined,
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true,
+        },
+        video: false,
+      };
+      const stream = await navigator.mediaDevices.getUserMedia(constraints);
+      localStreamRef.current = stream;
+      setupSpeakingDetection(stream);
+
+      // If muted, disable track
+      if (isLocalMicMuted) {
+        stream.getAudioTracks().forEach(t => t.enabled = false);
+      }
+
+      // Replace tracks in all existing peer connections
+      const audioTrack = stream.getAudioTracks()[0];
+      if (audioTrack && configRef.current.isOnSeat) {
+        for (const [socketId, pc] of connectionsRef.current.entries()) {
+          const sender = pc.getSenders().find(s => s.track?.kind === 'audio');
+          if (sender) {
+            try {
+              await sender.replaceTrack(audioTrack);
+              console.log('[VoiceRTC] Replaced audio track for peer', socketId);
+            } catch (err) {
+              console.warn('[VoiceRTC] Failed to replace track:', err);
+            }
+          }
+        }
+      }
+
+      console.log('[VoiceRTC] Mic device changed to', deviceId);
+    } catch (err) {
+      console.error('[VoiceRTC] Error changing mic device:', err);
+    }
+  }, [isLocalMicMuted, setupSpeakingDetection]);
+
+  /* ── Change speaker output device ── */
+  const changeSpeakerDevice = useCallback((deviceId: string) => {
+    // Use setSinkId to change output device on all audio elements
+    for (const [, audio] of audioElementsRef.current.entries()) {
+      if (typeof (audio as any).setSinkId === 'function') {
+        (audio as any).setSinkId(deviceId).catch(() => {
+          // setSinkId not supported or failed
+        });
+      }
+    }
+    console.log('[VoiceRTC] Speaker device changed to', deviceId);
+  }, []);
+
   /* ── Cleanup all ── */
   const cleanup = useCallback(() => {
     // Stop speaking check
@@ -1036,5 +1113,7 @@ export function useVoiceRTC({
     setLocalMuted,
     unlockAudio,
     audioStreams: audioStreamsRef,
+    changeMicDevice,
+    changeSpeakerDevice,
   };
 }
