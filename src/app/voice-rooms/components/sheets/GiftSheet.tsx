@@ -382,9 +382,19 @@ export default function GiftSheet({ isOpen, onClose, onSendGift, gems, preselect
                             : 'none',
                         }}
                       >
-                        {/* Gift emoji (large, centered) */}
+                        {/* Gift emoji or custom image */}
                         <div className="relative mb-1">
-                          <span style={{ fontSize: 34, lineHeight: 1 }}>{gift.emoji}</span>
+                          {gift.giftImageUrl ? (
+                            <img
+                              src={gift.giftImageUrl}
+                              alt={gift.nameAr}
+                              className="rounded-lg"
+                              style={{ width: 48, height: 48, objectFit: 'contain' }}
+                              draggable={false}
+                            />
+                          ) : (
+                            <span style={{ fontSize: 34, lineHeight: 1 }}>{gift.emoji}</span>
+                          )}
 
                           {/* NEW badge */}
                           {gift.isNew && (

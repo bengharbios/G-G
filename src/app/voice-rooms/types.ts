@@ -407,6 +407,7 @@ export const GIFT_CATEGORIES = [
   { id: 'birthday', name: 'عيد ميلاد', icon: '🎂' },
   { id: 'vip', name: 'VIP', icon: '💎' },
   { id: 'zodiac', name: 'أبراج', icon: '⭐' },
+  { id: 'fantasy', name: 'خيالية', icon: '🦄' },
 ];
 
 // ─── Gift Asset URLs (TUILiveKit Source) ────────────────────────────────────
@@ -493,6 +494,10 @@ export const DEFAULT_GIFTS: Gift[] = [
   { id: 'g23', name: 'Cat',      nameAr: 'قطة',        emoji: '🐱', price: 9999,  category: 'special', animation: 'confetti',   grade: 3, bmType: 1, animationResourceUrl: TUI_SVGA_CAT, bgColor: '#151510' },
   { id: 'g24', name: 'Unicorn',  nameAr: 'يونيكورن',   emoji: '🦄', price: 6666,  category: 'special', animation: 'stars',      grade: 3, bmType: 1, bgColor: '#151020', isNew: true },
   { id: 'g34', name: 'VapGift1', nameAr: 'هدية خاصة',   emoji: '🎀', price: 1314,  category: 'special', animation: 'fireworks',  grade: 3, bmType: 1, video: '/gifts/vap/gift_61266.mp4', thumb: '/gifts/vap/gift_61266_thumb.webp', format: 'vap', timeLength: 5, bgColor: '#151020', isNew: true },
+  // ── Fantasy (خيالية - أيقونات مخصصة) ──
+  { id: 'g35', name: 'UnicornCarriage', nameAr: 'عربة اليونيكورن', emoji: '🦄', price: 520,   category: 'fantasy', animation: 'stars',      grade: 2, bmType: 2, giftImageUrl: '/gifts/custom/unicorn_carriage.png', thumb: '/gifts/custom/unicorn_carriage_thumb.png', bgColor: '#1a1020', isNew: true },
+  { id: 'g36', name: 'RoyalBalloon',   nameAr: 'بالون ملكي',     emoji: '🎈', price: 999,   category: 'fantasy', animation: 'particles',   grade: 3, bmType: 1, giftImageUrl: '/gifts/custom/royal_balloon.png', thumb: '/gifts/custom/royal_balloon_thumb.png', bgColor: '#151025', isNew: true },
+  { id: 'g37', name: 'DreamMoon',      nameAr: 'قمر الأحلام',    emoji: '🌙', price: 1314,  category: 'fantasy', animation: 'fireworks',  grade: 3, bmType: 1, giftImageUrl: '/gifts/custom/dream_moon.png', thumb: '/gifts/custom/dream_moon_thumb.png', bgColor: '#0a1025', isNew: true },
   // ── Ramadan (رمضان) ──
   { id: 'g25', name: 'Moon',     nameAr: 'هلال رمضان', emoji: '🌙', price: 99,    category: 'ramadan', animation: 'stars',      grade: 1, bmType: 0, bgColor: '#0a0f20', isNew: true },
   { id: 'g26', name: 'Lantern',  nameAr: 'فانوس',      emoji: '🏮', price: 199,   category: 'ramadan', animation: 'particles',  grade: 2, bmType: 0, bgColor: '#1a1508' },
