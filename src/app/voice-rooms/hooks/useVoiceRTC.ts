@@ -205,6 +205,24 @@ export function useVoiceRTC({
       audioUnlockedRef.current = true;
       setIsAudioUnlocked(true);
       console.log('[VoiceRTC] ✅ Audio unlocked successfully');
+
+      // 5. Start a periodic retry for any still-paused audio elements (mobile reliability)
+      setTimeout(() => {
+        for (const [key, audio] of audioElementsRef.current.entries()) {
+          if (audio.paused && audio.srcObject) {
+            console.log('[VoiceRTC] 🔄 Retrying paused audio for', key);
+            audio.play().catch(() => {});
+          }
+        }
+      }, 500);
+      setTimeout(() => {
+        for (const [key, audio] of audioElementsRef.current.entries()) {
+          if (audio.paused && audio.srcObject) {
+            audio.play().catch(() => {});
+          }
+        }
+      }, 1500);
+
       return true;
     } catch (err) {
       console.warn('[VoiceRTC] Audio unlock failed:', err);
@@ -212,17 +230,15 @@ export function useVoiceRTC({
     }
   }, []);
 
-  // Auto-unlock on any touch/click in the document
+  // Auto-unlock on ANY touch/click (not once — mobile needs repeated unlocks for new audio elements)
   useEffect(() => {
-    if (audioUnlockedRef.current) return;
-
     const handleInteraction = () => {
       unlockAudio();
     };
 
-    document.addEventListener('touchstart', handleInteraction, { once: true, passive: true });
-    document.addEventListener('touchend', handleInteraction, { once: true, passive: true });
-    document.addEventListener('click', handleInteraction, { once: true, passive: true });
+    document.addEventListener('touchstart', handleInteraction, { passive: true });
+    document.addEventListener('touchend', handleInteraction, { passive: true });
+    document.addEventListener('click', handleInteraction, { passive: true });
 
     return () => {
       document.removeEventListener('touchstart', handleInteraction);
@@ -737,16 +753,25 @@ export function useVoiceRTC({
 
     const audio = new Audio();
     audio.srcObject = stream;
-    audio.playsInline = true; // Required for iOS
-    audio.preload = 'auto';
-    audio.style.display = 'none';
+    audio.setAttribute('playsinline', ''); // iOS requires this as attribute
     audio.setAttribute('autoplay', ''); // Hint for browsers that support it
+    audio.preload = 'auto';
+    audio.volume = 1; // Explicitly set volume (some mobile browsers default to 0)
+    // Don't use display:none — some mobile browsers won't play hidden audio
+    audio.style.position = 'fixed';
+    audio.style.top = '0';
+    audio.style.left = '0';
+    audio.style.width = '1px';
+    audio.style.height = '1px';
+    audio.style.opacity = '0.01';
+    audio.style.pointerEvents = 'none';
+    audio.style.zIndex = '-1';
 
     // Try to play immediately
     audio.play().then(() => {
       console.log('[VoiceRTC] ▶️ Audio playing for', socketId);
     }).catch(() => {
-      // Autoplay blocked (iOS) — queue for unlock
+      // Autoplay blocked (mobile) — queue for unlock on next user gesture
       console.log('[VoiceRTC] ⏸️ Audio autoplay blocked, queuing for unlock:', socketId);
       pendingAudioStreamsRef.current.set(socketId, stream);
     });
