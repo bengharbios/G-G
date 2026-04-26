@@ -3470,15 +3470,15 @@ export async function leaveVoiceRoom(roomId: string, userId: string): Promise<bo
 export async function cleanupStaleParticipants(roomId: string): Promise<number> {
   const c = getClient();
   await ensureAdminTables();
-  // Remove participants whose lastSeen is older than 30 seconds
+  // Remove participants whose lastSeen is older than 60 seconds
   // IMPORTANT: Never delete the room host
   const result = await c.execute({
     sql: `DELETE FROM VoiceRoomParticipant 
           WHERE roomId = ? 
           AND userId != (SELECT hostId FROM VoiceRoom WHERE id = ?)
           AND (
-            (lastSeen IS NOT NULL AND lastSeen < datetime('now', '-30 seconds'))
-            OR (lastSeen IS NULL AND joinedAt < datetime('now', '-30 seconds'))
+            (lastSeen IS NOT NULL AND lastSeen < datetime('now', '-60 seconds'))
+            OR (lastSeen IS NULL AND joinedAt < datetime('now', '-60 seconds'))
           )`,
     args: [roomId, roomId],
   });

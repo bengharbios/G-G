@@ -111,9 +111,28 @@ export function useVoiceRoom(
         if (data.participant.pendingMicInvite !== undefined && Number(data.participant.pendingMicInvite) >= 0) {
           setPendingMicInvite(Number(data.participant.pendingMicInvite));
         }
+      } else if (data.success && !data.participant && authUser) {
+        // Auto-rejoin: participant record was cleaned up (e.g. app went to background)
+        // Silently rejoin without leaving the room view
+        console.log('[VoiceRoom] Participant not found, auto-rejoining...');
+        try {
+          await fetch(`/api/voice-rooms/${roomId}?action=join`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ userId: authUser.id, username: authUser.username, displayName: authUser.displayName }),
+          });
+          // Refresh participant state after rejoin
+          const reRes = await fetch(`/api/voice-rooms/${roomId}?action=my-participant`);
+          const reData = await reRes.json();
+          if (reData.success && reData.participant) {
+            setMyParticipant(reData.participant);
+            setMyRole(reData.participant.role);
+            setIsMicMuted(reData.participant.isMuted);
+          }
+        } catch { /* ignore — will retry on next poll */ }
       }
     } catch { /* ignore */ }
-  }, [roomId]);
+  }, [roomId, authUser]);
 
   const fetchGifts = useCallback(async () => {
     try {
@@ -294,6 +313,21 @@ export function useVoiceRoom(
       }
     }, 8000);
 
+    // ── Visibility change: send heartbeat immediately when app returns to foreground ──
+    const handleVisibilityChange = () => {
+      if (!document.hidden && !cancelled && authUser) {
+        // App came back to foreground — send heartbeat immediately
+        fetch(`/api/voice-rooms/${roomId}?action=heartbeat`, { method: 'GET' }).catch(() => {});
+        // Also refresh participant list and own state immediately
+        fetchParticipantsRef.current();
+        fetchMyParticipantRef.current();
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    // ── Auto-rejoin: if my participant record is missing, rejoin the room ──
+    // (myPoll already defined above)
+
     // Send leave request when user closes browser/tab
     const handleBeforeUnload = () => {
       if (authUser) {
@@ -315,6 +349,7 @@ export function useVoiceRoom(
       if (heartbeatPoll) clearInterval(heartbeatPoll);
       if (chatPollTimerRef.current) clearTimeout(chatPollTimerRef.current);
       window.removeEventListener('beforeunload', handleBeforeUnload);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
   }, [roomId]);
 
