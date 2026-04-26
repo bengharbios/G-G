@@ -146,6 +146,7 @@ export function useVoiceRTC({
   const audioElementsRef = useRef<Map<string, HTMLAudioElement>>(new Map());
   const pendingAudioStreamsRef = useRef<Map<string, MediaStream>>(new Map());
   const localToggleRef = useRef(false); // prevent isMicMuted effect from overriding local toggle
+  const onMicPeersRef = useRef<Map<string, { socketId: string; userId: string }>>(new Map()); // track who is on mic
 
   // Store current config in refs to avoid stale closures
   const configRef = useRef({ roomId, userId, displayName, isOnSeat, isMicMuted });
@@ -326,10 +327,31 @@ export function useVoiceRTC({
         console.log(`[VoiceRTC] Room members: ${data.members.length}`);
         const { isOnSeat: onMic } = configRef.current;
 
+        // Track all on-mic peers
+        onMicPeersRef.current.clear();
+        data.members.forEach((m) => {
+          if (m.onMic && m.socketId !== socket.id) {
+            onMicPeersRef.current.set(m.userId, { socketId: m.socketId, userId: m.userId });
+          }
+        });
+
+        // If we are on mic, proactively create offers to on-mic peers
         if (onMic && !isLocalMicMuted) {
           data.members.forEach((m) => {
-            if (m.onMic && !m.micMuted) {
+            if (m.onMic && !m.micMuted && m.socketId !== socket.id) {
               createOfferToPeer(socket, m.socketId, m.userId);
+            }
+          });
+        }
+
+        // If we are NOT on mic, still create connections to receive audio
+        if (!onMic) {
+          data.members.forEach((m) => {
+            if (m.onMic && m.socketId !== socket.id) {
+              // Create connection to receive their audio (will answer their offers)
+              if (!connectionsRef.current.has(m.socketId)) {
+                getOrCreatePeerConnection(socket, m.socketId);
+              }
             }
           });
         }
@@ -339,6 +361,10 @@ export function useVoiceRTC({
       socket.on('peer-joined', (data: { socketId: string; userId: string; onMic: boolean; micMuted: boolean; roomId: string; displayName: string }) => {
         console.log(`[VoiceRTC] Peer joined: ${data.userId} (onMic=${data.onMic})`);
         const { isOnSeat: onMic } = configRef.current;
+
+        if (data.onMic) {
+          onMicPeersRef.current.set(data.userId, { socketId: data.socketId, userId: data.userId });
+        }
 
         if (onMic && !isLocalMicMuted && data.onMic && !data.micMuted) {
           createOfferToPeer(socket, data.socketId, data.userId);
@@ -426,8 +452,15 @@ export function useVoiceRTC({
       // ── Peer seat change ──
       socket.on('peer-seat-change', (data: { socketId: string; userId: string; onMic: boolean }) => {
         console.log(`[VoiceRTC] Peer ${data.userId} seat change: onMic=${data.onMic}`);
-        if (!data.onMic) {
-          // Peer went off mic — remove their audio track from playback but keep connection
+        if (data.onMic) {
+          onMicPeersRef.current.set(data.userId, { socketId: data.socketId, userId: data.userId });
+          // Peer went ON mic — if we are also on mic, proactively create offer
+          if (configRef.current.isOnSeat && !isLocalMicMuted) {
+            createOfferToPeer(socket, data.socketId, data.userId);
+          }
+        } else {
+          onMicPeersRef.current.delete(data.userId);
+          // Peer went off mic — disable their audio track but keep connection
           const pc = connectionsRef.current.get(data.socketId);
           if (pc) {
             const receivers = pc.getReceivers();
@@ -1100,8 +1133,16 @@ export function useVoiceRTC({
             }
           }
         }
-        if (socketRef.current?.connected) {
-          socketRef.current.emit('request-offers', {
+        // Proactively create offers to all known on-mic peers (faster than waiting for request-offers)
+        const sock = socketRef.current;
+        if (sock?.connected) {
+          onMicPeersRef.current.forEach((peer) => {
+            if (!connectionsRef.current.has(peer.socketId)) {
+              createOfferToPeer(sock, peer.socketId, peer.userId);
+            }
+          });
+          // Also request offers as fallback
+          sock.emit('request-offers', {
             roomId: configRef.current.roomId,
           });
         }
