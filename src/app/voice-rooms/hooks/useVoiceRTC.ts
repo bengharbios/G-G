@@ -362,11 +362,12 @@ export function useVoiceRTC({
       // ── Receive offer ──
       socket.on('offer', async (data: { fromSocketId: string; roomId: string; offer: RTCSessionDescriptionInit }) => {
         console.log('[VoiceRTC] Received offer');
-        const { isOnSeat: onMic } = configRef.current;
-        if (!onMic) return;
 
         try {
-          await ensureLocalStream();
+          // Only get local stream if on mic (to send our audio), otherwise answer without local track
+          if (configRef.current.isOnSeat) {
+            await ensureLocalStream();
+          }
           const pc = getOrCreatePeerConnection(socket, data.fromSocketId);
           await pc.setRemoteDescription(new RTCSessionDescription(data.offer));
           const answer = await pc.createAnswer();
@@ -426,7 +427,16 @@ export function useVoiceRTC({
       socket.on('peer-seat-change', (data: { socketId: string; userId: string; onMic: boolean }) => {
         console.log(`[VoiceRTC] Peer ${data.userId} seat change: onMic=${data.onMic}`);
         if (!data.onMic) {
-          closePeerConnection(data.socketId, data.userId);
+          // Peer went off mic — remove their audio track from playback but keep connection
+          const pc = connectionsRef.current.get(data.socketId);
+          if (pc) {
+            const receivers = pc.getReceivers();
+            receivers.forEach(r => {
+              if (r.track?.kind === 'audio') {
+                r.track.enabled = false;
+              }
+            });
+          }
         }
       });
 
@@ -1055,9 +1065,16 @@ export function useVoiceRTC({
       micMuted: isLocalMicMuted,
     });
     if (!configRef.current.isOnSeat) {
-      for (const [socketId] of connectionsRef.current.entries()) {
-        closePeerConnection(socketId, '');
+      // Going OFF mic — remove local audio tracks from senders (keep connections alive to receive)
+      for (const [, pc] of connectionsRef.current.entries()) {
+        const senders = pc.getSenders();
+        senders.forEach(sender => {
+          if (sender.track?.kind === 'audio') {
+            sender.replaceTrack(null).catch(() => {});
+          }
+        });
       }
+      // Stop local stream only (no longer needed for sending)
       if (localStreamRef.current) {
         localStreamRef.current.getTracks().forEach(t => t.stop());
         localStreamRef.current = null;
@@ -1071,6 +1088,18 @@ export function useVoiceRTC({
       }
     } else {
       ensureLocalStream().then(() => {
+        // Re-add local track to all existing peer connections
+        const audioTrack = localStreamRef.current?.getAudioTracks()[0];
+        if (audioTrack) {
+          for (const [, pc] of connectionsRef.current.entries()) {
+            const sender = pc.getSenders().find(s => !s.track);
+            if (sender) {
+              sender.replaceTrack(audioTrack).catch(() => {});
+            } else {
+              pc.addTrack(audioTrack, localStreamRef.current!);
+            }
+          }
+        }
         if (socketRef.current?.connected) {
           socketRef.current.emit('request-offers', {
             roomId: configRef.current.roomId,
