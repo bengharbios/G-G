@@ -1442,7 +1442,8 @@ export default function RoomInteriorView({
               </button>
 
               {/* Voice control buttons */}
-              {isAdmin ? (
+              {/* Room mute — admin/owner only */}
+              {isAdmin && (
                 <button
                   onClick={vr.handleToggleRoomMute}
                   className="rounded-full flex items-center justify-center flex-shrink-0 cursor-pointer touch-manipulation"
@@ -1457,58 +1458,42 @@ export default function RoomInteriorView({
                     ? <VolumeX size={17} style={{ color: TUI.colors.red }} />
                     : <Volume2 size={17} style={{ color: 'rgba(255,255,255,0.6)' }} />}
                 </button>
-              ) : vr.isOnSeat ? (
-                <>
-                  {/* Mic toggle — mute/unmute own mic (real WebRTC) */}
-                  <button
-                    onClick={async () => {
-                      voiceRTC.toggleMic();
-                      await vr.handleToggleMic();
-                    }}
-                    className="rounded-full flex items-center justify-center flex-shrink-0 cursor-pointer touch-manipulation"
-                    style={{
-                      width: 36, height: 36, minWidth: 44, minHeight: 44,
-                      backgroundColor: voiceRTC.isLocalMicMuted ? 'rgba(252, 85, 85, 0.15)' : 'rgba(255,255,255,0.07)',
-                      transition: TUI.anim.fast,
-                    }}
-                    aria-label={voiceRTC.isLocalMicMuted ? 'إلغاء كتم المايك' : 'كتم المايك'}
-                  >
-                    {voiceRTC.isLocalMicMuted
-                      ? <MicOff size={17} style={{ color: TUI.colors.red }} />
-                      : <Mic size={17} style={{ color: voiceRTC.localSpeaking ? TUI.colors.tealLight : 'rgba(255,255,255,0.6)' }} />}
-                  </button>
-                  {/* Speaker toggle — mute/unmute room audio (local playback) */}
-                  <button
-                    onClick={voiceRTC.toggleSpeaker}
-                    className="rounded-full flex items-center justify-center flex-shrink-0 cursor-pointer touch-manipulation"
-                    style={{
-                      width: 36, height: 36, minWidth: 44, minHeight: 44,
-                      backgroundColor: voiceRTC.isSpeakerMuted ? 'rgba(252, 85, 85, 0.15)' : 'rgba(255,255,255,0.07)',
-                      transition: TUI.anim.fast,
-                    }}
-                    aria-label={voiceRTC.isSpeakerMuted ? 'تشغيل الصوت' : 'كتم الصوت'}
-                  >
-                    {voiceRTC.isSpeakerMuted
-                      ? <VolumeX size={17} style={{ color: TUI.colors.red }} />
-                      : <Volume2 size={17} style={{ color: 'rgba(255,255,255,0.6)' }} />}
-                  </button>
-                </>
-              ) : (
+              )}
+              {/* Mic toggle — when user is on a mic seat (including owner/admin) */}
+              {vr.isOnSeat && (
                 <button
-                  onClick={voiceRTC.toggleSpeaker}
+                  onClick={async () => {
+                    voiceRTC.toggleMic();
+                    await vr.handleToggleMic();
+                  }}
                   className="rounded-full flex items-center justify-center flex-shrink-0 cursor-pointer touch-manipulation"
                   style={{
                     width: 36, height: 36, minWidth: 44, minHeight: 44,
-                    backgroundColor: voiceRTC.isSpeakerMuted ? 'rgba(252, 85, 85, 0.15)' : 'rgba(255,255,255,0.07)',
+                    backgroundColor: voiceRTC.isLocalMicMuted ? 'rgba(252, 85, 85, 0.15)' : 'rgba(255,255,255,0.07)',
                     transition: TUI.anim.fast,
                   }}
-                  aria-label={voiceRTC.isSpeakerMuted ? 'تشغيل الصوت' : 'كتم الصوت'}
+                  aria-label={voiceRTC.isLocalMicMuted ? 'فتح المايك' : 'كتم المايك'}
                 >
-                  {voiceRTC.isSpeakerMuted
-                    ? <VolumeX size={17} style={{ color: TUI.colors.red }} />
-                    : <Volume2 size={17} style={{ color: 'rgba(255,255,255,0.6)' }} />}
+                  {voiceRTC.isLocalMicMuted
+                    ? <MicOff size={17} style={{ color: TUI.colors.red }} />
+                    : <Mic size={17} style={{ color: voiceRTC.localSpeaking ? TUI.colors.tealLight : 'rgba(255,255,255,0.6)' }} />}
                 </button>
               )}
+              {/* Speaker toggle — mute/unmute room audio (local playback) */}
+              <button
+                onClick={voiceRTC.toggleSpeaker}
+                className="rounded-full flex items-center justify-center flex-shrink-0 cursor-pointer touch-manipulation"
+                style={{
+                  width: 36, height: 36, minWidth: 44, minHeight: 44,
+                  backgroundColor: voiceRTC.isSpeakerMuted ? 'rgba(252, 85, 85, 0.15)' : 'rgba(255,255,255,0.07)',
+                  transition: TUI.anim.fast,
+                }}
+                aria-label={voiceRTC.isSpeakerMuted ? 'تشغيل الصوت' : 'كتم الصوت'}
+              >
+                {voiceRTC.isSpeakerMuted
+                  ? <VolumeX size={17} style={{ color: TUI.colors.red }} />
+                  : <Volume2 size={17} style={{ color: 'rgba(255,255,255,0.6)' }} />}
+              </button>
             </div>
           </footer>
         </div>

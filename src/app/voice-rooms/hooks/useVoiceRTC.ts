@@ -145,6 +145,7 @@ export function useVoiceRTC({
   const iceRetriesRef = useRef<Map<string, number>>(new Map());
   const audioElementsRef = useRef<Map<string, HTMLAudioElement>>(new Map());
   const pendingAudioStreamsRef = useRef<Map<string, MediaStream>>(new Map());
+  const localToggleRef = useRef(false); // prevent isMicMuted effect from overriding local toggle
 
   // Store current config in refs to avoid stale closures
   const configRef = useRef({ roomId, userId, displayName, isOnSeat, isMicMuted });
@@ -989,6 +990,9 @@ export function useVoiceRTC({
   const toggleMic = useCallback(() => {
     const newMuted = !isLocalMicMuted;
     setIsLocalMicMuted(newMuted);
+    localToggleRef.current = true;
+    // Clear flag after server has time to respond (2s)
+    setTimeout(() => { localToggleRef.current = false; }, 2000);
 
     if (localStreamRef.current) {
       localStreamRef.current.getAudioTracks().forEach(t => {
@@ -1078,6 +1082,10 @@ export function useVoiceRTC({
 
   /* ── Handle external mic mute sync ── */
   useEffect(() => {
+    // Don't override local toggle — wait for server response to sync
+    if (localToggleRef.current) return;
+    // Sync local muted state with server-provided isMicMuted prop
+    setIsLocalMicMuted(isMicMuted);
     if (localStreamRef.current) {
       localStreamRef.current.getAudioTracks().forEach(t => {
         t.enabled = !isMicMuted;
