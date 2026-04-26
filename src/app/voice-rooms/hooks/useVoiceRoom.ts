@@ -119,7 +119,12 @@ export function useVoiceRoom(
           await fetch(`/api/voice-rooms/${roomId}?action=join`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ userId: authUser.id, username: authUser.username, displayName: authUser.displayName }),
+            body: JSON.stringify({
+              userId: authUser.id,
+              username: authUser.username,
+              displayName: authUser.displayName,
+              avatar: authUser.avatar,
+            }),
           });
           // Refresh participant state after rejoin
           const reRes = await fetch(`/api/voice-rooms/${roomId}?action=my-participant`);
