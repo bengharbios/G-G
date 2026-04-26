@@ -159,7 +159,17 @@ export function useVoiceRTC({
      on the first tap/click inside the room.
      ═══════════════════════════════════════════════════════════ */
   const unlockAudio = useCallback(async () => {
-    if (audioUnlockedRef.current) return true;
+    // Don't return early — mobile may create new audio elements after initial unlock
+    // We must always process pending/paused audio elements
+    if (audioUnlockedRef.current) {
+      // Already unlocked, but still try to play any new pending/paused elements
+      for (const [key, audio] of audioElementsRef.current.entries()) {
+        if (audio.paused && audio.srcObject) {
+          audio.play().catch(() => {});
+        }
+      }
+      return true;
+    }
 
     try {
       // 1. Resume/create AudioContext (iOS requires user gesture)
@@ -351,25 +361,26 @@ export function useVoiceRTC({
           }
         });
 
-        // If we are on mic, proactively create offers to on-mic peers
+        // If we are on mic, create offers to ALL peers (on-mic AND listeners)
+        // so everyone can hear us, not just other on-mic peers
         if (onMic && !isLocalMicMuted) {
           data.members.forEach((m) => {
-            if (m.onMic && !m.micMuted && m.socketId !== socket.id) {
+            if (m.socketId !== socket.id) {
               createOfferToPeer(socket, m.socketId, m.userId);
             }
           });
         }
 
-        // If we are NOT on mic, still create connections to receive audio
+        // If we are NOT on mic (listening mode), request offers from on-mic peers
+        // so we can hear them through WebRTC
         if (!onMic) {
-          data.members.forEach((m) => {
-            if (m.onMic && m.socketId !== socket.id) {
-              // Create connection to receive their audio (will answer their offers)
-              if (!connectionsRef.current.has(m.socketId)) {
-                getOrCreatePeerConnection(socket, m.socketId);
-              }
-            }
-          });
+          const hasOnMicPeers = data.members.some(m => m.onMic && m.socketId !== socket.id);
+          if (hasOnMicPeers) {
+            socket.emit('request-offers', {
+              roomId: configRef.current.roomId,
+            });
+            console.log('[VoiceRTC] 🎧 Listener requested offers from on-mic peers');
+          }
         }
       });
 
@@ -382,8 +393,16 @@ export function useVoiceRTC({
           onMicPeersRef.current.set(data.userId, { socketId: data.socketId, userId: data.userId });
         }
 
-        if (onMic && !isLocalMicMuted && data.onMic && !data.micMuted) {
+        if (onMic && !isLocalMicMuted) {
+          // We're on mic — create offer to ANY peer (on-mic or listener)
+          // so they can hear us through WebRTC
           createOfferToPeer(socket, data.socketId, data.userId);
+        } else if (!onMic && data.onMic) {
+          // We're a listener and the new peer is on mic — request their offer
+          socket.emit('request-offers', {
+            roomId: configRef.current.roomId,
+          });
+          console.log('[VoiceRTC] 🎧 Listener requested offers (new on-mic peer joined)');
         }
       });
 
@@ -470,9 +489,15 @@ export function useVoiceRTC({
         console.log(`[VoiceRTC] Peer ${data.userId} seat change: onMic=${data.onMic}`);
         if (data.onMic) {
           onMicPeersRef.current.set(data.userId, { socketId: data.socketId, userId: data.userId });
-          // Peer went ON mic — if we are also on mic, proactively create offer
           if (configRef.current.isOnSeat && !isLocalMicMuted) {
+            // We're on mic — create offer to them so they can hear us
             createOfferToPeer(socket, data.socketId, data.userId);
+          } else if (!configRef.current.isOnSeat) {
+            // We're a listener and they just went on mic — request their offer
+            socket.emit('request-offers', {
+              roomId: configRef.current.roomId,
+            });
+            console.log('[VoiceRTC] 🎧 Listener requested offers (peer went on mic)');
           }
         } else {
           onMicPeersRef.current.delete(data.userId);
@@ -787,6 +812,13 @@ export function useVoiceRTC({
       if (!stream) return;
 
       const pc = getOrCreatePeerConnection(socket, targetSocketId);
+
+      // Skip if connection is not in stable state (already negotiating)
+      if (pc.signalingState !== 'stable') {
+        console.log('[VoiceRTC] Skipping offer to peer, signaling state:', pc.signalingState);
+        return;
+      }
+
       const offer = await pc.createOffer({
         offerToReceiveAudio: true,
         offerToReceiveVideo: false,
