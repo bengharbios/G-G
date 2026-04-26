@@ -540,9 +540,15 @@ export function useVoiceRoom(
           animation: giftData.animation,
           price: totalCost,
           timestamp: Date.now(),
+          grade: giftData.grade,
+          bmType: giftData.bmType,
+          video: giftData.video,
+          timeLength: giftData.timeLength,
         };
         setActiveGiftAnimation(anim);
-        const clearDelay = totalCost >= 5200 ? 4000 : totalCost >= 199 ? 3000 : 2000;
+        const clearDelay = giftData.timeLength
+          ? (giftData.timeLength * 1000) + 500
+          : totalCost >= 5200 ? 4000 : totalCost >= 199 ? 3000 : 2000;
         setTimeout(() => setActiveGiftAnimation(null), clearDelay);
       }
 

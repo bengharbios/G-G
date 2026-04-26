@@ -128,6 +128,8 @@ export interface ActiveGiftAnimation {
   grade?: number;         // 0-4 gift grade
   bmType?: number;        // 0=none, 1=fullscreen, 2=halfscreen
   senderAvatar?: string;  // Sender avatar URL
+  video?: string;         // MP4 video URL for VAP gifts
+  timeLength?: number;    // Video duration in seconds
 }
 
 export interface SeatData {
@@ -490,6 +492,7 @@ export const DEFAULT_GIFTS: Gift[] = [
   { id: 'g22', name: 'RocketBig', nameAr: 'صاروخ عملاق', emoji: '🚀', price: 52000, category: 'special', animation: 'fireworks',  grade: 4, bmType: 1, animationResourceUrl: TUI_SVGA_CAR, bgColor: '#201010' },
   { id: 'g23', name: 'Cat',      nameAr: 'قطة',        emoji: '🐱', price: 9999,  category: 'special', animation: 'confetti',   grade: 3, bmType: 1, animationResourceUrl: TUI_SVGA_CAT, bgColor: '#151510' },
   { id: 'g24', name: 'Unicorn',  nameAr: 'يونيكورن',   emoji: '🦄', price: 6666,  category: 'special', animation: 'stars',      grade: 3, bmType: 1, bgColor: '#151020', isNew: true },
+  { id: 'g34', name: 'VapGift1', nameAr: 'هدية خاصة',   emoji: '🎀', price: 1314,  category: 'special', animation: 'fireworks',  grade: 3, bmType: 1, video: '/gifts/vap/gift_61266.mp4', format: 'vap', timeLength: 5, bgColor: '#151020', isNew: true },
   // ── Ramadan (رمضان) ──
   { id: 'g25', name: 'Moon',     nameAr: 'هلال رمضان', emoji: '🌙', price: 99,    category: 'ramadan', animation: 'stars',      grade: 1, bmType: 0, bgColor: '#0a0f20', isNew: true },
   { id: 'g26', name: 'Lantern',  nameAr: 'فانوس',      emoji: '🏮', price: 199,   category: 'ramadan', animation: 'particles',  grade: 2, bmType: 0, bgColor: '#1a1508' },

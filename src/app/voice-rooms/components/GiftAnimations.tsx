@@ -484,11 +484,38 @@ export default function GiftAnimations({
   if (!activeAnimation) return null;
 
   const grade = activeAnimation.grade ?? 0;
+  const hasVideo = !!activeAnimation.video;
 
   return (
     <div className="fixed inset-0 pointer-events-none z-40">
-      {/* Canvas for custom particles (grades 1-4) */}
-      {grade > 0 && (
+      {/* VAP Video overlay for video-based gifts */}
+      {hasVideo && (
+        <div
+          className="absolute inset-0 flex items-center justify-center"
+          style={{ zIndex: 1 }}
+        >
+          <video
+            key={activeAnimation.id}
+            src={activeAnimation.video}
+            autoPlay
+            muted
+            playsInline
+            style={{
+              width: activeAnimation.bmType === 1 ? '100%' : '70%',
+              maxWidth: 420,
+              height: activeAnimation.bmType === 1 ? '100%' : 'auto',
+              objectFit: 'contain',
+              animation: 'vapGiftFadeIn 0.3s ease-out forwards',
+            }}
+            onEnded={() => {
+              // Video ended — animation will be cleared by the setTimeout
+            }}
+          />
+        </div>
+      )}
+
+      {/* Canvas for custom particles (grades 1-4, non-video) */}
+      {grade > 0 && !hasVideo && (
         <canvas
           ref={canvasRef}
           width={400}
@@ -501,8 +528,8 @@ export default function GiftAnimations({
       {/* Gift Banner (all grades) */}
       <GiftBanner anim={activeAnimation} />
 
-      {/* Grade indicator glow (grade >= 3) */}
-      {grade >= 3 && (
+      {/* Grade indicator glow (grade >= 3, non-video) */}
+      {grade >= 3 && !hasVideo && (
         <div
           className="absolute inset-0"
           style={{
@@ -518,6 +545,10 @@ export default function GiftAnimations({
           0% { opacity: 0; }
           20% { opacity: 1; }
           100% { opacity: 0; }
+        }
+        @keyframes vapGiftFadeIn {
+          from { opacity: 0; transform: scale(0.85); }
+          to { opacity: 1; transform: scale(1); }
         }
       `}</style>
     </div>
