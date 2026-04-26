@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useRef } from 'react';
-import { Volume2, VolumeX, Mic, MicOff, Gift, Send } from 'lucide-react';
+import { Volume2, VolumeX, Mic, MicOff, Gift, Send, Headphones } from 'lucide-react';
 import { TUI } from '../types';
 import type { AuthUser, RoomRole } from '../types';
 
@@ -136,11 +136,7 @@ export default function BottomBar({
           }}
           aria-label={isSpeakerMuted ? 'فتح السماعة' : 'كتم السماعة'}
         >
-          {isSpeakerMuted ? (
-            <VolumeX size={18} style={{ color: TUI.colors.red }} />
-          ) : (
-            <Volume2 size={18} style={{ color: TUI.colors.G7 }} />
-          )}
+          <Headphones size={18} style={{ color: isSpeakerMuted ? TUI.colors.red : TUI.colors.G7 }} />
         </button>
 
         {/* ── Chat Input (always visible, flex-1) ── */}

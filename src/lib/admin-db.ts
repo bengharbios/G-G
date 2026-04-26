@@ -3424,8 +3424,8 @@ export async function joinVoiceRoom(roomId: string, userId: string, username: st
       }
     }
   }
-  const joinSeat = isHost ? 0 : -1;
-  const joinStatus = isHost ? 'locked' : 'open';
+  const joinSeat = -1;
+  const joinStatus = 'open';
 
   await c.execute({
     sql: `INSERT INTO VoiceRoomParticipant (id, roomId, userId, username, displayName, avatar, isMuted, role, seatIndex, seatStatus, micFrozen, vipLevel, lastSeen)

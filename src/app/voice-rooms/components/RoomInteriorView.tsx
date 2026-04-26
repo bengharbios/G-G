@@ -3,7 +3,7 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
 import {
   Loader2, X, ArrowRight, Share2,
-  Crown, Volume2, VolumeX, Mic, MicOff, Gift, Send,
+  Crown, Volume2, VolumeX, Mic, MicOff, Gift, Send, Headphones,
   Megaphone, Pencil,
   Lock, MoreVertical, Users, Settings2, Shield,
   PencilLine, Sparkles,
@@ -1488,11 +1488,9 @@ export default function RoomInteriorView({
                   backgroundColor: voiceRTC.isSpeakerMuted ? 'rgba(252, 85, 85, 0.15)' : 'rgba(255,255,255,0.07)',
                   transition: TUI.anim.fast,
                 }}
-                aria-label={voiceRTC.isSpeakerMuted ? 'تشغيل الصوت' : 'كتم الصوت'}
+                aria-label={voiceRTC.isSpeakerMuted ? 'تشغيل السماعة' : 'كتم السماعة'}
               >
-                {voiceRTC.isSpeakerMuted
-                  ? <VolumeX size={17} style={{ color: TUI.colors.red }} />
-                  : <Volume2 size={17} style={{ color: 'rgba(255,255,255,0.6)' }} />}
+                <Headphones size={17} style={{ color: voiceRTC.isSpeakerMuted ? TUI.colors.red : 'rgba(255,255,255,0.6)' }} />
               </button>
             </div>
           </footer>
