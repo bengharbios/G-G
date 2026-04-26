@@ -2,7 +2,6 @@ import type { Metadata } from "next";
 import { Cairo } from "next/font/google";
 import "./globals.css";
 import { Toaster } from "@/components/ui/toaster";
-import ChatWidget from "@/components/ChatWidget";
 import ServiceWorkerRegistrar from "@/components/ServiceWorkerRegistrar";
 
 const cairo = Cairo({
@@ -38,7 +37,6 @@ export default function RootLayout({
         className={`${cairo.variable} font-sans antialiased bg-background text-foreground`}
       >
         {children}
-        <ChatWidget />
         <Toaster />
         <ServiceWorkerRegistrar />
       </body>
