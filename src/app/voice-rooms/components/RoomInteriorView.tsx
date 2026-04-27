@@ -52,6 +52,11 @@ import { ThemeToggle } from './ThemeToggle';
 import { ReconnectIndicator } from './ReconnectIndicator';
 import { RecordingIndicator } from './RecordingIndicator';
 import { DailyRewardToast } from './DailyRewardToast';
+import { NetworkQualityIndicator } from './NetworkQualityIndicator';
+import { AudioLevelMeter } from './AudioLevelMeter';
+import { OnlineStatusBadge } from './OnlineStatus';
+import { UserSearchBar } from './UserSearch';
+import ReportBlockDialog from './ReportBlockDialog';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -545,6 +550,8 @@ function ThreeDotsMenu({
   onOpenTopGifters: () => void;
   onOpenAchievements: () => void;
   onOpenEarnings: () => void;
+  onOpenUserSearch: () => void;
+  onOpenReport: () => void;
   hasAuthUser: boolean;
 }) {
   if (!isOpen) return null;
@@ -561,6 +568,8 @@ function ThreeDotsMenu({
     { icon: Trophy, label: 'المتبرعين', action: onOpenTopGifters, show: true },
     { icon: Medal, label: 'الإنجازات', action: onOpenAchievements, show: hasAuthUser },
     { icon: DollarSign, label: 'الأرباح', action: onOpenEarnings, show: isOwner },
+    { icon: AudioWaveform, label: 'بحث عن مستخدم', action: onOpenUserSearch, show: true },
+    { icon: AlertTriangle, label: 'إبلاغ عن مستخدم', action: onOpenReport, show: hasAuthUser },
     { icon: LogOut, label: 'خروج', action: onClose, show: true, color: TUI.colors.red },
   ];
 
@@ -816,6 +825,12 @@ export default function RoomInteriorView({
 
   /* ── Earnings sheet state ── */
   const [showEarnings, setShowEarnings] = useState(false);
+
+  /* ── User search state ── */
+  const [showUserSearch, setShowUserSearch] = useState(false);
+
+  /* ── Report/Block dialog state ── */
+  const [reportTarget, setReportTarget] = useState<{ userId: string; displayName: string } | null>(null);
 
   /* ── Mic layout ── */
   const micLayout = getMicLayout(vr.room.micTheme, vr.seats.length);
@@ -1299,25 +1314,8 @@ export default function RoomInteriorView({
                 padding: '4px 10px',
               }}
             >
-              {/* Connection quality dot */}
-              <span
-                style={{
-                  width: 6,
-                  height: 6,
-                  borderRadius: '50%',
-                  backgroundColor:
-                    connectionQuality === 'excellent' ? '#29CC6A' :
-                    connectionQuality === 'good' ? '#f59e0b' :
-                    connectionQuality === 'poor' ? '#fc5555' :
-                    'rgba(255,255,255,0.3)',
-                  boxShadow:
-                    connectionQuality === 'excellent' ? '0 0 4px #29CC6A' :
-                    connectionQuality === 'good' ? '0 0 4px #f59e0b' :
-                    connectionQuality === 'poor' ? '0 0 4px #fc5555' :
-                    'none',
-                  display: 'inline-block',
-                }}
-              />
+              {/* Connection quality indicator */}
+              <NetworkQualityIndicator quality={connectionQuality} />
               <span
                 style={{
                   fontSize: 12,
@@ -1767,6 +1765,14 @@ export default function RoomInteriorView({
           onOpenTopGifters={() => setShowTopGifters(true)}
           onOpenAchievements={() => setShowAchievements(true)}
           onOpenEarnings={() => setShowEarnings(true)}
+          onOpenUserSearch={() => setShowUserSearch(true)}
+          onOpenReport={() => {
+            // If there's a mic menu participant selected, report them
+            const target = vr.micMenuSheet.participant;
+            if (target) {
+              setReportTarget({ userId: target.userId, displayName: target.displayName });
+            }
+          }}
           hasAuthUser={!!authUser}
         />
 
@@ -1981,6 +1987,35 @@ export default function RoomInteriorView({
             DAILY REWARD TOAST — auto-checks and shows claim prompt
             ════════════════════════════════════════════════════════════════════ */}
         <DailyRewardToast userId={authUser?.id} />
+
+        {/* ════════════════════════════════════════════════════════════════════
+            USER SEARCH — search participants within the room
+            ════════════════════════════════════════════════════════════════════ */}
+        <UserSearchBar
+          isOpen={showUserSearch}
+          onClose={() => setShowUserSearch(false)}
+          participants={vr.participants.map(p => ({
+            userId: p.userId,
+            displayName: p.displayName,
+            avatar: p.avatar,
+            role: p.role,
+          }))}
+          onUserSelect={(userId) => {
+            setShowUserSearch(false);
+          }}
+        />
+
+        {/* ════════════════════════════════════════════════════════════════════
+            REPORT & BLOCK DIALOG — report/block a user
+            ════════════════════════════════════════════════════════════════════ */}
+        <ReportBlockDialog
+          isOpen={!!reportTarget}
+          onClose={() => setReportTarget(null)}
+          targetUserId={reportTarget?.userId || ''}
+          targetDisplayName={reportTarget?.displayName || ''}
+          reporterUserId={authUser?.id}
+          roomId={vr.room.id}
+        />
       </div>
     </>
   );
