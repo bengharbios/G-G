@@ -123,3 +123,78 @@
 - Lint: Zero new errors from all changes
 - All pre-existing errors remain in other files
 - Voice rooms page compiles successfully (verified via dev server HTML output)
+
+---
+
+## Task: Add Report, Block & Per-Speaker Volume to MicMenuSheet
+
+### Date: 2025-06-04
+### Task ID: 14+16
+
+### Changes Made to `/home/z/my-project/src/app/voice-rooms/components/sheets/MicMenuSheet.tsx`
+
+#### 1. Report & Block Menu Items (for occupied seats of other users)
+- Added "إبلاغ" (Report) menu item with `AlertTriangle` icon in `TUI.colors.red`
+- Added "حظر" (Block) menu item with `Ban` icon in `TUI.colors.orange`
+- Both items appear AFTER existing admin actions (kick-temp, kick-permanent)
+- Available for ALL users viewing other users' occupied seats (not just admins)
+
+#### 2. Report Dialog
+- Modal overlay with 4 reason options: سبام (Spam), محتوى غير لائق (Inappropriate content), تحرش (Harassment), آخر (Other)
+- Radio-button selection style with red accent on selected reason
+- Cancel / Submit buttons — submit disabled until reason selected
+- Calls `onReport(userId, reason)` callback on submit
+
+#### 3. Block Functionality
+- Calls `onBlock(userId)` callback immediately on click
+- Designed to be handled by parent (localStorage or API)
+
+#### 4. Per-Speaker Volume Control
+- Volume slider (range input, 0-100%) shown below menu items for occupied seats of other users
+- Styled with `TUI.colors.sliderFilled`/`sliderEmpty` gradient track
+- Displays current volume percentage
+- Calls `onVolumeChange(userId, volume)` callback on change
+- Only renders when `onVolumeChange` prop is provided
+
+#### 5. New Props Added
+- `onReport?: (userId: string, reason: string) => void`
+- `onBlock?: (userId: string) => void`
+- `onVolumeChange?: (userId: string, volume: number) => void`
+
+#### Design Notes
+- All styling uses inline styles matching existing TUI design tokens
+- Report dialog is a fixed overlay within the MicMenuSheet component
+- Volume slider section separated by a divider line from menu items
+- No modifications to `useVoiceRTC.ts` — volume control handled via callback props
+
+
+## Task 17+18+22 — Top Gifters, Achievements & Earnings Sheets
+
+**Date**: $(date -u '+%Y-%m-%d %H:%M UTC')
+**Agent**: fullstack-dev
+
+### Summary
+Implemented three new bottom sheet components for the Arabic RTL voice room app and integrated them into the ThreeDotsMenu in RoomInteriorView.
+
+### Files Created
+1. **`src/app/voice-rooms/components/sheets/TopGiftersSheet.tsx`** — Bottom sheet showing leaderboard of top gifters in the current room. Features rank badges (🥇🥈🥉 for top 3), colored borders (gold/silver/bronze), avatar/initial display, and gem value formatting.
+
+2. **`src/app/voice-rooms/components/sheets/AchievementsSheet.tsx`** — Bottom sheet displaying 12 user achievements in a 2-column grid. Fetches unlocked achievements from `/api/achievements?userId=` on mount. Unlocked achievements have golden border + glow; locked achievements are dimmed with grayscale filter and lock icon overlay. Shows summary counter at top.
+
+3. **`src/app/voice-rooms/components/sheets/EarningsSheet.tsx`** — Bottom sheet for room hosts showing earnings dashboard. Fetches from `/api/room-earnings?roomId=&userId=`. Features a gradient total earnings card with large gem number, today/week earnings split, and top 3 gifters for the room.
+
+### Files Modified
+4. **`src/app/voice-rooms/components/RoomInteriorView.tsx`**:
+   - Added imports: `Medal`, `DollarSign` from lucide-react; three new sheet components
+   - Added state: `showTopGifters`, `showAchievements`, `showEarnings`
+   - Extended `ThreeDotsMenu` component with `onOpenTopGifters`, `onOpenAchievements`, `onOpenEarnings`, `hasAuthUser` props
+   - Added 3 menu items: 🏆 المتبرعين (always visible), 🏅 الإنجازات (auth users only), 💲 الأرباح (owner only)
+   - Rendered three sheet components at the end of the JSX
+
+### Design Consistency
+- All sheets use `BottomSheetOverlay` from `../shared/BottomSheetOverlay` with TUI color tokens
+- All text in Arabic (RTL)
+- Dark teal-green theme matching existing room UI
+- Consistent card styling with `rgba()` backgrounds and subtle borders
+- Responsive, mobile-first with touch-manipulation
+- Loading states with spinner and Arabic text

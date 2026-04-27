@@ -39,6 +39,8 @@ export interface RoomNotification {
   timestamp: number;
 }
 
+export type ConnectionQuality = 'excellent' | 'good' | 'poor' | 'disconnected';
+
 interface VoiceRTCReturn {
   /** Map of userId → true if currently speaking */
   speakingPeers: React.MutableRefObject<Map<string, boolean>>;
@@ -70,6 +72,8 @@ interface VoiceRTCReturn {
   changeMicDevice: (deviceId: string) => Promise<void>;
   /** Change speaker output device (setSinkId on all audio elements) */
   changeSpeakerDevice: (deviceId: string) => void;
+  /** Current connection quality based on RTCPeerConnection stats */
+  connectionQuality: ConnectionQuality;
 }
 
 // ── ICE Configuration ──
@@ -127,6 +131,7 @@ export function useVoiceRTC({
   const [isConnected, setIsConnected] = useState(false);
   const [isAudioUnlocked, setIsAudioUnlocked] = useState(false);
   const [notifications, setNotifications] = useState<RoomNotification[]>([]);
+  const [connectionQuality, setConnectionQuality] = useState<ConnectionQuality>('disconnected');
 
   /* ── Refs ── */
   const socketRef = useRef<any>(null);
@@ -1017,6 +1022,111 @@ export function useVoiceRTC({
     console.log('[VoiceRTC] Speaker device changed to', deviceId);
   }, []);
 
+  /* ═══════════════════════════════════════════════════════════
+     Connection Quality Monitor
+     Checks RTCPeerConnection stats every 3 seconds to determine
+     network quality based on roundTripTime and packet loss.
+     ═══════════════════════════════════════════════════════════ */
+  const statsIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const monitorConnectionQuality = useCallback(() => {
+    const checkStats = async () => {
+      const connections = connectionsRef.current;
+      if (connections.size === 0 || !isConnected) {
+        setConnectionQuality('disconnected');
+        return;
+      }
+
+      // Find the first active (connected/completed) peer connection
+      let activePc: RTCPeerConnection | null = null;
+      for (const [, pc] of connections.entries()) {
+        if (
+          pc.connectionState === 'connected' ||
+          pc.connectionState === 'completed' ||
+          pc.iceConnectionState === 'connected' ||
+          pc.iceConnectionState === 'completed'
+        ) {
+          activePc = pc;
+          break;
+        }
+      }
+
+      if (!activePc) {
+        setConnectionQuality('disconnected');
+        return;
+      }
+
+      try {
+        const stats = await activePc.getStats();
+        let worstRtt = 0;
+        let totalPacketsLost = 0;
+        let totalPacketsReceived = 0;
+
+        stats.forEach((report) => {
+          // Check remote inbound RTP for roundTripTime
+          if (report.type === 'candidate-pair' && report.state === 'succeeded') {
+            if (report.roundTripTime !== undefined) {
+              const rttMs = report.roundTripTime * 1000; // convert s → ms
+              if (rttMs > worstRtt) worstRtt = rttMs;
+            }
+          }
+          // Check inbound RTP for packet loss
+          if (report.type === 'inbound-rtp' && report.kind === 'audio') {
+            if (report.packetsLost !== undefined) totalPacketsLost += report.packetsLost;
+            if (report.packetsReceived !== undefined) totalPacketsReceived += report.packetsReceived;
+          }
+        });
+
+        // Calculate packet loss percentage
+        const totalPackets = totalPacketsReceived + totalPacketsLost;
+        const packetLossPercent = totalPackets > 0 ? (totalPacketsLost / totalPackets) * 100 : 0;
+
+        // Determine quality
+        if (packetLossPercent > 5) {
+          setConnectionQuality('poor');
+        } else if (worstRtt >= 300) {
+          setConnectionQuality('poor');
+        } else if (worstRtt >= 100) {
+          setConnectionQuality('good');
+        } else {
+          setConnectionQuality('excellent');
+        }
+      } catch {
+        // getStats failed — keep current quality
+      }
+    };
+
+    return checkStats;
+  }, [isConnected]);
+
+  // Run stats check every 3 seconds
+  useEffect(() => {
+    if (!isConnected) {
+      setConnectionQuality('disconnected');
+      return;
+    }
+
+    const check = monitorConnectionQuality();
+    // Run immediately once
+    check();
+    // Then every 3 seconds
+    statsIntervalRef.current = setInterval(check, 3000);
+
+    return () => {
+      if (statsIntervalRef.current) {
+        clearInterval(statsIntervalRef.current);
+        statsIntervalRef.current = null;
+      }
+    };
+  }, [isConnected, monitorConnectionQuality]);
+
+  // Also update quality when connected state changes
+  useEffect(() => {
+    if (!isConnected) {
+      setConnectionQuality('disconnected');
+    }
+  }, [isConnected]);
+
   /* ── Cleanup all ── */
   const cleanup = useCallback(() => {
     // Stop speaking check
@@ -1250,5 +1360,6 @@ export function useVoiceRTC({
     audioStreams: audioStreamsRef,
     changeMicDevice,
     changeSpeakerDevice,
+    connectionQuality,
   };
 }

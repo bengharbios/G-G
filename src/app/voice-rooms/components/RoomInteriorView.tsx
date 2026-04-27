@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import {
   Loader2, X, ArrowRight, Share2,
   Crown, Volume2, VolumeX, Mic, MicOff, Gift, Send, Headphones,
@@ -10,6 +10,7 @@ import {
   UserPlus, LogOut, Heart, AlertTriangle,
   MessageSquare, UserCog, Trophy, LogIn, Minimize2, MoreHorizontal,
   Bell, BellOff, AudioWaveform,
+  Medal, DollarSign,
 } from 'lucide-react';
 import { useVoiceRoom } from '../hooks/useVoiceRoom';
 import { useVoiceRTC, type RoomNotification } from '../hooks/useVoiceRTC';
@@ -34,6 +35,9 @@ import ProfileSheet from './sheets/ProfileSheet';
 import MicMenuSheet from './sheets/MicMenuSheet';
 import SeatManagementSheet from './sheets/SeatManagementSheet';
 import RoomInfoSheet from './sheets/RoomInfoSheet';
+import TopGiftersSheet from './sheets/TopGiftersSheet';
+import AchievementsSheet from './sheets/AchievementsSheet';
+import EarningsSheet from './sheets/EarningsSheet';
 
 // ─── Dialogs ─────────────────────────────────────────────────────────────────
 
@@ -56,6 +60,7 @@ import type { VoiceRoom, AuthUser } from '../types';
 // ─── Sound Effects & Floating Reactions ──────────────────────────────────────
 import { playJoinSound, playLeaveSound, playMicOnSound, playMicOffSound, playGiftSound, playGiftReceivedSound, playNotificationSound, playSeatRequestSound, playKickSound, playErrorSound, SOUNDBOARD_ITEMS } from '@/lib/sound-effects';
 import { useFloatingReactions, QuickReactionBar, FloatingReactions as FloatingReactionsOverlay } from './FloatingReactions';
+import { useDND, DoNotDisturbToggle } from './DoNotDisturbBadge';
 
 /* ═══════════════════════════════════════════════════════════════════════
    RoomInteriorView — TUILiveKit Room Interior (Improved Match)
@@ -520,6 +525,10 @@ function ThreeDotsMenu({
   onShare,
   onToggleRoomMute,
   isRoomMuted,
+  onOpenTopGifters,
+  onOpenAchievements,
+  onOpenEarnings,
+  hasAuthUser,
 }: {
   isOpen: boolean;
   onClose: () => void;
@@ -533,6 +542,10 @@ function ThreeDotsMenu({
   onShare: () => void;
   onToggleRoomMute: () => void;
   isRoomMuted: boolean;
+  onOpenTopGifters: () => void;
+  onOpenAchievements: () => void;
+  onOpenEarnings: () => void;
+  hasAuthUser: boolean;
 }) {
   if (!isOpen) return null;
 
@@ -545,6 +558,9 @@ function ThreeDotsMenu({
     { icon: Share2, label: 'مشاركة', action: onShare, show: true },
     { icon: UserPlus, label: 'دعوة', action: () => {}, show: true },
     { icon: Sparkles, label: 'تأثيرات', action: () => {}, show: true },
+    { icon: Trophy, label: 'المتبرعين', action: onOpenTopGifters, show: true },
+    { icon: Medal, label: 'الإنجازات', action: onOpenAchievements, show: hasAuthUser },
+    { icon: DollarSign, label: 'الأرباح', action: onOpenEarnings, show: isOwner },
     { icon: LogOut, label: 'خروج', action: onClose, show: true, color: TUI.colors.red },
   ];
 
@@ -792,13 +808,23 @@ export default function RoomInteriorView({
   /* ── Recording indicator ── */
   const [isRecording, setIsRecording] = useState(false);
 
+  /* ── Top Gifters sheet state ── */
+  const [showTopGifters, setShowTopGifters] = useState(false);
+
+  /* ── Achievements sheet state ── */
+  const [showAchievements, setShowAchievements] = useState(false);
+
+  /* ── Earnings sheet state ── */
+  const [showEarnings, setShowEarnings] = useState(false);
+
   /* ── Mic layout ── */
   const micLayout = getMicLayout(vr.room.micTheme, vr.seats.length);
 
-  /* ── Connection quality (derived, no state needed) ── */
-  const connectionQuality = useMemo<'excellent' | 'good' | 'poor' | 'disconnected'>(() => {
-    return voiceRTC.isConnected ? 'excellent' : 'disconnected';
-  }, [voiceRTC.isConnected]);
+  /* ── Connection quality — from RTC stats */
+  const connectionQuality = voiceRTC.connectionQuality;
+
+  /* ── Do Not Disturb mode */
+  const { isDND, toggle: toggleDND } = useDND();
 
   /* ── Accept/Reject seat handlers ── */
   async function handleAcceptSeat(userId: string) {
@@ -1046,6 +1072,8 @@ export default function RoomInteriorView({
                 />
                 {/* Theme toggle */}
                 <ThemeToggle />
+                {/* Do Not Disturb toggle */}
+                <DoNotDisturbToggle isDND={isDND} onToggle={toggleDND} />
                 {/* Settings button — admin/owner only, opens three-dots menu */}
                 {isAdmin && (
                   <button
@@ -1277,10 +1305,16 @@ export default function RoomInteriorView({
                   width: 6,
                   height: 6,
                   borderRadius: '50%',
-                  backgroundColor: voiceRTC.isConnected 
-                    ? (connectionQuality === 'excellent' ? TUI.colors.green : connectionQuality === 'good' ? TUI.colors.gold : TUI.colors.red)
-                    : TUI.colors.red,
-                  boxShadow: voiceRTC.isConnected ? `0 0 4px ${connectionQuality === 'excellent' ? TUI.colors.green : TUI.colors.gold}` : 'none',
+                  backgroundColor:
+                    connectionQuality === 'excellent' ? '#29CC6A' :
+                    connectionQuality === 'good' ? '#f59e0b' :
+                    connectionQuality === 'poor' ? '#fc5555' :
+                    'rgba(255,255,255,0.3)',
+                  boxShadow:
+                    connectionQuality === 'excellent' ? '0 0 4px #29CC6A' :
+                    connectionQuality === 'good' ? '0 0 4px #f59e0b' :
+                    connectionQuality === 'poor' ? '0 0 4px #fc5555' :
+                    'none',
                   display: 'inline-block',
                 }}
               />
@@ -1362,35 +1396,41 @@ export default function RoomInteriorView({
           {/* ════════════════════════════════════════════
               LIKE ANIMATION (left side overlay)
               ════════════════════════════════════════════ */}
-          <div
-            className="absolute left-4 bottom-20 pointer-events-none"
-            style={{ width: 80, height: 200, zIndex: 30 }}
-          >
-            <LikeAnimation active={likeActive} />
-          </div>
+          {!isDND && (
+            <div
+              className="absolute left-4 bottom-20 pointer-events-none"
+              style={{ width: 80, height: 200, zIndex: 30 }}
+            >
+              <LikeAnimation active={likeActive} />
+            </div>
+          )}
 
           {/* ════════════════════════════════════════════
               GIFT ANIMATIONS (overlay)
               ════════════════════════════════════════════ */}
-          <GiftAnimations activeAnimation={vr.activeGiftAnimation} />
+          {!isDND && <GiftAnimations activeAnimation={vr.activeGiftAnimation} />}
 
           {/* ════════════════════════════════════════════
               FLOATING REACTIONS (overlay)
               ════════════════════════════════════════════ */}
-          <FloatingReactionsOverlay reactions={floatingReactions.reactions} onReact={floatingReactions.addReaction} />
+          {!isDND && (
+            <FloatingReactionsOverlay reactions={floatingReactions.reactions} onReact={floatingReactions.addReaction} />
+          )}
 
           {/* Quick reaction bar */}
-          <QuickReactionBar
-            visible={floatingReactions.showBar}
-            onClose={() => floatingReactions.setShowBar(false)}
-            onReact={(emoji) => {
-              floatingReactions.addReaction(emoji);
-              // Also add a burst of multiple
-              for (let i = 1; i <= 3; i++) {
-                setTimeout(() => floatingReactions.addReaction(emoji), i * 150);
-              }
-            }}
-          />
+          {!isDND && (
+            <QuickReactionBar
+              visible={floatingReactions.showBar}
+              onClose={() => floatingReactions.setShowBar(false)}
+              onReact={(emoji) => {
+                floatingReactions.addReaction(emoji);
+                // Also add a burst of multiple
+                for (let i = 1; i <= 3; i++) {
+                  setTimeout(() => floatingReactions.addReaction(emoji), i * 150);
+                }
+              }}
+            />
+          )}
 
           {/* ════════════════════════════════════════════
               BOTTOM BAR — TUILiveKit: chat input | like | gift | speaker
@@ -1704,10 +1744,12 @@ export default function RoomInteriorView({
         {/* ════════════════════════════════════════════════════════
             PUSH NOTIFICATION TOASTS (in-app)
             ════════════════════════════════════════════════════════ */}
-        <NotificationToasts
-          notifications={voiceRTC.notifications}
-          onDismiss={voiceRTC.clearNotification}
-        />
+        <div style={isDND ? { opacity: 0.3, transition: 'opacity 0.3s ease' } : undefined}>
+          <NotificationToasts
+            notifications={voiceRTC.notifications}
+            onDismiss={voiceRTC.clearNotification}
+          />
+        </div>
 
         <ThreeDotsMenu
           isOpen={showDotsMenu}
@@ -1722,6 +1764,10 @@ export default function RoomInteriorView({
           onShare={handleShare}
           onToggleRoomMute={vr.handleToggleRoomMute}
           isRoomMuted={vr.isRoomMuted}
+          onOpenTopGifters={() => setShowTopGifters(true)}
+          onOpenAchievements={() => setShowAchievements(true)}
+          onOpenEarnings={() => setShowEarnings(true)}
+          hasAuthUser={!!authUser}
         />
 
         {/* ════════════════════════════════════════════════════════════════════
@@ -1903,6 +1949,33 @@ export default function RoomInteriorView({
             </div>
           </div>
         )}
+
+        {/* ── Top Gifters Sheet ── */}
+        <TopGiftersSheet
+          isOpen={showTopGifters}
+          onClose={() => setShowTopGifters(false)}
+          topGifters={vr.topGifts?.map(g => ({
+            userId: g.userId,
+            displayName: g.displayName,
+            avatar: g.avatar,
+            totalValue: g.totalValue,
+          })) ?? []}
+        />
+
+        {/* ── Achievements Sheet ── */}
+        <AchievementsSheet
+          isOpen={showAchievements}
+          onClose={() => setShowAchievements(false)}
+          userId={authUser?.id || ''}
+        />
+
+        {/* ── Earnings Sheet (owner only) ── */}
+        <EarningsSheet
+          isOpen={showEarnings}
+          onClose={() => setShowEarnings(false)}
+          roomId={vr.room.id}
+          userId={authUser?.id || ''}
+        />
 
         {/* ════════════════════════════════════════════════════════════════════
             DAILY REWARD TOAST — auto-checks and shows claim prompt
