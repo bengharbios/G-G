@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback, useRef, useEffect } from 'react';
+import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import {
   Loader2, X, ArrowRight, Share2,
   Crown, Volume2, VolumeX, Mic, MicOff, Gift, Send, Headphones,
@@ -42,9 +42,20 @@ import MembershipDialog from './dialogs/MembershipDialog';
 import MicInviteDialog from './dialogs/MicInviteDialog';
 import AudioSettingsDialog from './dialogs/AudioSettingsDialog';
 
+// ─── New Utility Components ───────────────────────────────────────────────────
+
+import { ThemeToggle } from './ThemeToggle';
+import { ReconnectIndicator } from './ReconnectIndicator';
+import { RecordingIndicator } from './RecordingIndicator';
+import { DailyRewardToast } from './DailyRewardToast';
+
 // ─── Types ───────────────────────────────────────────────────────────────────
 
 import type { VoiceRoom, AuthUser } from '../types';
+
+// ─── Sound Effects & Floating Reactions ──────────────────────────────────────
+import { playJoinSound, playLeaveSound, playMicOnSound, playMicOffSound, playGiftSound, playGiftReceivedSound, playNotificationSound, playSeatRequestSound, playKickSound, playErrorSound, SOUNDBOARD_ITEMS } from '@/lib/sound-effects';
+import { useFloatingReactions, QuickReactionBar, FloatingReactions as FloatingReactionsOverlay } from './FloatingReactions';
 
 /* ═══════════════════════════════════════════════════════════════════════
    RoomInteriorView — TUILiveKit Room Interior (Improved Match)
@@ -103,6 +114,15 @@ function SpeakingBars({ active }: { active: boolean }) {
           0% { background-position: 0% 50%; }
           50% { background-position: 100% 50%; }
           100% { background-position: 0% 50%; }
+        }
+        @keyframes floatUp {
+          0% { opacity: 1; transform: translateY(0) scale(1) rotate(0deg); }
+          50% { opacity: 0.8; transform: translateY(-40vh) scale(1.2) rotate(-15deg); }
+          100% { opacity: 0; transform: translateY(-80vh) scale(0.6) rotate(15deg); }
+        }
+        .floating-reaction-emoji {
+          pointer-events: none;
+          will-change: transform, opacity;
         }
       `}</style>
     </div>
@@ -760,8 +780,25 @@ export default function RoomInteriorView({
   /* ── Gift recipient preselection ── */
   const [giftRecipient, setGiftRecipient] = useState<{ type: 'everyone' | 'mic' | 'specific'; userId?: string; displayName?: string } | null>(null);
 
+  /* ── Floating reactions ── */
+  const floatingReactions = useFloatingReactions();
+
+  /* ── Soundboard state ── */
+  const [showSoundboard, setShowSoundboard] = useState(false);
+
+  /* ── Sound effects enabled ── */
+  const [soundEnabled, setSoundEnabled] = useState(true);
+
+  /* ── Recording indicator ── */
+  const [isRecording, setIsRecording] = useState(false);
+
   /* ── Mic layout ── */
   const micLayout = getMicLayout(vr.room.micTheme, vr.seats.length);
+
+  /* ── Connection quality (derived, no state needed) ── */
+  const connectionQuality = useMemo<'excellent' | 'good' | 'poor' | 'disconnected'>(() => {
+    return voiceRTC.isConnected ? 'excellent' : 'disconnected';
+  }, [voiceRTC.isConnected]);
 
   /* ── Accept/Reject seat handlers ── */
   async function handleAcceptSeat(userId: string) {
@@ -809,11 +846,20 @@ export default function RoomInteriorView({
     setGiftRecipient(null);
   }
 
-  /* ── Send chat handler ── */
+  /* ── Send chat handler with word filter ── */
   function handleSendChat() {
     if (!chatInput.trim() || vr.isRoomMuted || !authUser) return;
-    vr.handleSendChat(chatInput.trim());
+    // Word filter
+    const BANNED_WORDS = ['كس', 'زب', 'قحب', 'شرم', 'طيز', 'لخ', 'خرا', 'عير', 'كسم', 'متناك', 'شرموطة', 'قحبة', 'نيك', 'نيج', 'لقط', 'لعنة'];
+    let msg = chatInput.trim();
+    let filtered = false;
+    for (const word of BANNED_WORDS) {
+      const regex = new RegExp(word, 'gi');
+      if (regex.test(msg)) { filtered = true; msg = msg.replace(regex, '*'.repeat(word.length)); }
+    }
+    vr.handleSendChat(msg);
     setChatInput('');
+    if (filtered && soundEnabled) playErrorSound();
   }
 
   /* ── Close handler ── */
@@ -990,8 +1036,16 @@ export default function RoomInteriorView({
                 </div>
               </button>
 
-              {/* Left: Settings (admin) + Share + Exit buttons */}
+              {/* Left: RecordingIndicator (admin) + ThemeToggle + Settings (admin) + Share + Exit buttons */}
               <div className="flex items-center flex-shrink-0" style={{ gap: 6 }}>
+                {/* Recording indicator — admin only */}
+                <RecordingIndicator
+                  isRecording={false}
+                  onToggle={() => {}}
+                  isAdmin={isAdmin}
+                />
+                {/* Theme toggle */}
+                <ThemeToggle />
                 {/* Settings button — admin/owner only, opens three-dots menu */}
                 {isAdmin && (
                   <button
@@ -1207,7 +1261,7 @@ export default function RoomInteriorView({
               </div>
             </div>
 
-            {/* ── Right: Online count badge ── */}
+            {/* ── Right: Connection quality + Online count badge ── */}
             <div
               className="flex items-center gap-1 flex-shrink-0"
               style={{
@@ -1217,6 +1271,19 @@ export default function RoomInteriorView({
                 padding: '4px 10px',
               }}
             >
+              {/* Connection quality dot */}
+              <span
+                style={{
+                  width: 6,
+                  height: 6,
+                  borderRadius: '50%',
+                  backgroundColor: voiceRTC.isConnected 
+                    ? (connectionQuality === 'excellent' ? TUI.colors.green : connectionQuality === 'good' ? TUI.colors.gold : TUI.colors.red)
+                    : TUI.colors.red,
+                  boxShadow: voiceRTC.isConnected ? `0 0 4px ${connectionQuality === 'excellent' ? TUI.colors.green : TUI.colors.gold}` : 'none',
+                  display: 'inline-block',
+                }}
+              />
               <span
                 style={{
                   fontSize: 12,
@@ -1232,6 +1299,11 @@ export default function RoomInteriorView({
               </span>
             </div>
           </div>
+
+          {/* ════════════════════════════════════════════
+              RECONNECTION INDICATOR — shown when disconnected
+              ════════════════════════════════════════════ */}
+          <ReconnectIndicator isConnected={true} reconnectAttempt={0} />
 
           {/* ════════════════════════════════════════════
               ANNOUNCEMENT BAR — subtle dark
@@ -1303,6 +1375,24 @@ export default function RoomInteriorView({
           <GiftAnimations activeAnimation={vr.activeGiftAnimation} />
 
           {/* ════════════════════════════════════════════
+              FLOATING REACTIONS (overlay)
+              ════════════════════════════════════════════ */}
+          <FloatingReactionsOverlay reactions={floatingReactions.reactions} onReact={floatingReactions.addReaction} />
+
+          {/* Quick reaction bar */}
+          <QuickReactionBar
+            visible={floatingReactions.showBar}
+            onClose={() => floatingReactions.setShowBar(false)}
+            onReact={(emoji) => {
+              floatingReactions.addReaction(emoji);
+              // Also add a burst of multiple
+              for (let i = 1; i <= 3; i++) {
+                setTimeout(() => floatingReactions.addReaction(emoji), i * 150);
+              }
+            }}
+          />
+
+          {/* ════════════════════════════════════════════
               BOTTOM BAR — TUILiveKit: chat input | like | gift | speaker
               ════════════════════════════════════════════ */}
           <footer
@@ -1361,9 +1451,9 @@ export default function RoomInteriorView({
               {/* Like / Heart button */}
               {authUser && (
                 <button
-                  onTouchStart={() => setLikeActive(true)}
+                  onTouchStart={() => { setLikeActive(true); if (soundEnabled) playGiftReceivedSound(); }}
                   onTouchEnd={() => setLikeActive(false)}
-                  onMouseDown={() => setLikeActive(true)}
+                  onMouseDown={() => { setLikeActive(true); if (soundEnabled) playGiftReceivedSound(); }}
                   onMouseUp={() => setLikeActive(false)}
                   onMouseLeave={() => setLikeActive(false)}
                   className="rounded-full flex items-center justify-center flex-shrink-0 cursor-pointer touch-manipulation relative"
@@ -1383,6 +1473,22 @@ export default function RoomInteriorView({
                       filter: likeActive ? 'drop-shadow(0 0 6px rgba(255,59,48,0.5))' : 'none',
                     }}
                   />
+                </button>
+              )}
+
+              {/* Quick reaction button */}
+              {authUser && (
+                <button
+                  onClick={floatingReactions.toggleBar}
+                  className="rounded-full flex items-center justify-center flex-shrink-0 cursor-pointer touch-manipulation"
+                  style={{
+                    width: 38, height: 38, minWidth: 44, minHeight: 44,
+                    backgroundColor: floatingReactions.showBar ? 'rgba(245, 158, 11, 0.2)' : 'rgba(255,255,255,0.07)',
+                    transition: TUI.anim.fast,
+                  }}
+                  aria-label="ردود فعل"
+                >
+                  <Sparkles size={18} style={{ color: floatingReactions.showBar ? TUI.colors.gold : 'rgba(255,255,255,0.55)' }} />
                 </button>
               )}
 
@@ -1441,6 +1547,21 @@ export default function RoomInteriorView({
                 <AudioWaveform size={17} style={{ color: 'rgba(255,255,255,0.6)' }} />
               </button>
 
+              {/* Soundboard button */}
+              <button
+                onClick={() => setShowSoundboard(!showSoundboard)}
+                className="rounded-full flex items-center justify-center flex-shrink-0 cursor-pointer touch-manipulation"
+                style={{
+                  width: 36, height: 36, minWidth: 44, minHeight: 44,
+                  backgroundColor: showSoundboard ? 'rgba(245, 158, 11, 0.2)' : 'rgba(255,255,255,0.07)',
+                  border: showSoundboard ? '1px solid rgba(245, 158, 11, 0.3)' : 'none',
+                  transition: TUI.anim.fast,
+                }}
+                aria-label="لوحة المؤثرات"
+              >
+                <AudioWaveform size={16} style={{ color: showSoundboard ? TUI.colors.gold : 'rgba(255,255,255,0.5)' }} />
+              </button>
+
               {/* Voice control buttons */}
               {/* Mic toggle — when user is on a mic seat (including owner/admin) */}
               {vr.isOnSeat && (
@@ -1477,6 +1598,47 @@ export default function RoomInteriorView({
               </button>
             </div>
           </footer>
+
+          {/* ════════════════════════════════════════════
+              SOUNDBOARD PANEL
+              ════════════════════════════════════════════ */}
+          {showSoundboard && (
+            <div
+              className="flex-shrink-0 w-full"
+              style={{
+                padding: '8px 12px',
+                paddingBottom: 'max(8px, env(safe-area-inset-bottom, 8px))',
+                backgroundColor: 'rgba(7, 74, 66, 0.9)',
+                backdropFilter: 'blur(16px)',
+                borderTop: '1px solid rgba(245, 158, 11, 0.15)',
+                animation: 'notifSlideIn 0.2s ease-out',
+              }}
+            >
+              <div className="flex items-center justify-between mb-2 px-1">
+                <span style={{ fontSize: 11, fontWeight: 600, color: TUI.colors.gold }}>لوحة المؤثرات الصوتية 🔊</span>
+                <button onClick={() => setSoundEnabled(!soundEnabled)} className="flex items-center gap-1 bg-transparent border-none cursor-pointer" style={{ padding: '2px 8px' }}>
+                  <span style={{ fontSize: 10, color: soundEnabled ? TUI.colors.green : TUI.colors.red }}>{soundEnabled ? '🔊 مفعّل' : '🔇 مكتوم'}</span>
+                </button>
+              </div>
+              <div className="grid grid-cols-4 gap-2">
+                {SOUNDBOARD_ITEMS.map((item) => (
+                  <button
+                    key={item.id}
+                    onClick={() => { if (soundEnabled) item.play(); }}
+                    className="flex flex-col items-center justify-center py-2 px-1 rounded-xl bg-transparent border-none cursor-pointer touch-manipulation active:scale-90"
+                    style={{
+                      backgroundColor: 'rgba(255,255,255,0.06)',
+                      transition: TUI.anim.fast,
+                      minHeight: 56,
+                    }}
+                  >
+                    <span className="text-2xl">{item.emoji}</span>
+                    <span style={{ fontSize: 9, color: TUI.colors.G6, marginTop: 2 }}>{item.nameAr}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* ════════════════════════════════════════════════════════════════════
@@ -1741,6 +1903,11 @@ export default function RoomInteriorView({
             </div>
           </div>
         )}
+
+        {/* ════════════════════════════════════════════════════════════════════
+            DAILY REWARD TOAST — auto-checks and shows claim prompt
+            ════════════════════════════════════════════════════════════════════ */}
+        <DailyRewardToast userId={authUser?.id} />
       </div>
     </>
   );

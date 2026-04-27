@@ -36,6 +36,11 @@ import {
   Copy,
   LogOut,
   User as UserIcon,
+  Bookmark,
+  BookmarkCheck,
+  TrendingUp,
+  Clock,
+  Filter,
 } from 'lucide-react';
 import {
   TUI,
@@ -196,6 +201,71 @@ export default function RoomListView({
     if (mainTab === 'hot') return (room.participantCount || 0) > 5;
     return true; // 'mine' — all other rooms
   });
+
+  /* ── Search & Filter State ── */
+  const [searchQuery, setSearchQuery] = useState('');
+  const [activeFilter, setActiveFilter] = useState<'all' | 'trending' | 'new' | 'bookmarked'>('all');
+  const [bookmarkedIds, setBookmarkedIds] = useState<Set<string>>(new Set());
+  const [showFilters, setShowFilters] = useState(false);
+
+  // Filter rooms based on search and category
+  const filteredRooms = displayRooms.filter(room => {
+    if (searchQuery) {
+      const q = searchQuery.toLowerCase();
+      if (!room.name.toLowerCase().includes(q) && !(room.description || '').toLowerCase().includes(q) && !(room.hostName || '').toLowerCase().includes(q)) {
+        return false;
+      }
+    }
+    if (activeFilter === 'trending') {
+      return (room.participantCount || 0) >= 5;
+    }
+    if (activeFilter === 'new') {
+      const created = new Date(room.createdAt);
+      const hours = (Date.now() - created.getTime()) / (1000 * 60 * 60);
+      return hours <= 24;
+    }
+    if (activeFilter === 'bookmarked') {
+      return bookmarkedIds.has(room.id);
+    }
+    return true;
+  });
+
+  // Sort rooms
+  const sortedRooms = [...filteredRooms].sort((a, b) => {
+    if (activeFilter === 'trending') return (b.participantCount || 0) - (a.participantCount || 0);
+    if (activeFilter === 'new') return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+    return (b.participantCount || 0) - (a.participantCount || 0);
+  });
+
+  // Load bookmarks on mount
+  useEffect(() => {
+    const userId = authUser?.id;
+    if (!userId) return;
+    fetch(`/api/bookmarks?userId=${userId}`)
+      .then(r => r.json())
+      .then(data => {
+        if (data.bookmarks) {
+          setBookmarkedIds(new Set(data.bookmarks.map((b: any) => b.roomId)));
+        }
+      })
+      .catch(() => {});
+  }, [authUser?.id]);
+
+  // Toggle bookmark
+  async function toggleBookmark(roomId: string, roomName: string) {
+    const userId = authUser?.id;
+    if (!userId) return;
+    const isBookmarked = bookmarkedIds.has(roomId);
+    try {
+      if (isBookmarked) {
+        await fetch('/api/bookmarks', { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ userId, roomId }) });
+        setBookmarkedIds(prev => { const n = new Set(prev); n.delete(roomId); return n; });
+      } else {
+        await fetch('/api/bookmarks', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ userId, roomId, roomName }) });
+        setBookmarkedIds(prev => new Set(prev).add(roomId));
+      }
+    } catch { /* ignore */ }
+  }
 
   return (
     <div
@@ -513,20 +583,100 @@ export default function RoomListView({
           </div>
         )}
 
-        {/* Empty State */}
-        {!loading && displayRooms.length === 0 && (
+        {/* ── Search Bar ── */}
+        {!loading && (
+          <div style={{ padding: '0 4px 12px' }}>
+            <div
+              className="flex items-center"
+              style={{
+                height: 40,
+                backgroundColor: 'rgba(255,255,255,0.06)',
+                borderRadius: 12,
+                padding: '0 14px',
+                border: '1px solid rgba(255,255,255,0.05)',
+                gap: 10,
+              }}
+            >
+              <Search size={16} style={{ color: 'rgba(255,255,255,0.3)', flexShrink: 0 }} />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="ابحث عن غرفة..."
+                dir="rtl"
+                className="flex-1 min-w-0 bg-transparent outline-none"
+                style={{ fontSize: 13, color: '#fff' }}
+              />
+              <button
+                onClick={() => setShowFilters(!showFilters)}
+                className="flex items-center justify-center bg-transparent border-none cursor-pointer"
+                style={{ padding: 4 }}
+              >
+                <Filter size={16} style={{ color: showFilters ? '#f59e0b' : 'rgba(255,255,255,0.4)' }} />
+              </button>
+            </div>
+
+            {/* Filter tabs */}
+            <div className="flex items-center" style={{ gap: 8, marginTop: 10, overflowX: 'auto', paddingBottom: 4 }}>
+              {[
+                { key: 'all' as const, label: 'الكل', icon: Users },
+                { key: 'trending' as const, label: 'الأكثر نشاطاً', icon: TrendingUp },
+                { key: 'new' as const, label: 'جديدة', icon: Clock },
+                ...(authUser ? [{ key: 'bookmarked' as const, label: 'المحفوظة', icon: BookmarkCheck }] : []),
+              ].map(({ key, label, icon: Icon }) => (
+                <button
+                  key={key}
+                  onClick={() => setActiveFilter(key)}
+                  className="flex items-center gap-1.5 flex-shrink-0 bg-transparent border-none cursor-pointer touch-manipulation"
+                  style={{
+                    padding: '5px 12px',
+                    borderRadius: 20,
+                    backgroundColor: activeFilter === key ? 'rgba(245, 158, 11, 0.15)' : 'rgba(255,255,255,0.04)',
+                    border: activeFilter === key ? '1px solid rgba(245, 158, 11, 0.25)' : '1px solid rgba(255,255,255,0.05)',
+                    transition: 'all 0.2s ease',
+                  }}
+                >
+                  <Icon size={12} style={{ color: activeFilter === key ? '#f59e0b' : 'rgba(255,255,255,0.4)' }} />
+                  <span style={{ fontSize: 11, fontWeight: activeFilter === key ? 600 : 400, color: activeFilter === key ? '#f59e0b' : 'rgba(255,255,255,0.5)', whiteSpace: 'nowrap' }}>
+                    {label}
+                  </span>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Empty State — no rooms at all */}
+        {!loading && displayRooms.length === 0 && !searchQuery && activeFilter === 'all' && (
           <EmptyState onCreateRoom={onCreateRoom} mainTab={mainTab} hasMyRoom={!!myRoom} />
         )}
 
         {/* Room Cards Grid */}
-        {!loading && displayRooms.length > 0 && (
+        {!loading && sortedRooms.length > 0 && (
           <div
             className="grid grid-cols-2 gap-3"
             style={{ paddingBottom: 10 }}
           >
-            {displayRooms.map((room) => (
-              <RoomCard key={room.id} room={room} onClick={() => onRoomClick(room)} />
+            {sortedRooms.map((room) => (
+              <RoomCard
+                key={room.id}
+                room={room}
+                onClick={() => onRoomClick(room)}
+                isBookmarked={bookmarkedIds.has(room.id)}
+                onToggleBookmark={toggleBookmark}
+                showBookmark={!!authUser}
+              />
             ))}
+          </div>
+        )}
+
+        {/* No results empty state */}
+        {!loading && sortedRooms.length === 0 && (searchQuery || activeFilter !== 'all' || displayRooms.length === 0) && (
+          <div className="flex flex-col items-center justify-center" style={{ padding: '40px 20px', gap: 12 }}>
+            <Search size={40} style={{ color: 'rgba(255,255,255,0.15)' }} />
+            <span style={{ fontSize: 14, color: 'rgba(255,255,255,0.4)' }}>
+              {searchQuery ? 'لا توجد نتائج للبحث' : activeFilter === 'bookmarked' ? 'لا توجد غرف محفوظة' : 'لا توجد غرف حالياً'}
+            </span>
           </div>
         )}
       </div>
@@ -604,7 +754,7 @@ export default function RoomListView({
 
 // ─── Room Card (Grid Item) ─────────────────────────────────────────────────────
 
-function RoomCard({ room, onClick }: { room: VoiceRoom; onClick: () => void }) {
+function RoomCard({ room, onClick, isBookmarked, onToggleBookmark, showBookmark }: { room: VoiceRoom; onClick: () => void; isBookmarked?: boolean; onToggleBookmark?: (roomId: string, roomName: string) => void; showBookmark?: boolean }) {
   const modeConfig: Record<RoomMode, { icon: typeof Mic; label: string; color: string }> = {
     public: { icon: Eye, label: 'عام', color: '#29CC6A' },
     key: { icon: Lock, label: 'بسر', color: '#F59E0B' },
@@ -722,6 +872,20 @@ function RoomCard({ room, onClick }: { room: VoiceRoom; onClick: () => void }) {
           <Users size={10} />
           {room.participantCount || 0}
         </div>
+
+        {/* Bookmark button */}
+        {showBookmark && (
+          <button
+            onClick={(e) => { e.stopPropagation(); onToggleBookmark?.(room.id, room.name); }}
+            className="absolute flex items-center justify-center bg-transparent border-none cursor-pointer"
+            style={{ top: 8, left: 40, width: 28, height: 28, zIndex: 5 }}
+          >
+            {isBookmarked
+              ? <BookmarkCheck size={16} fill="#f59e0b" stroke="#f59e0b" />
+              : <Bookmark size={16} style={{ color: 'rgba(255,255,255,0.3)' }} />
+            }
+          </button>
+        )}
 
         {/* ── Room Info (overlaid at bottom) ── */}
         <div className="absolute bottom-0 inset-x-0 p-2.5">

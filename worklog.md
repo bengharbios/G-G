@@ -1,250 +1,125 @@
----
-Task ID: 1
-Agent: Main
-Task: Fix mic transfer bug for owner, redesign header, fix invitation acceptance, fix gift recipient name
+# Work Log
 
-Work Log:
-- Fixed mic transfer bug: In `requestSeat()`, when admin/owner moves between seats, the `isMuted` state is now preserved (read before update instead of forcing muted)
-- Fixed `assignSeat()` and `approveWaitlist()` to set `seatStatus = 'open'` instead of `'locked'` (consistent with requestSeat)
-- Fixed `SeatCircle` in RoomInteriorView: `isLocked` now only applies when `!seat.participant && seat.status === 'locked'` (prevents visual glitch where occupied seat appears locked)
-- Redesigned room header to match reference image layout:
-  - Top row: Room name + Room ID (clickable) + Share button + Exit dropdown (with minimize/close options)
-  - Info row: Trophy icon with weekly gems count + overlapping online avatars (no names, with owner crown badge) + online count badge
-- Fixed invitation acceptance infinite loop: `acceptRoleInvite()` now does SELECT first to check pendingRole, then UPDATE with explicit value. On failure (rowsAffected=0 or DB error), pendingRole is cleared to prevent infinite dialog re-appear
-- Improved client-side `handleAcceptInvite`: clears `pendingInvite` immediately before API call to prevent re-trigger during async operation
-- Fixed gift recipient name: `handleSendGift` now accepts optional `specificDisplayName` parameter. `handleGiftSend` adapter passes the preselected recipient's displayName. Gift notification text now always shows "لـ {name}" format
+## Task: Add new tables and helper functions to admin-db.ts
 
-Stage Summary:
-- Mic transfer: requestSeat, assignSeat, approveWaitlist all use seatStatus='open'; mute state preserved on move
-- Header: Complete redesign with room info row + info bar (trophy + avatars + count)
-- Invitation: acceptRoleInvite rewritten with fallback clearing of pendingRole
-- Gift: recipient name explicitly passed from profile through to notification text
+### Date: 2025-06-03
 
----
-Task ID: 2
-Agent: Main
-Task: Fix 3 reported issues: (1) Owner settings button missing, (2) Owner mic transfer not moving visually, (3) Room minimize not working
+### Changes Made to `/home/z/my-project/src/lib/admin-db.ts`
 
-Work Log:
-- Investigated all three issues by reading RoomInteriorView.tsx, useVoiceRoom.ts, admin-db.ts, page.tsx, MicMenuSheet.tsx
-- **Fix 1 - Settings button**: Found that the three-dots menu (`ThreeDotsMenu`) component and `showDotsMenu` state existed but had NO trigger button in the UI (removed during previous header redesign). Added a `Settings2` icon button in the header for admin/owner users that opens the three-dots menu via `setShowDotsMenu(true)`
-- **Fix 2 - Owner mic transfer**: Found that the `broadcast5` layout in `MicSeatGrid` special-cased the owner with `seats.find(s => s.participant?.role === 'owner')` which always placed the owner at the top position regardless of seatIndex. Removed this special handling — now broadcast5 renders `seats[0]` at top and `seats.slice(1)` at bottom, so the owner moves naturally between seat positions like all other users
-- **Fix 3 - Room minimize**: Three sub-fixes:
-  1. In RoomInteriorView: changed minimize button to NOT call `handleLeaveRoom()` — just calls `onExit(false)` directly
-  2. In page.tsx: added `isMinimized` state. When `onExit(false)` is called, sets `isMinimized=true` (keeps `activeRoom` set). When `onExit(true)` is called, actually leaves the room and clears `activeRoom`
-  3. RoomInteriorView stays mounted (but hidden with CSS `display:none`) during minimize to keep heartbeat/polling running
-  4. Added floating minimized room widget: teal-green rounded button at bottom-right with room name, headphones icon, "اضغط للعودة" text, and green pulse indicator
-  5. Join API already handles re-join gracefully: returns `{ success: true }` if user is already a participant (line 3139 of admin-db.ts)
+#### 1. New Tables Added (inside `ensureAdminTables`, before `_tablesReady = true`)
 
-Stage Summary:
-- Settings button: Added Settings2 trigger in header for admin users, opens existing ThreeDotsMenu
-- Owner mic movement: Removed broadcast5 owner-always-top behavior, all layouts now sequential
-- Minimize: Complete implementation with floating widget, room stays alive during minimize
-- No lint errors in changed files
+- **RoomBookmark** — saves favorite rooms (UNIQUE on userId + roomId)
+- **UserReport** — reporting users with reason, category, roomId, status
+- **UserBlock** — blocking users (UNIQUE on blockerId + blockedId)
+- **UserAchievement** — tracking unlocked achievements (UNIQUE on userId + achievementKey)
+- **DailyLoginReward** — daily login gem rewards with streak tracking (UNIQUE on userId)
+- **RoomAnalytics** — room stats and earnings per day (UNIQUE on roomId + date)
 
----
-Task ID: 3
-Agent: Main
-Task: Fix mic seat race condition + chat slowness optimization
+#### 2. Helper Functions Added (between `ensureAdminTables` and `seedGameConfigs`)
 
-Work Log:
-- Fixed race condition in `requestSeat()` in admin-db.ts: Added verify-after-write pattern — after the atomic UPDATE with NOT EXISTS, do a SELECT to confirm WE actually own the seat. If verification fails, undo the assignment and return error.
-- Applied same fix to `assignSeat()`, `approveWaitlist()`, and `acceptMicInvite()` functions — all seat assignment operations now verify ownership after write.
-- Replaced fixed 2000ms chat polling interval with adaptive polling:
-  - Fast mode (600ms): triggered when new messages are detected or user sends a message
-  - Active mode (900ms): when there was recent conversation activity
-  - Idle mode (2000ms): when no new messages for a while
-  - Uses setTimeout chain instead of setInterval for flexible scheduling
-  - Tracks `prevTimestampRef` to detect if new messages arrived between polls
-- Committed and pushed to main: fa1f3f5
+**RoomBookmark functions:**
+- `addRoomBookmark()` / `removeRoomBookmark()` / `getUserBookmarks()` / `isRoomBookmarked()`
 
-Stage Summary:
-- Race condition: All 4 seat assignment functions now have verify-after-write
-- Chat polling: Adaptive (600ms fast / 900ms active / 2000ms idle)
-- No new lint errors introduced in changed files
+**UserReport & UserBlock functions:**
+- `createUserReport()` / `blockUser()` / `unblockUser()` / `isUserBlocked()` / `getBlockedUserIds()`
+
+**Achievement system:**
+- `ACHIEVEMENTS` constant array (12 achievements with Arabic/English names, descriptions, icons, gem rewards)
+- `AchievementKey` type
+- `unlockAchievement()` / `getUserAchievements()`
+
+**Daily Login Rewards:**
+- `claimDailyReward()` — handles streak calculation with escalating gem rewards
+- `getDailyRewardStatus()` — returns current streak and claim eligibility
+
+**Room Analytics:**
+- `updateRoomAnalytics()` — upsert pattern with ON CONFLICT fallback
+- `getRoomEarnings()` — daily breakdown over configurable days
+- `getTopGifters()` — aggregated from GiftHistory with participant info
+
+**Word Filter:**
+- `BANNED_WORDS` constant array (Arabic profanity patterns)
+- `filterMessage()` — regex-based filtering with flagging
 
 ---
-Task ID: 4
-Agent: Main
-Task: Add WebRTC P2P real voice audio to voice rooms
 
-Work Log:
-- Created WebSocket signaling mini-service (`mini-services/voice-signal/index.ts`) on port 3010
-  - Socket.io server with rooms mapped by room_id
-  - Events: join-room, leave-room, offer, answer, ice-candidate, mic-toggle, seat-change, request-offers, peer-joined, peer-leave, peer-mic-toggle, peer-seat-change, heartbeat
-  - Auto-cleanup of stale clients every 60s
-  - Broadcasts to room participants
-- Created `useVoiceRTC` hook (`src/app/voice-rooms/hooks/useVoiceRTC.ts`)
-  - One RTCPeerConnection per on-mic participant (mesh topology)
-  - getUserMedia() for local mic (audio only, 48kHz, echo cancellation, noise suppression)
-  - ICE servers: 3 Google STUN + 3 Open Relay TURN (free tier)
-  - Independent mic mute (stops audio track) and speaker mute (local playback toggle)
-  - Real speaking detection via AudioContext + AnalyserNode (RMS volume with hysteresis)
-  - Remote speaking detection for each peer
-  - Auto-cleanup on unmount, leave, or seat change
-  - Auto-reconnect on disconnect
-  - Socket.IO client with dynamic import
-- Integrated voice into `RoomInteriorView.tsx`:
-  - Bottom bar mic button now calls both `voiceRTC.toggleMic()` (real audio) + `vr.handleToggleMic()` (DB state)
-  - Bottom bar speaker button now calls `voiceRTC.toggleSpeaker()` (local audio mute)
-  - Non-seat users can also toggle speaker (mute/unmute all remote audio)
-  - Admin room mute button still controls chat (separate from audio)
-  - Added `VoiceAudioRenderer` component: creates hidden `<audio>` elements for each remote stream with autoplay
-  - Added `isRtcSpeaking` prop to `SeatCircle` — overrides database-based speaking detection with real audio analysis
-  - `MicSeatGrid` passes `speakingPeers` ref and `localSpeaking` to all layouts
-  - Mic icon turns teal-green (#00C896) when local user is actually speaking
+## Task: Create sound effects system and floating reactions
 
-Stage Summary:
-- Real P2P voice enabled via WebRTC mesh topology
-- WebSocket signaling on port 3010 (free, no Turso dependency)
-- STUN + TURN (openrelay.metered.ca free tier) for NAT traversal
-- No limit on mic seat count
-- Independent mic/speaker mute controls
-- Real-time speaking indicators on seat circles
-- Audio elements auto-created and auto-cleaned
+### Date: 2025-06-03
+
+### Files Created
+
+#### 1. `/home/z/my-project/src/lib/sound-effects.ts`
+- Full Web Audio API sound effects system — no audio files needed
+- **11 event sounds**: join, leave, mic on/off, gift send/receive, notification, error, seat request, kick, achievement
+- **8 soundboard items**: laugh 😂, clap 👏, whistle 😤, wow 😮, boo 👎, drumroll 🥁, airhorn 📯, heartbeat 💓
+
+#### 2. `/home/z/my-project/src/app/voice-rooms/components/FloatingReactions.tsx`
+- `FloatingReactions` — full-screen overlay rendering animated emoji float-ups
+- `QuickReactionBar` — 6-emoji quick-pick bar (❤️ 😂 👏 🔥 😍 💯)
+- `useFloatingReactions` hook — state management with auto-cleanup after animation
+
 ---
-Task ID: 5
-Agent: Main
-Task: Mobile audio fix + speaker button fix + push notifications
 
-Work Log:
-- Rewrote `useVoiceRTC` hook with comprehensive mobile support:
-  - Added `unlockAudio()` function that resumes suspended AudioContext on iOS (requires user gesture)
-  - Auto-unlock on first touch/click event via document event listeners
-  - Audio elements now use `audio.play()` instead of `autoplay` attribute (iOS blocks autoplay)
-  - Pending audio streams queued and played on first user gesture
-  - Each peer gets its own AudioContext (tracked in `remoteAudioContextsRef`)
-  - Removed `sampleRate: 48000` from constraints (not supported on all mobile browsers)
-  - Added `playsInline: true` for iOS inline video/audio playback
-  - ICE restart with retry (up to 3 attempts) on connection failure
-  - Delayed disconnect cleanup (5s) to handle mobile temporary disconnections
-  - `bundlePolicy: 'max-bundle'` and `rtcpMuxPolicy: 'require'` for mobile bandwidth optimization
-  - Increased reconnection attempts to 15 with max delay 8s
-- Updated `VoiceAudioRenderer` → removed entirely (audio now handled inside useVoiceRTC hook directly)
-- Updated `BottomBar.tsx` to show both mic AND speaker buttons:
-  - Mic toggle: only shown when on seat (was already correct)
-  - Speaker toggle: shown for ALL users (admin, on-seat, visitors)
-  - Speaker button mutes/unmutes all remote audio playback
-- Updated `RoomInteriorView.tsx`:
-  - Added `NotificationToasts` component for in-app push notifications
-  - Imports `Bell` icon and `RoomNotification` type
-  - Removed old `VoiceAudioRenderer` component (no longer needed)
-- Updated signaling server (`mini-services/voice-signal/index.ts`):
-  - Added `userSockets` and `socketUsers` mappings for cross-room user tracking
-  - Added `send-notification` event for targeted push to specific user
-  - Added `broadcast-notification` event for room-wide push
-  - Notifications carry: id, type, title, body, roomId, fromUserId, fromDisplayName, timestamp
-- Added browser Notification API integration in useVoiceRTC:
-  - Requests permission on first notification
-  - Shows native browser notifications when permission granted
+## Task: Create API routes for new features
 
-Stage Summary:
-- iOS audio: Fully unlocked via user gesture + AudioContext resume
-- Android audio: Compatible constraints (no forced sampleRate)
-- Speaker button: Available to all users in bottom bar
-- Push notifications: In-app toasts + browser notifications + signaling server support
-- No mic limit maintained
-- No new lint errors in changed files
+### Date: 2025-06-03
+
+### Files Created
+
+1. **`/home/z/my-project/src/app/api/bookmarks/route.ts`** — POST/DELETE/GET for room bookmarks
+2. **`/home/z/my-project/src/app/api/report/route.ts`** — POST (report/block/unblock), GET (check blocked)
+3. **`/home/z/my-project/src/app/api/achievements/route.ts`** — POST (unlock), GET (list all with status)
+4. **`/home/z/my-project/src/app/api/daily-reward/route.ts`** — POST (claim), GET (check status)
+5. **`/home/z/my-project/src/app/api/room-earnings/route.ts`** — GET (earnings + top gifters)
+6. **`/home/z/my-project/src/app/api/voice-rooms/search/route.ts`** — GET (search rooms by query/category/sort)
+
 ---
-Task ID: 6
-Agent: Main
-Task: Implement real Web Push notifications (works when app is closed)
 
-Work Log:
-- Installed `web-push` package for server-side Web Push API
-- Generated VAPID keys (public + private) using web-push CLI
-- Added VAPID keys and PUSH_API_KEY to `.env`
-- Created push notification utility (`src/lib/push.ts`):
-  - `storePushSubscription()` — saves push subscription to DB (Turso/SQLite via @libsql/client)
-  - `removePushSubscription()` — removes subscription by userId/endpoint
-  - `getUserPushSubscriptions()` — fetches all subscriptions for a user
-  - `sendPushToUser()` — sends Web Push to one user (auto-cleans expired subscriptions)
-  - `sendPushToUsers()` — sends Web Push to multiple users in parallel
-  - `ensurePushTable()` — auto-creates PushSubscription table with index
-  - Uses `web-push` library with VAPID authentication
-- Created 4 API routes:
-  - `GET /api/push/vapid-key` — returns public VAPID key for client-side subscription
-  - `POST /api/push/subscribe` — saves push subscription (requires auth_token cookie)
-  - `DELETE /api/push/unsubscribe` — removes push subscription (requires auth_token cookie)
-  - `POST /api/push/send` — sends push notification (server-to-server via API key)
-- Created client-side hook (`src/hooks/usePushNotification.ts`):
-  - `isSupported` — checks browser support for Push API
-  - `permissionStatus` — tracks current notification permission
-  - `isSubscribed` — whether user has active push subscription
-  - `requestPermission()` — request permission + subscribe + send to server
-  - `unsubscribe()` — unsubscribe + remove from server
-  - `urlBase64ToUint8Array()` — VAPID key conversion helper
-- Updated signaling server (`mini-services/voice-signal/index.ts`):
-  - Added `sendWebPush()` helper function that calls `/api/push/send` via localhost:3000
-  - `send-notification` event now sends Web Push if target user is OFFLINE (not connected via WebSocket)
-  - `broadcast-notification` event sends Web Push to all room members (for users not in the signaling server)
-  - Logs delivery method: `(websocket)` or `(webpush)` for each notification
-- Updated `SettingsSheet.tsx` — added push notification toggle as first settings group:
-  - Shows Bell/BellOff icon based on subscription state
-  - Toggle label changes: "تفعيل الإشعارات" / "الإشعارات مفعّلة"
-  - Green checkmark badge when subscribed
-- Updated service worker (`public/sw.js`):
-  - Bumped cache version to v2
-  - Push notifications now include Arabic RTL support (dir: 'rtl', lang: 'ar')
-  - Added action buttons: "فتح" (open) and "إغلاق" (dismiss)
-  - Notification click now navigates existing tab or opens new window
-  - Improved notification click handling with `client.navigate()` for already-open tabs
-- Created `ServiceWorkerRegistrar.tsx` component — registers SW on every page load
-  - Added to root layout for global SW registration
-  - Checks for SW updates every hour
+## Task: Integrate all features into RoomInteriorView
 
-Stage Summary:
-- Real Web Push implemented: notifications work even when app is closed/backgrounded
-- VAPID keys generated and stored in .env
-- 4 API routes for subscription management
-- Client hook handles subscription lifecycle
-- Signaling server auto-sends Web Push for offline users
-- UI toggle in Settings sheet for enabling/disabling push
-- Service Worker upgraded with Arabic RTL push support
-- No new lint errors in changed files
+### Date: 2025-06-03
+
+### Changes Made to `/home/z/my-project/src/app/voice-rooms/components/RoomInteriorView.tsx`
+
+1. **Sound effects** — Added import + sound on like/heart button + sound toggle in soundboard
+2. **Floating reactions** — Overlay + QuickReactionBar with 6 emojis + Sparkles button in bottom bar
+3. **Soundboard panel** — 8 emoji sound effects grid + enable/disable toggle
+4. **Connection quality indicator** — Green/yellow/red dot in online count badge
+5. **Word filter** — Chat messages filtered for Arabic profanity with error sound
+6. **Recording indicator** — Admin-only REC toggle with timer
+7. **Theme toggle** — Dark/light mode button in header
+8. **Reconnect indicator** — Connection loss banner
+9. **Daily reward toast** — Auto-check + claim + reward display modal
+
 ---
-Task ID: 7
-Agent: Main
-Task: Prepare project for Vercel deployment (voice rooms + push notifications)
 
-Work Log:
-- Reviewed full project structure and confirmed push notification system is fully implemented (VAPID keys, SW, manifest, hook, API routes, signaling integration)
-- Updated `useVoiceRTC.ts` to support configurable signal server URL:
-  - Added `NEXT_PUBLIC_SIGNAL_SERVER_URL` env variable support
-  - Falls back to `/?XTransformPort=3010` for local dev (Caddy proxy)
-  - Production: connects directly to deployed signaling server
-- Added `web-push` to `serverExternalPackages` in `next.config.ts` (required for Vercel serverless functions)
-- Updated `.env` with comprehensive documentation of all production variables needed
-- Verified no lint errors in modified files
-- Verified dev server and voice signal service are running correctly
+## Task: Add room discovery/search to RoomListView
 
-Stage Summary:
-- Socket.IO URL now configurable for production (NEXT_PUBLIC_SIGNAL_SERVER_URL)
-- web-push added to server external packages for Vercel compatibility
-- .env documented with all Vercel deployment variables
-- Project is ready for Vercel deployment with Turso cloud DB
-- Voice signal mini-service needs separate deployment (Railway/Render/Fly.io)
+### Date: 2025-06-03
+
+### Changes Made to `/home/z/my-project/src/app/voice-rooms/components/RoomListView.tsx`
+
+1. **Search bar** — RTL input with search icon + filter toggle
+2. **Category filter tabs** — الكل | الأكثر نشاطاً | جديدة | المحفوظة
+3. **Bookmark button** — On each room card with amber fill/outline
+4. **Sorted/filtered rooms** — By participant count or creation date
+5. **Empty states** — Contextual messages for search/no-results
+
 ---
-Task ID: 1
-Agent: Main Agent
-Task: Fix mobile users cannot hear audio in voice rooms
 
-Work Log:
-- Analyzed useVoiceRTC.ts to find root cause of mobile audio issue
-- Identified three root causes:
-  1. On-mic peers only created WebRTC offers to OTHER on-mic peers
-  2. Non-mic (listening) peers never requested offers from on-mic peers
-  3. unlockAudio() returned early after first unlock, missing new audio elements
-- Fixed room-members handler: on-mic peers now offer to ALL peers (not just on-mic)
-- Fixed room-members handler: non-mic peers emit request-offers when on-mic peers exist
-- Fixed peer-joined handler: on-mic peers offer to any joining peer
-- Fixed peer-joined handler: non-mic peers request offers when on-mic peer joins
-- Fixed peer-seat-change handler: non-mic peers request offers when peer goes on mic
-- Fixed unlockAudio(): no longer returns early, always processes paused/pending audio
-- Added signaling state check in createOfferToPeer to prevent negotiation conflicts
-- Pushed commit 5d9ae06 to bengharbios/G-G main branch
+## Task: Create utility components
 
-Stage Summary:
-- Mobile audio fix pushed to GitHub (5d9ae06)
-- Vercel should auto-deploy from this push
-- Key insight: WebRTC offers were only being created between on-mic peers, leaving listeners without any audio connection
+### Date: 2025-06-04
+
+### Files Created
+
+1. **`ThemeToggle.tsx`** — Dark/light toggle with localStorage persistence
+2. **`ReconnectIndicator.tsx`** — Connection loss banner with reconnection message
+3. **`RecordingIndicator.tsx`** — Admin-only recording toggle with live timer
+4. **`DailyRewardToast.tsx`** — Auto-check + claim + reward display modal
+
+### Verification
+- Lint: Zero new errors from all changes
+- All pre-existing errors remain in other files
+- Voice rooms page compiles successfully (verified via dev server HTML output)

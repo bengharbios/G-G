@@ -730,6 +730,77 @@ async function ensureAdminTables(): Promise<void> {
       UNIQUE(roomId, userId))
   `);
 
+  // RoomBookmark - saving favorite rooms
+  await c.execute(`
+    CREATE TABLE IF NOT EXISTS RoomBookmark (
+      id TEXT PRIMARY KEY,
+      userId TEXT NOT NULL,
+      roomId TEXT NOT NULL,
+      roomName TEXT DEFAULT '',
+      createdAt TEXT DEFAULT (datetime('now')),
+      UNIQUE(userId, roomId))
+  `);
+
+  // UserReport - reporting users
+  await c.execute(`
+    CREATE TABLE IF NOT EXISTS UserReport (
+      id TEXT PRIMARY KEY,
+      reporterId TEXT NOT NULL,
+      reportedUserId TEXT NOT NULL,
+      reason TEXT DEFAULT '',
+      category TEXT DEFAULT 'other',
+      roomId TEXT DEFAULT '',
+      status TEXT DEFAULT 'pending',
+      createdAt TEXT DEFAULT (datetime('now')))
+  `);
+
+  // UserBlock - blocking users
+  await c.execute(`
+    CREATE TABLE IF NOT EXISTS UserBlock (
+      id TEXT PRIMARY KEY,
+      blockerId TEXT NOT NULL,
+      blockedId TEXT NOT NULL,
+      createdAt TEXT DEFAULT (datetime('now')),
+      UNIQUE(blockerId, blockedId))
+  `);
+
+  // UserAchievement - tracking unlocked achievements
+  await c.execute(`
+    CREATE TABLE IF NOT EXISTS UserAchievement (
+      id TEXT PRIMARY KEY,
+      userId TEXT NOT NULL,
+      achievementKey TEXT NOT NULL,
+      unlockedAt TEXT DEFAULT (datetime('now')),
+      UNIQUE(userId, achievementKey))
+  `);
+
+  // DailyLoginReward - daily login gem rewards
+  await c.execute(`
+    CREATE TABLE IF NOT EXISTS DailyLoginReward (
+      id TEXT PRIMARY KEY,
+      userId TEXT NOT NULL,
+      lastClaimDate TEXT DEFAULT '',
+      streak INTEGER DEFAULT 0,
+      totalGemsClaimed INTEGER DEFAULT 0,
+      createdAt TEXT DEFAULT (datetime('now')),
+      UNIQUE(userId))
+  `);
+
+  // RoomAnalytics - room stats and earnings
+  await c.execute(`
+    CREATE TABLE IF NOT EXISTS RoomAnalytics (
+      id TEXT PRIMARY KEY,
+      roomId TEXT NOT NULL,
+      date TEXT DEFAULT '',
+      totalGifts INTEGER DEFAULT 0,
+      totalGiftValue INTEGER DEFAULT 0,
+      totalParticipants INTEGER DEFAULT 0,
+      peakParticipants INTEGER DEFAULT 0,
+      durationMinutes INTEGER DEFAULT 0,
+      createdAt TEXT DEFAULT (datetime('now')),
+      UNIQUE(roomId, date))
+  `);
+
   _tablesReady = true;
 }
 
@@ -825,6 +896,267 @@ const defaultGames: Omit<GameConfig, 'id' | 'createdAt' | 'updatedAt'>[] = [
     isComingSoon: false,
   },
 ];
+
+// ── RoomBookmark functions ──
+export async function addRoomBookmark(userId: string, roomId: string, roomName: string): Promise<void> {
+  const c = getClient();
+  await ensureAdminTables();
+  try {
+    await c.execute({ sql: 'INSERT INTO RoomBookmark (id, userId, roomId, roomName) VALUES (?, ?, ?, ?)', args: [crypto.randomUUID(), userId, roomId, roomName] });
+  } catch { /* duplicate */ }
+}
+
+export async function removeRoomBookmark(userId: string, roomId: string): Promise<void> {
+  const c = getClient();
+  await ensureAdminTables();
+  await c.execute({ sql: 'DELETE FROM RoomBookmark WHERE userId = ? AND roomId = ?', args: [userId, roomId] });
+}
+
+export async function getUserBookmarks(userId: string): Promise<Array<{ id: string; roomId: string; roomName: string; createdAt: string }>> {
+  const c = getClient();
+  await ensureAdminTables();
+  const result = await c.execute({ sql: 'SELECT * FROM RoomBookmark WHERE userId = ? ORDER BY createdAt DESC', args: [userId] });
+  return result.rows.map(r => ({
+    id: r.id as string, roomId: r.roomId as string, roomName: (r.roomName as string) || '',
+    createdAt: r.createdAt as string,
+  }));
+}
+
+export async function isRoomBookmarked(userId: string, roomId: string): Promise<boolean> {
+  const c = getClient();
+  await ensureAdminTables();
+  const result = await c.execute({ sql: 'SELECT COUNT(*) as cnt FROM RoomBookmark WHERE userId = ? AND roomId = ?', args: [userId, roomId] });
+  return Number(result.rows[0]?.cnt || 0) > 0;
+}
+
+// ── UserReport functions ──
+export async function createUserReport(reporterId: string, reportedUserId: string, reason: string, category: string, roomId: string): Promise<void> {
+  const c = getClient();
+  await ensureAdminTables();
+  await c.execute({
+    sql: 'INSERT INTO UserReport (id, reporterId, reportedUserId, reason, category, roomId) VALUES (?, ?, ?, ?, ?, ?)',
+    args: [crypto.randomUUID(), reporterId, reportedUserId, reason, category, roomId],
+  });
+}
+
+export async function blockUser(blockerId: string, blockedId: string): Promise<void> {
+  const c = getClient();
+  await ensureAdminTables();
+  try {
+    await c.execute({ sql: 'INSERT INTO UserBlock (id, blockerId, blockedId) VALUES (?, ?, ?)', args: [crypto.randomUUID(), blockerId, blockedId] });
+  } catch { /* duplicate */ }
+}
+
+export async function unblockUser(blockerId: string, blockedId: string): Promise<void> {
+  const c = getClient();
+  await ensureAdminTables();
+  await c.execute({ sql: 'DELETE FROM UserBlock WHERE blockerId = ? AND blockedId = ?', args: [blockerId, blockedId] });
+}
+
+export async function isUserBlocked(blockerId: string, blockedId: string): Promise<boolean> {
+  const c = getClient();
+  await ensureAdminTables();
+  const result = await c.execute({ sql: 'SELECT COUNT(*) as cnt FROM UserBlock WHERE blockerId = ? AND blockedId = ?', args: [blockerId, blockedId] });
+  return Number(result.rows[0]?.cnt || 0) > 0;
+}
+
+export async function getBlockedUserIds(userId: string): Promise<string[]> {
+  const c = getClient();
+  await ensureAdminTables();
+  const result = await c.execute({ sql: 'SELECT blockedId FROM UserBlock WHERE blockerId = ?', args: [userId] });
+  return result.rows.map(r => r.blockedId as string);
+}
+
+// ── Achievement definitions ──
+export const ACHIEVEMENTS = [
+  { key: 'first_room', nameAr: 'أول غرفة', nameEn: 'First Room', descriptionAr: 'أدخل أول غرفة صوتية', descriptionEn: 'Enter your first voice room', icon: '🎤', gemsReward: 10 },
+  { key: 'first_speak', nameAr: 'تحدث لأول مرة', nameEn: 'First Words', descriptionAr: 'تحدث على المايك لأول مرة', descriptionEn: 'Speak on mic for the first time', icon: '🗣️', gemsReward: 20 },
+  { key: 'rooms_10', nameAr: 'نشيط', nameEn: 'Active', descriptionAr: 'أدخل 10 غرف صوتية', descriptionEn: 'Enter 10 voice rooms', icon: '⭐', gemsReward: 50 },
+  { key: 'rooms_50', nameAr: 'محترف', nameEn: 'Pro', descriptionAr: 'أدخل 50 غرفة صوتية', descriptionEn: 'Enter 50 voice rooms', icon: '🏆', gemsReward: 200 },
+  { key: 'first_gift', nameAr: 'أول هدية', nameEn: 'First Gift', descriptionAr: 'أرسل أول هدية', descriptionEn: 'Send your first gift', icon: '🎁', gemsReward: 15 },
+  { key: 'gifts_100', nameAr: 'كريم', nameEn: 'Generous', descriptionAr: 'أرسل 100 هدية', descriptionEn: 'Send 100 gifts', icon: '💎', gemsReward: 500 },
+  { key: 'streak_3', nameAr: 'مثابر', nameEn: 'Consistent', descriptionAr: 'سجل دخول 3 أيام متتالية', descriptionEn: 'Login 3 days in a row', icon: '🔥', gemsReward: 30 },
+  { key: 'streak_7', nameAr: 'مجتهد', nameEn: 'Dedicated', descriptionAr: 'سجل دخول 7 أيام متتالية', descriptionEn: 'Login 7 days in a row', icon: '🌟', gemsReward: 100 },
+  { key: 'streak_30', nameAr: 'أسطوري', nameEn: 'Legendary', descriptionAr: 'سجل دخول 30 يوم متتالية', descriptionEn: 'Login 30 days in a row', icon: '👑', gemsReward: 1000 },
+  { key: 'host_5', nameAr: 'مضيف', nameEn: 'Host', descriptionAr: 'أنشئ 5 غرف صوتية', descriptionEn: 'Create 5 voice rooms', icon: '🏠', gemsReward: 100 },
+  { key: 'host_50', nameAr: 'نجمة البث', nameEn: 'Star Host', descriptionAr: 'أنشئ 50 غرفة صوتية', descriptionEn: 'Create 50 voice rooms', icon: '💫', gemsReward: 500 },
+  { key: 'hours_10', nameAr: 'صديقي', nameEn: 'Social Butterfly', descriptionAr: 'قضِ 10 ساعات في الغرف', descriptionEn: 'Spend 10 hours in rooms', icon: '🦋', gemsReward: 200 },
+] as const;
+
+export type AchievementKey = typeof ACHIEVEMENTS[number]['key'];
+
+export async function unlockAchievement(userId: string, achievementKey: string): Promise<{ isNew: boolean; achievement: typeof ACHIEVEMENTS[number] | undefined }> {
+  const c = getClient();
+  await ensureAdminTables();
+  try {
+    await c.execute({
+      sql: 'INSERT INTO UserAchievement (id, userId, achievementKey) VALUES (?, ?, ?)',
+      args: [crypto.randomUUID(), userId, achievementKey],
+    });
+    const achievement = ACHIEVEMENTS.find(a => a.key === achievementKey);
+    return { isNew: true, achievement };
+  } catch {
+    return { isNew: false, achievement: undefined };
+  }
+}
+
+export async function getUserAchievements(userId: string): Promise<string[]> {
+  const c = getClient();
+  await ensureAdminTables();
+  const result = await c.execute({ sql: 'SELECT achievementKey FROM UserAchievement WHERE userId = ?', args: [userId] });
+  return result.rows.map(r => r.achievementKey as string);
+}
+
+// ── Daily Login Reward functions ──
+export async function claimDailyReward(userId: string): Promise<{ gems: number; streak: number; isNewDay: boolean }> {
+  const c = getClient();
+  await ensureAdminTables();
+  const today = new Date().toISOString().split('T')[0];
+  
+  const existing = await c.execute({ sql: 'SELECT * FROM DailyLoginReward WHERE userId = ?', args: [userId] });
+  if (existing.rows.length === 0) {
+    await c.execute({ sql: 'INSERT INTO DailyLoginReward (id, userId, lastClaimDate, streak, totalGemsClaimed) VALUES (?, ?, ?, 1, 10)', args: [crypto.randomUUID(), userId, today] });
+    return { gems: 10, streak: 1, isNewDay: true };
+  }
+  
+  const row = existing.rows[0];
+  const lastDate = (row.lastClaimDate as string) || '';
+  
+  if (lastDate === today) {
+    return { gems: 0, streak: Number(row.streak ?? 0), isNewDay: false };
+  }
+  
+  // Calculate streak
+  const last = new Date(lastDate);
+  const now = new Date(today);
+  const diffDays = Math.floor((now.getTime() - last.getTime()) / (1000 * 60 * 60 * 24));
+  
+  let newStreak = diffDays === 1 ? Number(row.streak ?? 0) + 1 : 1;
+  // Bonus gems for streaks
+  const gemsReward = newStreak >= 30 ? 50 : newStreak >= 7 ? 30 : newStreak >= 3 ? 20 : 10;
+  const totalGems = Number(row.totalGemsClaimed ?? 0) + gemsReward;
+  
+  await c.execute({
+    sql: 'UPDATE DailyLoginReward SET lastClaimDate = ?, streak = ?, totalGemsClaimed = ? WHERE userId = ?',
+    args: [today, newStreak, totalGems, userId],
+  });
+  
+  return { gems: gemsReward, streak: newStreak, isNewDay: true };
+}
+
+export async function getDailyRewardStatus(userId: string): Promise<{ streak: number; lastClaimDate: string; totalGemsClaimed: number; canClaim: boolean }> {
+  const c = getClient();
+  await ensureAdminTables();
+  const today = new Date().toISOString().split('T')[0];
+  const result = await c.execute({ sql: 'SELECT * FROM DailyLoginReward WHERE userId = ?', args: [userId] });
+  
+  if (result.rows.length === 0) {
+    return { streak: 0, lastClaimDate: '', totalGemsClaimed: 0, canClaim: true };
+  }
+  
+  const row = result.rows[0];
+  const lastDate = (row.lastClaimDate as string) || '';
+  return {
+    streak: Number(row.streak ?? 0),
+    lastClaimDate: lastDate,
+    totalGemsClaimed: Number(row.totalGemsClaimed ?? 0),
+    canClaim: lastDate !== today,
+  };
+}
+
+// ── Room Analytics functions ──
+export async function updateRoomAnalytics(roomId: string, field: 'totalGifts' | 'totalGiftValue' | 'totalParticipants' | 'peakParticipants', value: number): Promise<void> {
+  const c = getClient();
+  await ensureAdminTables();
+  const today = new Date().toISOString().split('T')[0];
+  
+  try {
+    await c.execute({
+      sql: `INSERT INTO RoomAnalytics (id, roomId, date, ${field}) VALUES (?, ?, ?, ?)
+            ON CONFLICT(roomId, date) DO UPDATE SET ${field} = ${field} + ?`,
+      args: [crypto.randomUUID(), roomId, today, value, value],
+    });
+  } catch {
+    // If ON CONFLICT doesn't work, try upsert pattern
+    const existing = await c.execute({ sql: 'SELECT id FROM RoomAnalytics WHERE roomId = ? AND date = ?', args: [roomId, today] });
+    if (existing.rows.length === 0) {
+      try {
+        await c.execute({ sql: `INSERT INTO RoomAnalytics (id, roomId, date, ${field}) VALUES (?, ?, ?, ?)`, args: [crypto.randomUUID(), roomId, today, value] });
+      } catch { /* ignore race */ }
+    } else {
+      await c.execute({ sql: `UPDATE RoomAnalytics SET ${field} = ${field} + ? WHERE roomId = ? AND date = ?`, args: [value, roomId, today] });
+    }
+  }
+}
+
+export async function getRoomEarnings(roomId: string, days: number = 30): Promise<{ totalGifts: number; totalValue: number; dailyBreakdown: Array<{ date: string; gifts: number; value: number }> }> {
+  const c = getClient();
+  await ensureAdminTables();
+  const sinceDate = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+  const result = await c.execute({
+    sql: 'SELECT date, totalGifts, totalGiftValue FROM RoomAnalytics WHERE roomId = ? AND date >= ? ORDER BY date DESC',
+    args: [roomId, sinceDate],
+  });
+  
+  let totalGifts = 0;
+  let totalValue = 0;
+  const dailyBreakdown = result.rows.map(r => {
+    const gifts = Number(r.totalGifts ?? 0);
+    const value = Number(r.totalGiftValue ?? 0);
+    totalGifts += gifts;
+    totalValue += value;
+    return { date: r.date as string, gifts, value };
+  });
+  
+  return { totalGifts, totalValue, dailyBreakdown };
+}
+
+export async function getTopGifters(roomId: string, limit: number = 10): Promise<Array<{ userId: string; displayName: string; avatar: string; totalGifts: number; totalValue: number }>> {
+  const c = getClient();
+  await ensureAdminTables();
+  const result = await c.execute({
+    sql: `SELECT gh.fromUserId as userId, MAX(vrp.displayName) as displayName, MAX(vrp.avatar) as avatar,
+          COUNT(*) as totalGifts, SUM(gh.quantity) as totalValue
+          FROM GiftHistory gh
+          LEFT JOIN VoiceRoomParticipant vrp ON vrp.userId = gh.fromUserId AND vrp.roomId = gh.roomId
+          WHERE gh.roomId = ?
+          GROUP BY gh.fromUserId
+          ORDER BY totalValue DESC
+          LIMIT ?`,
+    args: [roomId, String(limit)],
+  });
+  
+  return result.rows.map(r => ({
+    userId: r.userId as string,
+    displayName: (r.displayName as string) || 'مجهول',
+    avatar: (r.avatar as string) || '',
+    totalGifts: Number(r.totalGifts ?? 0),
+    totalValue: Number(r.totalValue ?? 0),
+  }));
+}
+
+// ── Word Filter ──
+export const BANNED_WORDS = [
+  // Common Arabic profanity patterns
+  'كس', 'زب', 'قحب', 'شرم', 'طيز', 'لخ', 'خرا', 'عير', 'كسم', 'متناك',
+  'شرموطة', 'قحبة', 'كسها', 'زبي', 'نيك', 'نيج', 'لقط', 'لعنة',
+  // Add more as needed
+];
+
+export function filterMessage(text: string): { filtered: string; hasBannedWords: boolean } {
+  let filtered = text;
+  let hasBannedWords = false;
+  
+  for (const word of BANNED_WORDS) {
+    const regex = new RegExp(word, 'gi');
+    if (regex.test(filtered)) {
+      hasBannedWords = true;
+      filtered = filtered.replace(regex, '*'.repeat(word.length));
+    }
+  }
+  
+  return { filtered, hasBannedWords };
+}
 
 export async function seedGameConfigs(): Promise<void> {
   await ensureAdminTables();
