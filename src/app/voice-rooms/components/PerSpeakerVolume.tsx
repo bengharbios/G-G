@@ -128,10 +128,6 @@ export function VolumeSlider({ volume, onChange, participantName }: VolumeSlider
           aria-label={`Volume for ${participantName}`}
           style={{
             position: 'absolute',
-            top: 0,
-            left: 0,
-            width: '100%',
-            height: '100%',
             margin: 0,
             padding: 0,
             appearance: 'none' as React.CSSProperties['appearance'],

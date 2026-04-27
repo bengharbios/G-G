@@ -65,7 +65,7 @@ interface VoiceRTCReturn {
   /** Programmatic mic mute */
   setLocalMuted: (muted: boolean) => void;
   /** Unlock audio on first user gesture (iOS) */
-  unlockAudio: () => Promise<void>;
+  unlockAudio: () => Promise<boolean>;
   /** Audio elements for each peer (to attach to DOM) */
   audioStreams: React.MutableRefObject<Map<string, MediaStream>>;
   /** Change microphone device (stops old stream, creates new one) */
@@ -734,7 +734,8 @@ export function useVoiceRTC({
           iceRetriesRef.current.set(socketId, retries + 1);
           try {
             pc.restartIce();
-            pc.setLocalDescription(pc.createOffer({ offerToReceiveAudio: true, offerToReceiveVideo: false }))
+            pc.createOffer({ offerToReceiveAudio: true, offerToReceiveVideo: false })
+              .then(offer => pc.setLocalDescription(offer).then(() => offer))
               .then(offer => {
                 socket.emit('offer', {
                   targetSocketId: socketId,
@@ -1041,8 +1042,8 @@ export function useVoiceRTC({
       let activePc: RTCPeerConnection | null = null;
       for (const [, pc] of connections.entries()) {
         if (
-          pc.connectionState === 'connected' ||
-          pc.connectionState === 'completed' ||
+          (pc.connectionState as string) === 'connected' ||
+          (pc.connectionState as string) === 'completed' ||
           pc.iceConnectionState === 'connected' ||
           pc.iceConnectionState === 'completed'
         ) {

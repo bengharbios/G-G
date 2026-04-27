@@ -47,7 +47,7 @@ export default function SeatManagementSheet({
     <BottomSheetOverlay
       isOpen={isOpen}
       onClose={onClose}
-      height={724}
+      height="724px"
       title="إدارة المقاعد"
       showClose
     >

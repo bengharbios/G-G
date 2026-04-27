@@ -178,6 +178,7 @@ export default function RoomInfoSheet({
       role: string;
       joinedAt: string;
       isOnline: boolean;
+      seatIndex: number;
     }> = [];
 
     const seen = new Set<string>();
@@ -195,6 +196,7 @@ export default function RoomInfoSheet({
         role: online?.role || m.role,
         joinedAt: online?.joinedAt || m.grantedAt,
         isOnline: !!online,
+        seatIndex: online?.seatIndex ?? -1,
       });
     }
 
@@ -211,6 +213,7 @@ export default function RoomInfoSheet({
             role: p.role,
             joinedAt: p.joinedAt,
             isOnline: true,
+            seatIndex: p.seatIndex,
           });
         }
       }

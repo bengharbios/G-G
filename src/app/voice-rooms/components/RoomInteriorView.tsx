@@ -52,7 +52,7 @@ import { ThemeToggle } from './ThemeToggle';
 import { ReconnectIndicator } from './ReconnectIndicator';
 import { RecordingIndicator } from './RecordingIndicator';
 import { DailyRewardToast } from './DailyRewardToast';
-import { NetworkQualityIndicator } from './NetworkQualityIndicator';
+import NetworkQualityIndicator from './NetworkQualityIndicator';
 import { AudioLevelMeter } from './AudioLevelMeter';
 import { OnlineStatusBadge } from './OnlineStatus';
 import { UserSearchBar } from './UserSearch';
@@ -533,6 +533,8 @@ function ThreeDotsMenu({
   onOpenTopGifters,
   onOpenAchievements,
   onOpenEarnings,
+  onOpenUserSearch,
+  onOpenReport,
   hasAuthUser,
 }: {
   isOpen: boolean;
@@ -1960,11 +1962,11 @@ export default function RoomInteriorView({
         <TopGiftersSheet
           isOpen={showTopGifters}
           onClose={() => setShowTopGifters(false)}
-          topGifters={vr.topGifts?.map(g => ({
-            userId: g.userId,
-            displayName: g.displayName,
-            avatar: g.avatar,
-            totalValue: g.totalValue,
+          topGifters={vr.topGifts?.map((g, idx) => ({
+            userId: `gift-${idx}`,
+            displayName: g.senderName,
+            avatar: g.senderAvatar,
+            totalValue: g.gems,
           })) ?? []}
         />
 

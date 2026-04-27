@@ -12,6 +12,7 @@ interface BottomSheetOverlayProps {
   title?: string;
   zIndex?: number;
   children?: ReactNode;
+  showClose?: boolean;
 }
 
 export default function BottomSheetOverlay({
@@ -21,6 +22,7 @@ export default function BottomSheetOverlay({
   title,
   zIndex = 50,
   children,
+  showClose = true,
 }: BottomSheetOverlayProps) {
   const contentRef = useRef<HTMLDivElement>(null);
 
@@ -134,6 +136,7 @@ export default function BottomSheetOverlay({
               )}
 
               {/* Close Button — right side */}
+              {showClose && (
               <button
                 onClick={onClose}
                 className="absolute right-4 flex items-center justify-center rounded-full transition-colors"
@@ -146,6 +149,7 @@ export default function BottomSheetOverlay({
               >
                 <X size={20} />
               </button>
+              )}
             </div>
 
             {/* ── Scrollable Content Area ── */}

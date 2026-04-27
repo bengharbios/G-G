@@ -14,7 +14,7 @@ import { Moon } from 'lucide-react';
 const DND_STORAGE_KEY = 'vr_dnd';
 
 export function useDND() {
-  const [isDND] = useState(() => {
+  const [isDND, setIsDND] = useState(() => {
     if (typeof window === 'undefined') return false;
     try {
       return localStorage.getItem(DND_STORAGE_KEY) === 'true';
