@@ -1,6 +1,6 @@
 'use client';
 
-import { useSyncExternalStore, useState, useCallback, useEffect } from 'react';
+import { useSyncExternalStore, useState, useCallback, useEffect, useRef } from 'react';
 import { useShifaratStore } from '@/lib/shifarat-store';
 import LandingPage from '@/components/shifarat/LandingPage';
 import GameSetup from '@/components/shifarat/GameSetup';
@@ -106,14 +106,30 @@ function GameTopBar() {
     setShowResetConfirm(false);
   };
 
+  // Map new Codenames phases to labels
   const PHASE_LABELS: Record<string, string> = {
     setup: '⚙️ الإعداد',
-    playing: '🎯 جارية اللعب',
-    round_end: '⏸️ نهاية الجولة',
+    spymaster_view: '👁️ رؤية الجاسوس',
+    clue_given: '💬 الدليل',
+    team_guessing: '🎯 التخمين',
+    turn_result: '📋 النتيجة',
+    turn_switch: '🔄 تبديل الدور',
     game_over: '🏆 انتهت اللعبة',
   };
 
   const phaseLabel = PHASE_LABELS[phase] || '';
+
+  const getPhaseColor = () => {
+    switch (phase) {
+      case 'spymaster_view': return 'border-purple-500/50 text-purple-300';
+      case 'clue_given': return 'border-emerald-500/50 text-emerald-300';
+      case 'team_guessing': return 'border-amber-500/50 text-amber-300';
+      case 'turn_result': return 'border-blue-500/50 text-blue-300';
+      case 'turn_switch': return 'border-slate-500/50 text-slate-400';
+      case 'game_over': return 'border-yellow-500/50 text-yellow-300';
+      default: return 'border-slate-500/50 text-slate-400';
+    }
+  };
 
   return (
     <>
@@ -125,11 +141,7 @@ function GameTopBar() {
             <span className="hidden sm:inline">الرئيسية</span>
           </Button>
           <Badge variant="outline"
-            className={`text-[10px] sm:text-xs px-2 py-0.5 ${
-              phase === 'playing' ? 'border-emerald-500/50 text-emerald-300'
-              : phase === 'game_over' ? 'border-yellow-500/50 text-yellow-300'
-              : 'border-slate-500/50 text-slate-400'
-            }`}>
+            className={`text-[10px] sm:text-xs px-2 py-0.5 ${getPhaseColor()}`}>
             {phaseLabel}
           </Badge>
           {gameMode === 'diwaniya' && hostName ? (
@@ -202,33 +214,37 @@ export default function ShifaratPage() {
 function HomeContent() {
   const {
     phase, roomCode, gameMode,
-    teams, roundNumber, gameLog, targetScore, resetGame,
+    resetGame,
   } = useShifaratStore();
   const mounted = useHydrated();
   useHostHeartbeat();
 
   const [showGodfatherSetup, setShowGodfatherSetup] = useState(false);
   const [showDiwaniyaSetup, setShowDiwaniyaSetup] = useState(false);
-  const [restoredFromPersist, setRestoredFromPersist] = useState(false);
+  const hasRestoredRef = useRef(false);
 
+  // Restore the correct setup view from persisted state
   useEffect(() => {
-    if (!mounted || restoredFromPersist) return;
-    setRestoredFromPersist(true);
-    if (phase === 'setup') {
-      if (gameMode === 'diwaniya' && roomCode) setShowDiwaniyaSetup(true);
-      else if (gameMode === 'godfather') setShowGodfatherSetup(true);
-    }
-  }, [mounted, phase, gameMode, roomCode, restoredFromPersist]);
+    if (!mounted || hasRestoredRef.current) return;
+    hasRestoredRef.current = true;
+    // Use a microtask to avoid the cascading render warning
+    queueMicrotask(() => {
+      if (phase === 'setup') {
+        if (gameMode === 'diwaniya' && roomCode) setShowDiwaniyaSetup(true);
+        else if (gameMode === 'godfather') setShowGodfatherSetup(true);
+      }
+    });
+  }, [mounted, phase, gameMode, roomCode]);
 
+  // Reset setup view when game is fully reset
   useEffect(() => {
     if (phase === 'setup' && !gameMode && !roomCode) {
-      setShowGodfatherSetup(false);
-      setShowDiwaniyaSetup(false);
+      queueMicrotask(() => {
+        setShowGodfatherSetup(false);
+        setShowDiwaniyaSetup(false);
+      });
     }
   }, [phase, gameMode, roomCode]);
-
-  const winner = teams[0].score >= targetScore ? teams[0] : teams[1].score >= targetScore ? teams[1] : null;
-  const loser = winner ? (winner === teams[0] ? teams[1] : teams[0]) : null;
 
   if (!mounted) {
     return (
@@ -255,15 +271,39 @@ function HomeContent() {
       );
     }
     if (showGodfatherSetup) {
-      const handleStart = (settings: { team1Name: string; team2Name: string; timer: number; targetScore: number; categories: string[] }) => {
-        useShifaratStore.getState().startGame(settings.team1Name, settings.team2Name, settings.categories, settings.timer, settings.targetScore);
+      const handleStart = (settings: {
+        team1Name: string;
+        team2Name: string;
+        timer: number;
+        categories: string[];
+        firstTeam: 'red' | 'blue';
+        redSpymaster?: string;
+        blueSpymaster?: string;
+      }) => {
+        useShifaratStore.getState().startGame(
+          settings.team1Name,
+          settings.team2Name,
+          settings.categories,
+          settings.timer,
+          settings.firstTeam,
+          settings.redSpymaster,
+          settings.blueSpymaster,
+        );
         setShowGodfatherSetup(false);
       };
       return <main><GameSetup onStart={handleStart} onBack={() => setShowGodfatherSetup(false)} /></main>;
     }
     if (showDiwaniyaSetup) {
       const handleStart = (_code: string, settings: any) => {
-        useShifaratStore.getState().startGame(settings.team1Name, settings.team2Name, settings.categories, settings.timer, settings.targetScore);
+        useShifaratStore.getState().startGame(
+          settings.team1Name,
+          settings.team2Name,
+          settings.categories,
+          settings.timer,
+          settings.firstTeam,
+          settings.redSpymaster,
+          settings.blueSpymaster,
+        );
         useShifaratStore.getState().setRoomCode(_code);
         useShifaratStore.getState().setGameMode('diwaniya');
         setShowDiwaniyaSetup(false);
@@ -272,21 +312,16 @@ function HomeContent() {
     }
   }
 
+  // In-game phases
+  const isActiveGame = phase === 'spymaster_view' || phase === 'clue_given' || phase === 'team_guessing' || phase === 'turn_result' || phase === 'turn_switch';
+
   return (
     <div className="flex flex-col min-h-screen">
       <GameTopBar />
       <main className="flex-1 flex flex-col">
         {roomCode && <RoomCodeBanner code={roomCode} />}
-        {(phase === 'playing' || phase === 'round_end') && <PlayingPhase />}
-        {phase === 'game_over' && winner && loser && (
-          <GameOver
-            winner={{ name: winner.name, score: winner.score }}
-            loser={{ name: loser.name, score: loser.score }}
-            totalRounds={roundNumber}
-            onPlayAgain={resetGame}
-            onHome={resetGame}
-          />
-        )}
+        {isActiveGame && <PlayingPhase />}
+        {phase === 'game_over' && <GameOver />}
       </main>
     </div>
   );

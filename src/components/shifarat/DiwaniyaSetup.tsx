@@ -12,22 +12,24 @@ import {
   XCircle,
   Play,
   Clock,
-  Target,
   Tag,
   Globe,
+  Eye,
+  HelpCircle,
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ALL_CATEGORIES } from '@/lib/shifarat-words';
+import HowToPlay from './HowToPlay';
+import type { TeamColor } from '@/lib/shifarat-types';
 
 interface DiwaniyaSetupProps {
   onStart: (code: string, settings: any) => void;
   onBack: () => void;
 }
 
-const TIMER_OPTIONS = [20, 30, 45, 60, 90, 120];
-const SCORE_OPTIONS = [5, 8, 10, 15, 20];
+const TIMER_OPTIONS = [30, 60, 90, 120, 0];
 
 interface PendingPlayer {
   id: string;
@@ -48,20 +50,22 @@ interface RoomData {
 export default function DiwaniyaSetup({ onStart, onBack }: DiwaniyaSetupProps) {
   const [step, setStep] = useState<'form' | 'waiting'>('form');
   const [hostName, setHostName] = useState('');
-  const [team1Name, setTeam1Name] = useState('الفريق الأزرق');
-  const [team2Name, setTeam2Name] = useState('الفريق الأخضر');
+  const [team1Name, setTeam1Name] = useState('الفريق الأحمر');
+  const [team2Name, setTeam2Name] = useState('الفريق الأزرق');
   const [timer, setTimer] = useState(60);
-  const [targetScore, setTargetScore] = useState(10);
   const [selectedCategories, setSelectedCategories] = useState<string[]>(
     ALL_CATEGORIES.map((c) => c.id)
   );
+  const [firstTeam, setFirstTeam] = useState<TeamColor>('red');
+  const [redSpymaster, setRedSpymaster] = useState('');
+  const [blueSpymaster, setBlueSpymaster] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [createdCode, setCreatedCode] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [room, setRoom] = useState<RoomData | null>(null);
   const [showLeaveDialog, setShowLeaveDialog] = useState(false);
-  const [leaving, setLeaving] = useState(false);
+  const [showHowToPlay, setShowHowToPlay] = useState(false);
 
   // Poll room state
   const pollRoom = useCallback(async () => {
@@ -117,7 +121,6 @@ export default function DiwaniyaSetup({ onStart, onBack }: DiwaniyaSetupProps) {
           team1Name: team1Name.trim(),
           team2Name: team2Name.trim(),
           timer,
-          targetScore,
           categories: selectedCategories,
         }),
       });
@@ -189,8 +192,10 @@ export default function DiwaniyaSetup({ onStart, onBack }: DiwaniyaSetupProps) {
       team1Name: team1Name.trim(),
       team2Name: team2Name.trim(),
       timer,
-      targetScore,
       categories: selectedCategories,
+      firstTeam,
+      redSpymaster: redSpymaster.trim() || undefined,
+      blueSpymaster: blueSpymaster.trim() || undefined,
     });
   };
 
@@ -262,15 +267,25 @@ export default function DiwaniyaSetup({ onStart, onBack }: DiwaniyaSetupProps) {
             <p className="text-xs text-slate-400">أنشئ غرفة وادعُ أصدقائك</p>
           </div>
 
-          {/* Back */}
-          <Button
-            onClick={onBack}
-            variant="ghost"
-            className="text-slate-500 hover:text-slate-300 gap-1 text-xs -mt-2"
-          >
-            <ArrowLeft className="w-4 h-4" />
-            رجوع
-          </Button>
+          {/* Top actions */}
+          <div className="flex items-center justify-between">
+            <Button
+              onClick={onBack}
+              variant="ghost"
+              className="text-slate-500 hover:text-slate-300 gap-1 text-xs -mt-2"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              رجوع
+            </Button>
+            <Button
+              onClick={() => setShowHowToPlay(true)}
+              variant="ghost"
+              className="text-emerald-500 hover:text-emerald-400 gap-1 text-xs -mt-2"
+            >
+              <HelpCircle className="w-4 h-4" />
+              كيف تلعب؟
+            </Button>
+          </div>
 
           {/* Host Name */}
           <div style={cardStyle}>
@@ -290,34 +305,105 @@ export default function DiwaniyaSetup({ onStart, onBack }: DiwaniyaSetupProps) {
             </div>
           </div>
 
-          {/* Team Names */}
+          {/* Team Names + Spymasters */}
           <div style={cardStyle}>
             <div className="p-4 space-y-3">
               <div className="flex items-center gap-2 mb-1">
                 <Users className="w-4 h-4 text-emerald-400" />
-                <h2 className="text-sm font-bold text-slate-200">أسماء الفرق</h2>
+                <h2 className="text-sm font-bold text-slate-200">أسماء الفرق والجواسيس</h2>
               </div>
-              <div>
-                <label className="text-xs text-slate-400 mb-1 block">الفريق الأول</label>
+
+              {/* Red Team */}
+              <div className="space-y-2">
+                <div className="flex items-center gap-2">
+                  <div className="w-3 h-3 rounded-full bg-red-500 flex-shrink-0" />
+                  <label className="text-xs text-red-300 font-bold">الفريق الأحمر</label>
+                </div>
                 <Input
                   value={team1Name}
                   onChange={(e) => { setTeam1Name(e.target.value); setError(''); }}
-                  placeholder="اسم الفريق الأول..."
+                  placeholder="اسم الفريق الأحمر..."
                   className="bg-slate-800/50 border-slate-600/50 text-slate-200 placeholder:text-slate-500 text-right h-11"
                   dir="rtl"
                   maxLength={20}
                 />
+                <div className="flex items-center gap-2">
+                  <Eye className="w-3.5 h-3.5 text-red-400/60 flex-shrink-0" />
+                  <Input
+                    value={redSpymaster}
+                    onChange={(e) => setRedSpymaster(e.target.value)}
+                    placeholder="اسم الجاسوس (اختياري)..."
+                    className="bg-slate-800/30 border-slate-700/40 text-slate-300 placeholder:text-slate-600 text-right h-10 text-xs"
+                    dir="rtl"
+                    maxLength={20}
+                  />
+                </div>
               </div>
-              <div>
-                <label className="text-xs text-slate-400 mb-1 block">الفريق الثاني</label>
+
+              {/* Blue Team */}
+              <div className="space-y-2">
+                <div className="flex items-center gap-2">
+                  <div className="w-3 h-3 rounded-full bg-blue-500 flex-shrink-0" />
+                  <label className="text-xs text-blue-300 font-bold">الفريق الأزرق</label>
+                </div>
                 <Input
                   value={team2Name}
                   onChange={(e) => { setTeam2Name(e.target.value); setError(''); }}
-                  placeholder="اسم الفريق الثاني..."
+                  placeholder="اسم الفريق الأزرق..."
                   className="bg-slate-800/50 border-slate-600/50 text-slate-200 placeholder:text-slate-500 text-right h-11"
                   dir="rtl"
                   maxLength={20}
                 />
+                <div className="flex items-center gap-2">
+                  <Eye className="w-3.5 h-3.5 text-blue-400/60 flex-shrink-0" />
+                  <Input
+                    value={blueSpymaster}
+                    onChange={(e) => setBlueSpymaster(e.target.value)}
+                    placeholder="اسم الجاسوس (اختياري)..."
+                    className="bg-slate-800/30 border-slate-700/40 text-slate-300 placeholder:text-slate-600 text-right h-10 text-xs"
+                    dir="rtl"
+                    maxLength={20}
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* First Team Selector */}
+          <div style={cardStyle}>
+            <div className="p-4">
+              <h2 className="text-sm font-bold text-slate-200 mb-3">الفريق الذي يبدأ أولاً</h2>
+              <div className="flex gap-3">
+                <motion.button
+                  whileTap={{ scale: 0.95 }}
+                  onClick={() => setFirstTeam('red')}
+                  className={`flex-1 p-3 rounded-xl border-2 transition-all text-center ${
+                    firstTeam === 'red'
+                      ? 'bg-red-950/40 border-red-500/60 shadow-lg shadow-red-500/10'
+                      : 'bg-slate-800/30 border-slate-700/40 hover:bg-slate-800/50'
+                  }`}
+                >
+                  <div className="w-8 h-8 rounded-full bg-red-500 mx-auto mb-1.5" />
+                  <p className={`text-xs font-bold ${firstTeam === 'red' ? 'text-red-300' : 'text-slate-500'}`}>
+                    أحمر
+                  </p>
+                  <p className="text-[9px] text-slate-600 mt-0.5">9 كلمات</p>
+                </motion.button>
+                <motion.button
+                  whileTap={{ scale: 0.95 }}
+                  onClick={() => setFirstTeam('blue')}
+                  className={`flex-1 p-3 rounded-xl border-2 transition-all text-center ${
+                    firstTeam === 'blue'
+                      ? 'bg-blue-950/40 border-blue-500/60 shadow-lg shadow-blue-500/10'
+                      : 'bg-slate-800/30 border-slate-700/40 hover:bg-slate-800/50'
+                  }`}
+                >
+                  <div className="w-8 h-8 rounded-full bg-blue-500 mx-auto mb-1.5" />
+                  <p className={`text-xs font-bold ${firstTeam === 'blue' ? 'text-blue-300' : 'text-slate-500'}`}>
+                    أزرق
+                  </p>
+                  <p className="text-[9px] text-slate-600 mt-0.5">8 كلمات</p>
+                </motion.button>
               </div>
             </div>
           </div>
@@ -328,7 +414,9 @@ export default function DiwaniyaSetup({ onStart, onBack }: DiwaniyaSetupProps) {
               <div className="flex items-center gap-2 mb-3">
                 <Clock className="w-4 h-4 text-emerald-400" />
                 <h2 className="text-sm font-bold text-slate-200">الوقت</h2>
-                <span className="text-xs text-slate-500 mr-auto">{timer} ثانية</span>
+                <span className="text-xs text-slate-500 mr-auto">
+                  {timer === 0 ? 'بدون وقت' : `${timer} ثانية`}
+                </span>
               </div>
               <div className="flex flex-wrap gap-2">
                 {TIMER_OPTIONS.map((t) => (
@@ -336,7 +424,7 @@ export default function DiwaniyaSetup({ onStart, onBack }: DiwaniyaSetupProps) {
                     key={t}
                     whileTap={{ scale: 0.92 }}
                     onClick={() => setTimer(t)}
-                    className="px-3 py-2 rounded-xl text-xs font-bold transition-all min-w-[48px] min-h-[44px]"
+                    className="px-3 py-2 rounded-xl text-xs font-bold transition-all min-w-[52px] min-h-[44px]"
                     style={{
                       background: timer === t
                         ? 'linear-gradient(135deg, rgba(16, 185, 129, 0.3), rgba(16, 185, 129, 0.1))'
@@ -347,39 +435,7 @@ export default function DiwaniyaSetup({ onStart, onBack }: DiwaniyaSetupProps) {
                       color: timer === t ? '#6ee7b7' : '#94a3b8',
                     }}
                   >
-                    {t}
-                  </motion.button>
-                ))}
-              </div>
-            </div>
-          </div>
-
-          {/* Target Score */}
-          <div style={cardStyle}>
-            <div className="p-4">
-              <div className="flex items-center gap-2 mb-3">
-                <Target className="w-4 h-4 text-emerald-400" />
-                <h2 className="text-sm font-bold text-slate-200">الهدف</h2>
-                <span className="text-xs text-slate-500 mr-auto">{targetScore} نقطة</span>
-              </div>
-              <div className="flex flex-wrap gap-2">
-                {SCORE_OPTIONS.map((s) => (
-                  <motion.button
-                    key={s}
-                    whileTap={{ scale: 0.92 }}
-                    onClick={() => setTargetScore(s)}
-                    className="px-3 py-2 rounded-xl text-xs font-bold transition-all min-w-[48px] min-h-[44px]"
-                    style={{
-                      background: targetScore === s
-                        ? 'linear-gradient(135deg, rgba(16, 185, 129, 0.3), rgba(16, 185, 129, 0.1))'
-                        : 'rgba(30, 41, 59, 0.8)',
-                      border: targetScore === s
-                        ? '2px solid rgba(16, 185, 129, 0.5)'
-                        : '2px solid rgba(51, 65, 85, 0.3)',
-                      color: targetScore === s ? '#6ee7b7' : '#94a3b8',
-                    }}
-                  >
-                    {s}
+                    {t === 0 ? '∞' : t}
                   </motion.button>
                 ))}
               </div>
@@ -458,6 +514,8 @@ export default function DiwaniyaSetup({ onStart, onBack }: DiwaniyaSetupProps) {
             </Button>
           </motion.div>
         </motion.div>
+
+        <HowToPlay open={showHowToPlay} onOpenChange={setShowHowToPlay} />
       </div>
     );
   }
@@ -773,27 +831,18 @@ export default function DiwaniyaSetup({ onStart, onBack }: DiwaniyaSetupProps) {
                   <Button
                     onClick={() => setShowLeaveDialog(false)}
                     variant="outline"
-                    disabled={leaving}
                     className="flex-1 border-slate-600 text-slate-300 hover:bg-slate-800 h-11"
                   >
                     إلغاء
                   </Button>
                   <Button
                     onClick={onBack}
-                    disabled={leaving}
                     className="flex-1 text-white font-bold h-11"
                     style={{
                       background: 'linear-gradient(to left, #991b1b, #b91c1c)',
                     }}
                   >
-                    {leaving ? (
-                      <span className="flex items-center gap-1">
-                        <Loader2 className="w-4 h-4 animate-spin" />
-                        جاري الخروج...
-                      </span>
-                    ) : (
-                      'نعم، اخرج'
-                    )}
+                    نعم، اخرج
                   </Button>
                 </div>
               </div>

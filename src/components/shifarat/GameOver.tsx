@@ -1,179 +1,264 @@
 'use client';
 
 import { motion } from 'framer-motion';
-import { Trophy, Home, RotateCcw, BarChart3, Star } from 'lucide-react';
+import { Trophy, Home, RotateCcw, BarChart3, Star, Check } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { useShifaratStore } from '@/lib/shifarat-store';
+import type { BoardCard } from '@/lib/shifarat-types';
 
-interface GameOverProps {
-  winner: { name: string; score: number };
-  loser: { name: string; score: number };
-  totalRounds: number;
-  onPlayAgain: () => void;
-  onHome: () => void;
+// ============================================================
+// CONFETTI PARTICLES
+// ============================================================
+
+function Confetti() {
+  const particles = Array.from({ length: 40 }, (_, i) => ({
+    id: i,
+    x: Math.random() * 100,
+    delay: Math.random() * 2,
+    duration: Math.random() * 2 + 2,
+    size: Math.random() * 6 + 4,
+    color: ['#ef4444', '#3b82f6', '#10b981', '#f59e0b', '#a855f7', '#ec4899'][
+      Math.floor(Math.random() * 6)
+    ],
+    rotation: Math.random() * 360,
+  }));
+
+  return (
+    <div className="fixed inset-0 pointer-events-none z-50 overflow-hidden">
+      {particles.map((p) => (
+        <motion.div
+          key={p.id}
+          initial={{
+            opacity: 1,
+            y: -20,
+            x: `${p.x}%`,
+            rotate: 0,
+          }}
+          animate={{
+            opacity: [1, 1, 0],
+            y: ['0vh', '110vh'],
+            rotate: [0, p.rotation * 2],
+          }}
+          transition={{
+            duration: p.duration,
+            delay: p.delay,
+            repeat: Infinity,
+            repeatDelay: Math.random() * 3,
+            ease: 'easeIn',
+          }}
+          className="absolute"
+          style={{
+            width: p.size,
+            height: p.size * 0.6,
+            backgroundColor: p.color,
+            borderRadius: '2px',
+          }}
+        />
+      ))}
+    </div>
+  );
 }
 
-export default function GameOver({
-  winner,
-  loser,
-  totalRounds,
-  onPlayAgain,
-  onHome,
-}: GameOverProps) {
-  // Total words guessed
-  const totalWordsGuessed = winner.score + loser.score;
+// ============================================================
+// REVEALED BOARD
+// ============================================================
+
+function RevealedBoard({ board }: { board: BoardCard[] }) {
+  const getCardStyle = (card: BoardCard) => {
+    switch (card.color) {
+      case 'red':
+        return card.isRevealed ? 'bg-red-500/80 border-red-400/60' : 'bg-red-500/50 border-red-400/30';
+      case 'blue':
+        return card.isRevealed ? 'bg-blue-500/80 border-blue-400/60' : 'bg-blue-500/50 border-blue-400/30';
+      case 'neutral':
+        return card.isRevealed ? 'bg-slate-600/50 border-slate-500/40' : 'bg-slate-600/30 border-slate-500/20';
+      case 'assassin':
+        return card.isRevealed ? 'bg-gray-900 border-gray-500/60' : 'bg-gray-900/80 border-gray-500/40';
+    }
+  };
+
+  return (
+    <div className="grid grid-cols-5 gap-1.5 sm:gap-2">
+      {board.map((card, index) => (
+        <motion.div
+          key={card.id}
+          initial={{ opacity: 0, scale: 0.8 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ delay: index * 0.03, duration: 0.3 }}
+          className={`
+            relative aspect-square rounded-lg sm:rounded-xl border-2
+            flex items-center justify-center p-1 sm:p-2
+            ${getCardStyle(card)}
+            ${card.isRevealed ? '' : 'opacity-60'}
+          `}
+        >
+          {card.isRevealed && (
+            <Check className="absolute top-0.5 right-0.5 z-10 w-3 h-3 sm:w-4 sm:h-4 text-white/80" />
+          )}
+          {!card.isRevealed && card.color === 'assassin' && (
+            <span className="absolute top-0 left-0 text-[8px] sm:text-[10px]">💀</span>
+          )}
+          <span className="text-[9px] sm:text-xs md:text-sm font-bold text-white/90 text-center leading-tight break-words line-clamp-2">
+            {card.word}
+          </span>
+        </motion.div>
+      ))}
+    </div>
+  );
+}
+
+// ============================================================
+// WIN REASON DISPLAY
+// ============================================================
+
+function WinReason({ reason, winner }: { reason: string | null; winner: 'red' | 'blue' | null }) {
+  const reasons: Record<string, { emoji: string; text: string }> = {
+    'all_found': { emoji: '🎯', text: 'وجد جميع كلماته!' },
+    'assassin': {
+      emoji: '💀',
+      text: `${winner === 'red' ? 'الفريق الأزرق' : 'الفريق الأحمر'} كشف القاتل!`,
+    },
+    'opponent_finished': { emoji: '⚡', text: 'الخصم وجد كلماته بالخطأ!' },
+  };
+
+  const r = reason ? reasons[reason] : null;
+  if (!r) return null;
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay: 1.2 }}
+      className="flex items-center justify-center gap-2 text-sm text-slate-400"
+    >
+      <span>{r.emoji}</span>
+      <span>{r.text}</span>
+    </motion.div>
+  );
+}
+
+// ============================================================
+// MAIN GAME OVER COMPONENT
+// ============================================================
+
+export default function GameOver() {
+  const {
+    winner,
+    winReason,
+    redTeam,
+    blueTeam,
+    startingTeam,
+    roundNumber,
+    clues,
+    resetGame,
+    board,
+  } = useShifaratStore();
+
+  const winnerName = winner === 'red' ? redTeam.name : winner === 'blue' ? blueTeam.name : 'لا يوجد';
+  const loserTeam = winner === 'red' ? 'blue' : 'red';
+  const loserName = loserTeam === 'red' ? redTeam.name : blueTeam.name;
+  const winnerScore = winner === 'red' ? redTeam.score : winner === 'blue' ? blueTeam.score : 0;
+  const loserScore = loserTeam === 'red' ? redTeam.score : blueTeam.score;
+  const winnerColor = winner === 'red' ? 'text-red-400' : 'text-blue-400';
+
+  const isAssassin = winReason === 'assassin';
 
   return (
     <div
-      className="min-h-screen flex flex-col items-center justify-center p-4 sm:p-6"
+      className="min-h-screen flex flex-col items-center justify-start py-6 px-4 sm:px-6"
       dir="rtl"
       style={{
         background: 'linear-gradient(135deg, #020617 0%, #0f172a 50%, #020617 100%)',
       }}
     >
-      {/* Decorative particles */}
-      <div className="fixed inset-0 overflow-hidden pointer-events-none">
-        {Array.from({ length: 30 }).map((_, i) => (
-          <div
-            key={i}
-            className="absolute rounded-full"
-            style={{
-              width: Math.random() * 4 + 1 + 'px',
-              height: Math.random() * 4 + 1 + 'px',
-              top: Math.random() * 100 + '%',
-              left: Math.random() * 100 + '%',
-              backgroundColor: `rgba(16, 185, 129, ${Math.random() * 0.3 + 0.1})`,
-              animation: `pulse ${Math.random() * 3 + 2}s ease-in-out infinite`,
-              animationDelay: Math.random() * 2 + 's',
-            }}
-          />
-        ))}
-      </div>
+      {/* Confetti (only if not assassin) */}
+      {!isAssassin && <Confetti />}
 
       <motion.div
         initial={{ opacity: 0, scale: 0.9 }}
         animate={{ opacity: 1, scale: 1 }}
         transition={{ duration: 0.6 }}
-        className="relative z-10 w-full max-w-md mx-auto text-center"
+        className="relative z-10 w-full max-w-md mx-auto"
       >
-        {/* Trophy Animation */}
+        {/* Trophy */}
         <motion.div
           initial={{ scale: 0, rotate: -20 }}
           animate={{ scale: 1, rotate: 0 }}
-          transition={{
-            duration: 0.8,
-            delay: 0.2,
-            type: 'spring',
-            stiffness: 200,
-            damping: 12,
-          }}
-          className="mb-6"
+          transition={{ duration: 0.8, delay: 0.2, type: 'spring', stiffness: 200, damping: 12 }}
+          className="mb-4 text-center"
         >
           <div
             className="inline-flex items-center justify-center w-24 h-24 sm:w-28 sm:h-28 rounded-full mb-2"
             style={{
-              background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.2), rgba(245, 158, 11, 0.15))',
-              border: '2px solid rgba(16, 185, 129, 0.4)',
-              boxShadow: '0 0 40px rgba(16, 185, 129, 0.2), 0 0 80px rgba(16, 185, 129, 0.1)',
+              background: isAssassin
+                ? 'linear-gradient(135deg, rgba(127, 29, 29, 0.2), rgba(75, 85, 99, 0.15))'
+                : 'linear-gradient(135deg, rgba(16, 185, 129, 0.2), rgba(245, 158, 11, 0.15))',
+              border: `2px solid ${isAssassin ? 'rgba(239, 68, 68, 0.4)' : 'rgba(16, 185, 129, 0.4)'}`,
+              boxShadow: isAssassin
+                ? '0 0 40px rgba(239, 68, 68, 0.2)'
+                : '0 0 40px rgba(16, 185, 129, 0.2), 0 0 80px rgba(16, 185, 129, 0.1)',
             }}
           >
-            <span className="text-5xl sm:text-6xl">🏆</span>
+            <span className="text-5xl sm:text-6xl">{isAssassin ? '💀' : '🏆'}</span>
           </div>
         </motion.div>
-
-        {/* Confetti stars */}
-        <div className="relative mb-4">
-          {['⭐', '✨', '🌟', '💫', '🎊'].map((emoji, i) => (
-            <motion.span
-              key={i}
-              initial={{ opacity: 0, y: -20, scale: 0 }}
-              animate={{
-                opacity: [0, 1, 0.6],
-                y: [0, -30 - i * 10, -50 - i * 10],
-                scale: [0, 1, 0.8],
-              }}
-              transition={{
-                duration: 1.5,
-                delay: 0.5 + i * 0.15,
-                repeat: Infinity,
-                repeatDelay: 2,
-              }}
-              className="absolute text-lg"
-              style={{
-                left: `${15 + i * 17}%`,
-                top: '-10px',
-              }}
-            >
-              {emoji}
-            </motion.span>
-          ))}
-        </div>
 
         {/* Winner Name */}
         <motion.h1
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.6, duration: 0.5 }}
-          className="text-2xl sm:text-3xl font-black mb-2"
-          style={{
-            background: 'linear-gradient(to left, #fbbf24, #f59e0b, #d97706)',
-            WebkitBackgroundClip: 'text',
-            WebkitTextFillColor: 'transparent',
-            backgroundClip: 'text',
-          }}
+          className={`text-2xl sm:text-3xl font-black mb-1 text-center ${winnerColor}`}
         >
-          {winner.name}
+          {winnerName}
         </motion.h1>
 
         <motion.p
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ delay: 0.8 }}
-          className="text-slate-400 text-sm mb-6"
+          className="text-slate-400 text-sm mb-2 text-center"
         >
-          فاز باللعبة! 🎉
+          {isAssassin ? 'فاز بسبب خطأ الخصم!' : 'فاز باللعبة! 🎉'}
         </motion.p>
 
+        {/* Win Reason */}
+        <div className="text-center mb-4">
+          <WinReason reason={winReason} winner={winner} />
+        </div>
+
         {/* Score Cards */}
-        <div className="flex gap-3 mb-6">
-          {/* Winner */}
+        <div className="flex gap-3 mb-4">
           <motion.div
             initial={{ opacity: 0, x: 30 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ delay: 1, duration: 0.4 }}
-            className="flex-1 p-4"
-            style={{
-              background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.2), rgba(16, 185, 129, 0.05))',
-              border: '1px solid rgba(16, 185, 129, 0.3)',
-              borderRadius: '1rem',
-            }}
+            className={`flex-1 p-4 rounded-xl ${
+              winner === 'red'
+                ? 'bg-red-950/40 border-2 border-red-500/50'
+                : 'bg-blue-950/40 border-2 border-blue-500/50'
+            }`}
           >
             <div className="flex items-center justify-center gap-1 mb-2">
               <Trophy className="w-4 h-4 text-emerald-400" />
               <span className="text-[10px] font-bold text-emerald-400">الفائز</span>
             </div>
-            <div className="text-3xl font-black text-white">{winner.score}</div>
-            <div className="text-xs text-slate-400 mt-1">{winner.name}</div>
+            <div className="text-3xl font-black text-white">{winnerScore}</div>
+            <div className="text-xs text-slate-400 mt-1">{winnerName}</div>
           </motion.div>
 
-          {/* Loser */}
           <motion.div
             initial={{ opacity: 0, x: -30 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ delay: 1.1, duration: 0.4 }}
-            className="flex-1 p-4"
-            style={{
-              background: 'rgba(30, 41, 59, 0.3)',
-              border: '1px solid rgba(51, 65, 85, 0.3)',
-              borderRadius: '1rem',
-              opacity: 0.7,
-            }}
+            className="flex-1 p-4 rounded-xl bg-slate-900/40 border-2 border-slate-800/50 opacity-70"
           >
             <div className="flex items-center justify-center gap-1 mb-2">
               <Star className="w-4 h-4 text-slate-500" />
               <span className="text-[10px] font-bold text-slate-500">الثاني</span>
             </div>
-            <div className="text-3xl font-black text-slate-300">{loser.score}</div>
-            <div className="text-xs text-slate-500 mt-1">{loser.name}</div>
+            <div className="text-3xl font-black text-slate-300">{loserScore}</div>
+            <div className="text-xs text-slate-500 mt-1">{loserName}</div>
           </motion.div>
         </div>
 
@@ -182,29 +267,60 @@ export default function GameOver({
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 1.3, duration: 0.4 }}
-          className="mb-6 p-4"
-          style={{
-            background: 'rgba(30, 41, 59, 0.4)',
-            border: '1px solid rgba(51, 65, 85, 0.3)',
-            borderRadius: '1rem',
-          }}
+          className="mb-4 p-4 rounded-xl bg-slate-900/40 border border-slate-800/50"
         >
           <div className="flex items-center justify-center gap-1.5 mb-3">
             <BarChart3 className="w-4 h-4 text-emerald-400" />
             <span className="text-xs font-bold text-slate-300">إحصائيات اللعبة</span>
           </div>
           <div className="grid grid-cols-3 gap-3">
-            <div>
-              <div className="text-xl font-black text-white">{totalRounds}</div>
-              <div className="text-[10px] text-slate-500">إجمالي الجولات</div>
+            <div className="text-center">
+              <div className="text-xl font-black text-white">{roundNumber}</div>
+              <div className="text-[10px] text-slate-500">الجولات</div>
             </div>
-            <div>
-              <div className="text-xl font-black text-emerald-400">{totalWordsGuessed}</div>
-              <div className="text-[10px] text-slate-500">كلمات صحيحة</div>
+            <div className="text-center">
+              <div className="text-xl font-black text-emerald-400">{clues.length}</div>
+              <div className="text-[10px] text-slate-500">الأدلة</div>
             </div>
-            <div>
-              <div className="text-xl font-black text-amber-400">{winner.score - loser.score}</div>
-              <div className="text-[10px] text-slate-500">فارق النقاط</div>
+            <div className="text-center">
+              <div className="text-xl font-black text-amber-400">
+                {winnerScore - loserScore}
+              </div>
+              <div className="text-[10px] text-slate-500">الفارق</div>
+            </div>
+          </div>
+        </motion.div>
+
+        {/* Board Reveal */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 1.5, duration: 0.5 }}
+          className="mb-6 p-3 sm:p-4 rounded-xl bg-slate-900/40 border border-slate-800/50"
+        >
+          <div className="flex items-center justify-center gap-1.5 mb-3">
+            <span className="text-xs">👁️</span>
+            <span className="text-xs font-bold text-slate-300">كشف اللوحة</span>
+          </div>
+          <RevealedBoard board={board} />
+
+          {/* Legend */}
+          <div className="flex items-center justify-center gap-3 mt-3">
+            <div className="flex items-center gap-1">
+              <div className="w-3 h-3 rounded-sm bg-red-500/80" />
+              <span className="text-[9px] text-slate-500">أحمر</span>
+            </div>
+            <div className="flex items-center gap-1">
+              <div className="w-3 h-3 rounded-sm bg-blue-500/80" />
+              <span className="text-[9px] text-slate-500">أزرق</span>
+            </div>
+            <div className="flex items-center gap-1">
+              <div className="w-3 h-3 rounded-sm bg-slate-600/50" />
+              <span className="text-[9px] text-slate-500">محايد</span>
+            </div>
+            <div className="flex items-center gap-1">
+              <div className="w-3 h-3 rounded-sm bg-gray-900" />
+              <span className="text-[9px] text-slate-500">💀</span>
             </div>
           </div>
         </motion.div>
@@ -213,11 +329,11 @@ export default function GameOver({
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 1.5, duration: 0.4 }}
+          transition={{ delay: 1.8, duration: 0.4 }}
           className="space-y-3"
         >
           <Button
-            onClick={onPlayAgain}
+            onClick={resetGame}
             className="w-full py-5 font-bold text-base text-white"
             style={{
               background: 'linear-gradient(to left, #059669, #10b981)',
@@ -231,7 +347,7 @@ export default function GameOver({
           </Button>
 
           <Button
-            onClick={onHome}
+            onClick={resetGame}
             variant="ghost"
             className="w-full py-4 text-slate-400 hover:text-slate-300 gap-2 text-sm"
             style={{ borderRadius: '1rem' }}

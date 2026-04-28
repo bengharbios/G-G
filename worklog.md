@@ -271,3 +271,78 @@ Stage Summary:
 - PlayingPhase: Team score cards, timer bar (green→yellow→red), word display with show/hide toggle, hints area, skip counter, correct/skip/wrong buttons, round end next-turn flow
 - GameOver: Trophy animation, winner/loser score cards, game stats (rounds, words, diff), play again/home buttons
 - Zero lint errors on all new/modified files
+
+---
+Task ID: 2
+Agent: game-types-logic-builder
+Task: Rewrite shifarat-types.ts and shifarat-logic.ts for Codenames-style board game
+
+Work Log:
+- Rewrote src/lib/shifarat-types.ts with comprehensive Codenames board game types:
+  - CardColor, TeamColor, BoardCard, Clue, GamePhase (7 phases), TeamInfo, GameSettings
+  - ShifaratGameState with full board, team, clue/guessing, timer, history, mode, and result fields
+  - GameLogEntry (8 entry types), ViewMode for Godfather role switching
+  - Legacy type exports retained for backward compat with shifarat-words.ts and shifarat-store.ts (WordEntry, ShifaratTeam, ShifaratGameMode, ShifaratGamePhase, ShifaratRoundStatus)
+
+- Rewrote src/lib/shifarat-logic.ts with pure Codenames game logic:
+  - generateBoard(): Fisher-Yates shuffled 25-card board (9 starting team, 8 opponent, 7 neutral, 1 assassin)
+  - createInitialState(): Full game state factory with team info, timer, history
+  - giveClue(): Validates clue word (no board words/substrings), transitions to clue_given phase, grants clueNumber+1 guesses
+  - guessWord(): Reveals card, determines correct/wrong/neutral/assassin result, updates scores/remaining, checks game end, auto-switches phase
+  - passTurn(): Team forfeits remaining guesses
+  - tickTimer(): 1-second decrement, auto-ends turn at 0
+  - checkGameEnd(): assassin=instant loss, correct=all_found win, wrong=opponent_finished check
+  - getTeamWordsRemaining(), switchTurn(), isValidClue(), formatTimer()
+  - Legacy functions retained (getRandomWord, getWordCategory, checkGameWin, getOpponentTeam, getRemainingWordsCount, getAllWordsInCategories)
+
+- Verified zero lint errors on both files
+
+Stage Summary:
+- 2 files rewritten (182 + 824 = 1006 lines total)
+- All 11 Codenames rules implemented with pure functions (no side effects)
+- Backward-compatible legacy exports ensure existing store/words/UI components continue to compile
+- Game flow: setup → spymaster_view → clue_given → team_guessing → turn_result → turn_switch → spymaster_view (loop) → game_over
+
+---
+Task ID: 1
+Agent: words-database-builder
+Task: Create comprehensive Arabic words database (500+ words)
+
+Work Log:
+- Rewrote src/lib/shifarat-words.ts with 501 Arabic words across 20 categories
+- Each word has 3-6 hint words for spymaster inspiration
+- Categories: animals (26), food (25), places (25), objects (25), nature (25), professions (25), sports (25), technology (25), countries (25), culture (25), history (25), colors (25), feelings (25), clothing (25), vehicles (25), cuisine (25), marine (25), space (25), mystery (25), daily (25)
+- Implemented getBoardWords(exclude?) function for random 25-word selection with Fisher-Yates shuffle
+- Used reliable Modern Standard Arabic (فصحى مبسطة) vocabulary suitable for all Arabic speakers
+- Maintained full backward compatibility: ALL_CATEGORIES, SHIFARAT_WORDS, WordEntry, getWordsForCategories, getRandomWord
+- Exported new interface: CodenameWord { w, cat, hints }, CATEGORIES, WORDS, getBoardWords
+- Zero lint errors on the file
+- Verified: 501 total words, all 20 categories have 25+ words, 0 duplicates, 0 hint issues
+
+Stage Summary:
+- File: src/lib/shifarat-words.ts (722 lines, 501 word entries)
+- 20 categories with 25+ words each
+- All words verified as common Arabic vocabulary
+- Backward compatible with all existing imports (shifarat-logic.ts, GameSetup.tsx, DiwaniyaSetup.tsx)
+
+---
+Task ID: 4
+Agent: ui-builder
+Task: Create Codenames UI components
+
+Work Log:
+- Rewrote PlayingPhase.tsx for Codenames 5x5 board
+- Rewrote GameOver.tsx with board reveal
+- Created HowToPlay.tsx tutorial
+- Updated ShifaratSpectatorView.tsx
+- Updated GameSetup.tsx with first team + spymaster options
+- Updated DiwaniyaSetup.tsx
+- Updated page.tsx for new phase flow
+- Added Web Audio API sound effects
+
+Stage Summary:
+- 7 component files created/updated
+- Full Codenames gameplay UI with 5x5 grid
+- Spymaster/team view switching
+- Sound effects for all game events
+- Mobile-first responsive design

@@ -5,86 +5,115 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import type {
-  ShifaratGameMode,
-  ShifaratGamePhase,
-  ShifaratRoundStatus,
-  ShifaratTeam,
-  WordEntry,
+  ShifaratGameState,
+  TeamColor,
+  GamePhase,
+  ViewMode,
+  BoardCard,
+  Clue,
+  GameLogEntry,
+  TeamInfo,
 } from './shifarat-types';
 import {
-  getRandomWord,
-  getWordCategory,
-  checkGameWin,
-  getOpponentTeam,
+  generateBoard,
+  createInitialState,
+  giveClue as logicGiveClue,
+  guessWord as logicGuessWord,
+  passTurn as logicPassTurn,
+  tickTimer as logicTickTimer,
+  switchTurn as logicSwitchTurn,
+  isValidClue,
+  formatTimer,
 } from './shifarat-logic';
+import { getBoardWords } from './shifarat-words';
 import { syncRoomState, endRoomSession } from './room-sync';
 
 // ─── Persist-friendly state shape ───────────────────────────
-// Set<string> cannot survive JSON round-trip, so we serialize
-// usedWords to an array in the persisted snapshot.
 
 interface ShifaratPersistState {
-  gameMode: ShifaratGameMode;
+  gameMode: 'godfather' | 'diwaniya' | null;
   hostName: string | null;
   roomCode: string | null;
-  phase: ShifaratGamePhase;
-  teams: [ShifaratTeam, ShifaratTeam];
-  currentTeamIndex: 0 | 1;
-  currentWord: WordEntry | null;
-  currentCategory: string;
-  usedWords: string[];          // array for JSON persistence
-  selectedCategories: string[];
-  timerMax: number;
-  timerLeft: number;
-  skipsLeft: number;
-  roundActive: boolean;
+  phase: GamePhase;
+  viewMode: ViewMode;
+
+  // Board
+  board: BoardCard[];
+
+  // Teams
+  redTeam: TeamInfo;
+  blueTeam: TeamInfo;
+
+  // Turn
+  startingTeam: TeamColor;
+  currentTeam: TeamColor;
   roundNumber: number;
-  roundStatus: ShifaratRoundStatus;
-  roundMessage: string;
-  targetScore: number;
-  gameLog: Array<{
-    round: number;
-    team: string;
-    word: string;
-    result: string;
-    timestamp: number;
-  }>;
+
+  // Clue & guessing
+  currentClue: Clue | null;
+  guessesThisTurn: number;
+  guessesAllowed: number;
+  lastGuessResult: 'correct' | 'wrong' | 'neutral' | 'assassin' | null;
+
+  // Timer
+  timerDuration: number;
+  timerRemaining: number;
+  isTimerActive: boolean;
+
+  // History
+  clues: Clue[];
+  gameLog: GameLogEntry[];
+
+  // Settings
+  selectedCategories: string[];
+
+  // Result
+  winner: TeamColor | null;
+  winReason: string | null;
+
+  // Players (Diwaniya mode)
   players: Array<{
     id: string;
     name: string;
-    team: 0 | 1;
+    team: 'red' | 'blue';
+    role: 'spymaster' | 'player';
     hasJoined: boolean;
   }>;
 }
 
-// ─── Runtime store interface (Set<string> in memory) ────────
+// ─── Runtime store interface ────────────────────────────────
 
 export interface ShifaratStore extends ShifaratPersistState {
-  /** Runtime Set — derived from usedWords[] on load */
-  usedWordsSet: Set<string>;
-
-  // ── Actions ──
-  setGameMode: (mode: ShifaratGameMode) => void;
+  // Actions - Setup
+  setGameMode: (mode: 'godfather' | 'diwaniya' | null) => void;
   setHostName: (name: string | null) => void;
   setRoomCode: (code: string | null) => void;
+  setViewMode: (mode: ViewMode) => void;
 
+  // Actions - Game flow
   startGame: (
-    team1Name: string,
-    team2Name: string,
+    redTeamName: string,
+    blueTeamName: string,
     categories: string[],
     timerSeconds: number,
-    targetScore?: number
+    firstTeam?: TeamColor,
+    redSpymaster?: string,
+    blueSpymaster?: string,
   ) => void;
 
-  newRound: () => void;
-  markCorrect: () => void;
-  markWrong: () => void;
-  skipWord: () => void;
+  giveClue: (clueWord: string, clueNumber: number) => string | null; // returns error or null
+  selectCard: (cardId: number) => { result: 'correct' | 'wrong' | 'neutral' | 'assassin'; gameEnded: boolean };
+  passTurn: () => void;
+  confirmTurnSwitch: () => void;
   tickTimer: () => void;
-  timeUp: () => void;
-  nextTurn: () => void;
   resetGame: () => void;
+
+  // Actions - Room sync
   syncToRoom: () => void;
+
+  // Computed helpers
+  getTeamName: (team: TeamColor) => string;
+  formattedTimer: string;
 }
 
 // ─── Initial state ──────────────────────────────────────────
@@ -94,24 +123,31 @@ const initialState: ShifaratPersistState = {
   hostName: null,
   roomCode: null,
   phase: 'setup',
-  teams: [
-    { name: 'الفريق الأول', score: 0 },
-    { name: 'الفريق الثاني', score: 0 },
-  ],
-  currentTeamIndex: 0,
-  currentWord: null,
-  currentCategory: '',
-  usedWords: [],
-  selectedCategories: [],
-  timerMax: 60,
-  timerLeft: 60,
-  skipsLeft: 2,
-  roundActive: false,
+  viewMode: 'spymaster',
+
+  board: [],
+  redTeam: { name: 'الفريق الأحمر', score: 0, spymaster: null, wordsRemaining: 9 },
+  blueTeam: { name: 'الفريق الأزرق', score: 0, spymaster: null, wordsRemaining: 8 },
+
+  startingTeam: 'red',
+  currentTeam: 'red',
   roundNumber: 1,
-  roundStatus: 'active',
-  roundMessage: '',
-  targetScore: 10,
+
+  currentClue: null,
+  guessesThisTurn: 0,
+  guessesAllowed: 0,
+  lastGuessResult: null,
+
+  timerDuration: 60,
+  timerRemaining: 60,
+  isTimerActive: false,
+
+  clues: [],
   gameLog: [],
+  selectedCategories: [],
+
+  winner: null,
+  winReason: null,
   players: [],
 };
 
@@ -121,263 +157,177 @@ export const useShifaratStore = create<ShifaratStore>()(
   persist(
     (set, get) => ({
       ...initialState,
-      usedWordsSet: new Set<string>(),
 
-      // ── Game mode & host ──
+      formattedTimer: formatTimer(60),
+
+      // ── Setup actions ──
 
       setGameMode: (mode) => set({ gameMode: mode }),
       setHostName: (name) => set({ hostName: name }),
       setRoomCode: (code) => set({ roomCode: code }),
+      setViewMode: (mode) => set({ viewMode: mode }),
 
       // ── Start game ──
 
       startGame: (
-        team1Name,
-        team2Name,
+        redTeamName,
+        blueTeamName,
         categories,
         timerSeconds,
-        targetScore = 10
+        firstTeam = 'red',
+        redSpymaster,
+        blueSpymaster,
       ) => {
-        const usedSet = new Set<string>();
-        const word = getRandomWord(categories, usedSet);
-
-        set({
-          phase: 'playing',
-          teams: [
-            { name: team1Name, score: 0 },
-            { name: team2Name, score: 0 },
-          ],
-          currentTeamIndex: 0,
-          currentWord: word,
-          currentCategory: word
-            ? getWordCategory(word.w, categories) ?? ''
-            : '',
-          usedWords: Array.from(usedSet),
-          usedWordsSet: usedSet,
-          selectedCategories: categories,
-          timerMax: timerSeconds,
-          timerLeft: timerSeconds,
-          skipsLeft: 2,
-          roundActive: true,
-          roundNumber: 1,
-          roundStatus: 'active',
-          roundMessage: '',
-          targetScore,
-          gameLog: [
-            {
-              round: 1,
-              team: team1Name,
-              word: word?.w ?? '',
-              result: 'بدأت اللعبة',
-              timestamp: Date.now(),
-            },
-          ],
-        });
-        get().syncToRoom();
-      },
-
-      // ── New round ──
-
-      newRound: () => {
-        const state = get();
-        let usedSet = new Set(state.usedWords);
-
-        let word = getRandomWord(state.selectedCategories, usedSet);
-
-        // If all words are used, reset the used set and try again
-        if (!word) {
-          usedSet = new Set<string>();
-          word = getRandomWord(state.selectedCategories, usedSet);
-        }
-
-        const nextRound = state.roundNumber + 1;
-
-        set({
-          currentWord: word,
-          currentCategory: word
-            ? getWordCategory(word.w, state.selectedCategories) ?? ''
-            : '',
-          usedWords: Array.from(usedSet),
-          usedWordsSet: usedSet,
-          timerLeft: state.timerMax,
-          skipsLeft: 2,
-          roundActive: true,
-          roundNumber: nextRound,
-          roundStatus: 'active',
-          roundMessage: '',
-          phase: 'playing',
-        });
-        get().syncToRoom();
-      },
-
-      // ── Mark correct (+1 point, end round) ──
-
-      markCorrect: () => {
-        const state = get();
-        if (!state.roundActive || !state.currentWord) return;
-
-        const teamIndex = state.currentTeamIndex;
-        const updatedTeams: [ShifaratTeam, ShifaratTeam] = [
-          { ...state.teams[0] },
-          { ...state.teams[1] },
-        ];
-        updatedTeams[teamIndex].score += 1;
-
-        const newScore = updatedTeams[teamIndex].score;
-        const isWin = checkGameWin(newScore, state.targetScore);
-
-        const logEntry = {
-          round: state.roundNumber,
-          team: state.teams[teamIndex].name,
-          word: state.currentWord.w,
-          result: 'صحيح ✓',
-          timestamp: Date.now(),
-        };
-
-        set({
-          teams: updatedTeams,
-          roundActive: false,
-          roundStatus: 'correct',
-          roundMessage: `إجابة صحيحة! +1 نقطة لـ${state.teams[teamIndex].name}`,
-          phase: isWin ? 'game_over' : 'round_end',
-          gameLog: [...state.gameLog, logEntry],
-        });
-        get().syncToRoom();
-      },
-
-      // ── Mark wrong (switch team, end round) ──
-
-      markWrong: () => {
-        const state = get();
-        if (!state.roundActive || !state.currentWord) return;
-
-        const currentTeam = state.teams[state.currentTeamIndex];
-        const opponentIndex = getOpponentTeam(state.currentTeamIndex);
-
-        const logEntry = {
-          round: state.roundNumber,
-          team: currentTeam.name,
-          word: state.currentWord.w,
-          result: 'خطأ ✗',
-          timestamp: Date.now(),
-        };
-
-        set({
-          currentTeamIndex: opponentIndex,
-          roundActive: false,
-          roundStatus: 'wrong',
-          roundMessage: `إجابة خاطئة! دور ${state.teams[opponentIndex].name}`,
-          phase: 'round_end',
-          gameLog: [...state.gameLog, logEntry],
-        });
-        get().syncToRoom();
-      },
-
-      // ── Skip word (get new word, decrement skips) ──
-
-      skipWord: () => {
-        const state = get();
-        if (!state.roundActive || state.skipsLeft <= 0) return;
-
-        const newSkipsLeft = state.skipsLeft - 1;
-        let usedSet = new Set(state.usedWords);
-
-        let word = getRandomWord(state.selectedCategories, usedSet);
-
-        // If all words are used, reset and try again
-        if (!word) {
-          usedSet = new Set<string>();
-          word = getRandomWord(state.selectedCategories, usedSet);
-        }
-
-        set({
-          currentWord: word,
-          currentCategory: word
-            ? getWordCategory(word.w, state.selectedCategories) ?? ''
-            : '',
-          usedWords: Array.from(usedSet),
-          usedWordsSet: usedSet,
-          skipsLeft: newSkipsLeft,
-        });
-        get().syncToRoom();
-      },
-
-      // ── Tick timer (called every second) ──
-
-      tickTimer: () => {
-        const state = get();
-        if (!state.roundActive || state.timerLeft <= 0) return;
-
-        const newTimerLeft = state.timerLeft - 1;
-
-        if (newTimerLeft <= 0) {
-          // Time is up
-          get().timeUp();
+        // Generate 25 random words from selected categories
+        const boardWords = getBoardWords();
+        if (boardWords.length < 25) {
+          console.error('Not enough words to generate board');
           return;
         }
 
-        set({ timerLeft: newTimerLeft });
-      },
+        // Generate the board with color assignments
+        const board = generateBoard(boardWords, firstTeam);
 
-      // ── Time up (switch team, end round) ──
+        // Create initial state with the board
+        const state = createInitialState({
+          gameMode: get().gameMode ?? 'godfather',
+          timerDuration: timerSeconds,
+          selectedCategories: categories,
+          firstTeam,
+          redTeamName,
+          blueTeamName,
+          roomCode: get().roomCode ?? undefined,
+          hostName: get().hostName ?? undefined,
+        });
 
-      timeUp: () => {
-        const state = get();
-        if (!state.roundActive) return;
+        // Override board
+        state.board = board;
 
-        const currentTeam = state.teams[state.currentTeamIndex];
-        const opponentIndex = getOpponentTeam(state.currentTeamIndex);
+        // Set spymasters
+        if (redSpymaster) state.redTeam.spymaster = redSpymaster;
+        if (blueSpymaster) state.blueTeam.spymaster = blueSpymaster;
 
-        const logEntry = {
-          round: state.roundNumber,
-          team: currentTeam.name,
-          word: state.currentWord?.w ?? '',
-          result: 'انتهى الوقت ⏱',
-          timestamp: Date.now(),
-        };
+        // Set phase to spymaster_view for the first turn
+        state.phase = 'spymaster_view';
+
+        // In godfather mode, start with spymaster view
+        const viewMode = get().gameMode === 'godfather' ? 'spymaster' : 'team';
 
         set({
-          timerLeft: 0,
-          roundActive: false,
-          roundStatus: 'time_up',
-          roundMessage: `انتهى الوقت! دور ${state.teams[opponentIndex].name}`,
-          currentTeamIndex: opponentIndex,
-          phase: 'round_end',
-          gameLog: [...state.gameLog, logEntry],
+          ...state,
+          viewMode,
+          players: get().players,
         });
+
         get().syncToRoom();
       },
 
-      // ── Next turn (start new round for current team) ──
+      // ── Give clue (spymaster action) ──
 
-      nextTurn: () => {
+      giveClue: (clueWord, clueNumber) => {
         const state = get();
-        let usedSet = new Set(state.usedWords);
-
-        let word = getRandomWord(state.selectedCategories, usedSet);
-
-        // If all words are used, reset and try again
-        if (!word) {
-          usedSet = new Set<string>();
-          word = getRandomWord(state.selectedCategories, usedSet);
+        if (state.phase !== 'spymaster_view') {
+          return 'ليست مرحلة إعطاء الدليل';
         }
 
+        // Validate clue
+        if (!isValidClue(clueWord, state.board)) {
+          return 'كلمة الدليل غير صالحة (موجودة على اللوحة أو مشابهة لكلمة عليها)';
+        }
+
+        try {
+          const newState = logicGiveClue(state, clueWord, clueNumber);
+
+          set({
+            ...newState,
+            // In godfather mode, switch to team view after giving clue
+            viewMode: state.gameMode === 'godfather' ? 'transition' : 'team',
+          });
+
+          get().syncToRoom();
+          return null; // success
+        } catch (e: unknown) {
+          return (e as Error).message;
+        }
+      },
+
+      // ── Select/guess a card (team action) ──
+
+      selectCard: (cardId) => {
+        const state = get();
+        if (state.phase !== 'clue_given' && state.phase !== 'team_guessing') {
+          return { result: 'neutral', gameEnded: false };
+        }
+
+        try {
+          const { state: newState, result, gameEnded } = logicGuessWord(state, cardId);
+
+          set({
+            ...newState,
+            lastGuessResult: result,
+            // If game ended or turn ended, we need to show result
+            viewMode: gameEnded ? 'team' : state.gameMode === 'godfather' ? 'team' : 'team',
+          });
+
+          get().syncToRoom();
+          return { result, gameEnded };
+        } catch (e: unknown) {
+          console.error('Guess error:', e);
+          return { result: 'neutral', gameEnded: false };
+        }
+      },
+
+      // ── Pass turn (team gives up remaining guesses) ──
+
+      passTurn: () => {
+        const state = get();
+        if (state.phase !== 'clue_given' && state.phase !== 'team_guessing') return;
+
+        const newState = logicPassTurn(state);
         set({
-          currentWord: word,
-          currentCategory: word
-            ? getWordCategory(word.w, state.selectedCategories) ?? ''
-            : '',
-          usedWords: Array.from(usedSet),
-          usedWordsSet: usedSet,
-          timerLeft: state.timerMax,
-          skipsLeft: 2,
-          roundActive: true,
-          roundNumber: state.roundNumber + 1,
-          roundStatus: 'active',
-          roundMessage: '',
-          phase: 'playing',
+          ...newState,
+          viewMode: state.gameMode === 'godfather' ? 'transition' : 'team',
         });
+
         get().syncToRoom();
+      },
+
+      // ── Confirm turn switch (after seeing result) ──
+
+      confirmTurnSwitch: () => {
+        const state = get();
+        if (state.phase === 'game_over') return;
+
+        if (state.phase === 'turn_result' || state.phase === 'turn_switch') {
+          const newState = logicSwitchTurn(state);
+          set({
+            ...newState,
+            viewMode: state.gameMode === 'godfather' ? 'spymaster' : 'team',
+            lastGuessResult: null,
+          });
+          get().syncToRoom();
+        } else if (state.phase === 'clue_given' || state.phase === 'team_guessing') {
+          // If team hasn't guessed yet, just switch
+          const newState = logicPassTurn(state);
+          const switchedState = logicSwitchTurn(newState);
+          set({
+            ...switchedState,
+            viewMode: state.gameMode === 'godfather' ? 'spymaster' : 'team',
+            lastGuessResult: null,
+          });
+          get().syncToRoom();
+        }
+      },
+
+      // ── Tick timer ──
+
+      tickTimer: () => {
+        const state = get();
+        const newState = logicTickTimer(state);
+        set({
+          ...newState,
+          formattedTimer: formatTimer(newState.timerRemaining),
+        });
       },
 
       // ── Reset game ──
@@ -389,32 +339,32 @@ export const useShifaratStore = create<ShifaratStore>()(
         }
         set({
           ...initialState,
-          usedWordsSet: new Set<string>(),
-          roomCode: null,
-          gameMode: null,
-          hostName: null,
+          viewMode: 'spymaster',
         });
       },
 
-      // ── Room sync (Diwaniya mode) ──
+      // ── Room sync ──
 
       syncToRoom: () => {
         const state = get();
         if (!state.roomCode) return;
 
         const syncData = {
-          teams: state.teams,
-          currentTeamIndex: state.currentTeamIndex,
-          currentWord: state.currentWord,
-          currentCategory: state.currentCategory,
-          timerLeft: state.timerLeft,
-          timerMax: state.timerMax,
-          skipsLeft: state.skipsLeft,
-          roundActive: state.roundActive,
+          board: state.board,
+          redTeam: state.redTeam,
+          blueTeam: state.blueTeam,
+          currentTeam: state.currentTeam,
+          phase: state.phase,
+          currentClue: state.currentClue,
+          guessesThisTurn: state.guessesThisTurn,
+          guessesAllowed: state.guessesAllowed,
+          lastGuessResult: state.lastGuessResult,
+          timerRemaining: state.timerRemaining,
           roundNumber: state.roundNumber,
-          roundStatus: state.roundStatus,
-          roundMessage: state.roundMessage,
+          clues: state.clues,
           gameLog: state.gameLog,
+          winner: state.winner,
+          winReason: state.winReason,
         };
 
         syncRoomState(state.roomCode, {
@@ -423,33 +373,27 @@ export const useShifaratStore = create<ShifaratStore>()(
           stateJson: JSON.stringify(syncData),
           players: state.players.map((p) => ({
             name: p.name,
-            role: p.team === 0 ? 'team1' : 'team2',
+            role: p.team === 'red' ? 'team1' : 'team2',
             isAlive: true,
             isSilenced: false,
             hasRevealedMayor: false,
           })),
         });
       },
+
+      // ── Computed helpers ──
+
+      getTeamName: (team) => {
+        const state = get();
+        return team === 'red' ? state.redTeam.name : state.blueTeam.name;
+      },
     }),
     {
       name: 'shifarat-game-storage',
-      version: 1,
-      // Re-derive Set from array on rehydration
-      onRehydrateStorage: () => (state) => {
-        if (state) {
-          state.usedWordsSet = new Set(state.usedWords);
-        }
-      },
-      // Serialize/deserialize for JSON-safe persistence
+      version: 2, // Bump version to clear old persisted state
       partialize: (state) => {
-        const { usedWordsSet, ...rest } = state;
-        return rest;
-      },
-      merge: (persisted, current) => {
-        const merged = { ...current, ...(persisted as Partial<ShifaratStore>) } as ShifaratStore;
-        // Re-derive the Set from the persisted array
-        merged.usedWordsSet = new Set(merged.usedWords ?? []);
-        return merged;
+        const { formattedTimer, getTeamName, giveClue, selectCard, passTurn, confirmTurnSwitch, tickTimer, resetGame, startGame, setGameMode, setHostName, setRoomCode, setViewMode, syncToRoom, ...rest } = state;
+        return rest as ShifaratPersistState;
       },
     }
   )
