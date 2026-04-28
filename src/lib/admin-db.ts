@@ -1177,6 +1177,7 @@ export async function seedGameConfigs(): Promise<void> {
   const count = Number(result.rows[0]?.count ?? 0);
 
   if (count === 0) {
+    // First run: seed all default games
     for (const game of defaultGames) {
       await c.execute({
         sql: `INSERT INTO GameConfig (id, gameSlug, gameName, isEnabled, "order", playerRange, description, icon, color, isComingSoon)
@@ -1194,6 +1195,30 @@ export async function seedGameConfigs(): Promise<void> {
           game.isComingSoon ? 1 : 0,
         ],
       });
+    }
+  } else {
+    // Subsequent runs: insert any missing games from defaultGames
+    const existing = await c.execute('SELECT gameSlug FROM GameConfig');
+    const existingSlugs = new Set(existing.rows.map(r => String(r.gameSlug)));
+    for (const game of defaultGames) {
+      if (!existingSlugs.has(game.gameSlug)) {
+        await c.execute({
+          sql: `INSERT INTO GameConfig (id, gameSlug, gameName, isEnabled, "order", playerRange, description, icon, color, isComingSoon)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          args: [
+            crypto.randomUUID(),
+            game.gameSlug,
+            game.gameName,
+            game.isEnabled ? 1 : 0,
+            game.order,
+            game.playerRange,
+            game.description,
+            game.icon,
+            game.color,
+            game.isComingSoon ? 1 : 0,
+          ],
+        });
+      }
     }
   }
 }
