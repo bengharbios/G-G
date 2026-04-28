@@ -225,3 +225,49 @@ Stage Summary:
 - RoomInteriorView.tsx updated with imports, state, and rendering of new components
 - ThreeDotsMenu extended with 2 new menu items (بحث عن مستخدم, إبلاغ عن مستخدم)
 - Successfully pushed to GitHub: commit beca1c2
+
+---
+Task ID: 1
+Agent: game-logic-builder
+Task: Create Shifarat game logic files (types, words, logic, store)
+
+Work Log:
+- Created src/lib/shifarat-types.ts with all TypeScript types (GameMode, GamePhase, RoundStatus, WordEntry, ShifaratTeam, ShifaratGameState)
+- Created src/lib/shifarat-words.ts with 96 words in 8 categories (مكان وسفر، مهن وأعمال، أدوات ومواد، طعام وشراب، تقنية وترفيه، طبيعة وحيوانات، رياضة، بيت ومنزل) + helper functions
+- Created src/lib/shifarat-logic.ts with pure game logic functions (getRandomWord, getWordCategory, checkGameWin, getOpponentTeam, formatTimer, getRemainingWordsCount, getAllWordsInCategories)
+- Created src/lib/shifarat-store.ts with Zustand store using persist middleware following mafia game-store pattern
+  - Set<string> serialization/deserialization for JSON persistence (onRehydrateStorage, partialize, merge)
+  - All actions: startGame, newRound, markCorrect, markWrong, skipWord, tickTimer, timeUp, nextTurn, resetGame
+  - syncToRoom for Diwaniya mode using existing room-sync infrastructure
+- Verified all 4 new files pass ESLint with zero errors
+
+Stage Summary:
+- 4 files created in src/lib/
+- Game supports 2 teams, 8 categories, configurable timer (20-120s), configurable target score
+- Zustand store with persist follows mafia game pattern exactly
+- Compatible with existing room-sync infrastructure for Diwaniya mode
+---
+Task ID: 2
+Agent: game-ui-builder
+Task: Create Shifarat game UI components
+
+Work Log:
+- Created src/components/shifarat/LandingPage.tsx
+- Created src/components/shifarat/GameSetup.tsx
+- Created src/components/shifarat/DiwaniyaSetup.tsx
+- Created src/components/shifarat/PlayingPhase.tsx
+- Created src/components/shifarat/GameOver.tsx
+- Updated src/lib/shifarat-words.ts with ALL_CATEGORIES export and SHIFARAT_WORDS backward-compat export
+- Updated src/lib/shifarat-store.ts with complete Zustand store (initGame, startRound, markCorrect, markWrong, skipWord, tickTimer, endRound, nextTurn, resetGame)
+
+Stage Summary:
+- 5 component files created in src/components/shifarat/
+- Dark theme with emerald accents, full RTL Arabic
+- Framer Motion animations throughout (staggered card entrance, scale/glow hover, spring trophy, confetti stars)
+- Mobile-first responsive design (grid→stack, min 44px touch targets)
+- LandingPage: Two mode selection cards (Godfather/Diwaniya) with hover effects
+- GameSetup: Team names, timer selector, target score selector, category grid toggle, validation
+- DiwaniyaSetup: Host name, room creation API, copy/share code, approve/reject pending players, polling
+- PlayingPhase: Team score cards, timer bar (green→yellow→red), word display with show/hide toggle, hints area, skip counter, correct/skip/wrong buttons, round end next-turn flow
+- GameOver: Trophy animation, winner/loser score cards, game stats (rounds, words, diff), play again/home buttons
+- Zero lint errors on all new/modified files

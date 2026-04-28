@@ -14,6 +14,7 @@ import { Timer, Eye } from 'lucide-react';
 import WelcomePopup from '@/components/mafia/WelcomePopup';
 import { playNightSound, playDaySound, playBgMusic } from '@/lib/sounds';
 import TabotSpectatorView from '@/components/tabot/TabotSpectatorView';
+import ShifaratSpectatorView from '@/components/shifarat/ShifaratSpectatorView';
 
 // ============================================================
 // Types for room state
@@ -118,6 +119,8 @@ function JoinPageContent() {
   // Welcome popup: only show ONCE per device (check localStorage after mount)
   const [showWelcome, setShowWelcome] = useState(false);
   const [isTabot, setIsTabot] = useState(false);
+  const [isShifarat, setIsShifarat] = useState(false);
+  const [shifaratStateJson, setShifaratStateJson] = useState('');
   const [tabotStateJson, setTabotStateJson] = useState('');
 
   useEffect(() => {
@@ -139,6 +142,11 @@ function JoinPageContent() {
       if (data.gameType === 'tabot') {
         setIsTabot(true);
         setTabotStateJson(data.stateJson || '{}');
+        setLoading(false);
+      }
+      if (data.gameType === 'shifarat') {
+        setIsShifarat(true);
+        setShifaratStateJson(data.stateJson || '{}');
         setLoading(false);
       }
     } catch {
@@ -455,6 +463,18 @@ function JoinPageContent() {
         stateJson={tabotStateJson}
         roomCode={code}
         hostName={room?.hostName || ''}
+      />
+    );
+  }
+
+  // ── Shifarat Spectator View ──
+  if (isShifarat) {
+    return (
+      <ShifaratSpectatorView
+        stateJson={shifaratStateJson}
+        roomCode={code}
+        hostName={room?.hostName || ''}
+        playerName={inputName || undefined}
       />
     );
   }
