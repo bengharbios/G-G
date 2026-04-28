@@ -895,6 +895,17 @@ const defaultGames: Omit<GameConfig, 'id' | 'createdAt' | 'updatedAt'>[] = [
     color: 'teal',
     isComingSoon: false,
   },
+  {
+    gameSlug: 'shifarat',
+    gameName: 'الشيفرات',
+    isEnabled: true,
+    order: 8,
+    playerRange: '4-20',
+    description: 'لعبة الشيفرات الحصرية! فكّر الشفرات وتوصّل لكلمات فريقك قبل نفاد الوقت. فريقين مع تصنيفات متنوعة.',
+    icon: '🎯',
+    color: 'emerald',
+    isComingSoon: false,
+  },
 ];
 
 // ── RoomBookmark functions ──

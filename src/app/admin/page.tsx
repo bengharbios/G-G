@@ -285,6 +285,7 @@ const gameColorMap: Record<string, string> = {
   prison: 'amber',
   familyfeud: 'amber',
   baharharb: 'teal',
+  shifarat: 'emerald',
 };
 
 // ─── Main Component ───────────────────────────────────────────────────
