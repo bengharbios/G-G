@@ -240,6 +240,25 @@ const games: GameData[] = [
     isFree: true,
   },
   {
+    id: 'shifarat',
+    title: 'الشيفرات',
+    titleEn: 'Shifarat',
+    emoji: '🎯',
+    description:
+      'لعبة الشيفرات الحصرية! فكّر الشفرات وتوصّل لكلمات فريقك قبل نفاد الوقت. فريقين مع تصنيفات متنوعة.',
+    href: '/shifarat',
+    bgImage: null,
+    themeColor: 'text-emerald-400',
+    themeBorder: 'border-emerald-500/30 hover:border-emerald-500/60',
+    themeBg: 'from-emerald-950/80 to-teal-900/40',
+    themeBadge: 'bg-emerald-500/20 border-emerald-500/40 text-emerald-300',
+    features: ['العراب', 'الديوانية', 'فريقين', 'تصنيفات متنوعة'],
+    status: 'available',
+    players: '4-20 لاعب',
+    category: 'ذكاء',
+    isFree: true,
+  },
+  {
     id: 'familyfeud',
     title: 'فاميلي فيود',
     titleEn: 'Family Feud',
@@ -1027,7 +1046,9 @@ function GameCard({ game, index }: { game: GameData; index: number }) {
               ? ['#8b5cf6', '#a855f7', '#6366f1', '#8b5cf6']
               : game.themeBorder.includes('teal')
                 ? ['#14b8a6', '#10b981', '#f59e0b', '#14b8a6']
-                : ['#ef4444', '#a855f7', '#f59e0b', '#ef4444']
+                : game.themeBorder.includes('emerald')
+                  ? ['#10b981', '#14b8a6', '#059669', '#10b981']
+                  : ['#ef4444', '#a855f7', '#f59e0b', '#ef4444']
     : null;
 
   return (
