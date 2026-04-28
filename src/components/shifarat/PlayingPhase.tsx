@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Clock,
@@ -15,6 +15,12 @@ import {
   SkipForward,
   Volume2,
   VolumeX,
+  Lightbulb,
+  Sparkles,
+  ChevronDown,
+  AlertTriangle,
+  Shield,
+  Zap,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -22,6 +28,7 @@ import { Input } from '@/components/ui/input';
 import { useShifaratStore } from '@/lib/shifarat-store';
 import type { BoardCard, TeamColor, CardColor } from '@/lib/shifarat-types';
 import HowToPlay from './HowToPlay';
+import { generateClueSuggestions, type ClueSuggestion } from '@/lib/shifarat-clue-engine';
 
 // ============================================================
 // SOUND SYSTEM — Web Audio API
@@ -343,8 +350,18 @@ function SpymasterView() {
   const [clueWord, setClueWord] = useState('');
   const [clueNumber, setClueNumber] = useState(1);
   const [error, setError] = useState('');
+  const [showSuggestions, setShowSuggestions] = useState(true);
 
   const teamColor = currentTeam === 'red' ? 'text-red-400' : 'text-blue-400';
+
+  // Generate clue suggestions
+  const suggestions = useMemo(() => {
+    return generateClueSuggestions(board, currentTeam, 10);
+  }, [board, currentTeam]);
+
+  // Sort: multi-word first, then by score
+  const multiWordSuggestions = suggestions.filter((s) => s.connectedWords.length >= 2);
+  const singleWordSuggestions = suggestions.filter((s) => s.connectedWords.length === 1);
 
   const handleGiveClue = useCallback(() => {
     if (!clueWord.trim()) {
@@ -360,6 +377,29 @@ function SpymasterView() {
       setError('');
     }
   }, [clueWord, clueNumber, giveClue]);
+
+  const handleSuggestionClick = useCallback((suggestion: ClueSuggestion) => {
+    setClueWord(suggestion.word);
+    setClueNumber(suggestion.suggestedNumber);
+    setError('');
+  }, []);
+
+  const getRiskIcon = (risk: string) => {
+    switch (risk) {
+      case 'safe': return <Shield className="w-3 h-3 text-emerald-400" />;
+      case 'moderate': return <AlertTriangle className="w-3 h-3 text-amber-400" />;
+      default: return <Zap className="w-3 h-3 text-red-400" />;
+    }
+  };
+
+  const getRiskBg = (risk: string, isSelected: boolean) => {
+    if (isSelected) return 'bg-emerald-500/20 border-emerald-500/50';
+    switch (risk) {
+      case 'safe': return 'bg-emerald-950/20 border-emerald-500/20 hover:bg-emerald-950/40';
+      case 'moderate': return 'bg-amber-950/20 border-amber-500/20 hover:bg-amber-950/40';
+      default: return 'bg-red-950/20 border-red-500/20 hover:bg-red-950/40';
+    }
+  };
 
   return (
     <motion.div
@@ -381,6 +421,125 @@ function SpymasterView() {
       <div className="mb-4">
         <CardGrid board={board} showColors={true} />
       </div>
+
+      {/* Clue Suggestions Panel */}
+      {suggestions.length > 0 && (
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.2 }}
+          className="mb-4 rounded-xl bg-slate-900/60 border border-purple-500/20 overflow-hidden"
+        >
+          {/* Toggle header */}
+          <button
+            onClick={() => setShowSuggestions(!showSuggestions)}
+            className="w-full flex items-center justify-between p-3 hover:bg-slate-800/30 transition-colors"
+          >
+            <div className="flex items-center gap-2">
+              <Sparkles className="w-4 h-4 text-purple-400" />
+              <span className="text-xs font-bold text-purple-300">
+                إيحاءات ذكية ({suggestions.length})
+              </span>
+            </div>
+            <ChevronDown className={`w-4 h-4 text-slate-500 transition-transform ${showSuggestions ? 'rotate-180' : ''}`} />
+          </button>
+
+          <AnimatePresence>
+            {showSuggestions && (
+              <motion.div
+                initial={{ height: 0, opacity: 0 }}
+                animate={{ height: 'auto', opacity: 1 }}
+                exit={{ height: 0, opacity: 0 }}
+                className="overflow-hidden"
+              >
+                {/* Multi-word suggestions (best clues) */}
+                {multiWordSuggestions.length > 0 && (
+                  <div className="px-3 pb-3">
+                    <div className="flex items-center gap-1.5 mb-2">
+                      <Lightbulb className="w-3.5 h-3.5 text-amber-400" />
+                      <span className="text-[10px] font-bold text-amber-300">
+                        أفضل الإيحاءات (كلمات متعددة)
+                      </span>
+                    </div>
+                    <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-thin">
+                      {multiWordSuggestions.slice(0, 6).map((suggestion, i) => (
+                        <motion.button
+                          key={suggestion.word}
+                          initial={{ opacity: 0, scale: 0.9 }}
+                          animate={{ opacity: 1, scale: 1 }}
+                          transition={{ delay: i * 0.05 }}
+                          whileTap={{ scale: 0.95 }}
+                          onClick={() => handleSuggestionClick(suggestion)}
+                          className={`flex-shrink-0 flex items-center gap-1.5 px-3 py-2 rounded-xl border-2 transition-all ${
+                            getRiskBg(suggestion.risk, clueWord === suggestion.word)
+                          }`}
+                        >
+                          {getRiskIcon(suggestion.risk)}
+                          <span className="text-xs font-bold text-white">{suggestion.word}</span>
+                          <span className="text-[10px] font-black text-emerald-400">{suggestion.suggestedNumber}</span>
+                          <div className="flex gap-0.5">
+                            {suggestion.connectedWords.map((w) => (
+                              <span key={w} className="text-[8px] text-slate-400">{w}</span>
+                            ))}
+                          </div>
+                        </motion.button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Single-word suggestions */}
+                {singleWordSuggestions.length > 0 && (
+                  <div className="px-3 pb-3">
+                    <div className="flex items-center gap-1.5 mb-2">
+                      <Zap className="w-3.5 h-3.5 text-blue-400" />
+                      <span className="text-[10px] font-bold text-blue-300">
+                        إيحاءات لكلمة واحدة
+                      </span>
+                    </div>
+                    <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-thin">
+                      {singleWordSuggestions.slice(0, 8).map((suggestion, i) => (
+                        <motion.button
+                          key={suggestion.word}
+                          initial={{ opacity: 0, scale: 0.9 }}
+                          animate={{ opacity: 1, scale: 1 }}
+                          transition={{ delay: (multiWordSuggestions.length + i) * 0.04 }}
+                          whileTap={{ scale: 0.95 }}
+                          onClick={() => handleSuggestionClick(suggestion)}
+                          className={`flex-shrink-0 flex items-center gap-1.5 px-3 py-2 rounded-xl border-2 transition-all ${
+                            getRiskBg(suggestion.risk, clueWord === suggestion.word)
+                          }`}
+                        >
+                          <span className="text-xs font-bold text-white">{suggestion.word}</span>
+                          <span className="text-[8px] text-slate-500">→ {suggestion.connectedWords[0]}</span>
+                        </motion.button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Help text */}
+                <div className="px-3 pb-3">
+                  <p className="text-[9px] text-slate-600 text-center leading-relaxed">
+                    💡 الإيحاءات كلمات مرتبطة بكلمات فريقك — اختر إيحاءًا أو اكتب كلمتك الخاصة
+                  </p>
+                  <div className="flex items-center justify-center gap-3 mt-1">
+                    <span className="flex items-center gap-1 text-[9px] text-slate-600">
+                      <Shield className="w-2.5 h-2.5 text-emerald-500" /> آمن
+                    </span>
+                    <span className="flex items-center gap-1 text-[9px] text-slate-600">
+                      <AlertTriangle className="w-2.5 h-2.5 text-amber-500" /> متوسط
+                    </span>
+                    <span className="flex items-center gap-1 text-[9px] text-slate-600">
+                      <Zap className="w-2.5 h-2.5 text-red-500" /> محفوف
+                    </span>
+                  </div>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </motion.div>
+      )}
 
       {/* Clue Input Form */}
       <motion.div

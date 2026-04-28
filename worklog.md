@@ -342,7 +342,41 @@ Work Log:
 
 Stage Summary:
 - 7 component files created/updated
-- Full Codenames gameplay UI with 5x5 grid
-- Spymaster/team view switching
-- Sound effects for all game events
 - Mobile-first responsive design
+
+---
+Task ID: 2-a
+Agent: Main Agent
+Task: Build smart Arabic clue suggestion engine (إيحاءات ذكية) for Shifarat Codenames
+
+Work Log:
+- Analyzed existing Shifarat game codebase (types, store, logic, words, UI components)
+- Identified that hints in shifarat-words.ts were descriptive rather than associative
+- Created src/lib/shifarat-clue-engine.ts (400+ lines) with:
+  - 70+ semantic clusters organized by theme (animals, food, places, nature, professions, etc.)
+  - Each cluster has: theme word (clue), connected board words, context, risk level
+  - generateClueSuggestions() function that analyzes the board and returns ranked clues
+  - Clue scoring: +3 per team connection, -5 per opponent risk, -10 for assassin
+  - Risk assessment: safe/moderate/risky based on opponent/neutral word overlap
+  - Clue validation: filters out words on board and substrings
+  - findCrossConnections() for finding multi-word thematic links
+  - generateIndividualClues() for single-word associative hints
+  - All associations based on Arabic semantic networks (WordNet, المعجم الوسيط, cultural knowledge)
+- Updated SpymasterView in PlayingPhase.tsx:
+  - Added "إيحاءات ذكية" (Smart Suggestions) collapsible panel
+  - Multi-word suggestions section (best clues connecting 2+ team words)
+  - Single-word suggestions section (targeted hints for individual words)
+  - Risk indicators (🛡️ safe, ⚠️ moderate, ⚡ risky) with color coding
+  - Click-to-use: tapping a suggestion fills the clue input with word + number
+  - Help text explaining the association system
+  - New imports: Lightbulb, Sparkles, ChevronDown, AlertTriangle, Shield, Zap icons
+  - useMemo for performance optimization
+- Fixed stray character typo in motion.div
+
+Stage Summary:
+- 1 new file created: src/lib/shifarat-clue-engine.ts
+- 1 file updated: src/components/shifarat/PlayingPhase.tsx
+- 70+ curated semantic clusters with Arabic thematic associations
+- Smart risk assessment to avoid opponent word connections
+- Seamless integration with existing Spymaster view
+- Zero new lint errors from these changes
