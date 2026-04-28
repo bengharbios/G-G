@@ -5,14 +5,9 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   Clock,
   Check,
-  X,
   ArrowDown,
   Hand,
-  Eye,
-  EyeOff,
   Send,
-  Minus,
-  SkipForward,
   Volume2,
   VolumeX,
   Lightbulb,
@@ -21,6 +16,9 @@ import {
   AlertTriangle,
   Shield,
   Zap,
+  Eye,
+  X,
+  RotateCcw,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -93,12 +91,130 @@ function playSound(type: 'correct' | 'wrong' | 'assassin' | 'tick' | 'win') {
 }
 
 // ============================================================
+// PHASE GUIDANCE BANNER
+// ============================================================
+
+interface PhaseBannerProps {
+  phase: string;
+  currentTeam?: TeamColor;
+  redTeamName?: string;
+  blueTeamName?: string;
+}
+
+function PhaseBanner({ phase, currentTeam, redTeamName, blueTeamName }: PhaseBannerProps) {
+  const teamName = currentTeam === 'red' ? redTeamName : blueTeamName;
+  const teamColor = currentTeam === 'red' ? 'text-red-300' : 'text-blue-300';
+  const teamBorderColor = currentTeam === 'red' ? 'border-red-500/30' : 'border-blue-500/30';
+  const teamBg = currentTeam === 'red' ? 'bg-red-950/20' : 'bg-blue-950/20';
+
+  const getBanner = (): { text: string; icon: React.ReactNode; bg: string; border: string; textColor: string } => {
+    switch (phase) {
+      case 'spymaster_view':
+        return {
+          text: `🎯 أنت جاسوس ${teamName} — انظر للوحة وأعطِ دليلًا`,
+          icon: <Eye className="w-4 h-4" />,
+          bg: 'bg-purple-950/30',
+          border: 'border-purple-500/30',
+          textColor: 'text-purple-200',
+        };
+      case 'clue_given':
+      case 'team_guessing':
+        return {
+          text: `🎯 خمنوا الكلمات المرتبطة بالدليل!`,
+          icon: <span className="text-sm">🎯</span>,
+          bg: `${teamBg}`,
+          border: teamBorderColor,
+          textColor: teamColor,
+        };
+      case 'turn_result':
+        return {
+          text: '📋 نتيجة التخمين',
+          icon: <span className="text-sm">📋</span>,
+          bg: 'bg-slate-800/30',
+          border: 'border-slate-700/30',
+          textColor: 'text-slate-300',
+        };
+      case 'turn_switch':
+        return {
+          text: '🔄 الدور ينتقل للفريق التالي',
+          icon: <RotateCcw className="w-4 h-4" />,
+          bg: 'bg-amber-950/20',
+          border: 'border-amber-500/20',
+          textColor: 'text-amber-300',
+        };
+      default:
+        return {
+          text: '',
+          icon: null,
+          bg: '',
+          border: '',
+          textColor: 'text-slate-300',
+        };
+    }
+  };
+
+  const banner = getBanner();
+  if (!banner.text) return null;
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: -10 }}
+      animate={{ opacity: 1, y: 0 }}
+      className={`flex items-center gap-2 px-3 py-2 rounded-xl border ${banner.bg} ${banner.border} mb-3`}
+    >
+      {banner.icon}
+      <span className={`text-[11px] sm:text-xs font-bold ${banner.textColor}`}>
+        {banner.text}
+      </span>
+    </motion.div>
+  );
+}
+
+// ============================================================
+// CORRECT GUESS TOAST (small banner for correct guesses)
+// ============================================================
+
+interface CorrectToastProps {
+  word: string;
+  remainingGuesses: number;
+}
+
+function CorrectToast({ word, remainingGuesses }: CorrectToastProps) {
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: -20, scale: 0.95 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      exit={{ opacity: 0, y: -20, scale: 0.95 }}
+      transition={{ duration: 0.3 }}
+      className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-950/50 border border-emerald-500/40 shadow-lg shadow-emerald-500/10"
+    >
+      <motion.div
+        initial={{ scale: 0 }}
+        animate={{ scale: 1 }}
+        transition={{ type: 'spring', stiffness: 300 }}
+      >
+        <Check className="w-5 h-5 text-emerald-400" />
+      </motion.div>
+      <div className="flex-1">
+        <span className="text-xs font-bold text-emerald-300">صحيح! </span>
+        <span className="text-xs text-white font-bold">{word}</span>
+      </div>
+      {remainingGuesses > 0 && (
+        <Badge className="text-[9px] px-2 bg-emerald-500/20 text-emerald-300 border-emerald-500/30">
+          {remainingGuesses} متبقي
+        </Badge>
+      )}
+    </motion.div>
+  );
+}
+
+// ============================================================
 // CARD GRID COMPONENT
 // ============================================================
 
 interface CardGridProps {
   board: BoardCard[];
-  showColors: boolean; // true = spymaster view
+  showColors: boolean;
   onCardClick?: (cardId: number) => void;
   disabled?: boolean;
 }
@@ -106,7 +222,6 @@ interface CardGridProps {
 function CardGrid({ board, showColors, onCardClick, disabled }: CardGridProps) {
   const getCardStyle = (card: BoardCard) => {
     if (card.isRevealed) {
-      // Revealed cards always show their color
       switch (card.color) {
         case 'red':
           return 'bg-red-500/80 border-red-400/80';
@@ -120,7 +235,6 @@ function CardGrid({ board, showColors, onCardClick, disabled }: CardGridProps) {
     }
 
     if (showColors) {
-      // Spymaster view: show all colors
       switch (card.color) {
         case 'red':
           return 'bg-red-500/80 border-red-400';
@@ -133,7 +247,6 @@ function CardGrid({ board, showColors, onCardClick, disabled }: CardGridProps) {
       }
     }
 
-    // Team view: all unrevealed cards look the same
     return 'bg-slate-800 border-slate-700';
   };
 
@@ -162,7 +275,6 @@ function CardGrid({ board, showColors, onCardClick, disabled }: CardGridProps) {
             ${card.isRevealed ? 'opacity-75' : ''}
           `}
         >
-          {/* Revealed checkmark */}
           {card.isRevealed && (
             <motion.div
               initial={{ scale: 0 }}
@@ -173,12 +285,10 @@ function CardGrid({ board, showColors, onCardClick, disabled }: CardGridProps) {
             </motion.div>
           )}
 
-          {/* Assassin emoji */}
           {showColors && !card.isRevealed && card.color === 'assassin' && (
             <span className="absolute top-0 left-0 text-[8px] sm:text-[10px]">💀</span>
           )}
 
-          {/* Word */}
           <span
             className={`
               text-[9px] sm:text-xs md:text-sm font-bold text-center
@@ -246,8 +356,7 @@ function TeamScores() {
   const isBlueActive = currentTeam === 'blue';
 
   return (
-    <div className="flex gap-2 sm:gap-3 mb-3">
-      {/* Red Team */}
+    <div className="flex gap-2 sm:gap-3 mb-2">
       <motion.div
         layout
         className={`flex-1 p-2.5 sm:p-3 rounded-xl border-2 transition-all duration-300 ${
@@ -277,7 +386,6 @@ function TeamScores() {
         <div className="text-[9px] text-slate-600 mt-0.5">{redTeam.score}/{redTotal}</div>
       </motion.div>
 
-      {/* Blue Team */}
       <motion.div
         layout
         className={`flex-1 p-2.5 sm:p-3 rounded-xl border-2 transition-all duration-300 ${
@@ -342,24 +450,26 @@ function ClueDisplay() {
 }
 
 // ============================================================
-// SPYMASTER VIEW
+// SPYMASTER VIEW — with improved clarity
 // ============================================================
 
 function SpymasterView() {
-  const { board, giveClue, currentTeam, gameMode } = useShifaratStore();
+  const { board, giveClue, currentTeam, gameMode, redTeam, blueTeam, currentClue } = useShifaratStore();
   const [clueWord, setClueWord] = useState('');
   const [clueNumber, setClueNumber] = useState(1);
   const [error, setError] = useState('');
-  const [showSuggestions, setShowSuggestions] = useState(true);
+  const [showSuggestions, setShowSuggestions] = useState(false);
 
+  // Derive clueGiven from store (no effect needed)
+  const clueGiven = !!currentClue;
+
+  const teamName = currentTeam === 'red' ? redTeam.name : blueTeam.name;
   const teamColor = currentTeam === 'red' ? 'text-red-400' : 'text-blue-400';
 
-  // Generate clue suggestions
   const suggestions = useMemo(() => {
     return generateClueSuggestions(board, currentTeam, 10);
   }, [board, currentTeam]);
 
-  // Sort: multi-word first, then by score
   const multiWordSuggestions = suggestions.filter((s) => s.connectedWords.length >= 2);
   const singleWordSuggestions = suggestions.filter((s) => s.connectedWords.length === 1);
 
@@ -382,6 +492,7 @@ function SpymasterView() {
     setClueWord(suggestion.word);
     setClueNumber(suggestion.suggestedNumber);
     setError('');
+    setShowSuggestions(true);
   }, []);
 
   const getRiskIcon = (risk: string) => {
@@ -407,7 +518,15 @@ function SpymasterView() {
       animate={{ opacity: 1, x: 0 }}
       className="flex flex-col"
     >
-      {/* Spymaster header */}
+      {/* Clear instruction banner */}
+      <PhaseBanner
+        phase="spymaster_view"
+        currentTeam={currentTeam}
+        redTeamName={redTeam.name}
+        blueTeamName={blueTeam.name}
+      />
+
+      {/* Spymaster badge */}
       <div className="text-center mb-3">
         <Badge className="text-xs px-3 py-1 bg-purple-500/20 text-purple-300 border-purple-500/30 mb-1">
           👁️ رؤية الجاسوس
@@ -422,8 +541,35 @@ function SpymasterView() {
         <CardGrid board={board} showColors={true} />
       </div>
 
+      {/* Clue confirmation (shown after giving clue) */}
+      <AnimatePresence>
+        {clueGiven && currentClue && (
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            className="mb-4 p-3 rounded-xl bg-emerald-950/30 border border-emerald-500/30 text-center"
+          >
+            <motion.div
+              initial={{ scale: 0 }}
+              animate={{ scale: 1 }}
+              transition={{ type: 'spring', stiffness: 300 }}
+            >
+              <Check className="w-5 h-5 text-emerald-400 mx-auto mb-1" />
+            </motion.div>
+            <p className="text-[10px] text-emerald-300 mb-1">تم! الدليل:</p>
+            <div className="flex items-center justify-center gap-2">
+              <span className="text-lg font-black text-white">{currentClue.word}</span>
+              <span className="text-lg font-black text-slate-500">—</span>
+              <span className="text-lg font-black text-emerald-400">{currentClue.number}</span>
+            </div>
+            <p className="text-[9px] text-slate-400 mt-1">مرر الجهاز للفريق</p>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Clue Suggestions Panel */}
-      {suggestions.length > 0 && (
+      {suggestions.length > 0 && !clueGiven && (
         <motion.div
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
@@ -441,6 +587,9 @@ function SpymasterView() {
                 إيحاءات ذكية ({suggestions.length})
               </span>
             </div>
+            {!showSuggestions && (
+              <span className="text-[9px] text-purple-400/60 mr-1">اضغط للتوسيع ↓</span>
+            )}
             <ChevronDown className={`w-4 h-4 text-slate-500 transition-transform ${showSuggestions ? 'rotate-180' : ''}`} />
           </button>
 
@@ -452,7 +601,7 @@ function SpymasterView() {
                 exit={{ height: 0, opacity: 0 }}
                 className="overflow-hidden"
               >
-                {/* Multi-word suggestions (best clues) */}
+                {/* Multi-word suggestions */}
                 {multiWordSuggestions.length > 0 && (
                   <div className="px-3 pb-3">
                     <div className="flex items-center gap-1.5 mb-2">
@@ -541,73 +690,78 @@ function SpymasterView() {
         </motion.div>
       )}
 
-      {/* Clue Input Form */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.3 }}
-        className="mt-auto p-4 rounded-xl bg-slate-900/60 border border-slate-800/50"
-      >
-        <div className="flex gap-2 mb-3">
-          <Input
-            value={clueWord}
-            onChange={(e) => {
-              setClueWord(e.target.value);
-              setError('');
-            }}
-            onKeyDown={(e) => e.key === 'Enter' && handleGiveClue()}
-            placeholder="كلمة الدليل..."
-            className="flex-1 bg-slate-800/80 border-slate-700/50 text-white placeholder:text-slate-500 text-center h-11"
-            dir="rtl"
-            maxLength={20}
-          />
-        </div>
-
-        {/* Number selector */}
-        <div className="flex items-center justify-center gap-1.5 mb-3">
-          <span className="text-[10px] text-slate-400 ml-2">عدد الكلمات:</span>
-          {Array.from({ length: 9 }, (_, i) => i + 1).map((num) => (
-            <motion.button
-              key={num}
-              whileTap={{ scale: 0.9 }}
-              onClick={() => setClueNumber(num)}
-              className={`w-8 h-8 sm:w-9 sm:h-9 rounded-lg text-sm font-bold transition-all flex items-center justify-center ${
-                clueNumber === num
-                  ? 'bg-emerald-500/30 border-2 border-emerald-500/60 text-emerald-300'
-                  : 'bg-slate-800/60 border-2 border-slate-700/40 text-slate-400 hover:bg-slate-700/60'
-              }`}
-            >
-              {num}
-            </motion.button>
-          ))}
-        </div>
-
-        {error && (
-          <motion.p
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            className="text-red-400 text-[10px] sm:text-xs text-center mb-2"
-          >
-            ⚠️ {error}
-          </motion.p>
-        )}
-
-        <Button
-          onClick={handleGiveClue}
-          disabled={!clueWord.trim()}
-          className="w-full font-bold text-sm sm:text-base py-4 text-white"
-          style={{
-            background: !clueWord.trim()
-              ? 'rgba(30, 41, 59, 0.5)'
-              : 'linear-gradient(to left, #059669, #10b981)',
-            borderRadius: '0.75rem',
-            boxShadow: clueWord.trim() ? '0 0 20px rgba(16, 185, 129, 0.3)' : 'none',
-          }}
+      {/* Clue Input Form (hidden after clue given) */}
+      {!clueGiven && (
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.3 }}
+          className="mt-auto p-4 rounded-xl bg-slate-900/60 border border-slate-800/50"
         >
-          <Send className="w-4 h-4 ml-2" />
-          إعطاء الدليل
-        </Button>
-      </motion.div>
+          <p className="text-[10px] text-slate-400 mb-2 text-center">
+            💡 اختر إيحاءًا من الأعلى أو اكتب كلمتك الخاصة
+          </p>
+          <div className="flex gap-2 mb-3">
+            <Input
+              value={clueWord}
+              onChange={(e) => {
+                setClueWord(e.target.value);
+                setError('');
+              }}
+              onKeyDown={(e) => e.key === 'Enter' && handleGiveClue()}
+              placeholder="كلمة الدليل..."
+              className="flex-1 bg-slate-800/80 border-slate-700/50 text-white placeholder:text-slate-500 text-center h-11"
+              dir="rtl"
+              maxLength={20}
+            />
+          </div>
+
+          {/* Number selector */}
+          <div className="flex items-center justify-center gap-1.5 mb-3">
+            <span className="text-[10px] text-slate-400 ml-2">عدد الكلمات:</span>
+            {Array.from({ length: 9 }, (_, i) => i + 1).map((num) => (
+              <motion.button
+                key={num}
+                whileTap={{ scale: 0.9 }}
+                onClick={() => setClueNumber(num)}
+                className={`w-8 h-8 sm:w-9 sm:h-9 rounded-lg text-sm font-bold transition-all flex items-center justify-center ${
+                  clueNumber === num
+                    ? 'bg-emerald-500/30 border-2 border-emerald-500/60 text-emerald-300'
+                    : 'bg-slate-800/60 border-2 border-slate-700/40 text-slate-400 hover:bg-slate-700/60'
+                }`}
+              >
+                {num}
+              </motion.button>
+            ))}
+          </div>
+
+          {error && (
+            <motion.p
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              className="text-red-400 text-[10px] sm:text-xs text-center mb-2"
+            >
+              ⚠️ {error}
+            </motion.p>
+          )}
+
+          <Button
+            onClick={handleGiveClue}
+            disabled={!clueWord.trim()}
+            className="w-full font-bold text-sm sm:text-base py-4 text-white"
+            style={{
+              background: !clueWord.trim()
+                ? 'rgba(30, 41, 59, 0.5)'
+                : 'linear-gradient(to left, #059669, #10b981)',
+              borderRadius: '0.75rem',
+              boxShadow: clueWord.trim() ? '0 0 20px rgba(16, 185, 129, 0.3)' : 'none',
+            }}
+          >
+            <Send className="w-4 h-4 ml-2" />
+            إعطاء الدليل
+          </Button>
+        </motion.div>
+      )}
     </motion.div>
   );
 }
@@ -625,28 +779,20 @@ function TransitionView({ onReady }: { onReady: () => void }) {
     <motion.div
       initial={{ opacity: 0, scale: 0.95 }}
       animate={{ opacity: 1, scale: 1 }}
+      transition={{ duration: 0.3 }}
       className="flex flex-col items-center justify-center flex-1 p-6"
     >
-      <motion.div
-        animate={{ y: [0, 10, 0] }}
-        transition={{ repeat: Infinity, duration: 1.5 }}
-        className="mb-6"
-      >
-        <ArrowDown className="w-10 h-10 text-emerald-400" />
-      </motion.div>
-
       <div className="text-4xl mb-4">📱</div>
 
       <h2 className="text-xl sm:text-2xl font-black text-white mb-2">
         مرر الجهاز إلى الفريق
       </h2>
-      <p className={`text-sm font-bold ${teamColor} mb-6`}>
+      <p className={`text-sm font-bold ${teamColor} mb-4`}>
         {teamName}
       </p>
 
-      {/* Clue preview */}
       {currentClue && (
-        <div className="mb-6 p-4 rounded-xl bg-slate-900/60 border border-slate-800/50 text-center">
+        <div className="mb-5 p-3 rounded-xl bg-slate-900/60 border border-slate-800/50 text-center">
           <p className="text-xs text-slate-400 mb-1">الدليل</p>
           <div className="flex items-center justify-center gap-3">
             <span className="text-2xl font-black text-white">{currentClue.word}</span>
@@ -672,7 +818,7 @@ function TransitionView({ onReady }: { onReady: () => void }) {
 }
 
 // ============================================================
-// TEAM GUESSING VIEW
+// TEAM GUESSING VIEW — with correct guess toast
 // ============================================================
 
 function TeamGuessingView() {
@@ -690,11 +836,34 @@ function TeamGuessingView() {
     blueTeam,
     gameMode,
     viewMode,
+    lastGuessResult,
   } = useShifaratStore();
 
   const remainingGuesses = guessesAllowed - guessesThisTurn;
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [showCorrectToast, setShowCorrectToast] = useState(false);
+  const [lastCorrectWord, setLastCorrectWord] = useState('');
+
+  // Show correct toast when correct
+  const correctToastTimerRef = useRef<NodeJS.Timeout | null>(null);
+  useEffect(() => {
+    if (lastGuessResult === 'correct') {
+      const lastRevealed = [...board].reverse().find((c) => c.isRevealed);
+      if (lastRevealed) {
+        queueMicrotask(() => {
+          setLastCorrectWord(lastRevealed.word);
+          setShowCorrectToast(true);
+        });
+        correctToastTimerRef.current = setTimeout(() => {
+          queueMicrotask(() => setShowCorrectToast(false));
+        }, 1500);
+        return () => {
+          if (correctToastTimerRef.current) clearTimeout(correctToastTimerRef.current);
+        };
+      }
+    }
+  }, [lastGuessResult, board]);
 
   // Timer countdown
   useEffect(() => {
@@ -718,7 +887,6 @@ function TeamGuessingView() {
 
     const { result, gameEnded } = selectCard(cardId);
 
-    // Play sound
     if (result === 'correct') {
       playSound('correct');
     } else if (result === 'wrong') {
@@ -745,6 +913,26 @@ function TeamGuessingView() {
       animate={{ opacity: 1, x: 0 }}
       className="flex flex-col"
     >
+      {/* Phase guidance banner */}
+      <PhaseBanner
+        phase="team_guessing"
+        currentTeam={currentTeam}
+        redTeamName={redTeam.name}
+        blueTeamName={blueTeam.name}
+      />
+
+      {/* Correct guess toast */}
+      <div className="mb-3 min-h-[44px]">
+        <AnimatePresence>
+          {showCorrectToast && (
+            <CorrectToast
+              word={lastCorrectWord}
+              remainingGuesses={remainingGuesses - 1}
+            />
+          )}
+        </AnimatePresence>
+      </div>
+
       {/* Clue Display */}
       <ClueDisplay />
 
@@ -806,13 +994,12 @@ function TeamGuessingView() {
 }
 
 // ============================================================
-// TURN RESULT VIEW
+// TURN RESULT VIEW — small banner for correct, bigger card for wrong/neutral/assassin
 // ============================================================
 
 function TurnResultView({ onNext }: { onNext: () => void }) {
   const { board, lastGuessResult, gameLog, winner, winReason, currentTeam, redTeam, blueTeam } = useShifaratStore();
 
-  // Get the last revealed card
   const lastRevealed = [...board].reverse().find((c) => c.isRevealed);
   const lastLog = gameLog[gameLog.length - 1];
 
@@ -826,24 +1013,27 @@ function TurnResultView({ onNext }: { onNext: () => void }) {
           color: 'text-emerald-400',
           bg: 'bg-emerald-950/30',
           border: 'border-emerald-500/30',
+          isSmall: true,
         };
       case 'wrong':
         return {
           emoji: '❌',
           title: 'خطأ!',
-          subtitle: lastRevealed ? `كلمة الفريق الخصم` : '',
+          subtitle: lastRevealed ? `كلمة الفريق الخصم — انتهى الدور` : '',
           color: 'text-red-400',
           bg: 'bg-red-950/30',
           border: 'border-red-500/30',
+          isSmall: false,
         };
       case 'neutral':
         return {
           emoji: '⬜',
-          title: 'محايدة',
-          subtitle: lastRevealed ? `كلمة محايدة` : '',
+          title: 'محايدة!',
+          subtitle: lastRevealed ? `كلمة محايدة — انتهى الدور` : '',
           color: 'text-slate-300',
           bg: 'bg-slate-900/30',
           border: 'border-slate-700/30',
+          isSmall: false,
         };
       case 'assassin':
         return {
@@ -853,6 +1043,7 @@ function TurnResultView({ onNext }: { onNext: () => void }) {
           color: 'text-gray-300',
           bg: 'bg-gray-950/50',
           border: 'border-gray-500/30',
+          isSmall: false,
         };
       default:
         return {
@@ -862,56 +1053,58 @@ function TurnResultView({ onNext }: { onNext: () => void }) {
           color: 'text-slate-400',
           bg: 'bg-slate-900/30',
           border: 'border-slate-700/30',
+          isSmall: false,
         };
     }
   };
 
   const result = getResultDisplay();
 
+  // For correct guesses, auto-continue (the team keeps guessing)
+  // The turn_result for "correct" is only shown briefly before the next guess
+  // Actually, based on the logic, correct guesses keep the phase as team_guessing
+  // So turn_result is only reached for wrong/neutral/assassin/out-of-guesses
+
   return (
     <motion.div
       initial={{ opacity: 0, scale: 0.95 }}
       animate={{ opacity: 1, scale: 1 }}
-      className="flex flex-col items-center justify-center flex-1 p-6"
+      transition={{ duration: 0.3 }}
+      className="flex flex-col items-center justify-center flex-1 p-4 sm:p-6"
     >
       {/* Result card */}
       <motion.div
-        initial={{ scale: 0 }}
-        animate={{ scale: 1 }}
-        transition={{ type: 'spring', stiffness: 200, delay: 0.2 }}
-        className={`w-full max-w-sm p-6 sm:p-8 rounded-2xl border text-center mb-6 ${result.bg} ${result.border}`}
+        initial={{ scale: 0.9, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
+        transition={{ type: 'spring', stiffness: 200, delay: 0.1, duration: 0.4 }}
+        className={`w-full max-w-sm ${result.isSmall ? 'p-4 sm:p-5' : 'p-6 sm:p-8'} rounded-2xl border text-center mb-5 ${result.bg} ${result.border}`}
       >
         <motion.div
           initial={{ scale: 0 }}
-          animate={{ scale: 1, rotate: [0, 10, -10, 0] }}
-          transition={{ delay: 0.4, duration: 0.5 }}
-          className="text-5xl sm:text-6xl mb-3"
+          animate={{ scale: 1 }}
+          transition={{ type: 'spring', stiffness: 300, delay: 0.2 }}
+          className={`mb-2 ${result.isSmall ? 'text-3xl sm:text-4xl' : 'text-5xl sm:text-6xl'}`}
         >
           {result.emoji}
         </motion.div>
 
-        <h2 className={`text-xl sm:text-2xl font-black ${result.color} mb-1`}>
+        <h2 className={`text-lg sm:text-xl ${result.isSmall ? '' : 'text-2xl'} font-black ${result.color} mb-1`}>
           {result.title}
         </h2>
         {result.subtitle && (
-          <p className="text-sm text-slate-400">{result.subtitle}</p>
+          <p className={`text-sm text-slate-400 ${result.isSmall ? '' : 'mb-3'}`}>{result.subtitle}</p>
         )}
 
-        {lastRevealed && (
-          <div className="mt-4 p-3 rounded-xl bg-slate-900/40 border border-slate-800/50">
+        {lastRevealed && !result.isSmall && (
+          <div className="mt-3 p-3 rounded-xl bg-slate-900/40 border border-slate-800/50">
             <p className="text-lg font-bold text-white">{lastRevealed.word}</p>
           </div>
         )}
-
-        {/* Mini board showing last result */}
-        <div className="mt-4">
-          <CardGrid board={board} showColors={false} disabled />
-        </div>
       </motion.div>
 
       <Button
         onClick={onNext}
-        className="w-full max-w-xs font-bold text-base py-5 text-white"
+        className="w-full max-w-xs font-bold text-base py-4 text-white"
         style={{
           background: 'linear-gradient(to left, #059669, #10b981)',
           borderRadius: '0.75rem',
@@ -925,7 +1118,7 @@ function TurnResultView({ onNext }: { onNext: () => void }) {
 }
 
 // ============================================================
-// TURN SWITCH VIEW
+// TURN SWITCH VIEW — clear WHO with team color
 // ============================================================
 
 function TurnSwitchView({ onContinue }: { onContinue: () => void }) {
@@ -936,45 +1129,60 @@ function TurnSwitchView({ onContinue }: { onContinue: () => void }) {
   const teamColor = nextTeam === 'red' ? 'text-red-400' : 'text-blue-400';
   const teamBg = nextTeam === 'red' ? 'bg-red-950/30' : 'bg-blue-950/30';
   const teamBorder = nextTeam === 'red' ? 'border-red-500/40' : 'border-blue-500/40';
+  const teamEmoji = nextTeam === 'red' ? '🔴' : '🔵';
+  const teamGlow = nextTeam === 'red' ? 'shadow-lg shadow-red-500/10' : 'shadow-lg shadow-blue-500/10';
   const isGodfather = gameMode === 'godfather';
 
   return (
     <motion.div
       initial={{ opacity: 0, scale: 0.95 }}
       animate={{ opacity: 1, scale: 1 }}
+      transition={{ duration: 0.3 }}
       className="flex flex-col items-center justify-center flex-1 p-6"
     >
-      <div className={`w-full max-w-sm p-6 sm:p-8 rounded-2xl border text-center mb-6 ${teamBg} ${teamBorder}`}>
-        <div className="text-5xl mb-4">
-          {nextTeam === 'red' ? '🔴' : '🔵'}
-        </div>
+      {/* Phase banner */}
+      <PhaseBanner phase="turn_switch" />
 
-        <h2 className={`text-xl sm:text-2xl font-black ${teamColor} mb-2`}>
-          دور {teamName}
+      {/* Turn switch card */}
+      <motion.div
+        initial={{ scale: 0.9, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
+        transition={{ type: 'spring', stiffness: 200, delay: 0.15 }}
+        className={`w-full max-w-sm p-6 sm:p-8 rounded-2xl border text-center mb-5 ${teamBg} ${teamBorder} ${teamGlow}`}
+      >
+        <motion.div
+          initial={{ scale: 0 }}
+          animate={{ scale: 1 }}
+          transition={{ type: 'spring', stiffness: 300, delay: 0.3 }}
+          className="text-5xl mb-3"
+        >
+          {teamEmoji}
+        </motion.div>
+
+        <p className="text-xs text-slate-400 mb-1">الدور الآن لـ</p>
+        <h2 className={`text-xl sm:text-2xl font-black ${teamColor} mb-1`}>
+          {teamName}
         </h2>
+
+        <p className={`text-xs font-bold ${teamColor} mt-2`}>
+          👁️ جاسوس {teamName}: أعد دليلك
+        </p>
 
         {isGodfather && (
           <motion.p
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            transition={{ delay: 0.5 }}
-            className="text-sm text-slate-400 mt-3 mb-2"
+            transition={{ delay: 0.4 }}
+            className="text-[10px] text-slate-500 mt-3 mb-1"
           >
             مرر الجهاز إلى جاسوس الفريق
           </motion.p>
         )}
-
-        <motion.div
-          animate={{ y: [0, 8, 0] }}
-          transition={{ repeat: Infinity, duration: 1.5, delay: 0.3 }}
-        >
-          <ArrowDown className="w-8 h-8 text-slate-500 mx-auto mt-3" />
-        </motion.div>
-      </div>
+      </motion.div>
 
       <Button
         onClick={onContinue}
-        className="w-full max-w-xs font-bold text-base py-5 text-white"
+        className="w-full max-w-xs font-bold text-base py-4 text-white"
         style={{
           background: 'linear-gradient(to left, #059669, #10b981)',
           borderRadius: '0.75rem',
@@ -1005,34 +1213,26 @@ export default function PlayingPhase() {
   } = useShifaratStore();
 
   const [showHowToPlay, setShowHowToPlay] = useState(false);
-  const [soundEnabled, setSoundEnabled] = useState(true);
 
-  // Handle transition → team ready
   const handleTransitionReady = useCallback(() => {
     setViewMode('team');
   }, [setViewMode]);
 
-  // Handle turn result next → confirm switch
   const handleTurnResultNext = useCallback(() => {
     confirmTurnSwitch();
   }, [confirmTurnSwitch]);
 
-  // Handle turn switch continue
   const handleTurnSwitchContinue = useCallback(() => {
     confirmTurnSwitch();
   }, [confirmTurnSwitch]);
 
-  // Determine what to render based on phase + viewMode
   const renderContent = () => {
-    // Game over handled by parent
     if (phase === 'game_over') return null;
 
-    // Spymaster view
     if (phase === 'spymaster_view') {
       if (viewMode === 'spymaster') {
         return <SpymasterView />;
       }
-      // In godfather mode, if not in spymaster view mode, show transition
       if (gameMode === 'godfather') {
         return (
           <TransitionView onReady={() => setViewMode('spymaster')} />
@@ -1041,7 +1241,6 @@ export default function PlayingPhase() {
       return <SpymasterView />;
     }
 
-    // Clue given — show different views based on mode
     if (phase === 'clue_given' || phase === 'team_guessing') {
       if (viewMode === 'transition') {
         return <TransitionView onReady={handleTransitionReady} />;
@@ -1049,12 +1248,10 @@ export default function PlayingPhase() {
       return <TeamGuessingView />;
     }
 
-    // Turn result
     if (phase === 'turn_result') {
       return <TurnResultView onNext={handleTurnResultNext} />;
     }
 
-    // Turn switch
     if (phase === 'turn_switch') {
       return <TurnSwitchView onContinue={handleTurnSwitchContinue} />;
     }

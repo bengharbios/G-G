@@ -380,3 +380,92 @@ Stage Summary:
 - Smart risk assessment to avoid opponent word connections
 - Seamless integration with existing Spymaster view
 - Zero new lint errors from these changes
+
+---
+Task ID: 1
+Agent: Main Agent
+Task: Improve UX clarity for Shifarat game - user doesn't understand how to play
+
+Work Log:
+- Read all existing files: LandingPage.tsx, PlayingPhase.tsx, HowToPlay.tsx, GameOver.tsx, GameSetup.tsx, shifarat-types.ts, shifarat-logic.ts, shifarat-store.ts, page.tsx
+- Identified UX pain points: no game explanation on landing, no first-time tutorial, unclear phase transitions, no phase guidance banners, full-screen turn result interrupts gameplay
+
+Changes Made:
+
+1. **LandingPage.tsx** (rewritten):
+   - Added MiniBoardPreview component showing a 5x5 animated grid that toggles between spymaster view (colored) and team view (hidden)
+   - Added GameStepsPreview component showing 4-step game flow with icons and descriptions
+   - Added prominent "كيف تلعب؟ — شرح القواعد بالتفصيل" button that opens HowToPlay modal
+   - Added "ابدأ سريعًا ⚡" Quick Start button
+   - Added game explanation section with animated board preview and color legend
+   - Both mode cards (Godfather/Diwaniya) now have numbered step descriptions explaining how each mode works
+   - Auto-shows GameWalkthrough on first visit via localStorage check
+
+2. **GameWalkthrough.tsx** (new file):
+   - 5-step interactive walkthrough with animations:
+     - Step 1: "هذه هي اللوحة — 25 بطاقة مخفية" (board with '?' marks)
+     - Step 2: "الجاسوس يرى الألوان" (board revealed with color legend)
+     - Step 3: "الجاسوس يعطي دليل — كلمة واحدة + رقم" (board + clue example "حيوان — 2")
+     - Step 4: "الفريق يخمن الكلمات" (board with highlighted guesses + discussion)
+     - Step 5: "صحيح؟ خطأ؟" (result examples: correct/wrong/assassin with colored cards)
+   - WalkthroughBoard component with animated card reveals and highlight markers
+   - ClueExample component showing "حيوان — 2" with animated reveal
+   - ResultExample component showing 3 result types (correct/wrong/assassin) with staggered animations
+   - Skip button for experienced players
+   - localStorage persistence ('shifarat-walkthrough-seen')
+   - Step indicator dots at top
+
+3. **PlayingPhase.tsx** (rewritten):
+   - Added PhaseBanner component showing clear guidance for each phase:
+     - spymaster_view: "🎯 أنت جاسوس {teamName} — انظر للوحة وأعطِ دليلًا"
+     - team_guessing: "🎯 خمنوا الكلمات المرتبطة بالدليل!"
+     - turn_result: "📋 نتيجة التخمين"
+     - turn_switch: "🔄 الدور ينتقل للفريق التالي"
+   - Added CorrectToast component: small green toast banner shown at top when team guesses correctly (1.5s auto-dismiss), allows continuous guessing without interruption
+   - SpymasterView improvements:
+     - Phase banner at top with clear instruction
+     - Collapsed suggestions panel now shows "اضغط للتوسيع ↓" hint
+     - After giving clue: shows clear "تم! الدليل: {word} — {number}" confirmation card
+     - Hint text above input: "💡 اختر إيحاءًا من الأعلى أو اكتب كلمتك الخاصة"
+   - TurnResultView improvements:
+     - Correct guesses: smaller card size (less intrusive since team keeps guessing)
+     - Wrong/neutral/assassin: bigger card with detailed result info
+     - Reduced animations (shorter, snappier transitions)
+     - Removed full mini-board display from result (was redundant)
+   - TurnSwitchView improvements:
+     - Added "الدور الآن لـ" label above team name
+     - Added spymaster instruction: "👁️ جاسوس {teamName}: أعد دليلك"
+     - Team color glow effect (shadow-lg shadow-{color}-500/10)
+     - PhaseBanner at top
+
+Design Notes:
+- All text in Arabic (RTL)
+- Dark theme with emerald accents preserved
+- Framer Motion animations throughout
+- Mobile-first responsive (mini grid adapts, touch-friendly 44px targets)
+- shadcn/ui components used (Button, Badge, Input)
+- Zero new lint errors from shifarat files (3 errors found and fixed using queueMicrotask pattern)
+
+Stage Summary:
+- 3 files modified/created in src/components/shifarat/
+- GameWalkthrough.tsx: ~370 lines, 5 animated walkthrough steps
+- LandingPage.tsx: ~250 lines, with mini grid preview, quick start, tutorial button
+- PlayingPhase.tsx: ~1030 lines, with phase banners, correct toast, improved clarity
+- All pre-existing lint errors (47) are from other files, not shifarat
+
+---
+Task ID: 1
+Agent: main
+Task: تحسين تجربة المستخدم في لعبة الشيفرات - جعل اللعبة أسهل للفهم
+
+Work Log:
+- قراءة جميع ملفات اللعبة الحالية (types, logic, store, components)
+- تحليل مشكلة المستخدم: واجهة معقدة ومشتتة لا تشرح كيف تلعب
+- تفويض تحسين شامل لعبة الشفارات ل subagent (full-stack-developer)
+- التحقق من نجاح التعديلات: lint نظيف، HTTP 200، لا أخطاء compilation
+
+Stage Summary:
+- LandingPage.tsx: أُعيد كتابتها بالكامل مع لوحة مصغرة متحركة (5x5)، شرح خطوات اللعبة، زر "كيف تلعب؟" بارز، زر "ابدأ سريعاً"، دليل ألوان
+- GameWalkthrough.tsx: مكون جديد - شرح تفاعلي من 5 خطوات يظهر تلقائياً عند أول زيارة (localStorage)
+- PlayingPhase.tsx: إضافة PhaseBanner (إرشادات واضحة لكل مرحلة)، CorrectToast (إشعار صغير عند التخمين الصحيح)، تحسين SpymasterView وTurnResultView وTurnSwitchView
+- 0 أخطاء lint جديدة في ملفات الشفارات
