@@ -5,11 +5,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   Clock,
   Check,
-  ArrowDown,
   Hand,
   Send,
-  Volume2,
-  VolumeX,
   Lightbulb,
   Sparkles,
   ChevronDown,
@@ -171,109 +168,83 @@ function PhaseBanner({ phase, currentTeam, redTeamName, blueTeamName }: PhaseBan
 }
 
 // ============================================================
-// GUESS RESULT OVERLAY — prominent result after each guess
+// GUESS TOAST — non-blocking notification that appears and disappears
 // ============================================================
 
-interface GuessResultOverlayProps {
+interface GuessToastProps {
   result: 'correct' | 'wrong' | 'neutral' | 'assassin';
   word: string;
   remainingGuesses: number;
+  onDismiss: () => void;
 }
 
-function GuessResultOverlay({ result, word, remainingGuesses }: GuessResultOverlayProps) {
+function GuessToast({ result, word, remainingGuesses, onDismiss }: GuessToastProps) {
+  // Auto-dismiss after a delay
+  useEffect(() => {
+    const delay = result === 'correct' ? 1200 : result === 'assassin' ? 5000 : 2000;
+    const timer = setTimeout(onDismiss, delay);
+    return () => clearTimeout(timer);
+  }, [result, onDismiss]);
+
   const config = {
     correct: {
       emoji: '✅',
       title: 'صحيح!',
-      bg: 'bg-emerald-600/90',
+      extra: remainingGuesses > 0
+        ? `${remainingGuesses} تخمين${remainingGuesses === 1 ? '' : 'ات'} متبقي${remainingGuesses === 1 ? '' : 'ة'}`
+        : 'تم استنفاد التخمينات!',
+      bg: 'bg-emerald-600/95',
       border: 'border-emerald-400',
-      glow: 'shadow-lg shadow-emerald-500/30',
-      wordColor: 'text-white',
-      extra: remainingGuesses > 2 ? `${remainingGuesses} تخمينات متبقية` : remainingGuesses === 2 ? 'تخمينان متبقيان' : remainingGuesses === 1 ? 'تخمين واحد متبقي' : 'تم استنفاد التخمينات!',
+      shadow: 'shadow-lg shadow-emerald-500/30',
     },
     wrong: {
       emoji: '❌',
       title: 'خطأ!',
-      bg: 'bg-red-700/90',
+      extra: 'الكلمة لا تخص فريقك — تم تحويل الدور',
+      bg: 'bg-red-700/95',
       border: 'border-red-400',
-      glow: 'shadow-lg shadow-red-500/30',
-      wordColor: 'text-white',
-      extra: 'الكلمة لا تخص فريقك — انتهى الدور',
+      shadow: 'shadow-lg shadow-red-500/30',
     },
     neutral: {
       emoji: '❌',
       title: 'خطأ!',
-      bg: 'bg-red-700/90',
+      extra: 'الكلمة لا تخص فريقك — تم تحويل الدور',
+      bg: 'bg-red-700/95',
       border: 'border-red-400',
-      glow: 'shadow-lg shadow-red-500/30',
-      wordColor: 'text-white',
-      extra: 'الكلمة لا تخص فريقك — انتهى الدور',
+      shadow: 'shadow-lg shadow-red-500/30',
     },
     assassin: {
       emoji: '💀',
       title: 'القاتل!',
+      extra: 'خسارة فورية!',
       bg: 'bg-gray-900/95',
       border: 'border-red-500',
-      glow: 'shadow-lg shadow-red-900/50',
-      wordColor: 'text-red-300',
-      extra: 'خسارة فورية!',
+      shadow: 'shadow-lg shadow-red-900/50',
     },
   }[result];
 
   return (
     <motion.div
-      initial={{ opacity: 0, scale: 0.8 }}
-      animate={{ opacity: 1, scale: 1 }}
-      exit={{ opacity: 0, scale: 0.8 }}
-      transition={{ type: 'spring', stiffness: 300, damping: 25 }}
-      className={`absolute inset-0 z-30 flex items-center justify-center p-6 rounded-2xl ${config.bg} ${config.border} ${config.glow} backdrop-blur-sm`}
+      initial={{ opacity: 0, y: -20, scale: 0.9 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      exit={{ opacity: 0, y: -20, scale: 0.9 }}
+      transition={{ type: 'spring', stiffness: 400, damping: 25 }}
+      className={`fixed top-4 left-4 right-4 z-50 flex items-center gap-3 px-4 py-3 rounded-xl border ${config.bg} ${config.border} ${config.shadow} backdrop-blur-sm`}
     >
-      <div className="text-center">
-        <motion.div
-          initial={{ scale: 0, rotate: -20 }}
-          animate={{ scale: 1, rotate: 0 }}
-          transition={{ type: 'spring', stiffness: 400, delay: 0.1 }}
-          className="text-5xl mb-2"
-        >
-          {config.emoji}
-        </motion.div>
-        <motion.h3
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.2 }}
-          className={`text-xl font-black ${config.wordColor} mb-1`}
-        >
-          {config.title}
-        </motion.h3>
-        <motion.p
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.3 }}
-          className="text-sm font-bold text-white/90 mb-1"
-        >
-          {word}
-        </motion.p>
-        {result === 'correct' && (
-          <motion.p
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 0.5 }}
-            className="text-xs text-emerald-200 font-bold mt-2"
-          >
-            {config.extra}
-          </motion.p>
-        )}
-        {result !== 'correct' && (
-          <motion.p
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 0.5 }}
-            className="text-xs text-slate-300 mt-2"
-          >
-            {config.extra}
-          </motion.p>
-        )}
+      <span className="text-2xl flex-shrink-0">{config.emoji}</span>
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-2">
+          <span className="text-sm font-black text-white">{config.title}</span>
+          <span className="text-xs font-bold text-white/80 truncate">— {word}</span>
+        </div>
+        <p className="text-[10px] text-white/70 mt-0.5">{config.extra}</p>
       </div>
+      <button
+        onClick={onDismiss}
+        className="flex-shrink-0 p-1 rounded-lg hover:bg-white/10 transition-colors"
+      >
+        <X className="w-4 h-4 text-white/60" />
+      </button>
     </motion.div>
   );
 }
@@ -640,6 +611,7 @@ function SpymasterView() {
     <motion.div
       initial={{ opacity: 0, x: 20 }}
       animate={{ opacity: 1, x: 0 }}
+      exit={{ opacity: 0, x: -20 }}
       className="flex flex-col"
     >
       {/* Clear instruction banner */}
@@ -903,6 +875,7 @@ function TransitionView({ onReady }: { onReady: () => void }) {
     <motion.div
       initial={{ opacity: 0, scale: 0.95 }}
       animate={{ opacity: 1, scale: 1 }}
+      exit={{ opacity: 0, scale: 0.95 }}
       transition={{ duration: 0.3 }}
       className="flex flex-col items-center justify-center flex-1 p-6"
     >
@@ -942,7 +915,7 @@ function TransitionView({ onReady }: { onReady: () => void }) {
 }
 
 // ============================================================
-// TEAM GUESSING VIEW — with correct guess toast
+// TEAM GUESSING VIEW — Toast notifications, no blocking overlay
 // ============================================================
 
 function TeamGuessingView() {
@@ -958,33 +931,38 @@ function TeamGuessingView() {
     timerDuration,
     redTeam,
     blueTeam,
+    phase,
   } = useShifaratStore();
 
   const remainingGuesses = guessesAllowed - guessesThisTurn;
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
-  const overlayTimerRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Use ref to guard against double-clicks (more reliable than state for click handlers)
+  // Guard against double-clicks
   const isProcessingRef = useRef(false);
 
-  // Local state for the guess result overlay
-  const [guessOverlay, setGuessOverlay] = useState<{
+  // Toast state — non-blocking notification
+  const [toast, setToast] = useState<{
     result: 'correct' | 'wrong' | 'neutral' | 'assassin';
     word: string;
     remaining: number;
   } | null>(null);
 
-  // Keep ref in sync with state for the click handler (for use in event handlers)
-  const guessOverlayRef = useRef(guessOverlay);
+  // Keep ref in sync
+  const toastRef = useRef(toast);
   useEffect(() => {
-    guessOverlayRef.current = guessOverlay;
-  }, [guessOverlay]);
+    toastRef.current = toast;
+  }, [toast]);
+
+  // Dismiss handler
+  const dismissToast = useCallback(() => {
+    setToast(null);
+    isProcessingRef.current = false;
+  }, []);
 
   // Clean up timers on unmount
   useEffect(() => {
     return () => {
       if (intervalRef.current) clearInterval(intervalRef.current);
-      if (overlayTimerRef.current) clearTimeout(overlayTimerRef.current);
     };
   }, []);
 
@@ -1005,10 +983,17 @@ function TeamGuessingView() {
     };
   }, []);
 
+  // Watch for phase changes — if phase moved away from guessing, clear processing guard
+  useEffect(() => {
+    if (phase !== 'clue_given' && phase !== 'team_guessing') {
+      isProcessingRef.current = false;
+    }
+  }, [phase]);
+
   const handleCardClick = useCallback((cardId: number) => {
-    // Guard against double-clicks using ref (always up-to-date)
+    // Guard against double-clicks
     if (isProcessingRef.current) return;
-    if (guessOverlayRef.current) return;
+    if (toastRef.current) return;
 
     // Read current state directly from the store to avoid stale closures
     const currentState = useShifaratStore.getState();
@@ -1020,6 +1005,12 @@ function TeamGuessingView() {
       hasClue: !!currentState.currentClue,
     });
 
+    // Double-check phase — must be clue_given or team_guessing
+    if (currentState.phase !== 'clue_given' && currentState.phase !== 'team_guessing') {
+      console.warn('[TeamGuessingView] Not in guessing phase:', currentState.phase);
+      return;
+    }
+
     const card = currentState.board.find((c) => c.id === cardId);
     if (!card || card.isRevealed || card.guessedBy) {
       console.log('[TeamGuessingView] Card not clickable:', {
@@ -1027,6 +1018,12 @@ function TeamGuessingView() {
         isRevealed: card?.isRevealed,
         guessedBy: card?.guessedBy,
       });
+      return;
+    }
+
+    // Check guesses not exhausted
+    if (currentState.guessesThisTurn >= currentState.guessesAllowed) {
+      console.warn('[TeamGuessingView] Guesses exhausted');
       return;
     }
 
@@ -1054,42 +1051,38 @@ function TeamGuessingView() {
         setTimeout(() => playSound('win'), 500);
       }
 
-      // Calculate remaining guesses after this guess (read from store)
+      // Calculate remaining guesses after this guess
       const afterState = useShifaratStore.getState();
       const newRemaining = Math.max(0, afterState.guessesAllowed - afterState.guessesThisTurn);
 
-      // Show result overlay for ALL guess types
-      setGuessOverlay({
+      // Show toast notification (non-blocking!)
+      setToast({
         result,
         word: card.word,
         remaining: newRemaining,
       });
 
-      // For correct guesses with remaining guesses, auto-dismiss after 1.5 seconds
+      // For correct guesses with remaining guesses, unlock after toast auto-dismisses
+      // For wrong/neutral/assassin, the phase change handles everything
       if (result === 'correct' && !gameEnded && newRemaining > 0) {
-        overlayTimerRef.current = setTimeout(() => {
-          setGuessOverlay(null);
-          isProcessingRef.current = false;
-        }, 1500);
+        // The toast auto-dismisses in GuessToast component
+        // After dismiss, isProcessingRef is reset via dismissToast
       }
-      // For wrong/neutral/assassin/game-over-correct, the phase changes in the store
-      // which unmounts this component, so no need to dismiss the overlay
     } catch (err) {
       console.error('[TeamGuessingView] Error in handleCardClick:', err);
       isProcessingRef.current = false;
     }
-  }, []); // No dependencies - uses getState() directly
+  }, []); // No dependencies — uses getState() directly
 
   const handlePass = useCallback(() => {
     passTurn();
   }, [passTurn]);
 
-  const isShowingOverlay = !!guessOverlay;
-
   return (
     <motion.div
       initial={{ opacity: 0, x: -20 }}
       animate={{ opacity: 1, x: 0 }}
+      exit={{ opacity: 0, x: -20 }}
       className="flex flex-col"
     >
       {/* Phase guidance banner */}
@@ -1134,7 +1127,7 @@ function TeamGuessingView() {
         </Badge>
       </div>
 
-      {/* Instruction to tap cards — BIG and PROMINENT */}
+      {/* Instruction to tap cards */}
       <motion.div
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
@@ -1157,32 +1150,21 @@ function TeamGuessingView() {
         </p>
       </motion.div>
 
-      {/* 5x5 Grid — no colors shown, with result overlay */}
-      <div className="mb-3 relative">
+      {/* 5x5 Grid — no colors shown, NO overlay covering it */}
+      <div className="mb-3">
         <CardGrid
           board={board}
           showColors={false}
           onCardClick={handleCardClick}
-          disabled={isShowingOverlay}
+          disabled={!!toast}
         />
-
-        {/* Result overlay on top of the grid */}
-        <AnimatePresence>
-          {guessOverlay && (
-            <GuessResultOverlay
-              result={guessOverlay.result}
-              word={guessOverlay.word}
-              remainingGuesses={guessOverlay.remaining}
-            />
-          )}
-        </AnimatePresence>
       </div>
 
-      {/* Pass button — clearly secondary action */}
+      {/* Pass button */}
       <motion.div className="mt-auto">
         <Button
           onClick={handlePass}
-          disabled={isShowingOverlay}
+          disabled={!!toast}
           variant="ghost"
           size="sm"
           className="w-full font-medium text-xs py-2 text-slate-500 hover:text-slate-300 hover:bg-slate-800/40 disabled:opacity-40"
@@ -1191,6 +1173,18 @@ function TeamGuessingView() {
           تنازل عن الدور
         </Button>
       </motion.div>
+
+      {/* Toast notification — fixed position, non-blocking */}
+      <AnimatePresence>
+        {toast && (
+          <GuessToast
+            result={toast.result}
+            word={toast.word}
+            remainingGuesses={toast.remaining}
+            onDismiss={dismissToast}
+          />
+        )}
+      </AnimatePresence>
     </motion.div>
   );
 }
@@ -1222,7 +1216,6 @@ function TurnResultView({ onNext }: { onNext: () => void }) {
   const getResultDisplay = () => {
     switch (lastGuessResult) {
       case 'correct':
-        // Out of guesses — all correct
         return {
           emoji: '✅',
           title: 'تم استنفاد التخمينات!',
@@ -1230,11 +1223,9 @@ function TurnResultView({ onNext }: { onNext: () => void }) {
           color: 'text-emerald-400',
           bg: 'bg-emerald-950/30',
           border: 'border-emerald-500/30',
-          isSmall: false,
         };
       case 'wrong':
       case 'neutral':
-        // Generic error — NO info about card type
         return {
           emoji: '❌',
           title: 'خطأ!',
@@ -1242,7 +1233,6 @@ function TurnResultView({ onNext }: { onNext: () => void }) {
           color: 'text-red-400',
           bg: 'bg-red-950/30',
           border: 'border-red-500/30',
-          isSmall: false,
         };
       default:
         return {
@@ -1252,7 +1242,6 @@ function TurnResultView({ onNext }: { onNext: () => void }) {
           color: 'text-slate-400',
           bg: 'bg-slate-900/30',
           border: 'border-slate-700/30',
-          isSmall: false,
         };
     }
   };
@@ -1263,6 +1252,7 @@ function TurnResultView({ onNext }: { onNext: () => void }) {
     <motion.div
       initial={{ opacity: 0, scale: 0.95 }}
       animate={{ opacity: 1, scale: 1 }}
+      exit={{ opacity: 0, scale: 0.95 }}
       transition={{ duration: 0.3 }}
       className="flex flex-col items-center justify-center flex-1 p-4 sm:p-6"
     >
@@ -1350,6 +1340,7 @@ function TurnSwitchView({ onContinue }: { onContinue: () => void }) {
     <motion.div
       initial={{ opacity: 0, scale: 0.95 }}
       animate={{ opacity: 1, scale: 1 }}
+      exit={{ opacity: 0, scale: 0.95 }}
       transition={{ duration: 0.3 }}
       className="flex flex-col items-center justify-center flex-1 p-6"
     >
@@ -1436,8 +1427,7 @@ export default function PlayingPhase() {
     !board ||
     board.length === 0;
 
-  // If invalid state, show reset message (but DON'T auto-reset)
-  // Auto-reset was causing issues during normal gameplay
+  // If invalid state, show reset message
   useEffect(() => {
     if (isInvalidState && phase !== 'setup') {
       resetGame();
@@ -1496,29 +1486,29 @@ export default function PlayingPhase() {
 
     if (phase === 'spymaster_view') {
       if (viewMode === 'spymaster') {
-        return <SpymasterView />;
+        return <SpymasterView key="spymaster-view" />;
       }
       if (gameMode === 'godfather') {
         return (
-          <TransitionView onReady={() => setViewMode('spymaster')} />
+          <TransitionView key="transition-to-spymaster" onReady={() => setViewMode('spymaster')} />
         );
       }
-      return <SpymasterView />;
+      return <SpymasterView key="spymaster-view" />;
     }
 
     if (phase === 'clue_given' || phase === 'team_guessing') {
       if (viewMode === 'transition') {
-        return <TransitionView onReady={handleTransitionReady} />;
+        return <TransitionView key={`transition-${phase}`} onReady={handleTransitionReady} />;
       }
-      return <TeamGuessingView />;
+      return <TeamGuessingView key="team-guessing" />;
     }
 
     if (phase === 'turn_result') {
-      return <TurnResultView onNext={handleTurnResultNext} />;
+      return <TurnResultView key="turn-result" onNext={handleTurnResultNext} />;
     }
 
     if (phase === 'turn_switch') {
-      return <TurnSwitchView onContinue={handleTurnSwitchContinue} />;
+      return <TurnSwitchView key="turn-switch" onContinue={handleTurnSwitchContinue} />;
     }
 
     return null;
@@ -1542,7 +1532,7 @@ export default function PlayingPhase() {
         </div>
       </div>
 
-      {/* Main Content */}
+      {/* Main Content — with proper keys for AnimatePresence */}
       <div className="flex-1 flex flex-col">
         <AnimatePresence mode="wait">
           {renderContent()}
