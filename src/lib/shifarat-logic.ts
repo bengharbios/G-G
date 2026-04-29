@@ -271,6 +271,20 @@ export function guessWord(
   result: 'correct' | 'wrong' | 'neutral' | 'assassin';
   gameEnded: boolean;
 } {
+  // ── DEFENSIVE: Validate state before anything ──
+  if (!state || !state.board || !Array.isArray(state.board)) {
+    console.error('[guessWord] Invalid state:', { hasState: !!state, hasBoard: !!state?.board, boardType: typeof state?.board });
+    throw new Error(`حالة اللعبة غير صالحة: ${!state ? 'state is null' : !state.board ? 'board is missing' : 'board is not array'}`);
+  }
+  if (!state.redTeam || !state.blueTeam) {
+    console.error('[guessWord] Missing teams:', { hasRed: !!state.redTeam, hasBlue: !!state.blueTeam });
+    throw new Error('حالة اللعبة غير صالحة: الفريق مفقود');
+  }
+  if (!state.gameLog || !Array.isArray(state.gameLog)) {
+    console.error('[guessWord] Missing gameLog:', { gameLog: state.gameLog });
+    throw new Error('حالة اللعبة غير صالحة: سجل اللعبة مفقود');
+  }
+
   // Find the card
   const card = state.board.find((c) => c.id === cardId);
   if (!card) {
@@ -295,19 +309,13 @@ export function guessWord(
   // Determine the result based on card color
   let result: 'correct' | 'wrong' | 'neutral' | 'assassin';
 
-  // ── CRITICAL DEBUG: Log every comparison to find the bug ──
-  console.log('[guessWord] CRITICAL DEBUG:', {
+  // ── CRITICAL DEBUG: Log every comparison ──
+  console.log('[guessWord] VALIDATION OK:', {
     cardId,
     cardWord: card.word,
     cardColor: card.color,
-    cardColorType: typeof card.color,
     currentTeam: state.currentTeam,
-    currentTeamType: typeof state.currentTeam,
-    strictEqual: card.color === state.currentTeam,
-    phase: state.phase,
-    guessesThisTurn: state.guessesThisTurn,
-    guessesAllowed: state.guessesAllowed,
-    boardChecksum: state.board.map(c => `${c.id}:${c.color[0]}`).join(','),
+    match: card.color === state.currentTeam,
   });
 
   if (card.color === 'assassin') {
@@ -321,111 +329,118 @@ export function guessWord(
     result = 'wrong';
   }
 
-  // Sanity check: if result is wrong/neutral but card IS the current team's color, something is very wrong
-  if ((result === 'wrong' || result === 'neutral') && card.color === state.currentTeam) {
-    console.error('[guessWord] BUG DETECTED! Card color matches current team but result is not correct!', {
-      cardColor: card.color,
-      currentTeam: state.currentTeam,
-      result,
+  // ── STEP 1: Build new board ──
+  let newBoard: BoardCard[];
+  try {
+    newBoard = state.board.map((c) => {
+      if (c.id !== cardId) return c;
+      if (result === 'correct' || result === 'assassin') {
+        return { ...c, isRevealed: true, guessedBy: state.currentTeam };
+      } else {
+        return { ...c, isRevealed: false, guessedBy: state.currentTeam };
+      }
     });
+  } catch (e) {
+    console.error('[guessWord] ERROR at STEP 1 (board map):', e);
+    throw new Error(`خطأ في تحديث اللوحة: ${(e as Error).message}`);
   }
 
-  // Build the new board:
-  // - Correct & Assassin: reveal the card (show color)
-  // - Wrong & Neutral: mark as guessed but DON'T reveal color
-  //   (so the opponent can't tell if it was their card, a bomb, or neutral)
-  const newBoard = state.board.map((c) => {
-    if (c.id !== cardId) return c;
+  // ── STEP 2: Update team scores ──
+  let newRedTeam: TeamInfo;
+  let newBlueTeam: TeamInfo;
+  try {
+    newRedTeam = { ...state.redTeam };
+    newBlueTeam = { ...state.blueTeam };
 
-    if (result === 'correct' || result === 'assassin') {
-      return { ...c, isRevealed: true, guessedBy: state.currentTeam };
-    } else {
-      // Wrong/neutral: hidden reveal — card stays gray but can't be re-guessed
-      return { ...c, isRevealed: false, guessedBy: state.currentTeam };
+    if (result === 'correct') {
+      if (state.currentTeam === 'red') {
+        newRedTeam = {
+          ...newRedTeam,
+          score: (newRedTeam.score || 0) + 1,
+          wordsRemaining: Math.max(0, (newRedTeam.wordsRemaining || 0) - 1),
+        };
+      } else {
+        newBlueTeam = {
+          ...newBlueTeam,
+          score: (newBlueTeam.score || 0) + 1,
+          wordsRemaining: Math.max(0, (newBlueTeam.wordsRemaining || 0) - 1),
+        };
+      }
+    } else if (result === 'wrong') {
+      const opponentTeam: TeamColor = state.currentTeam === 'red' ? 'blue' : 'red';
+      if (opponentTeam === 'red') {
+        newRedTeam = {
+          ...newRedTeam,
+          wordsRemaining: Math.max(0, (newRedTeam.wordsRemaining || 0) - 1),
+        };
+      } else {
+        newBlueTeam = {
+          ...newBlueTeam,
+          wordsRemaining: Math.max(0, (newBlueTeam.wordsRemaining || 0) - 1),
+        };
+      }
     }
-  });
-
-  // Update team scores and remaining words
-  let newRedTeam = { ...state.redTeam };
-  let newBlueTeam = { ...state.blueTeam };
-
-  if (result === 'correct') {
-    // Current team found one of their words
-    if (state.currentTeam === 'red') {
-      newRedTeam = {
-        ...newRedTeam,
-        score: newRedTeam.score + 1,
-        wordsRemaining: Math.max(0, newRedTeam.wordsRemaining - 1),
-      };
-    } else {
-      newBlueTeam = {
-        ...newBlueTeam,
-        score: newBlueTeam.score + 1,
-        wordsRemaining: Math.max(0, newBlueTeam.wordsRemaining - 1),
-      };
-    }
-  } else if (result === 'wrong') {
-    // Revealed opponent's word — opponent benefits (card is revealed for them)
-    const opponentTeam = state.currentTeam === 'red' ? 'blue' : 'red';
-    if (opponentTeam === 'red') {
-      newRedTeam = {
-        ...newRedTeam,
-        wordsRemaining: Math.max(0, newRedTeam.wordsRemaining - 1),
-      };
-    } else {
-      newBlueTeam = {
-        ...newBlueTeam,
-        wordsRemaining: Math.max(0, newBlueTeam.wordsRemaining - 1),
-      };
-    }
+  } catch (e) {
+    console.error('[guessWord] ERROR at STEP 2 (team scores):', e);
+    throw new Error(`خطأ في تحديث النتائج: ${(e as Error).message}`);
   }
 
-  // Build log entry
-  const now = Date.now();
-  const teamName =
-    state.currentTeam === 'red' ? state.redTeam.name : state.blueTeam.name;
+  // ── STEP 3: Build log entry ──
+  let logEntry: GameLogEntry;
+  try {
+    const now = Date.now();
+    const teamName =
+      state.currentTeam === 'red' ? state.redTeam.name : state.blueTeam.name;
 
-  let logMessage: string;
-  switch (result) {
-    case 'correct':
-      logMessage = `${teamName}: "${card.word}" ✓ صحيح`;
-      break;
-    case 'wrong':
-      // Don't reveal what type of card it was — just say "wrong"
-      logMessage = `${teamName}: "${card.word}" ✗ خطأ — انتهى الدور`;
-      break;
-    case 'neutral':
-      // Don't reveal what type of card it was — just say "wrong"
-      logMessage = `${teamName}: "${card.word}" ✗ خطأ — انتهى الدور`;
-      break;
-    case 'assassin':
-      logMessage = `${teamName}: "${card.word}" 💀 القاتل! خسارة فورية!`;
-      break;
+    let logMessage: string;
+    switch (result) {
+      case 'correct':
+        logMessage = `${teamName}: "${card.word}" ✓ صحيح`;
+        break;
+      case 'wrong':
+        logMessage = `${teamName}: "${card.word}" ✗ خطأ — انتهى الدور`;
+        break;
+      case 'neutral':
+        logMessage = `${teamName}: "${card.word}" ✗ خطأ — انتهى الدور`;
+        break;
+      case 'assassin':
+        logMessage = `${teamName}: "${card.word}" 💀 القاتل! خسارة فورية!`;
+        break;
+    }
+
+    logEntry = {
+      type: result,
+      team: state.currentTeam,
+      word: card.word,
+      message: logMessage,
+      timestamp: now,
+    };
+  } catch (e) {
+    console.error('[guessWord] ERROR at STEP 3 (log entry):', e);
+    throw new Error(`خطأ في سجل اللعبة: ${(e as Error).message}`);
   }
 
-  const logEntry: GameLogEntry = {
-    type: result,
-    team: state.currentTeam,
-    word: card.word,
-    message: logMessage,
-    timestamp: now,
-  };
-
-  // Check if the game should end
-  const gameCheck = checkGameEnd(
-    { ...state, board: newBoard, redTeam: newRedTeam, blueTeam: newBlueTeam },
-    result
-  );
+  // ── STEP 4: Check game end ──
+  let gameCheck: { isOver: boolean; winner: TeamColor | null; reason: string | null };
+  try {
+    gameCheck = checkGameEnd(
+      { board: newBoard, redTeam: newRedTeam, blueTeam: newBlueTeam, currentTeam: state.currentTeam },
+      result
+    );
+  } catch (e) {
+    console.error('[guessWord] ERROR at STEP 4 (game end check):', e);
+    throw new Error(`خطأ في فحص نهاية اللعبة: ${(e as Error).message}`);
+  }
 
   const newGuessesThisTurn = state.guessesThisTurn + 1;
 
   if (gameCheck.isOver) {
-    // Game is over — determine final phase
+    const now = Date.now();
     const gameOverLog: GameLogEntry = {
       type: 'game_over',
       team: gameCheck.winner ?? undefined,
       message: gameCheck.winner
-        ? `فاز ${gameCheck.winner === 'red' ? state.redTeam.name : state.blueTeam.name}! ${gameCheck.reason === 'assassin' ? 'الخصم كشف القاتل!' : gameCheck.reason === 'all_found' ? 'وجد جميع الكلمات!' : 'الخصم وجد كلماته!'}`
+        ? `فاز ${gameCheck.winner === 'red' ? state.redTeam.name : state.blueTeam.name}!`
         : 'انتهت اللعبة!',
       timestamp: now,
     };
@@ -440,28 +455,28 @@ export function guessWord(
       isTimerActive: false,
       winner: gameCheck.winner,
       winReason: gameCheck.reason,
-      gameLog: [...state.gameLog, logEntry, gameOverLog],
+      gameLog: [...(state.gameLog || []), logEntry, gameOverLog],
     };
   }
 
-  // Game continues — determine next phase
+  // ── STEP 5: Determine next phase ──
   let nextPhase: ShifaratGameState['phase'];
   let switchTeam = false;
 
   if (result === 'correct' && newGuessesThisTurn < state.guessesAllowed) {
-    // Correct guess and still have guesses left → keep guessing
     nextPhase = 'team_guessing';
   } else {
-    // Wrong guess, neutral, assassin (handled above), or out of guesses
-    // → end turn, switch teams
     nextPhase = 'turn_result';
     switchTeam = true;
   }
 
-  // If wrong or neutral, add a turn_end log for the switching
-  const newGameLog = [...state.gameLog, logEntry];
+  // Build game log
+  const newGameLog = [...(state.gameLog || []), logEntry];
 
   if (switchTeam) {
+    const now = Date.now();
+    const teamName =
+      state.currentTeam === 'red' ? state.redTeam.name : state.blueTeam.name;
     const switchLog: GameLogEntry = {
       type: 'turn_end',
       team: state.currentTeam,
@@ -471,6 +486,13 @@ export function guessWord(
     newGameLog.push(switchLog);
   }
 
+  console.log('[guessWord] SUCCESS:', {
+    result,
+    nextPhase,
+    switchTeam,
+    newGuessesThisTurn,
+  });
+
   return {
     ...state,
     board: newBoard,
@@ -479,7 +501,6 @@ export function guessWord(
     guessesThisTurn: newGuessesThisTurn,
     phase: nextPhase,
     gameLog: newGameLog,
-    // Keep timer running during guessing phase, stop on turn end
     isTimerActive: nextPhase === 'team_guessing' ? state.isTimerActive : false,
   };
 }
