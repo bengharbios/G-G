@@ -312,8 +312,7 @@ export const useShifaratStore = create<ShifaratStore>()(
         // ── Pre-flight validation ──
         if (!store.board || !Array.isArray(store.board) || store.board.length === 0) {
           console.error('[Shifarat] selectCard: board invalid');
-          setTimeout(() => get().resetGame(), 0);
-          return { result: 'wrong' as const, gameEnded: false, error: 'حالة اللعبة تالفة — جاري إعادة التعيين' };
+          return { result: 'wrong' as const, gameEnded: false, error: 'اللوحة غير جاهزة' };
         }
 
         if (store.phase !== 'clue_given' && store.phase !== 'team_guessing') {
@@ -336,8 +335,7 @@ export const useShifaratStore = create<ShifaratStore>()(
           // Verify the result has a valid board
           if (!newLogicState.board || !Array.isArray(newLogicState.board)) {
             console.error('[Shifarat] guessWord returned invalid board');
-            setTimeout(() => get().resetGame(), 0);
-            return { result: 'wrong' as const, gameEnded: false, error: 'خطأ داخلي — جاري إعادة التعيين' };
+            return { result: 'wrong' as const, gameEnded: false, error: 'خطأ داخلي في تحديث اللوحة' };
           }
 
           // Apply only the game state fields — never spread functions
@@ -351,7 +349,7 @@ export const useShifaratStore = create<ShifaratStore>()(
         } catch (e: unknown) {
           console.error('[Shifarat] selectCard error:', e);
           const msg = (e instanceof Error) ? e.message : String(e);
-          setTimeout(() => get().resetGame(), 0);
+          // Show error but NEVER reset the game — keep the user in their current game
           return { result: 'wrong' as const, gameEnded: false, error: `خطأ تقني: ${msg}` };
         }
       },
