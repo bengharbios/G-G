@@ -398,7 +398,7 @@ export function guessWord(
       timestamp: now,
     };
 
-    return {
+    const newState: ShifaratGameState = {
       ...state,
       board: newBoard,
       redTeam: newRedTeam,
@@ -410,6 +410,8 @@ export function guessWord(
       winReason: gameCheck.reason,
       gameLog: [...(state.gameLog || []), logEntry, gameOverLog],
     };
+
+    return { state: newState, result, gameEnded: true };
   }
 
   // ── Determine next phase ──
@@ -436,7 +438,7 @@ export function guessWord(
     newGameLog.push(switchLog);
   }
 
-  return {
+  const newState: ShifaratGameState = {
     ...state,
     board: newBoard,
     redTeam: newRedTeam,
@@ -446,6 +448,8 @@ export function guessWord(
     gameLog: newGameLog,
     isTimerActive: nextPhase === 'team_guessing' ? state.isTimerActive : false,
   };
+
+  return { state: newState, result, gameEnded: false };
 }
 
 // ─── Pass Turn ──────────────────────────────────────────────
