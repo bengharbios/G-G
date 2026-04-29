@@ -577,3 +577,23 @@ Stage Summary:
 - Root cause: catch block in selectCard returning 'neutral' on any error, masking the real issue
 - Pushed as commit 55fa995 to GitHub (main branch) — Vercel will auto-deploy
 - Key fix: pre-flight validation + proper error handling + persist version bump
+---
+Task ID: 1
+Agent: Main Agent
+Task: Fix stale Service Worker caching old JS — break the chicken-and-egg cycle
+
+Work Log:
+- Analyzed the root cause: old Service Worker (networkFirst strategy) cached stale JS chunks, preventing new code from reaching the browser
+- Identified the chicken-and-egg cycle: new code cannot load because old SW serves old JS, and old SW cannot be updated because new code never loads
+- Added inline cleanup script in layout.tsx <head> that runs BEFORE any JS chunks load — unregisters all SWs and clears all caches using sessionStorage flag (sw-clr-v5)
+- Rewrote sw.js to be a pure push notification handler — NO fetch event listener, NO caching at all
+- Simplified ServiceWorkerRegistrar with updateViaCache: "none"
+- Bumped persist version to 12 to force localStorage reset
+- Pushed as commit 9f6f0a0 (v3.8) to GitHub
+
+Stage Summary:
+- Key fix: Inline <head> script breaks the stale-SW cycle by running before JS chunks load
+- The old SW networkFirst strategy fetches HTML from network first, so the fresh HTML (with cleanup script) WILL reach the browser
+- sw.js now has zero fetch interception — browser handles all caching via standard HTTP + Next.js content hashes
+- Persist v12 ensures corrupted game state from old versions is wiped
+
