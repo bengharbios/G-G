@@ -226,7 +226,9 @@ export const useShifaratStore = create<ShifaratStore>()(
 
       giveClue: (clueWord, clueNumber) => {
         const state = get();
+        console.log('[Shifarat] giveClue called:', { phase: state.phase, clueWord, clueNumber, viewMode: state.viewMode });
         if (state.phase !== 'spymaster_view') {
+          console.warn('[Shifarat] giveClue: wrong phase', state.phase);
           return 'ليست مرحلة إعطاء الدليل';
         }
 
@@ -255,24 +257,27 @@ export const useShifaratStore = create<ShifaratStore>()(
 
       selectCard: (cardId) => {
         const state = get();
+        console.log('[Shifarat] selectCard called:', { cardId, phase: state.phase, guessesThisTurn: state.guessesThisTurn, guessesAllowed: state.guessesAllowed, hasClue: !!state.currentClue });
+        
         if (state.phase !== 'clue_given' && state.phase !== 'team_guessing') {
+          console.warn('[Shifarat] selectCard: wrong phase', state.phase);
           return { result: 'neutral', gameEnded: false };
         }
 
         try {
           const { state: newState, result, gameEnded } = logicGuessWord(state, cardId);
+          console.log('[Shifarat] guessWord result:', { result, gameEnded, newPhase: newState.phase, revealed: newState.board.find(c => c.id === cardId)?.isRevealed });
 
           set({
             ...newState,
             lastGuessResult: result,
-            // If game ended or turn ended, we need to show result
-            viewMode: gameEnded ? 'team' : state.gameMode === 'godfather' ? 'team' : 'team',
+            // Keep current viewMode — don't force 'team' which could cause unmount
           });
 
           get().syncToRoom();
           return { result, gameEnded };
         } catch (e: unknown) {
-          console.error('Guess error:', e);
+          console.error('[Shifarat] Guess error:', e);
           return { result: 'neutral', gameEnded: false };
         }
       },
@@ -390,18 +395,15 @@ export const useShifaratStore = create<ShifaratStore>()(
     }),
     {
       name: 'shifarat-game-storage',
-      version: 5,
+      version: 6,
       // If loaded state is invalid, reset to initial state
       onRehydrateStorage: () => (state) => {
         if (state) {
-          // Fix invalid game states
+          // Only reset for truly broken states (empty board)
+          // DON'T reset for clue_given/team_guessing phases — those are valid states
           const needsReset =
             !state.board ||
-            state.board.length === 0 ||
-            (state.phase !== 'setup' && !state.currentClue &&
-              (state.phase === 'clue_given' || state.phase === 'team_guessing')) ||
-            (state.phase !== 'setup' && state.guessesAllowed === 0 &&
-              (state.phase === 'clue_given' || state.phase === 'team_guessing'));
+            state.board.length === 0;
 
           if (needsReset) {
             // Use setTimeout to avoid setting state during hydration

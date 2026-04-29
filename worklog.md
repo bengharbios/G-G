@@ -469,3 +469,36 @@ Stage Summary:
 - GameWalkthrough.tsx: مكون جديد - شرح تفاعلي من 5 خطوات يظهر تلقائياً عند أول زيارة (localStorage)
 - PlayingPhase.tsx: إضافة PhaseBanner (إرشادات واضحة لكل مرحلة)، CorrectToast (إشعار صغير عند التخمين الصحيح)، تحسين SpymasterView وTurnResultView وTurnSwitchView
 - 0 أخطاء lint جديدة في ملفات الشفارات
+
+---
+Task ID: 1
+Agent: Main Agent
+Task: Fix Shifarat card guessing bugs - correct guess doesn't reveal color, wrong guess reveals card type
+
+Work Log:
+- Analyzed user's screenshot showing the game in guessing phase with no visual feedback after clicking correct card
+- Read all relevant files: PlayingPhase.tsx (1519 lines), shifarat-store.ts, shifarat-types.ts, shifarat-logic.ts
+- Identified 4 root causes:
+  1. handleCardClick used stale closure variables (board, guessesAllowed, guessesThisTurn) — could cause silent failures
+  2. GuessResultOverlay revealed card type for wrong/neutral guesses ("كلمة الفريق الخصم", "كلمة محايدة") violating user's requirement
+  3. isInvalidState auto-reset in PlayingPhase was too aggressive — could reset game during normal gameplay
+  4. Store onRehydrateStorage was incorrectly resetting games in clue_given/team_guessing phases
+  5. selectCard store action was forcing viewMode to 'team' on every guess, which could cause unnecessary re-mounts
+
+- Fixed handleCardClick to read state directly from store via useShifaratStore.getState() instead of closure variables
+- Fixed GuessResultOverlay: wrong and neutral now both show "❌ خطأ!" + "الكلمة لا تخص فريقك — انتهى الدور" (no card type info revealed)
+- Fixed TurnResultView: wrong/neutral subtitle changed to "الكلمة لا تخص فريقك — تم تحويل الدور"
+- Fixed isInvalidState check: now only checks for truly broken state (empty board), removed auto-reset timer
+- Fixed onRehydrateStorage: only resets if board is empty, doesn't check clue/guessing phase validity
+- Fixed selectCard: removed viewMode forcing (was always setting to 'team', causing potential re-mounts)
+- Bumped store persist version to 6 to clear old stale state from localStorage
+- Added console.log debugging to giveClue and selectCard for tracking game flow
+
+Stage Summary:
+- 2 files modified: PlayingPhase.tsx, shifarat-store.ts
+- Key behavior changes:
+  - Correct guess → card color revealed, ✅ overlay shows for 1.5s then dismisses
+  - Wrong guess → ❌ overlay with generic error (no card type revealed), turn switches
+  - Neutral guess → same as wrong (generic error, turn switches)
+  - Assassin guess → 💀 overlay, instant loss announcement
+  - No more aggressive auto-reset during normal gameplay

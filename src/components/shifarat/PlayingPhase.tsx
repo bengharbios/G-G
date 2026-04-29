@@ -198,16 +198,16 @@ function GuessResultOverlay({ result, word, remainingGuesses }: GuessResultOverl
       border: 'border-red-400',
       glow: 'shadow-lg shadow-red-500/30',
       wordColor: 'text-white',
-      extra: 'كلمة الفريق الخصم — انتهى الدور',
+      extra: 'الكلمة لا تخص فريقك — انتهى الدور',
     },
     neutral: {
-      emoji: '⬜',
-      title: 'محايدة!',
-      bg: 'bg-slate-600/90',
-      border: 'border-slate-400',
-      glow: 'shadow-lg shadow-slate-500/20',
+      emoji: '❌',
+      title: 'خطأ!',
+      bg: 'bg-red-700/90',
+      border: 'border-red-400',
+      glow: 'shadow-lg shadow-red-500/30',
       wordColor: 'text-white',
-      extra: 'كلمة محايدة — انتهى الدور',
+      extra: 'الكلمة لا تخص فريقك — انتهى الدور',
     },
     assassin: {
       emoji: '💀',
@@ -1000,10 +1000,12 @@ function TeamGuessingView() {
     // Don't allow clicks while overlay is showing
     if (guessOverlay) return;
 
-    const card = board.find((c) => c.id === cardId);
+    // Read current state directly from the store to avoid stale closures
+    const currentState = useShifaratStore.getState();
+    const card = currentState.board.find((c) => c.id === cardId);
     if (!card || card.isRevealed || card.guessedBy) return;
 
-    const { result, gameEnded } = selectCard(cardId);
+    const { result, gameEnded } = currentState.selectCard(cardId);
 
     // Play sound based on result
     if (result === 'correct') {
@@ -1019,8 +1021,9 @@ function TeamGuessingView() {
       setTimeout(() => playSound('win'), 500);
     }
 
-    // Calculate remaining guesses after this guess
-    const newRemaining = (guessesAllowed - guessesThisTurn) - 1;
+    // Calculate remaining guesses after this guess (read from store)
+    const afterState = useShifaratStore.getState();
+    const newRemaining = (afterState.guessesAllowed - afterState.guessesThisTurn);
 
     // Show result overlay for ALL guess types
     setGuessOverlay({
@@ -1029,15 +1032,15 @@ function TeamGuessingView() {
       remaining: Math.max(0, newRemaining),
     });
 
-    // For correct guesses with remaining guesses, auto-dismiss after 2 seconds
+    // For correct guesses with remaining guesses, auto-dismiss after 1.5 seconds
     // For wrong/neutral/assassin, the phase will change to 'turn_result' which
     // unmounts this component, so the overlay will disappear naturally
     if (result === 'correct' && !gameEnded && newRemaining > 0) {
       overlayTimerRef.current = setTimeout(() => {
         setGuessOverlay(null);
-      }, 2000);
+      }, 1500);
     }
-  }, [selectCard, board, guessesAllowed, guessesThisTurn, guessOverlay]);
+  }, [guessOverlay]);
 
   const handlePass = useCallback(() => {
     passTurn();
@@ -1197,7 +1200,7 @@ function TurnResultView({ onNext }: { onNext: () => void }) {
         return {
           emoji: '❌',
           title: 'خطأ!',
-          subtitle: 'الكلمة لا تخص فريقك — انتهى الدور',
+          subtitle: 'الكلمة لا تخص فريقك — تم تحويل الدور',
           color: 'text-red-400',
           bg: 'bg-red-950/30',
           border: 'border-red-500/30',
@@ -1390,22 +1393,18 @@ export default function PlayingPhase() {
 
   const [showHowToPlay, setShowHowToPlay] = useState(false);
 
-  // ── Safety guard: detect invalid state and offer reset ──
+  // ── Safety guard: detect truly broken state ──
   const isInvalidState =
     !board ||
-    board.length === 0 ||
-    ((phase === 'clue_given' || phase === 'team_guessing') &&
-      (!currentClue || guessesAllowed <= 0));
+    board.length === 0;
 
-  // If invalid state, auto-fix after brief delay
+  // If invalid state, show reset message (but DON'T auto-reset)
+  // Auto-reset was causing issues during normal gameplay
   useEffect(() => {
     if (isInvalidState && phase !== 'setup') {
-      const timer = setTimeout(() => {
-        resetGame();
-      }, 1500);
-      return () => clearTimeout(timer);
+      resetGame();
     }
-  }, [isInvalidState, phase, resetGame]);
+  }, []); // Only check on mount
 
   const handleTransitionReady = useCallback(() => {
     setViewMode('team');
