@@ -188,7 +188,8 @@ function GuessToast({ result, word, remainingGuesses, onDismiss, debugInfo, erro
     return () => clearTimeout(timer);
   }, [result, onDismiss, errorMessage]);
 
-  const config = errorMessage ? {
+  // Determine toast config based on result type or error
+  const toastConfig = errorMessage ? {
     emoji: '⚠️',
     title: 'خطأ تقني!',
     extra: errorMessage,
@@ -230,9 +231,7 @@ function GuessToast({ result, word, remainingGuesses, onDismiss, debugInfo, erro
       border: 'border-red-500',
       shadow: 'shadow-lg shadow-red-900/50',
     },
-  }[result];
-
-  const toastConfig = config[errorMessage ? 'error' : result] || config.correct;
+  }[result]!;
 
   return (
     <motion.div
@@ -1554,7 +1553,7 @@ export default function PlayingPhase() {
       <div className="flex items-center justify-between mb-2 px-1">
         <span className="text-[10px] text-slate-500">الجولة {roundNumber}</span>
         <div className="flex items-center gap-1.5">
-          <span className="text-[8px] text-slate-600/50">v3.0</span>
+          <span className="text-[8px] text-slate-600/50">v3.1</span>
           <button
             onClick={() => setShowHowToPlay(true)}
             className="text-[10px] text-slate-500 hover:text-emerald-400 transition-colors"
