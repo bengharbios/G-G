@@ -176,17 +176,26 @@ interface GuessToastProps {
   word: string;
   remainingGuesses: number;
   onDismiss: () => void;
+  debugInfo?: string;  // Debug info to show
+  errorMessage?: string;  // Actual error message if something went wrong
 }
 
-function GuessToast({ result, word, remainingGuesses, onDismiss }: GuessToastProps) {
+function GuessToast({ result, word, remainingGuesses, onDismiss, debugInfo, errorMessage }: GuessToastProps) {
   // Auto-dismiss after a delay
   useEffect(() => {
-    const delay = result === 'correct' ? 1200 : result === 'assassin' ? 5000 : 2000;
+    const delay = errorMessage ? 5000 : result === 'correct' ? 1200 : result === 'assassin' ? 5000 : 2000;
     const timer = setTimeout(onDismiss, delay);
     return () => clearTimeout(timer);
-  }, [result, onDismiss]);
+  }, [result, onDismiss, errorMessage]);
 
-  const config = {
+  const config = errorMessage ? {
+    emoji: '⚠️',
+    title: 'خطأ تقني!',
+    extra: errorMessage,
+    bg: 'bg-amber-700/95',
+    border: 'border-amber-400',
+    shadow: 'shadow-lg shadow-amber-500/30',
+  } : {
     correct: {
       emoji: '✅',
       title: 'صحيح!',
@@ -223,28 +232,38 @@ function GuessToast({ result, word, remainingGuesses, onDismiss }: GuessToastPro
     },
   }[result];
 
+  const toastConfig = config[errorMessage ? 'error' : result] || config.correct;
+
   return (
     <motion.div
       initial={{ opacity: 0, y: -20, scale: 0.9 }}
       animate={{ opacity: 1, y: 0, scale: 1 }}
       exit={{ opacity: 0, y: -20, scale: 0.9 }}
       transition={{ type: 'spring', stiffness: 400, damping: 25 }}
-      className={`fixed top-4 left-4 right-4 z-50 flex items-center gap-3 px-4 py-3 rounded-xl border ${config.bg} ${config.border} ${config.shadow} backdrop-blur-sm`}
+      className={`fixed top-4 left-4 right-4 z-50 flex flex-col gap-1 px-4 py-3 rounded-xl border ${toastConfig.bg} ${toastConfig.border} ${toastConfig.shadow} backdrop-blur-sm`}
     >
-      <span className="text-2xl flex-shrink-0">{config.emoji}</span>
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-2">
-          <span className="text-sm font-black text-white">{config.title}</span>
-          <span className="text-xs font-bold text-white/80 truncate">— {word}</span>
+      <div className="flex items-center gap-3">
+        <span className="text-2xl flex-shrink-0">{toastConfig.emoji}</span>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-black text-white">{toastConfig.title}</span>
+            {!errorMessage && <span className="text-xs font-bold text-white/80 truncate">— {word}</span>}
+          </div>
+          <p className="text-[10px] text-white/70 mt-0.5">{toastConfig.extra}</p>
         </div>
-        <p className="text-[10px] text-white/70 mt-0.5">{config.extra}</p>
+        <button
+          onClick={onDismiss}
+          className="flex-shrink-0 p-1 rounded-lg hover:bg-white/10 transition-colors"
+        >
+          <X className="w-4 h-4 text-white/60" />
+        </button>
       </div>
-      <button
-        onClick={onDismiss}
-        className="flex-shrink-0 p-1 rounded-lg hover:bg-white/10 transition-colors"
-      >
-        <X className="w-4 h-4 text-white/60" />
-      </button>
+      {/* Debug info — always visible for now to diagnose the bug */}
+      {debugInfo && (
+        <div className="mt-1 pt-1 border-t border-white/10">
+          <p className="text-[8px] text-white/40 font-mono leading-relaxed">🔍 {debugInfo}</p>
+        </div>
+      )}
     </motion.div>
   );
 }
@@ -945,6 +964,8 @@ function TeamGuessingView() {
     result: 'correct' | 'wrong' | 'neutral' | 'assassin';
     word: string;
     remaining: number;
+    debugInfo?: string;
+    errorMessage?: string;
   } | null>(null);
 
   // Keep ref in sync
@@ -1031,12 +1052,15 @@ function TeamGuessingView() {
     isProcessingRef.current = true;
 
     try {
-      const { result, gameEnded } = currentState.selectCard(cardId);
+      const guessResponse = currentState.selectCard(cardId);
+      const { result, gameEnded, error } = guessResponse;
       console.log('[TeamGuessingView] selectCard result:', {
         result,
         gameEnded,
+        error,
         word: card.word,
         cardColor: card.color,
+        currentTeam: currentState.currentTeam,
       });
 
       // Play sound based on result
@@ -1055,11 +1079,16 @@ function TeamGuessingView() {
       const afterState = useShifaratStore.getState();
       const newRemaining = Math.max(0, afterState.guessesAllowed - afterState.guessesThisTurn);
 
+      // Build debug info string
+      const debugStr = `card=${card.word} color=${card.color} team=${currentState.currentTeam} result=${result} phase_before=${currentState.phase} phase_after=${afterState.phase}`;
+
       // Show toast notification (non-blocking!)
       setToast({
         result,
         word: card.word,
         remaining: newRemaining,
+        debugInfo: debugStr,
+        errorMessage: error,
       });
 
       // For correct guesses with remaining guesses, unlock after toast auto-dismisses
@@ -1182,6 +1211,8 @@ function TeamGuessingView() {
             word={toast.word}
             remainingGuesses={toast.remaining}
             onDismiss={dismissToast}
+            debugInfo={toast.debugInfo}
+            errorMessage={toast.errorMessage}
           />
         )}
       </AnimatePresence>
@@ -1523,7 +1554,7 @@ export default function PlayingPhase() {
       <div className="flex items-center justify-between mb-2 px-1">
         <span className="text-[10px] text-slate-500">الجولة {roundNumber}</span>
         <div className="flex items-center gap-1.5">
-          <span className="text-[8px] text-slate-600/50">v2.9</span>
+          <span className="text-[8px] text-slate-600/50">v3.0</span>
           <button
             onClick={() => setShowHowToPlay(true)}
             className="text-[10px] text-slate-500 hover:text-emerald-400 transition-colors"

@@ -295,6 +295,21 @@ export function guessWord(
   // Determine the result based on card color
   let result: 'correct' | 'wrong' | 'neutral' | 'assassin';
 
+  // ── CRITICAL DEBUG: Log every comparison to find the bug ──
+  console.log('[guessWord] CRITICAL DEBUG:', {
+    cardId,
+    cardWord: card.word,
+    cardColor: card.color,
+    cardColorType: typeof card.color,
+    currentTeam: state.currentTeam,
+    currentTeamType: typeof state.currentTeam,
+    strictEqual: card.color === state.currentTeam,
+    phase: state.phase,
+    guessesThisTurn: state.guessesThisTurn,
+    guessesAllowed: state.guessesAllowed,
+    boardChecksum: state.board.map(c => `${c.id}:${c.color[0]}`).join(','),
+  });
+
   if (card.color === 'assassin') {
     result = 'assassin';
   } else if (card.color === state.currentTeam) {
@@ -304,6 +319,15 @@ export function guessWord(
   } else {
     // Opponent's card
     result = 'wrong';
+  }
+
+  // Sanity check: if result is wrong/neutral but card IS the current team's color, something is very wrong
+  if ((result === 'wrong' || result === 'neutral') && card.color === state.currentTeam) {
+    console.error('[guessWord] BUG DETECTED! Card color matches current team but result is not correct!', {
+      cardColor: card.color,
+      currentTeam: state.currentTeam,
+      result,
+    });
   }
 
   // Build the new board:

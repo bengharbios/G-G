@@ -102,7 +102,7 @@ export interface ShifaratStore extends ShifaratPersistState {
   ) => void;
 
   giveClue: (clueWord: string, clueNumber: number) => string | null; // returns error or null
-  selectCard: (cardId: number) => { result: 'correct' | 'wrong' | 'neutral' | 'assassin'; gameEnded: boolean };
+  selectCard: (cardId: number) => { result: 'correct' | 'wrong' | 'neutral' | 'assassin'; gameEnded: boolean; error?: string };
   passTurn: () => void;
   confirmTurnSwitch: () => void;
   tickTimer: () => void;
@@ -257,11 +257,11 @@ export const useShifaratStore = create<ShifaratStore>()(
 
       selectCard: (cardId) => {
         const state = get();
-        console.log('[Shifarat] selectCard called:', { cardId, phase: state.phase, guessesThisTurn: state.guessesThisTurn, guessesAllowed: state.guessesAllowed, hasClue: !!state.currentClue });
+        console.log('[Shifarat] selectCard called:', { cardId, phase: state.phase, guessesThisTurn: state.guessesThisTurn, guessesAllowed: state.guessesAllowed, hasClue: !!state.currentClue, currentTeam: state.currentTeam });
         
         if (state.phase !== 'clue_given' && state.phase !== 'team_guessing') {
           console.warn('[Shifarat] selectCard: wrong phase', state.phase);
-          return { result: 'neutral', gameEnded: false };
+          return { result: 'wrong' as const, gameEnded: false, error: `خطأ في المرحلة: ${state.phase}` };
         }
 
         try {
@@ -306,7 +306,8 @@ export const useShifaratStore = create<ShifaratStore>()(
           return { result, gameEnded };
         } catch (e: unknown) {
           console.error('[Shifarat] Guess error:', e);
-          return { result: 'neutral', gameEnded: false };
+          const errorMsg = (e instanceof Error) ? e.message : 'خطأ غير معروف';
+          return { result: 'neutral' as const, gameEnded: false, error: errorMsg };
         }
       },
 
