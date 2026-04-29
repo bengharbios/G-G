@@ -390,7 +390,27 @@ export const useShifaratStore = create<ShifaratStore>()(
     }),
     {
       name: 'shifarat-game-storage',
-      version: 2, // Bump version to clear old persisted state
+      version: 3,
+      // If loaded state is invalid, reset to initial state
+      onRehydrateStorage: () => (state) => {
+        if (state) {
+          // Fix invalid game states
+          const needsReset =
+            !state.board ||
+            state.board.length === 0 ||
+            (state.phase !== 'setup' && !state.currentClue &&
+              (state.phase === 'clue_given' || state.phase === 'team_guessing')) ||
+            (state.phase !== 'setup' && state.guessesAllowed === 0 &&
+              (state.phase === 'clue_given' || state.phase === 'team_guessing'));
+
+          if (needsReset) {
+            // Use setTimeout to avoid setting state during hydration
+            setTimeout(() => {
+              useShifaratStore.getState().resetGame();
+            }, 0);
+          }
+        }
+      },
       partialize: (state) => {
         const { formattedTimer, getTeamName, giveClue, selectCard, passTurn, confirmTurnSwitch, tickTimer, resetGame, startGame, setGameMode, setHostName, setRoomCode, setViewMode, syncToRoom, ...rest } = state;
         return rest as ShifaratPersistState;

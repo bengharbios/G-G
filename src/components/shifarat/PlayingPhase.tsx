@@ -1232,9 +1232,30 @@ export default function PlayingPhase() {
     redTeam,
     blueTeam,
     roundNumber,
+    board,
+    currentClue,
+    guessesAllowed,
+    resetGame,
   } = useShifaratStore();
 
   const [showHowToPlay, setShowHowToPlay] = useState(false);
+
+  // ── Safety guard: detect invalid state and offer reset ──
+  const isInvalidState =
+    !board ||
+    board.length === 0 ||
+    ((phase === 'clue_given' || phase === 'team_guessing') &&
+      (!currentClue || guessesAllowed <= 0));
+
+  // If invalid state, auto-fix after brief delay
+  useEffect(() => {
+    if (isInvalidState && phase !== 'setup') {
+      const timer = setTimeout(() => {
+        resetGame();
+      }, 1500);
+      return () => clearTimeout(timer);
+    }
+  }, [isInvalidState, phase, resetGame]);
 
   const handleTransitionReady = useCallback(() => {
     setViewMode('team');
@@ -1247,6 +1268,41 @@ export default function PlayingPhase() {
   const handleTurnSwitchContinue = useCallback(() => {
     confirmTurnSwitch();
   }, [confirmTurnSwitch]);
+
+  // If invalid state, show reset message
+  if (isInvalidState) {
+    return (
+      <div className="flex flex-col min-h-screen py-2 px-3 sm:px-4" dir="rtl">
+        <TeamScores />
+        <div className="flex-1 flex flex-col items-center justify-center">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="text-center p-6"
+          >
+            <div className="text-4xl mb-3">⚠️</div>
+            <h2 className="text-lg font-bold text-slate-200 mb-2">
+              حالة اللعبة غير صالحة
+            </h2>
+            <p className="text-sm text-slate-400 mb-4">
+              يبدو أن حالة اللعبة السابقة تضررت. سيتم إعادة التعيين تلقائيًا...
+            </p>
+            <Button
+              onClick={resetGame}
+              className="font-bold text-sm"
+              style={{
+                background: 'linear-gradient(to left, #059669, #10b981)',
+                borderRadius: '0.75rem',
+              }}
+            >
+              <RotateCcw className="w-4 h-4 ml-2" />
+              إعادة تعيين اللعبة
+            </Button>
+          </motion.div>
+        </div>
+      </div>
+    );
+  }
 
   const renderContent = () => {
     if (phase === 'game_over') return null;
