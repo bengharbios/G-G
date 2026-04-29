@@ -540,3 +540,40 @@ Stage Summary:
 - 2 files modified: PlayingPhase.tsx, shifarat-store.ts
 - Key fixes: useRef for click guards, useEffect for ref sync, try/catch error recovery, comprehensive logging, persist version bump
 - Pushed to GitHub: commit 7e013cc
+---
+Task ID: 1
+Agent: main
+Task: Fix Shifarat card guessing bug — correct guesses rejected as 'neutral'
+
+Work Log:
+- Analyzed debug output: `card=أفعى color=red team=red result=neutral` revealed the ROOT CAUSE
+- Traced through selectCard → guessWord call chain
+- Found that `guessWord` was throwing an error ("Cannot read properties of undefined (reading 'board')")
+- The catch block in `selectCard` was returning `{ result: 'neutral' }` as a fallback for ANY error
+- This masked the real error and caused three cascading bugs:
+  1. Correct team cards showed "الكلمة لا تخص فريقك" (wrong toast)
+  2. Turn never switched (phase stayed 'clue_given')
+  3. Timer kept running (state stuck)
+
+- Fixed `selectCard` in shifarat-store.ts:
+  - Added pre-flight validation for board/state/currentTeam before calling logic
+  - Changed catch block to return 'wrong' instead of 'neutral' on error
+  - Forces game reset on corrupted state
+  - Better error messages for debugging
+
+- Simplified `guessWord` in shifarat-logic.ts:
+  - Removed excessive try-catch wrappers (STEP 1-4) that hid errors
+  - Let errors propagate naturally to selectCard's catch block
+
+- Bumped Zustand persist from v9 to v10 to force-clear ALL stale localStorage state
+
+- Cleaned up PlayingPhase.tsx:
+  - Removed debug instrumentation (🔍 lines)
+  - Removed debugInfo from toast interface
+  - Cleaned up handleCardClick (removed console.logs)
+  - Updated version to v3.3
+
+Stage Summary:
+- Root cause: catch block in selectCard returning 'neutral' on any error, masking the real issue
+- Pushed as commit 55fa995 to GitHub (main branch) — Vercel will auto-deploy
+- Key fix: pre-flight validation + proper error handling + persist version bump
