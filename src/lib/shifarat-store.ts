@@ -101,7 +101,7 @@ export interface ShifaratStore extends ShifaratPersistState {
     blueSpymaster?: string,
   ) => void;
 
-  giveClue: (clueWord: string, clueNumber: number) => string | null; // returns error or null
+  giveClue: (clueWord: string, clueNumber: number) => string | null;
   selectCard: (cardId: number) => { result: 'correct' | 'wrong' | 'neutral' | 'assassin'; gameEnded: boolean; error?: string };
   passTurn: () => void;
   confirmTurnSwitch: () => void;
@@ -151,6 +151,64 @@ const initialState: ShifaratPersistState = {
   players: [],
 };
 
+// ─── Helper: Extract pure game state from Zustand store ─────
+// This is CRITICAL. Never pass the full Zustand proxy (which
+// includes functions) to pure logic functions. Always extract
+// only the ShifaratGameState fields as plain objects.
+
+function extractGameState(store: ShifaratStore): ShifaratGameState {
+  return {
+    board: store.board,
+    redTeam: { ...store.redTeam },
+    blueTeam: { ...store.blueTeam },
+    startingTeam: store.startingTeam,
+    currentTeam: store.currentTeam,
+    phase: store.phase,
+    roundNumber: store.roundNumber,
+    currentClue: store.currentClue ? { ...store.currentClue } : null,
+    guessesThisTurn: store.guessesThisTurn,
+    guessesAllowed: store.guessesAllowed,
+    timerDuration: store.timerDuration,
+    timerRemaining: store.timerRemaining,
+    isTimerActive: store.isTimerActive,
+    clues: store.clues.map(c => ({ ...c })),
+    gameLog: store.gameLog.map(e => ({ ...e })),
+    gameMode: store.gameMode ?? 'godfather',
+    roomCode: store.roomCode,
+    hostName: store.hostName,
+    winner: store.winner,
+    winReason: store.winReason,
+    selectedCategories: store.selectedCategories,
+  };
+}
+
+// ─── Helper: Apply pure logic result back to store ───────────
+// Only set the specific fields that logic functions return,
+// never spread the full result object.
+
+function applyLogicResult(logicState: ShifaratGameState) {
+  return {
+    board: logicState.board,
+    redTeam: logicState.redTeam,
+    blueTeam: logicState.blueTeam,
+    startingTeam: logicState.startingTeam,
+    currentTeam: logicState.currentTeam,
+    phase: logicState.phase,
+    roundNumber: logicState.roundNumber,
+    currentClue: logicState.currentClue,
+    guessesThisTurn: logicState.guessesThisTurn,
+    guessesAllowed: logicState.guessesAllowed,
+    timerDuration: logicState.timerDuration,
+    timerRemaining: logicState.timerRemaining,
+    isTimerActive: logicState.isTimerActive,
+    clues: logicState.clues,
+    gameLog: logicState.gameLog,
+    winner: logicState.winner,
+    winReason: logicState.winReason,
+    selectedCategories: logicState.selectedCategories,
+  };
+}
+
 // ─── Store definition ───────────────────────────────────────
 
 export const useShifaratStore = create<ShifaratStore>()(
@@ -178,17 +236,14 @@ export const useShifaratStore = create<ShifaratStore>()(
         redSpymaster,
         blueSpymaster,
       ) => {
-        // Generate 25 random words from selected categories
         const boardWords = getBoardWords();
         if (boardWords.length < 25) {
           console.error('Not enough words to generate board');
           return;
         }
 
-        // Generate the board with color assignments
         const board = generateBoard(boardWords, firstTeam);
 
-        // Create initial state with the board
         const state = createInitialState({
           gameMode: get().gameMode ?? 'godfather',
           timerDuration: timerSeconds,
@@ -200,21 +255,15 @@ export const useShifaratStore = create<ShifaratStore>()(
           hostName: get().hostName ?? undefined,
         });
 
-        // Override board
         state.board = board;
-
-        // Set spymasters
         if (redSpymaster) state.redTeam.spymaster = redSpymaster;
         if (blueSpymaster) state.blueTeam.spymaster = blueSpymaster;
-
-        // Set phase to spymaster_view for the first turn
         state.phase = 'spymaster_view';
 
-        // In godfather mode, start with spymaster view
         const viewMode = get().gameMode === 'godfather' ? 'spymaster' : 'team';
 
         set({
-          ...state,
+          ...applyLogicResult(state),
           viewMode,
           players: get().players,
         });
@@ -225,113 +274,100 @@ export const useShifaratStore = create<ShifaratStore>()(
       // ── Give clue (spymaster action) ──
 
       giveClue: (clueWord, clueNumber) => {
-        const state = get();
-        if (state.phase !== 'spymaster_view') {
+        const store = get();
+        if (store.phase !== 'spymaster_view') {
           return 'ليست مرحلة إعطاء الدليل';
         }
 
-        // Validate clue
-        if (!isValidClue(clueWord, state.board)) {
+        if (!store.board || store.board.length === 0) {
+          return 'اللوحة غير جاهزة — أعد بدء اللعبة';
+        }
+
+        if (!isValidClue(clueWord, store.board)) {
           return 'كلمة الدليل غير صالحة (موجودة على اللوحة أو مشابهة لكلمة عليها)';
         }
 
         try {
-          const newState = logicGiveClue(state, clueWord, clueNumber);
+          const gameState = extractGameState(store);
+          const newState = logicGiveClue(gameState, clueWord, clueNumber);
 
           set({
-            ...newState,
-            // In godfather mode, switch to team view after giving clue
-            viewMode: state.gameMode === 'godfather' ? 'transition' : 'team',
+            ...applyLogicResult(newState),
+            viewMode: store.gameMode === 'godfather' ? 'transition' : 'team',
           });
 
           get().syncToRoom();
-          return null; // success
+          return null;
         } catch (e: unknown) {
-          return (e as Error).message;
+          console.error('[Shifarat] giveClue error:', e);
+          return (e instanceof Error) ? e.message : 'خطأ غير معروف';
         }
       },
 
       // ── Select/guess a card (team action) ──
 
       selectCard: (cardId) => {
-        const state = get();
-        
-        // ── PRE-FLIGHT VALIDATION: Check state integrity BEFORE calling logic ──
-        if (!state || !state.board || !Array.isArray(state.board) || state.board.length === 0) {
-          console.error('[Shifarat] selectCard: Invalid state — board is missing or empty', {
-            hasState: !!state,
-            hasBoard: !!state?.board,
-            boardLen: state?.board?.length,
-          });
-          // Force reset and return error
+        const store = get();
+
+        // ── Pre-flight validation ──
+        if (!store.board || !Array.isArray(store.board) || store.board.length === 0) {
+          console.error('[Shifarat] selectCard: board invalid');
           setTimeout(() => get().resetGame(), 0);
-          return { result: 'wrong' as const, gameEnded: false, error: 'حالة اللعبة تالفة — تم إعادة التعيين' };
-        }
-        
-        if (!state.currentTeam) {
-          console.error('[Shifarat] selectCard: currentTeam is missing', state.currentTeam);
-          setTimeout(() => get().resetGame(), 0);
-          return { result: 'wrong' as const, gameEnded: false, error: 'حالة اللعبة تالفة — تم إعادة التعيين' };
+          return { result: 'wrong' as const, gameEnded: false, error: 'حالة اللعبة تالفة — جاري إعادة التعيين' };
         }
 
-        if (state.phase !== 'clue_given' && state.phase !== 'team_guessing') {
-          console.warn('[Shifarat] selectCard: wrong phase', state.phase);
-          return { result: 'wrong' as const, gameEnded: false, error: `خطأ في المرحلة: ${state.phase}` };
+        if (store.phase !== 'clue_given' && store.phase !== 'team_guessing') {
+          return { result: 'wrong' as const, gameEnded: false, error: `خطأ في المرحلة` };
         }
 
-        // Verify the card exists on the board
-        const card = state.board.find((c) => c.id === cardId);
-        if (!card) {
-          console.error('[Shifarat] selectCard: Card not found', { cardId, boardLen: state.board.length });
-          return { result: 'wrong' as const, gameEnded: false, error: `البطاقة غير موجودة` };
-        }
-        if (card.isRevealed || card.guessedBy) {
-          console.warn('[Shifarat] selectCard: Card already guessed', { cardId, word: card.word });
-          return { result: 'wrong' as const, gameEnded: false, error: `البطاقة تم تخمينها بالفعل` };
+        const card = store.board.find((c) => c.id === cardId);
+        if (!card || card.isRevealed || card.guessedBy) {
+          return { result: 'wrong' as const, gameEnded: false, error: 'البطاقة غير متاحة' };
         }
 
         try {
-          // Call the pure logic function with validated state
-          const guessResult = logicGuessWord(state, cardId);
-          const { state: newState, result, gameEnded } = guessResult;
+          // Extract PLAIN game state — no proxy, no functions
+          const gameState = extractGameState(store);
 
-          // Verify the returned state is valid before applying
-          if (!newState || !newState.board || !Array.isArray(newState.board)) {
-            console.error('[Shifarat] guessWord returned invalid state:', {
-              hasNewState: !!newState,
-              hasBoard: !!newState?.board,
-            });
-            return { result: 'wrong' as const, gameEnded: false, error: 'خطأ داخلي في تحديث اللوحة' };
+          // Call pure logic
+          const guessResult = logicGuessWord(gameState, cardId);
+          const { state: newLogicState, result, gameEnded } = guessResult;
+
+          // Verify the result has a valid board
+          if (!newLogicState.board || !Array.isArray(newLogicState.board)) {
+            console.error('[Shifarat] guessWord returned invalid board');
+            setTimeout(() => get().resetGame(), 0);
+            return { result: 'wrong' as const, gameEnded: false, error: 'خطأ داخلي — جاري إعادة التعيين' };
           }
 
-          // Apply the state update
+          // Apply only the game state fields — never spread functions
           set({
-            ...newState,
+            ...applyLogicResult(newLogicState),
             lastGuessResult: result,
-          } as Partial<ShifaratPersistState>);
+          });
 
           get().syncToRoom();
-          
           return { result, gameEnded };
         } catch (e: unknown) {
-          console.error('[Shifarat] Guess error — FULL TRACE:', e);
-          const errorMsg = (e instanceof Error) ? e.message : 'خطأ غير معروف';
-          // DON'T return 'neutral' — return 'wrong' so the UI shows a proper error
-          // and the turn doesn't get stuck in guessing phase
-          return { result: 'wrong' as const, gameEnded: false, error: `خطأ تقني: ${errorMsg}` };
+          console.error('[Shifarat] selectCard error:', e);
+          const msg = (e instanceof Error) ? e.message : String(e);
+          setTimeout(() => get().resetGame(), 0);
+          return { result: 'wrong' as const, gameEnded: false, error: `خطأ تقني: ${msg}` };
         }
       },
 
       // ── Pass turn (team gives up remaining guesses) ──
 
       passTurn: () => {
-        const state = get();
-        if (state.phase !== 'clue_given' && state.phase !== 'team_guessing') return;
+        const store = get();
+        if (store.phase !== 'clue_given' && store.phase !== 'team_guessing') return;
 
-        const newState = logicPassTurn(state);
+        const gameState = extractGameState(store);
+        const newState = logicPassTurn(gameState);
+
         set({
-          ...newState,
-          viewMode: state.gameMode === 'godfather' ? 'transition' : 'team',
+          ...applyLogicResult(newState),
+          viewMode: store.gameMode === 'godfather' ? 'transition' : 'team',
         });
 
         get().syncToRoom();
@@ -340,24 +376,25 @@ export const useShifaratStore = create<ShifaratStore>()(
       // ── Confirm turn switch (after seeing result) ──
 
       confirmTurnSwitch: () => {
-        const state = get();
-        if (state.phase === 'game_over') return;
+        const store = get();
+        if (store.phase === 'game_over') return;
 
-        if (state.phase === 'turn_result' || state.phase === 'turn_switch') {
-          const newState = logicSwitchTurn(state);
+        if (store.phase === 'turn_result' || store.phase === 'turn_switch') {
+          const gameState = extractGameState(store);
+          const newState = logicSwitchTurn(gameState);
           set({
-            ...newState,
-            viewMode: state.gameMode === 'godfather' ? 'spymaster' : 'team',
+            ...applyLogicResult(newState),
+            viewMode: store.gameMode === 'godfather' ? 'spymaster' : 'team',
             lastGuessResult: null,
           });
           get().syncToRoom();
-        } else if (state.phase === 'clue_given' || state.phase === 'team_guessing') {
-          // If team hasn't guessed yet, just switch
-          const newState = logicPassTurn(state);
-          const switchedState = logicSwitchTurn(newState);
+        } else if (store.phase === 'clue_given' || store.phase === 'team_guessing') {
+          const gameState = extractGameState(store);
+          const passState = logicPassTurn(gameState);
+          const newState = logicSwitchTurn(passState);
           set({
-            ...switchedState,
-            viewMode: state.gameMode === 'godfather' ? 'spymaster' : 'team',
+            ...applyLogicResult(newState),
+            viewMode: store.gameMode === 'godfather' ? 'spymaster' : 'team',
             lastGuessResult: null,
           });
           get().syncToRoom();
@@ -367,10 +404,11 @@ export const useShifaratStore = create<ShifaratStore>()(
       // ── Tick timer ──
 
       tickTimer: () => {
-        const state = get();
-        const newState = logicTickTimer(state);
+        const store = get();
+        const gameState = extractGameState(store);
+        const newState = logicTickTimer(gameState);
         set({
-          ...newState,
+          ...applyLogicResult(newState),
           formattedTimer: formatTimer(newState.timerRemaining),
         });
       },
@@ -378,9 +416,9 @@ export const useShifaratStore = create<ShifaratStore>()(
       // ── Reset game ──
 
       resetGame: () => {
-        const state = get();
-        if (state.roomCode && state.gameMode === 'diwaniya') {
-          endRoomSession(state.roomCode);
+        const store = get();
+        if (store.roomCode && store.gameMode === 'diwaniya') {
+          endRoomSession(store.roomCode);
         }
         set({
           ...initialState,
@@ -391,32 +429,32 @@ export const useShifaratStore = create<ShifaratStore>()(
       // ── Room sync ──
 
       syncToRoom: () => {
-        const state = get();
-        if (!state.roomCode) return;
+        const store = get();
+        if (!store.roomCode) return;
 
         const syncData = {
-          board: state.board,
-          redTeam: state.redTeam,
-          blueTeam: state.blueTeam,
-          currentTeam: state.currentTeam,
-          phase: state.phase,
-          currentClue: state.currentClue,
-          guessesThisTurn: state.guessesThisTurn,
-          guessesAllowed: state.guessesAllowed,
-          lastGuessResult: state.lastGuessResult,
-          timerRemaining: state.timerRemaining,
-          roundNumber: state.roundNumber,
-          clues: state.clues,
-          gameLog: state.gameLog,
-          winner: state.winner,
-          winReason: state.winReason,
+          board: store.board,
+          redTeam: store.redTeam,
+          blueTeam: store.blueTeam,
+          currentTeam: store.currentTeam,
+          phase: store.phase,
+          currentClue: store.currentClue,
+          guessesThisTurn: store.guessesThisTurn,
+          guessesAllowed: store.guessesAllowed,
+          lastGuessResult: store.lastGuessResult,
+          timerRemaining: store.timerRemaining,
+          roundNumber: store.roundNumber,
+          clues: store.clues,
+          gameLog: store.gameLog,
+          winner: store.winner,
+          winReason: store.winReason,
         };
 
-        syncRoomState(state.roomCode, {
-          phase: state.phase,
-          round: state.roundNumber,
+        syncRoomState(store.roomCode, {
+          phase: store.phase,
+          round: store.roundNumber,
           stateJson: JSON.stringify(syncData),
-          players: state.players.map((p) => ({
+          players: store.players.map((p) => ({
             name: p.name,
             role: p.team === 'red' ? 'team1' : 'team2',
             isAlive: true,
@@ -429,33 +467,24 @@ export const useShifaratStore = create<ShifaratStore>()(
       // ── Computed helpers ──
 
       getTeamName: (team) => {
-        const state = get();
-        return team === 'red' ? state.redTeam.name : state.blueTeam.name;
+        const store = get();
+        return team === 'red' ? store.redTeam.name : store.blueTeam.name;
       },
     }),
     {
       name: 'shifarat-game-storage',
-      version: 10,
+      version: 11,
       migrate: (persisted, version) => {
-        // Force a clean reset for any version below 10
-        // This fixes stale state issues with card colors and guessing logic
-        if (version < 10) {
-          console.log('[Shifarat] Migrating from version', version, 'to 10 — resetting game state');
+        // Force a clean reset for any version below 11
+        if (version < 11) {
+          console.log('[Shifarat] Migrating from version', version, 'to 11 — resetting');
           return initialState as unknown as typeof persisted;
         }
         return persisted;
       },
-      // If loaded state is invalid, reset to initial state
       onRehydrateStorage: () => (state) => {
         if (state) {
-          // Only reset for truly broken states (empty board)
-          // DON'T reset for clue_given/team_guessing phases — those are valid states
-          const needsReset =
-            !state.board ||
-            state.board.length === 0;
-
-          if (needsReset) {
-            // Use setTimeout to avoid setting state during hydration
+          if (!state.board || state.board.length === 0) {
             setTimeout(() => {
               useShifaratStore.getState().resetGame();
             }, 0);
@@ -463,7 +492,11 @@ export const useShifaratStore = create<ShifaratStore>()(
         }
       },
       partialize: (state) => {
-        const { formattedTimer, getTeamName, giveClue, selectCard, passTurn, confirmTurnSwitch, tickTimer, resetGame, startGame, setGameMode, setHostName, setRoomCode, setViewMode, syncToRoom, ...rest } = state;
+        const {
+          formattedTimer, getTeamName, giveClue, selectCard, passTurn,
+          confirmTurnSwitch, tickTimer, resetGame, startGame, setGameMode,
+          setHostName, setRoomCode, setViewMode, syncToRoom, ...rest
+        } = state;
         return rest as ShifaratPersistState;
       },
     }
