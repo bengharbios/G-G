@@ -1,27 +1,27 @@
-const CACHE_NAME = 'ggames-v2';
+const CACHE_NAME = 'ggames-v3';
 
 // Critical assets to pre-cache on install
 const CRITICAL_ASSETS = [
   '/',
-  '/voice-rooms',
   '/manifest.json',
   '/icons/icon-192.png',
   '/icons/icon-512.png',
 ];
 
-// Install event - cache critical assets
+// Install event - cache critical assets only
 self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => {
       console.log('[SW] Pre-caching critical assets');
-      return cache.addAll(CRITICAL_ASSETS);
+      return cache.addAll(CRITICAL_ASSETS).catch(err => {
+        console.warn('[SW] Some assets failed to pre-cache:', err);
+      });
     })
   );
-  // Activate immediately without waiting for old service worker to finish
   self.skipWaiting();
 });
 
-// Activate event - clean up old caches
+// Activate event - clean up ALL old caches
 self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches.keys().then((cacheNames) => {
@@ -35,26 +35,30 @@ self.addEventListener('activate', (event) => {
       );
     })
   );
-  // Take control of all clients immediately
   self.clients.claim();
 });
 
-// Fetch event - cache-first for static, network-first for API
+// Fetch event - ONLY cache true static assets (images, fonts, icons)
+// NEVER cache .js files — Next.js handles its own caching with hashes
 self.addEventListener('fetch', (event) => {
   const { request } = event;
   const url = new URL(request.url);
 
-  // Network-first for API calls
-  if (url.pathname.startsWith('/api/')) {
-    event.respondWith(networkFirst(request));
+  // Never cache API calls or navigation requests
+  if (url.pathname.startsWith('/api/') || request.mode === 'navigate') {
+    event.respondWith(fetch(request));
     return;
   }
 
-  // Cache-first for static assets (images, CSS, JS, fonts)
-  if (
+  // Never cache POST/PUT/DELETE requests
+  if (request.method !== 'GET') {
+    event.respondWith(fetch(request));
+    return;
+  }
+
+  // Only cache true static assets — NOT .js files
+  const isStaticAsset =
     request.destination === 'image' ||
-    request.destination === 'style' ||
-    request.destination === 'script' ||
     request.destination === 'font' ||
     url.pathname.startsWith('/icons/') ||
     url.pathname.startsWith('/img/') ||
@@ -66,19 +70,20 @@ self.addEventListener('fetch', (event) => {
     url.pathname.endsWith('.webp') ||
     url.pathname.endsWith('.mp3') ||
     url.pathname.endsWith('.woff2') ||
-    url.pathname.endsWith('.woff') ||
-    url.pathname.endsWith('.css') ||
-    url.pathname.endsWith('.js')
-  ) {
+    url.pathname.endsWith('.woff');
+
+  if (isStaticAsset) {
     event.respondWith(cacheFirst(request));
     return;
   }
 
-  // Network-first for HTML pages
-  event.respondWith(networkFirst(request));
+  // For everything else (HTML, JS, CSS) — always go to network
+  // Next.js uses content hashes for cache busting, so the browser
+  // will naturally cache unchanged files via standard HTTP caching
+  event.respondWith(fetch(request));
 });
 
-// Cache-first strategy for static assets
+// Cache-first strategy for static assets only
 async function cacheFirst(request) {
   const cachedResponse = await caches.match(request);
   if (cachedResponse) {
@@ -86,7 +91,7 @@ async function cacheFirst(request) {
   }
   try {
     const networkResponse = await fetch(request);
-    if (networkResponse.ok) {
+    if (networkResponse.ok && networkResponse.status === 200) {
       const cache = await caches.open(CACHE_NAME);
       cache.put(request, networkResponse.clone());
     }
@@ -97,33 +102,10 @@ async function cacheFirst(request) {
   }
 }
 
-// Network-first strategy for API calls and pages
-async function networkFirst(request) {
-  try {
-    const networkResponse = await fetch(request);
-    if (networkResponse.ok) {
-      const cache = await caches.open(CACHE_NAME);
-      cache.put(request, networkResponse.clone());
-    }
-    return networkResponse;
-  } catch (error) {
-    const cachedResponse = await caches.match(request);
-    if (cachedResponse) {
-      return cachedResponse;
-    }
-    console.log('[SW] Network-first fetch failed, no cache:', request.url, error);
-    return new Response('Offline', { status: 503, statusText: 'Service Unavailable' });
-  }
-}
-
 /* ═══════════════════════════════════════════════════════════════════════
    Push Notification Handlers
-   
-   Handles incoming Web Push messages from the server.
-   Displays native notifications with Arabic RTL support.
    ═══════════════════════════════════════════════════════════════════════ */
 
-// Push notification event
 self.addEventListener('push', (event) => {
   let data = {
     title: 'G-Games',
@@ -176,7 +158,6 @@ self.addEventListener('push', (event) => {
       data: data.data,
       vibrate: data.vibrate,
       requireInteraction: data.requireInteraction,
-      // Android-specific actions
       actions: [
         { action: 'open', title: 'فتح' },
         { action: 'dismiss', title: 'إغلاق' },
@@ -185,34 +166,22 @@ self.addEventListener('push', (event) => {
   );
 });
 
-// Notification click event
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
 
-  // Handle action buttons
-  if (event.action === 'dismiss') {
-    return;
-  }
+  if (event.action === 'dismiss') return;
 
   const targetUrl = event.notification.data?.url || '/voice-rooms';
 
   event.waitUntil(
     self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
-      // Focus existing window if available
       for (const client of clientList) {
         if ('focus' in client) {
-          // If already on the target page, just focus
-          if (client.url.includes(targetUrl)) {
-            return client.focus();
-          }
-          // Otherwise navigate to target
+          if (client.url.includes(targetUrl)) return client.focus();
           return client.navigate(targetUrl).then(() => client.focus());
         }
       }
-      // Open new window if none exists
-      if (self.clients.openWindow) {
-        return self.clients.openWindow(targetUrl);
-      }
+      if (self.clients.openWindow) return self.clients.openWindow(targetUrl);
     })
   );
 });

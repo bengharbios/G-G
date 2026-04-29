@@ -307,24 +307,24 @@ export const useShifaratStore = create<ShifaratStore>()(
       // ── Select/guess a card (team action) ──
 
       selectCard: (cardId) => {
-        const store = get();
-
-        // ── Pre-flight validation ──
-        if (!store.board || !Array.isArray(store.board) || store.board.length === 0) {
-          console.error('[Shifarat] selectCard: board invalid');
-          return { result: 'wrong' as const, gameEnded: false, error: 'اللوحة غير جاهزة' };
-        }
-
-        if (store.phase !== 'clue_given' && store.phase !== 'team_guessing') {
-          return { result: 'wrong' as const, gameEnded: false, error: `خطأ في المرحلة` };
-        }
-
-        const card = store.board.find((c) => c.id === cardId);
-        if (!card || card.isRevealed || card.guessedBy) {
-          return { result: 'wrong' as const, gameEnded: false, error: 'البطاقة غير متاحة' };
-        }
-
         try {
+          const store = get();
+
+          // ── Pre-flight validation ──
+          if (!store || !store.board || !Array.isArray(store.board) || store.board.length === 0) {
+            console.error('[Shifarat] selectCard: board invalid');
+            return { result: 'wrong' as const, gameEnded: false, error: 'اللوحة غير جاهزة' };
+          }
+
+          if (store.phase !== 'clue_given' && store.phase !== 'team_guessing') {
+            return { result: 'wrong' as const, gameEnded: false, error: 'خطأ في المرحلة' };
+          }
+
+          const card = store.board.find((c) => c.id === cardId);
+          if (!card || card.isRevealed || card.guessedBy) {
+            return { result: 'wrong' as const, gameEnded: false, error: 'البطاقة غير متاحة' };
+          }
+
           // Extract PLAIN game state — no proxy, no functions
           const gameState = extractGameState(store);
 
@@ -349,7 +349,6 @@ export const useShifaratStore = create<ShifaratStore>()(
         } catch (e: unknown) {
           console.error('[Shifarat] selectCard error:', e);
           const msg = (e instanceof Error) ? e.message : String(e);
-          // Show error but NEVER reset the game — keep the user in their current game
           return { result: 'wrong' as const, gameEnded: false, error: `خطأ تقني: ${msg}` };
         }
       },

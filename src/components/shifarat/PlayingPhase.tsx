@@ -1518,7 +1518,7 @@ export default function PlayingPhase() {
       <div className="flex items-center justify-between mb-2 px-1">
         <span className="text-[10px] text-slate-500">الجولة {roundNumber}</span>
         <div className="flex items-center gap-1.5">
-          <span className="text-[8px] text-slate-600/50">v3.6</span>
+          <span className="text-[8px] text-slate-600/50">v3.7</span>
           <button
             onClick={() => setShowHowToPlay(true)}
             className="text-[10px] text-slate-500 hover:text-emerald-400 transition-colors"
