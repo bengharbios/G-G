@@ -275,8 +275,13 @@ export const useShifaratStore = create<ShifaratStore>()(
             revealed: updatedCard?.isRevealed,
             guessedBy: updatedCard?.guessedBy,
             cardColor: updatedCard?.color,
+            currentTeam: state.currentTeam,
+            cardWord: updatedCard?.word,
+            cardId,
             redScore: newState.redTeam.score,
             blueScore: newState.blueTeam.score,
+            redWordsRemaining: newState.redTeam.wordsRemaining,
+            blueWordsRemaining: newState.blueTeam.wordsRemaining,
           });
 
           // Build the complete new state from the logic result
@@ -418,12 +423,12 @@ export const useShifaratStore = create<ShifaratStore>()(
     }),
     {
       name: 'shifarat-game-storage',
-      version: 8,
+      version: 9,
       migrate: (persisted, version) => {
-        // If upgrading from version 7 or lower, force a clean reset
-        // to avoid stale state issues with the new guessing logic
-        if (version < 8) {
-          console.log('[Shifarat] Migrating from version', version, 'to 8 — resetting game state');
+        // Force a clean reset for any version below 9
+        // This fixes stale state issues with card colors and guessing logic
+        if (version < 9) {
+          console.log('[Shifarat] Migrating from version', version, 'to 9 — resetting game state');
           return initialState as unknown as typeof persisted;
         }
         return persisted;
