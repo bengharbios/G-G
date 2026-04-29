@@ -226,9 +226,7 @@ export const useShifaratStore = create<ShifaratStore>()(
 
       giveClue: (clueWord, clueNumber) => {
         const state = get();
-        console.log('[Shifarat] giveClue called:', { phase: state.phase, clueWord, clueNumber, viewMode: state.viewMode });
         if (state.phase !== 'spymaster_view') {
-          console.warn('[Shifarat] giveClue: wrong phase', state.phase);
           return 'ليست مرحلة إعطاء الدليل';
         }
 
@@ -257,57 +255,70 @@ export const useShifaratStore = create<ShifaratStore>()(
 
       selectCard: (cardId) => {
         const state = get();
-        console.log('[Shifarat] selectCard called:', { cardId, phase: state.phase, guessesThisTurn: state.guessesThisTurn, guessesAllowed: state.guessesAllowed, hasClue: !!state.currentClue, currentTeam: state.currentTeam });
         
+        // ── PRE-FLIGHT VALIDATION: Check state integrity BEFORE calling logic ──
+        if (!state || !state.board || !Array.isArray(state.board) || state.board.length === 0) {
+          console.error('[Shifarat] selectCard: Invalid state — board is missing or empty', {
+            hasState: !!state,
+            hasBoard: !!state?.board,
+            boardLen: state?.board?.length,
+          });
+          // Force reset and return error
+          setTimeout(() => get().resetGame(), 0);
+          return { result: 'wrong' as const, gameEnded: false, error: 'حالة اللعبة تالفة — تم إعادة التعيين' };
+        }
+        
+        if (!state.currentTeam) {
+          console.error('[Shifarat] selectCard: currentTeam is missing', state.currentTeam);
+          setTimeout(() => get().resetGame(), 0);
+          return { result: 'wrong' as const, gameEnded: false, error: 'حالة اللعبة تالفة — تم إعادة التعيين' };
+        }
+
         if (state.phase !== 'clue_given' && state.phase !== 'team_guessing') {
           console.warn('[Shifarat] selectCard: wrong phase', state.phase);
           return { result: 'wrong' as const, gameEnded: false, error: `خطأ في المرحلة: ${state.phase}` };
         }
 
+        // Verify the card exists on the board
+        const card = state.board.find((c) => c.id === cardId);
+        if (!card) {
+          console.error('[Shifarat] selectCard: Card not found', { cardId, boardLen: state.board.length });
+          return { result: 'wrong' as const, gameEnded: false, error: `البطاقة غير موجودة` };
+        }
+        if (card.isRevealed || card.guessedBy) {
+          console.warn('[Shifarat] selectCard: Card already guessed', { cardId, word: card.word });
+          return { result: 'wrong' as const, gameEnded: false, error: `البطاقة تم تخمينها بالفعل` };
+        }
+
         try {
+          // Call the pure logic function with validated state
           const guessResult = logicGuessWord(state, cardId);
           const { state: newState, result, gameEnded } = guessResult;
-          const updatedCard = newState.board.find(c => c.id === cardId);
-          console.log('[Shifarat] guessWord result:', { 
-            result, 
-            gameEnded, 
-            newPhase: newState.phase, 
-            revealed: updatedCard?.isRevealed,
-            guessedBy: updatedCard?.guessedBy,
-            cardColor: updatedCard?.color,
-            currentTeam: state.currentTeam,
-            cardWord: updatedCard?.word,
-            cardId,
-            redScore: newState.redTeam.score,
-            blueScore: newState.blueTeam.score,
-            redWordsRemaining: newState.redTeam.wordsRemaining,
-            blueWordsRemaining: newState.blueTeam.wordsRemaining,
-          });
 
-          // Build the complete new state from the logic result
-          const updates: Record<string, unknown> = {
+          // Verify the returned state is valid before applying
+          if (!newState || !newState.board || !Array.isArray(newState.board)) {
+            console.error('[Shifarat] guessWord returned invalid state:', {
+              hasNewState: !!newState,
+              hasBoard: !!newState?.board,
+            });
+            return { result: 'wrong' as const, gameEnded: false, error: 'خطأ داخلي في تحديث اللوحة' };
+          }
+
+          // Apply the state update
+          set({
             ...newState,
             lastGuessResult: result,
-          };
-
-          set(updates);
+          } as Partial<ShifaratPersistState>);
 
           get().syncToRoom();
           
-          // Verify the state was actually set
-          const verifyState = get();
-          const verifyCard = verifyState.board.find(c => c.id === cardId);
-          console.log('[Shifarat] verify after set:', {
-            phase: verifyState.phase,
-            cardRevealed: verifyCard?.isRevealed,
-            lastGuessResult: verifyState.lastGuessResult,
-          });
-          
           return { result, gameEnded };
         } catch (e: unknown) {
-          console.error('[Shifarat] Guess error:', e);
+          console.error('[Shifarat] Guess error — FULL TRACE:', e);
           const errorMsg = (e instanceof Error) ? e.message : 'خطأ غير معروف';
-          return { result: 'neutral' as const, gameEnded: false, error: errorMsg };
+          // DON'T return 'neutral' — return 'wrong' so the UI shows a proper error
+          // and the turn doesn't get stuck in guessing phase
+          return { result: 'wrong' as const, gameEnded: false, error: `خطأ تقني: ${errorMsg}` };
         }
       },
 
@@ -424,12 +435,12 @@ export const useShifaratStore = create<ShifaratStore>()(
     }),
     {
       name: 'shifarat-game-storage',
-      version: 9,
+      version: 10,
       migrate: (persisted, version) => {
-        // Force a clean reset for any version below 9
+        // Force a clean reset for any version below 10
         // This fixes stale state issues with card colors and guessing logic
-        if (version < 9) {
-          console.log('[Shifarat] Migrating from version', version, 'to 9 — resetting game state');
+        if (version < 10) {
+          console.log('[Shifarat] Migrating from version', version, 'to 10 — resetting game state');
           return initialState as unknown as typeof persisted;
         }
         return persisted;

@@ -306,17 +306,8 @@ export function guessWord(
     throw new Error('استنفدتم عدد التخمينات المسموح');
   }
 
-  // Determine the result based on card color
+  // Determine result based on card color vs current team
   let result: 'correct' | 'wrong' | 'neutral' | 'assassin';
-
-  // ── CRITICAL DEBUG: Log every comparison ──
-  console.log('[guessWord] VALIDATION OK:', {
-    cardId,
-    cardWord: card.word,
-    cardColor: card.color,
-    currentTeam: state.currentTeam,
-    match: card.color === state.currentTeam,
-  });
 
   if (card.color === 'assassin') {
     result = 'assassin';
@@ -329,113 +320,75 @@ export function guessWord(
     result = 'wrong';
   }
 
-  // ── STEP 1: Build new board ──
-  let newBoard: BoardCard[];
-  try {
-    newBoard = state.board.map((c) => {
-      if (c.id !== cardId) return c;
-      if (result === 'correct' || result === 'assassin') {
-        return { ...c, isRevealed: true, guessedBy: state.currentTeam };
-      } else {
-        return { ...c, isRevealed: false, guessedBy: state.currentTeam };
-      }
-    });
-  } catch (e) {
-    console.error('[guessWord] ERROR at STEP 1 (board map):', e);
-    throw new Error(`خطأ في تحديث اللوحة: ${(e as Error).message}`);
-  }
-
-  // ── STEP 2: Update team scores ──
-  let newRedTeam: TeamInfo;
-  let newBlueTeam: TeamInfo;
-  try {
-    newRedTeam = { ...state.redTeam };
-    newBlueTeam = { ...state.blueTeam };
-
-    if (result === 'correct') {
-      if (state.currentTeam === 'red') {
-        newRedTeam = {
-          ...newRedTeam,
-          score: (newRedTeam.score || 0) + 1,
-          wordsRemaining: Math.max(0, (newRedTeam.wordsRemaining || 0) - 1),
-        };
-      } else {
-        newBlueTeam = {
-          ...newBlueTeam,
-          score: (newBlueTeam.score || 0) + 1,
-          wordsRemaining: Math.max(0, (newBlueTeam.wordsRemaining || 0) - 1),
-        };
-      }
-    } else if (result === 'wrong') {
-      const opponentTeam: TeamColor = state.currentTeam === 'red' ? 'blue' : 'red';
-      if (opponentTeam === 'red') {
-        newRedTeam = {
-          ...newRedTeam,
-          wordsRemaining: Math.max(0, (newRedTeam.wordsRemaining || 0) - 1),
-        };
-      } else {
-        newBlueTeam = {
-          ...newBlueTeam,
-          wordsRemaining: Math.max(0, (newBlueTeam.wordsRemaining || 0) - 1),
-        };
-      }
+  // ── Build new board ──
+  const newBoard: BoardCard[] = state.board.map((c) => {
+    if (c.id !== cardId) return c;
+    if (result === 'correct' || result === 'assassin') {
+      return { ...c, isRevealed: true, guessedBy: state.currentTeam };
+    } else {
+      return { ...c, isRevealed: false, guessedBy: state.currentTeam };
     }
-  } catch (e) {
-    console.error('[guessWord] ERROR at STEP 2 (team scores):', e);
-    throw new Error(`خطأ في تحديث النتائج: ${(e as Error).message}`);
-  }
+  });
 
-  // ── STEP 3: Build log entry ──
-  let logEntry: GameLogEntry;
-  try {
-    const now = Date.now();
-    const teamName =
-      state.currentTeam === 'red' ? state.redTeam.name : state.blueTeam.name;
+  // ── Update team scores ──
+  const newRedTeam: TeamInfo = { ...state.redTeam };
+  const newBlueTeam: TeamInfo = { ...state.blueTeam };
 
-    let logMessage: string;
-    switch (result) {
-      case 'correct':
-        logMessage = `${teamName}: "${card.word}" ✓ صحيح`;
-        break;
-      case 'wrong':
-        logMessage = `${teamName}: "${card.word}" ✗ خطأ — انتهى الدور`;
-        break;
-      case 'neutral':
-        logMessage = `${teamName}: "${card.word}" ✗ خطأ — انتهى الدور`;
-        break;
-      case 'assassin':
-        logMessage = `${teamName}: "${card.word}" 💀 القاتل! خسارة فورية!`;
-        break;
+  if (result === 'correct') {
+    if (state.currentTeam === 'red') {
+      newRedTeam.score = (newRedTeam.score || 0) + 1;
+      newRedTeam.wordsRemaining = Math.max(0, (newRedTeam.wordsRemaining || 0) - 1);
+    } else {
+      newBlueTeam.score = (newBlueTeam.score || 0) + 1;
+      newBlueTeam.wordsRemaining = Math.max(0, (newBlueTeam.wordsRemaining || 0) - 1);
     }
-
-    logEntry = {
-      type: result,
-      team: state.currentTeam,
-      word: card.word,
-      message: logMessage,
-      timestamp: now,
-    };
-  } catch (e) {
-    console.error('[guessWord] ERROR at STEP 3 (log entry):', e);
-    throw new Error(`خطأ في سجل اللعبة: ${(e as Error).message}`);
+  } else if (result === 'wrong') {
+    const opponentTeam: TeamColor = state.currentTeam === 'red' ? 'blue' : 'red';
+    if (opponentTeam === 'red') {
+      newRedTeam.wordsRemaining = Math.max(0, (newRedTeam.wordsRemaining || 0) - 1);
+    } else {
+      newBlueTeam.wordsRemaining = Math.max(0, (newBlueTeam.wordsRemaining || 0) - 1);
+    }
   }
 
-  // ── STEP 4: Check game end ──
-  let gameCheck: { isOver: boolean; winner: TeamColor | null; reason: string | null };
-  try {
-    gameCheck = checkGameEnd(
-      { board: newBoard, redTeam: newRedTeam, blueTeam: newBlueTeam, currentTeam: state.currentTeam },
-      result
-    );
-  } catch (e) {
-    console.error('[guessWord] ERROR at STEP 4 (game end check):', e);
-    throw new Error(`خطأ في فحص نهاية اللعبة: ${(e as Error).message}`);
+  // ── Build log entry ──
+  const now = Date.now();
+  const teamName =
+    state.currentTeam === 'red' ? state.redTeam.name : state.blueTeam.name;
+
+  let logMessage: string;
+  switch (result) {
+    case 'correct':
+      logMessage = `${teamName}: "${card.word}" ✓ صحيح`;
+      break;
+    case 'wrong':
+      logMessage = `${teamName}: "${card.word}" ✗ خطأ — انتهى الدور`;
+      break;
+    case 'neutral':
+      logMessage = `${teamName}: "${card.word}" ✗ خطأ — انتهى الدور`;
+      break;
+    case 'assassin':
+      logMessage = `${teamName}: "${card.word}" 💀 القاتل! خسارة فورية!`;
+      break;
   }
+
+  const logEntry: GameLogEntry = {
+    type: result,
+    team: state.currentTeam,
+    word: card.word,
+    message: logMessage,
+    timestamp: now,
+  };
+
+  // ── Check game end ──
+  const gameCheck = checkGameEnd(
+    { board: newBoard, redTeam: newRedTeam, blueTeam: newBlueTeam, currentTeam: state.currentTeam },
+    result
+  );
 
   const newGuessesThisTurn = state.guessesThisTurn + 1;
 
   if (gameCheck.isOver) {
-    const now = Date.now();
     const gameOverLog: GameLogEntry = {
       type: 'game_over',
       team: gameCheck.winner ?? undefined,
@@ -459,7 +412,7 @@ export function guessWord(
     };
   }
 
-  // ── STEP 5: Determine next phase ──
+  // ── Determine next phase ──
   let nextPhase: ShifaratGameState['phase'];
   let switchTeam = false;
 
@@ -474,9 +427,6 @@ export function guessWord(
   const newGameLog = [...(state.gameLog || []), logEntry];
 
   if (switchTeam) {
-    const now = Date.now();
-    const teamName =
-      state.currentTeam === 'red' ? state.redTeam.name : state.blueTeam.name;
     const switchLog: GameLogEntry = {
       type: 'turn_end',
       team: state.currentTeam,
@@ -485,13 +435,6 @@ export function guessWord(
     };
     newGameLog.push(switchLog);
   }
-
-  console.log('[guessWord] SUCCESS:', {
-    result,
-    nextPhase,
-    switchTeam,
-    newGuessesThisTurn,
-  });
 
   return {
     ...state,

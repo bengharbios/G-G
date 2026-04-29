@@ -176,14 +176,13 @@ interface GuessToastProps {
   word: string;
   remainingGuesses: number;
   onDismiss: () => void;
-  debugInfo?: string;  // Debug info to show
-  errorMessage?: string;  // Actual error message if something went wrong
+  errorMessage?: string;
 }
 
-function GuessToast({ result, word, remainingGuesses, onDismiss, debugInfo, errorMessage }: GuessToastProps) {
+function GuessToast({ result, word, remainingGuesses, onDismiss, errorMessage }: GuessToastProps) {
   // Auto-dismiss after a delay
   useEffect(() => {
-    const delay = errorMessage ? 5000 : result === 'correct' ? 1200 : result === 'assassin' ? 5000 : 2000;
+    const delay = errorMessage ? 4000 : result === 'correct' ? 1200 : result === 'assassin' ? 5000 : 2000;
     const timer = setTimeout(onDismiss, delay);
     return () => clearTimeout(timer);
   }, [result, onDismiss, errorMessage]);
@@ -257,12 +256,6 @@ function GuessToast({ result, word, remainingGuesses, onDismiss, debugInfo, erro
           <X className="w-4 h-4 text-white/60" />
         </button>
       </div>
-      {/* Debug info — always visible for now to diagnose the bug */}
-      {debugInfo && (
-        <div className="mt-1 pt-1 border-t border-white/10">
-          <p className="text-[8px] text-white/40 font-mono leading-relaxed">🔍 {debugInfo}</p>
-        </div>
-      )}
     </motion.div>
   );
 }
@@ -963,7 +956,6 @@ function TeamGuessingView() {
     result: 'correct' | 'wrong' | 'neutral' | 'assassin';
     word: string;
     remaining: number;
-    debugInfo?: string;
     errorMessage?: string;
   } | null>(null);
 
@@ -1017,33 +1009,19 @@ function TeamGuessingView() {
 
     // Read current state directly from the store to avoid stale closures
     const currentState = useShifaratStore.getState();
-    console.log('[TeamGuessingView] handleCardClick:', {
-      cardId,
-      phase: currentState.phase,
-      guessesThisTurn: currentState.guessesThisTurn,
-      guessesAllowed: currentState.guessesAllowed,
-      hasClue: !!currentState.currentClue,
-    });
 
     // Double-check phase — must be clue_given or team_guessing
     if (currentState.phase !== 'clue_given' && currentState.phase !== 'team_guessing') {
-      console.warn('[TeamGuessingView] Not in guessing phase:', currentState.phase);
       return;
     }
 
     const card = currentState.board.find((c) => c.id === cardId);
     if (!card || card.isRevealed || card.guessedBy) {
-      console.log('[TeamGuessingView] Card not clickable:', {
-        found: !!card,
-        isRevealed: card?.isRevealed,
-        guessedBy: card?.guessedBy,
-      });
       return;
     }
 
     // Check guesses not exhausted
     if (currentState.guessesThisTurn >= currentState.guessesAllowed) {
-      console.warn('[TeamGuessingView] Guesses exhausted');
       return;
     }
 
@@ -1053,14 +1031,6 @@ function TeamGuessingView() {
     try {
       const guessResponse = currentState.selectCard(cardId);
       const { result, gameEnded, error } = guessResponse;
-      console.log('[TeamGuessingView] selectCard result:', {
-        result,
-        gameEnded,
-        error,
-        word: card.word,
-        cardColor: card.color,
-        currentTeam: currentState.currentTeam,
-      });
 
       // Play sound based on result
       if (result === 'correct') {
@@ -1078,15 +1048,11 @@ function TeamGuessingView() {
       const afterState = useShifaratStore.getState();
       const newRemaining = Math.max(0, afterState.guessesAllowed - afterState.guessesThisTurn);
 
-      // Build debug info string
-      const debugStr = `card=${card.word} color=${card.color} team=${currentState.currentTeam} result=${result} phase_before=${currentState.phase} phase_after=${afterState.phase}`;
-
       // Show toast notification (non-blocking!)
       setToast({
         result,
         word: card.word,
         remaining: newRemaining,
-        debugInfo: debugStr,
         errorMessage: error,
       });
 
@@ -1210,7 +1176,6 @@ function TeamGuessingView() {
             word={toast.word}
             remainingGuesses={toast.remaining}
             onDismiss={dismissToast}
-            debugInfo={toast.debugInfo}
             errorMessage={toast.errorMessage}
           />
         )}
@@ -1553,7 +1518,7 @@ export default function PlayingPhase() {
       <div className="flex items-center justify-between mb-2 px-1">
         <span className="text-[10px] text-slate-500">الجولة {roundNumber}</span>
         <div className="flex items-center gap-1.5">
-          <span className="text-[8px] text-slate-600/50">v3.2</span>
+          <span className="text-[8px] text-slate-600/50">v3.3</span>
           <button
             onClick={() => setShowHowToPlay(true)}
             className="text-[10px] text-slate-500 hover:text-emerald-400 transition-colors"
