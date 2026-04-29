@@ -247,32 +247,32 @@ function CardGrid({ board, showColors, onCardClick, disabled }: CardGridProps) {
       }
     }
 
-    return 'bg-slate-800 border-slate-700';
+    return 'bg-slate-800 border-slate-600';
   };
 
   return (
-    <div className="grid grid-cols-5 gap-1.5 sm:gap-2">
-      {board.map((card, index) => (
+    <div className="grid grid-cols-5 gap-2 sm:gap-2.5">
+      {board.map((card, index) => {
+        const canClick = onCardClick && !disabled && !card.isRevealed;
+        return (
         <motion.button
           key={card.id}
           initial={{ opacity: 0, scale: 0.8 }}
           animate={{ opacity: 1, scale: 1 }}
           transition={{ delay: index * 0.03, duration: 0.3 }}
-          whileHover={!disabled && !card.isRevealed ? { scale: 1.05, y: -2 } : {}}
-          whileTap={!disabled && !card.isRevealed ? { scale: 0.95 } : {}}
+          whileHover={canClick ? { scale: 1.08, y: -3 } : {}}
+          whileTap={canClick ? { scale: 0.93 } : {}}
           onClick={() => {
-            if (!disabled && !card.isRevealed && onCardClick) {
-              onCardClick(card.id);
-            }
+            if (canClick) onCardClick(card.id);
           }}
           disabled={disabled || card.isRevealed}
           className={`
-            relative aspect-square rounded-lg sm:rounded-xl border-2
-            flex items-center justify-center p-1 sm:p-2
-            transition-all duration-200 select-none
+            relative aspect-square rounded-xl sm:rounded-xl border-2
+            flex items-center justify-center p-1.5 sm:p-2
+            transition-all duration-200 select-none min-h-[44px]
             ${getCardStyle(card)}
-            ${!disabled && !card.isRevealed && onCardClick ? 'cursor-pointer hover:bg-slate-700' : ''}
-            ${card.isRevealed ? 'opacity-75' : ''}
+            ${canClick ? 'cursor-pointer active:scale-95 active:bg-slate-700 hover:border-slate-400' : ''}
+            ${card.isRevealed ? 'opacity-70' : ''}
           `}
         >
           {card.isRevealed && (
@@ -291,15 +291,16 @@ function CardGrid({ board, showColors, onCardClick, disabled }: CardGridProps) {
 
           <span
             className={`
-              text-[9px] sm:text-xs md:text-sm font-bold text-center
+              text-[10px] sm:text-xs md:text-sm font-bold text-center
               leading-tight break-words line-clamp-2
-              ${card.isRevealed ? 'text-white/90' : showColors ? 'text-white' : 'text-slate-200'}
+              ${card.isRevealed ? 'text-white/90' : showColors ? 'text-white' : 'text-slate-100'}
             `}
           >
             {card.word}
           </span>
         </motion.button>
-      ))}
+        );
+      })}
     </div>
   );
 }
@@ -967,6 +968,24 @@ function TeamGuessingView() {
         </Badge>
       </div>
 
+      {/* Instruction to tap cards */}
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ delay: 0.3 }}
+        className="mb-2 flex items-center justify-center gap-2"
+      >
+        <motion.div
+          animate={{ y: [0, -4, 0] }}
+          transition={{ repeat: Infinity, duration: 1.2, ease: 'easeInOut' }}
+        >
+          <span className="text-base">👆</span>
+        </motion.div>
+        <span className="text-[10px] sm:text-xs text-slate-400 font-bold">
+          اضغط على الكلمة التي تظن أنها مرتبطة بالدليل
+        </span>
+      </motion.div>
+
       {/* 5x5 Grid — no colors shown */}
       <div className="mb-4">
         <CardGrid
@@ -977,16 +996,19 @@ function TeamGuessingView() {
         />
       </div>
 
-      {/* Pass button */}
+      {/* Pass button — secondary action */}
       <motion.div className="mt-auto">
+        <p className="text-[9px] text-slate-600 text-center mb-1.5">
+          أو تنازل عن الدور إذا لم تتأكد
+        </p>
         <Button
           onClick={handlePass}
           variant="outline"
-          className="w-full font-bold text-sm py-4 border-slate-700 text-slate-300 hover:bg-slate-800/60 hover:text-slate-200"
+          className="w-full font-bold text-sm py-3 border-slate-700/60 text-slate-400 hover:bg-slate-800/60 hover:text-slate-300"
           style={{ borderRadius: '0.75rem' }}
         >
           <Hand className="w-4 h-4 ml-2" />
-          تنازل
+          تنازل عن الدور
         </Button>
       </motion.div>
     </motion.div>
