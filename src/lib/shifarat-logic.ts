@@ -277,9 +277,9 @@ export function guessWord(
     throw new Error(`البطاقة رقم ${cardId} غير موجودة`);
   }
 
-  // Card must not already be revealed
-  if (card.isRevealed) {
-    throw new Error(`البطاقة "${card.word}" مكشوفة بالفعل`);
+  // Card must not already be revealed or previously guessed
+  if (card.isRevealed || card.guessedBy) {
+    throw new Error(`البطاقة "${card.word}" تم تخمينها بالفعل`);
   }
 
   // Game must be in guessing phase
@@ -306,12 +306,20 @@ export function guessWord(
     result = 'wrong';
   }
 
-  // Build the new board with the guessed card revealed
-  const newBoard = state.board.map((c) =>
-    c.id === cardId
-      ? { ...c, isRevealed: true, guessedBy: state.currentTeam }
-      : c
-  );
+  // Build the new board:
+  // - Correct & Assassin: reveal the card (show color)
+  // - Wrong & Neutral: mark as guessed but DON'T reveal color
+  //   (so the opponent can't tell if it was their card, a bomb, or neutral)
+  const newBoard = state.board.map((c) => {
+    if (c.id !== cardId) return c;
+
+    if (result === 'correct' || result === 'assassin') {
+      return { ...c, isRevealed: true, guessedBy: state.currentTeam };
+    } else {
+      // Wrong/neutral: hidden reveal — card stays gray but can't be re-guessed
+      return { ...c, isRevealed: false, guessedBy: state.currentTeam };
+    }
+  });
 
   // Update team scores and remaining words
   let newRedTeam = { ...state.redTeam };
@@ -359,10 +367,12 @@ export function guessWord(
       logMessage = `${teamName}: "${card.word}" ✓ صحيح`;
       break;
     case 'wrong':
-      logMessage = `${teamName}: "${card.word}" ✗ كلمة الفريق الخصم`;
+      // Don't reveal what type of card it was — just say "wrong"
+      logMessage = `${teamName}: "${card.word}" ✗ خطأ — انتهى الدور`;
       break;
     case 'neutral':
-      logMessage = `${teamName}: "${card.word}" — كلمة محايدة`;
+      // Don't reveal what type of card it was — just say "wrong"
+      logMessage = `${teamName}: "${card.word}" ✗ خطأ — انتهى الدور`;
       break;
     case 'assassin':
       logMessage = `${teamName}: "${card.word}" 💀 القاتل! خسارة فورية!`;

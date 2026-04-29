@@ -65,15 +65,42 @@ function Confetti() {
 
 function RevealedBoard({ board }: { board: BoardCard[] }) {
   const getCardStyle = (card: BoardCard) => {
+    // Correctly revealed cards
+    if (card.isRevealed) {
+      switch (card.color) {
+        case 'red':
+          return 'bg-red-500/80 border-red-400/60';
+        case 'blue':
+          return 'bg-blue-500/80 border-blue-400/60';
+        case 'neutral':
+          return 'bg-slate-600/50 border-slate-500/40';
+        case 'assassin':
+          return 'bg-gray-900 border-gray-500/60';
+      }
+    }
+    // Wrongly guessed but not revealed (color hidden during game)
+    if (card.guessedBy && !card.isRevealed) {
+      switch (card.color) {
+        case 'red':
+          return 'bg-red-500/40 border-red-400/30';
+        case 'blue':
+          return 'bg-blue-500/40 border-blue-400/30';
+        case 'neutral':
+          return 'bg-slate-600/25 border-slate-500/20';
+        case 'assassin':
+          return 'bg-gray-900/60 border-gray-500/30';
+      }
+    }
+    // Untouched cards
     switch (card.color) {
       case 'red':
-        return card.isRevealed ? 'bg-red-500/80 border-red-400/60' : 'bg-red-500/50 border-red-400/30';
+        return 'bg-red-500/50 border-red-400/30';
       case 'blue':
-        return card.isRevealed ? 'bg-blue-500/80 border-blue-400/60' : 'bg-blue-500/50 border-blue-400/30';
+        return 'bg-blue-500/50 border-blue-400/30';
       case 'neutral':
-        return card.isRevealed ? 'bg-slate-600/50 border-slate-500/40' : 'bg-slate-600/30 border-slate-500/20';
+        return 'bg-slate-600/30 border-slate-500/20';
       case 'assassin':
-        return card.isRevealed ? 'bg-gray-900 border-gray-500/60' : 'bg-gray-900/80 border-gray-500/40';
+        return 'bg-gray-900/80 border-gray-500/40';
     }
   };
 
@@ -89,13 +116,17 @@ function RevealedBoard({ board }: { board: BoardCard[] }) {
             relative aspect-square rounded-lg sm:rounded-xl border-2
             flex items-center justify-center p-1 sm:p-2
             ${getCardStyle(card)}
-            ${card.isRevealed ? '' : 'opacity-60'}
+            ${card.guessedBy && !card.isRevealed ? 'opacity-60' : card.isRevealed ? '' : 'opacity-70'}
           `}
         >
           {card.isRevealed && (
             <Check className="absolute top-0.5 right-0.5 z-10 w-3 h-3 sm:w-4 sm:h-4 text-white/80" />
           )}
-          {!card.isRevealed && card.color === 'assassin' && (
+          {/* Wrongly guessed card: show ✕ without revealing color during game */}
+          {card.guessedBy && !card.isRevealed && (
+            <span className="absolute top-0.5 right-0.5 z-10 text-[10px] sm:text-xs font-bold text-red-400/70">✕</span>
+          )}
+          {!card.isRevealed && !card.guessedBy && card.color === 'assassin' && (
             <span className="absolute top-0 left-0 text-[8px] sm:text-[10px]">💀</span>
           )}
           <span className="text-[9px] sm:text-xs md:text-sm font-bold text-white/90 text-center leading-tight break-words line-clamp-2">

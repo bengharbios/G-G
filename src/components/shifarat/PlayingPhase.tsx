@@ -291,6 +291,7 @@ interface CardGridProps {
 
 function CardGrid({ board, showColors, onCardClick, disabled }: CardGridProps) {
   const getCardStyle = (card: BoardCard, canClick: boolean) => {
+    // Revealed card (correct guess or assassin)
     if (card.isRevealed) {
       switch (card.color) {
         case 'red':
@@ -304,6 +305,26 @@ function CardGrid({ board, showColors, onCardClick, disabled }: CardGridProps) {
       }
     }
 
+    // Wrongly guessed but NOT revealed (guessedBy set, isRevealed false)
+    if (card.guessedBy && !card.isRevealed) {
+      if (showColors) {
+        // Spymaster view: show color dimmed with a mark
+        switch (card.color) {
+          case 'red':
+            return 'bg-red-500/40 border-red-400/50 opacity-50';
+          case 'blue':
+            return 'bg-blue-500/40 border-blue-400/50 opacity-50';
+          case 'neutral':
+            return 'bg-slate-600/30 border-slate-500/40 opacity-50';
+          case 'assassin':
+            return 'bg-gray-900 border-gray-400/50 opacity-50';
+        }
+      }
+      // Team view: just dimmed gray — no color info
+      return 'bg-slate-800/60 border-slate-600/50 opacity-50';
+    }
+
+    // Spymaster view: show hidden colors
     if (showColors) {
       switch (card.color) {
         case 'red':
@@ -328,12 +349,12 @@ function CardGrid({ board, showColors, onCardClick, disabled }: CardGridProps) {
   return (
     <div className="grid grid-cols-5 gap-1.5 sm:gap-2.5">
       {board.map((card, index) => {
-        const canClick = onCardClick && !disabled && !card.isRevealed;
+        const canClick = onCardClick && !disabled && !card.isRevealed && !card.guessedBy;
         return (
         <motion.button
           key={card.id}
           initial={{ opacity: 0, scale: 0.8 }}
-          animate={card.isRevealed ? { opacity: 0.85, scale: 1 } : canClick ? { 
+          animate={card.isRevealed ? { opacity: 0.85, scale: 1 } : (card.guessedBy && !card.isRevealed) ? { opacity: 0.5, scale: 0.95 } : canClick ? { 
             opacity: 1, scale: 1,
             boxShadow: [
               '0 0 0px rgba(16, 185, 129, 0)',
@@ -350,7 +371,7 @@ function CardGrid({ board, showColors, onCardClick, disabled }: CardGridProps) {
           onClick={() => {
             if (canClick) onCardClick(card.id);
           }}
-          disabled={disabled || card.isRevealed}
+          disabled={disabled || card.isRevealed || !!card.guessedBy}
           className={`
             relative aspect-square rounded-lg sm:rounded-xl border-2
             flex flex-col items-center justify-center p-1 sm:p-2
@@ -385,11 +406,17 @@ function CardGrid({ board, showColors, onCardClick, disabled }: CardGridProps) {
             <span className="absolute top-0 left-0 text-[8px] sm:text-[10px]">💀</span>
           )}
 
+          {/* Wrong/neutral guess mark: ✕ without revealing color */}
+          {card.guessedBy && !card.isRevealed && (
+            <span className="absolute top-0.5 right-0.5 z-10 text-slate-500 text-[10px] sm:text-xs font-bold">✕</span>
+          )}
+
           <span
             className={`
               text-[9px] sm:text-xs md:text-sm font-bold text-center
               leading-tight break-words line-clamp-2
               ${card.isRevealed ? 'text-white' : showColors ? 'text-white' : 'text-slate-100'}
+              ${card.guessedBy && !card.isRevealed ? 'line-through opacity-60' : ''}
             `}
           >
             {card.word}
@@ -974,7 +1001,7 @@ function TeamGuessingView() {
     if (guessOverlay) return;
 
     const card = board.find((c) => c.id === cardId);
-    if (!card || card.isRevealed) return;
+    if (!card || card.isRevealed || card.guessedBy) return;
 
     const { result, gameEnded } = selectCard(cardId);
 
@@ -1132,51 +1159,48 @@ function TeamGuessingView() {
 // ============================================================
 
 function TurnResultView({ onNext }: { onNext: () => void }) {
-  const { board, lastGuessResult, gameLog, winner, winReason, currentTeam, redTeam, blueTeam } = useShifaratStore();
+  const { board, lastGuessResult, currentTeam, redTeam, blueTeam } = useShifaratStore();
 
   const lastRevealed = [...board].reverse().find((c) => c.isRevealed);
-  const lastLog = gameLog[gameLog.length - 1];
+
+  // Auto-advance for wrong/neutral guesses after 2 seconds
+  const autoAdvanceRef = useRef<NodeJS.Timeout | null>(null);
+  useEffect(() => {
+    if (lastGuessResult === 'wrong' || lastGuessResult === 'neutral') {
+      autoAdvanceRef.current = setTimeout(() => {
+        onNext();
+      }, 2000);
+    }
+    return () => {
+      if (autoAdvanceRef.current) clearTimeout(autoAdvanceRef.current);
+    };
+  }, [lastGuessResult, onNext]);
+
+  const isWrongGuess = lastGuessResult === 'wrong' || lastGuessResult === 'neutral';
 
   const getResultDisplay = () => {
     switch (lastGuessResult) {
       case 'correct':
+        // Out of guesses — all correct
         return {
           emoji: '✅',
-          title: 'صحيح!',
-          subtitle: lastRevealed ? lastRevealed.word : '',
+          title: 'تم استنفاد التخمينات!',
+          subtitle: `${lastRevealed ? lastRevealed.word : ''} — الدور ينتهي`,
           color: 'text-emerald-400',
           bg: 'bg-emerald-950/30',
           border: 'border-emerald-500/30',
-          isSmall: true,
+          isSmall: false,
         };
       case 'wrong':
+      case 'neutral':
+        // Generic error — NO info about card type
         return {
           emoji: '❌',
           title: 'خطأ!',
-          subtitle: lastRevealed ? `كلمة الفريق الخصم — انتهى الدور` : '',
+          subtitle: 'الكلمة لا تخص فريقك — انتهى الدور',
           color: 'text-red-400',
           bg: 'bg-red-950/30',
           border: 'border-red-500/30',
-          isSmall: false,
-        };
-      case 'neutral':
-        return {
-          emoji: '⬜',
-          title: 'محايدة!',
-          subtitle: lastRevealed ? `كلمة محايدة — انتهى الدور` : '',
-          color: 'text-slate-300',
-          bg: 'bg-slate-900/30',
-          border: 'border-slate-700/30',
-          isSmall: false,
-        };
-      case 'assassin':
-        return {
-          emoji: '💀',
-          title: 'القاتل!',
-          subtitle: 'خسارة فورية!',
-          color: 'text-gray-300',
-          bg: 'bg-gray-950/50',
-          border: 'border-gray-500/30',
           isSmall: false,
         };
       default:
@@ -1194,11 +1218,6 @@ function TurnResultView({ onNext }: { onNext: () => void }) {
 
   const result = getResultDisplay();
 
-  // For correct guesses, auto-continue (the team keeps guessing)
-  // The turn_result for "correct" is only shown briefly before the next guess
-  // Actually, based on the logic, correct guesses keep the phase as team_guessing
-  // So turn_result is only reached for wrong/neutral/assassin/out-of-guesses
-
   return (
     <motion.div
       initial={{ opacity: 0, scale: 0.95 }}
@@ -1211,42 +1230,61 @@ function TurnResultView({ onNext }: { onNext: () => void }) {
         initial={{ scale: 0.9, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
         transition={{ type: 'spring', stiffness: 200, delay: 0.1, duration: 0.4 }}
-        className={`w-full max-w-sm ${result.isSmall ? 'p-4 sm:p-5' : 'p-6 sm:p-8'} rounded-2xl border text-center mb-5 ${result.bg} ${result.border}`}
+        className={`w-full max-w-sm p-6 sm:p-8 rounded-2xl border text-center mb-5 ${result.bg} ${result.border}`}
       >
         <motion.div
           initial={{ scale: 0 }}
           animate={{ scale: 1 }}
           transition={{ type: 'spring', stiffness: 300, delay: 0.2 }}
-          className={`mb-2 ${result.isSmall ? 'text-3xl sm:text-4xl' : 'text-5xl sm:text-6xl'}`}
+          className="text-5xl sm:text-6xl mb-2"
         >
           {result.emoji}
         </motion.div>
 
-        <h2 className={`text-lg sm:text-xl ${result.isSmall ? '' : 'text-2xl'} font-black ${result.color} mb-1`}>
+        <h2 className={`text-2xl font-black ${result.color} mb-1`}>
           {result.title}
         </h2>
         {result.subtitle && (
-          <p className={`text-sm text-slate-400 ${result.isSmall ? '' : 'mb-3'}`}>{result.subtitle}</p>
+          <p className="text-sm text-slate-400 mb-3">{result.subtitle}</p>
         )}
 
-        {lastRevealed && !result.isSmall && (
+        {/* For correct (out of guesses): show the word */}
+        {lastGuessResult === 'correct' && lastRevealed && (
           <div className="mt-3 p-3 rounded-xl bg-slate-900/40 border border-slate-800/50">
             <p className="text-lg font-bold text-white">{lastRevealed.word}</p>
           </div>
         )}
+
+        {/* Auto-advance countdown for wrong/neutral */}
+        {isWrongGuess && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 1 }}
+            className="mt-4"
+          >
+            <div className="flex items-center justify-center gap-1.5">
+              <div className="w-1.5 h-1.5 rounded-full bg-red-400 animate-pulse" />
+              <span className="text-[10px] text-slate-500">جاري التحويل...</span>
+            </div>
+          </motion.div>
+        )}
       </motion.div>
 
-      <Button
-        onClick={onNext}
-        className="w-full max-w-xs font-bold text-base py-4 text-white"
-        style={{
-          background: 'linear-gradient(to left, #059669, #10b981)',
-          borderRadius: '0.75rem',
-          boxShadow: '0 0 20px rgba(16, 185, 129, 0.3)',
-        }}
-      >
-        التالي
-      </Button>
+      {/* Only show "next" button for correct (out of guesses) — wrong/neutral auto-advances */}
+      {!isWrongGuess && (
+        <Button
+          onClick={onNext}
+          className="w-full max-w-xs font-bold text-base py-4 text-white"
+          style={{
+            background: 'linear-gradient(to left, #059669, #10b981)',
+            borderRadius: '0.75rem',
+            boxShadow: '0 0 20px rgba(16, 185, 129, 0.3)',
+          }}
+        >
+          التالي
+        </Button>
+      )}
     </motion.div>
   );
 }
