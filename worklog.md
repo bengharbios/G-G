@@ -502,3 +502,41 @@ Stage Summary:
   - Neutral guess → same as wrong (generic error, turn switches)
   - Assassin guess → 💀 overlay, instant loss announcement
   - No more aggressive auto-reset during normal gameplay
+
+---
+Task ID: 1
+Agent: Main Agent
+Task: Fix Shifarat card guessing still not working - user clicks correct card, nothing changes
+
+Work Log:
+- User reported: after spy gives clue, in guessing phase, clicking "بركان" (correct word) does nothing
+- Deep-analyzed all code paths: PlayingPhase.tsx (1520 lines), shifarat-store.ts, shifarat-logic.ts, shifarat-types.ts
+- Identified potential issues:
+  1. handleCardClick useCallback had [guessOverlay] dependency - stale closure could block clicks
+  2. No protection against rapid double-clicks causing race conditions
+  3. Persist version 6 state could be stale from previous buggy versions
+  4. No try/catch around handleCardClick - errors would silently prevent state updates
+  5. State verification was missing after set() - no way to confirm update succeeded
+
+- Rewrote handleCardClick in TeamGuessingView:
+  - Added isProcessingRef (useRef) to prevent double-clicks reliably
+  - Added guessOverlayRef synced via useEffect (not during render - fixes lint)
+  - Added try/catch with error recovery (sets isProcessingRef.current = false on error)
+  - Added comprehensive console.log at every decision point for debugging
+  - Changed dependency array to [] - uses getState() directly, no stale closures
+  - Combined wrong/neutral sound handling
+  - Set processing guard BEFORE calling selectCard (prevents race conditions)
+
+- Enhanced selectCard in shifarat-store.ts:
+  - Added detailed console.log including card color, team scores, isRevealed status
+  - Added post-set verification log (confirms state was actually updated)
+  - Changed from inline spread to explicit updates object for clarity
+
+- Added persist migration to version 7:
+  - Forces clean reset for all states from version < 7
+  - Ensures no stale game state from previous buggy versions
+
+Stage Summary:
+- 2 files modified: PlayingPhase.tsx, shifarat-store.ts
+- Key fixes: useRef for click guards, useEffect for ref sync, try/catch error recovery, comprehensive logging, persist version bump
+- Pushed to GitHub: commit 7e013cc
