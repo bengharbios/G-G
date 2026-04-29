@@ -28,10 +28,18 @@ export default function RootLayout({
       <head>
         <link rel="manifest" href="/manifest.json" />
         <meta name="theme-color" content="#0A6B5E" />
-        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
         <meta name="apple-mobile-web-app-title" content="GGames" />
         <link rel="apple-touch-icon" href="/icons/icon-192.png" />
+        {/* Critical: Force-clear stale Service Worker + caches before any JS loads.
+            This breaks the old-SW-caching-old-JS cycle. The old SW's networkFirst
+            strategy fetches HTML from network first, so this fresh script WILL execute. */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `(function(){try{if(sessionStorage.getItem("sw-clr-v5"))return;if("serviceWorker"in navigator){navigator.serviceWorker.getRegistrations().then(function(r){return Promise.all(r.map(function(x){return x.unregister()}))}).then(function(){if("caches"in window){return caches.keys().then(function(k){return Promise.all(k.map(function(c){return caches.delete(c)}))})}}).then(function(){sessionStorage.setItem("sw-clr-v5","1")}).catch(function(){})}}catch(e){}})();`,
+          }}
+        />
       </head>
       <body
         className={`${cairo.variable} font-sans antialiased bg-background text-foreground`}

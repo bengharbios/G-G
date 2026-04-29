@@ -470,11 +470,11 @@ export const useShifaratStore = create<ShifaratStore>()(
     }),
     {
       name: 'shifarat-game-storage',
-      version: 11,
+      version: 12,
       migrate: (persisted, version) => {
-        // Force a clean reset for any version below 11
-        if (version < 11) {
-          console.log('[Shifarat] Migrating from version', version, 'to 11 — resetting');
+        // Force a clean reset for any version below 12
+        if (version < 12) {
+          console.log('[Shifarat] Migrating from version', version, 'to 12 — resetting');
           return initialState as unknown as typeof persisted;
         }
         return persisted;

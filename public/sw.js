@@ -1,106 +1,35 @@
-const CACHE_NAME = 'ggames-v3';
+// ============================================================
+// Service Worker — PUSH NOTIFICATIONS ONLY
+// ============================================================
+// This SW does NOT intercept any fetch requests.
+// All caching is handled by Next.js content hashes + browser HTTP cache.
+// Fetch events are intentionally NOT handled — the browser's default
+// network-first behaviour is exactly what we want.
+// ============================================================
 
-// Critical assets to pre-cache on install
-const CRITICAL_ASSETS = [
-  '/',
-  '/manifest.json',
-  '/icons/icon-192.png',
-  '/icons/icon-512.png',
-];
-
-// Install event - cache critical assets only
-self.addEventListener('install', (event) => {
-  event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => {
-      console.log('[SW] Pre-caching critical assets');
-      return cache.addAll(CRITICAL_ASSETS).catch(err => {
-        console.warn('[SW] Some assets failed to pre-cache:', err);
-      });
-    })
-  );
+// Install — just activate immediately, no pre-caching
+self.addEventListener('install', () => {
   self.skipWaiting();
 });
 
-// Activate event - clean up ALL old caches
+// Activate — clean up ALL old caches from previous SW versions
 self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches.keys().then((cacheNames) => {
       return Promise.all(
-        cacheNames
-          .filter((name) => name !== CACHE_NAME)
-          .map((name) => {
-            console.log('[SW] Deleting old cache:', name);
-            return caches.delete(name);
-          })
+        cacheNames.map((name) => {
+          console.log('[SW] Deleting old cache:', name);
+          return caches.delete(name);
+        })
       );
     })
   );
   self.clients.claim();
 });
 
-// Fetch event - ONLY cache true static assets (images, fonts, icons)
-// NEVER cache .js files — Next.js handles its own caching with hashes
-self.addEventListener('fetch', (event) => {
-  const { request } = event;
-  const url = new URL(request.url);
-
-  // Never cache API calls or navigation requests
-  if (url.pathname.startsWith('/api/') || request.mode === 'navigate') {
-    event.respondWith(fetch(request));
-    return;
-  }
-
-  // Never cache POST/PUT/DELETE requests
-  if (request.method !== 'GET') {
-    event.respondWith(fetch(request));
-    return;
-  }
-
-  // Only cache true static assets — NOT .js files
-  const isStaticAsset =
-    request.destination === 'image' ||
-    request.destination === 'font' ||
-    url.pathname.startsWith('/icons/') ||
-    url.pathname.startsWith('/img/') ||
-    url.pathname.startsWith('/sounds/') ||
-    url.pathname.startsWith('/gifts/') ||
-    url.pathname.endsWith('.png') ||
-    url.pathname.endsWith('.jpg') ||
-    url.pathname.endsWith('.svg') ||
-    url.pathname.endsWith('.webp') ||
-    url.pathname.endsWith('.mp3') ||
-    url.pathname.endsWith('.woff2') ||
-    url.pathname.endsWith('.woff');
-
-  if (isStaticAsset) {
-    event.respondWith(cacheFirst(request));
-    return;
-  }
-
-  // For everything else (HTML, JS, CSS) — always go to network
-  // Next.js uses content hashes for cache busting, so the browser
-  // will naturally cache unchanged files via standard HTTP caching
-  event.respondWith(fetch(request));
-});
-
-// Cache-first strategy for static assets only
-async function cacheFirst(request) {
-  const cachedResponse = await caches.match(request);
-  if (cachedResponse) {
-    return cachedResponse;
-  }
-  try {
-    const networkResponse = await fetch(request);
-    if (networkResponse.ok && networkResponse.status === 200) {
-      const cache = await caches.open(CACHE_NAME);
-      cache.put(request, networkResponse.clone());
-    }
-    return networkResponse;
-  } catch (error) {
-    console.log('[SW] Cache-first fetch failed:', request.url, error);
-    return new Response('Offline', { status: 503, statusText: 'Service Unavailable' });
-  }
-}
+// NO fetch event listener — browser handles all requests normally.
+// This is intentional. Previous versions cached JS chunks via networkFirst,
+// causing stale code to be served after deployments.
 
 /* ═══════════════════════════════════════════════════════════════════════
    Push Notification Handlers
