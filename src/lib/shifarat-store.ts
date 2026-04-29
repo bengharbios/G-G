@@ -265,16 +265,39 @@ export const useShifaratStore = create<ShifaratStore>()(
         }
 
         try {
-          const { state: newState, result, gameEnded } = logicGuessWord(state, cardId);
-          console.log('[Shifarat] guessWord result:', { result, gameEnded, newPhase: newState.phase, revealed: newState.board.find(c => c.id === cardId)?.isRevealed });
-
-          set({
-            ...newState,
-            lastGuessResult: result,
-            // Keep current viewMode — don't force 'team' which could cause unmount
+          const guessResult = logicGuessWord(state, cardId);
+          const { state: newState, result, gameEnded } = guessResult;
+          const updatedCard = newState.board.find(c => c.id === cardId);
+          console.log('[Shifarat] guessWord result:', { 
+            result, 
+            gameEnded, 
+            newPhase: newState.phase, 
+            revealed: updatedCard?.isRevealed,
+            guessedBy: updatedCard?.guessedBy,
+            cardColor: updatedCard?.color,
+            redScore: newState.redTeam.score,
+            blueScore: newState.blueTeam.score,
           });
 
+          // Build the complete new state from the logic result
+          const updates: Record<string, unknown> = {
+            ...newState,
+            lastGuessResult: result,
+          };
+
+          set(updates);
+
           get().syncToRoom();
+          
+          // Verify the state was actually set
+          const verifyState = get();
+          const verifyCard = verifyState.board.find(c => c.id === cardId);
+          console.log('[Shifarat] verify after set:', {
+            phase: verifyState.phase,
+            cardRevealed: verifyCard?.isRevealed,
+            lastGuessResult: verifyState.lastGuessResult,
+          });
+          
           return { result, gameEnded };
         } catch (e: unknown) {
           console.error('[Shifarat] Guess error:', e);
@@ -395,7 +418,16 @@ export const useShifaratStore = create<ShifaratStore>()(
     }),
     {
       name: 'shifarat-game-storage',
-      version: 6,
+      version: 7,
+      migrate: (persisted, version) => {
+        // If upgrading from version 6 or lower, force a clean reset
+        // to avoid stale state issues with the new guessing logic
+        if (version < 7) {
+          console.log('[Shifarat] Migrating from version', version, 'to 7 — resetting game state');
+          return initialState as unknown as typeof persisted;
+        }
+        return persisted;
+      },
       // If loaded state is invalid, reset to initial state
       onRehydrateStorage: () => (state) => {
         if (state) {

@@ -964,6 +964,9 @@ function TeamGuessingView() {
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
   const overlayTimerRef = useRef<NodeJS.Timeout | null>(null);
 
+  // Use ref to guard against double-clicks (more reliable than state for click handlers)
+  const isProcessingRef = useRef(false);
+
   // Local state for the guess result overlay
   const [guessOverlay, setGuessOverlay] = useState<{
     result: 'correct' | 'wrong' | 'neutral' | 'assassin';
@@ -971,7 +974,13 @@ function TeamGuessingView() {
     remaining: number;
   } | null>(null);
 
-  // Clean up overlay timer on unmount
+  // Keep ref in sync with state for the click handler (for use in event handlers)
+  const guessOverlayRef = useRef(guessOverlay);
+  useEffect(() => {
+    guessOverlayRef.current = guessOverlay;
+  }, [guessOverlay]);
+
+  // Clean up timers on unmount
   useEffect(() => {
     return () => {
       if (intervalRef.current) clearInterval(intervalRef.current);
@@ -997,50 +1006,79 @@ function TeamGuessingView() {
   }, []);
 
   const handleCardClick = useCallback((cardId: number) => {
-    // Don't allow clicks while overlay is showing
-    if (guessOverlay) return;
+    // Guard against double-clicks using ref (always up-to-date)
+    if (isProcessingRef.current) return;
+    if (guessOverlayRef.current) return;
 
     // Read current state directly from the store to avoid stale closures
     const currentState = useShifaratStore.getState();
-    const card = currentState.board.find((c) => c.id === cardId);
-    if (!card || card.isRevealed || card.guessedBy) return;
-
-    const { result, gameEnded } = currentState.selectCard(cardId);
-
-    // Play sound based on result
-    if (result === 'correct') {
-      playSound('correct');
-    } else if (result === 'wrong') {
-      playSound('wrong');
-    } else if (result === 'assassin') {
-      playSound('assassin');
-    } else if (result === 'neutral') {
-      playSound('wrong');
-    }
-    if (gameEnded) {
-      setTimeout(() => playSound('win'), 500);
-    }
-
-    // Calculate remaining guesses after this guess (read from store)
-    const afterState = useShifaratStore.getState();
-    const newRemaining = (afterState.guessesAllowed - afterState.guessesThisTurn);
-
-    // Show result overlay for ALL guess types
-    setGuessOverlay({
-      result,
-      word: card.word,
-      remaining: Math.max(0, newRemaining),
+    console.log('[TeamGuessingView] handleCardClick:', {
+      cardId,
+      phase: currentState.phase,
+      guessesThisTurn: currentState.guessesThisTurn,
+      guessesAllowed: currentState.guessesAllowed,
+      hasClue: !!currentState.currentClue,
     });
 
-    // For correct guesses with remaining guesses, auto-dismiss after 1.5 seconds
-    // For wrong/neutral/assassin, the phase will change to 'turn_result' which
-    // unmounts this component, so the overlay will disappear naturally
-    if (result === 'correct' && !gameEnded && newRemaining > 0) {
-      overlayTimerRef.current = setTimeout(() => {
-        setGuessOverlay(null);
-      }, 1500);
+    const card = currentState.board.find((c) => c.id === cardId);
+    if (!card || card.isRevealed || card.guessedBy) {
+      console.log('[TeamGuessingView] Card not clickable:', {
+        found: !!card,
+        isRevealed: card?.isRevealed,
+        guessedBy: card?.guessedBy,
+      });
+      return;
     }
-  }, [guessOverlay]);
+
+    // Set processing guard immediately
+    isProcessingRef.current = true;
+
+    try {
+      const { result, gameEnded } = currentState.selectCard(cardId);
+      console.log('[TeamGuessingView] selectCard result:', {
+        result,
+        gameEnded,
+        word: card.word,
+        cardColor: card.color,
+      });
+
+      // Play sound based on result
+      if (result === 'correct') {
+        playSound('correct');
+      } else if (result === 'wrong' || result === 'neutral') {
+        playSound('wrong');
+      } else if (result === 'assassin') {
+        playSound('assassin');
+      }
+      if (gameEnded) {
+        setTimeout(() => playSound('win'), 500);
+      }
+
+      // Calculate remaining guesses after this guess (read from store)
+      const afterState = useShifaratStore.getState();
+      const newRemaining = Math.max(0, afterState.guessesAllowed - afterState.guessesThisTurn);
+
+      // Show result overlay for ALL guess types
+      setGuessOverlay({
+        result,
+        word: card.word,
+        remaining: newRemaining,
+      });
+
+      // For correct guesses with remaining guesses, auto-dismiss after 1.5 seconds
+      if (result === 'correct' && !gameEnded && newRemaining > 0) {
+        overlayTimerRef.current = setTimeout(() => {
+          setGuessOverlay(null);
+          isProcessingRef.current = false;
+        }, 1500);
+      }
+      // For wrong/neutral/assassin/game-over-correct, the phase changes in the store
+      // which unmounts this component, so no need to dismiss the overlay
+    } catch (err) {
+      console.error('[TeamGuessingView] Error in handleCardClick:', err);
+      isProcessingRef.current = false;
+    }
+  }, []); // No dependencies - uses getState() directly
 
   const handlePass = useCallback(() => {
     passTurn();
