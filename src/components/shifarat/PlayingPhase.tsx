@@ -171,39 +171,109 @@ function PhaseBanner({ phase, currentTeam, redTeamName, blueTeamName }: PhaseBan
 }
 
 // ============================================================
-// CORRECT GUESS TOAST (small banner for correct guesses)
+// GUESS RESULT OVERLAY — prominent result after each guess
 // ============================================================
 
-interface CorrectToastProps {
+interface GuessResultOverlayProps {
+  result: 'correct' | 'wrong' | 'neutral' | 'assassin';
   word: string;
   remainingGuesses: number;
 }
 
-function CorrectToast({ word, remainingGuesses }: CorrectToastProps) {
+function GuessResultOverlay({ result, word, remainingGuesses }: GuessResultOverlayProps) {
+  const config = {
+    correct: {
+      emoji: '✅',
+      title: 'صحيح!',
+      bg: 'bg-emerald-600/90',
+      border: 'border-emerald-400',
+      glow: 'shadow-lg shadow-emerald-500/30',
+      wordColor: 'text-white',
+      extra: remainingGuesses > 2 ? `${remainingGuesses} تخمينات متبقية` : remainingGuesses === 2 ? 'تخمينان متبقيان' : remainingGuesses === 1 ? 'تخمين واحد متبقي' : 'تم استنفاد التخمينات!',
+    },
+    wrong: {
+      emoji: '❌',
+      title: 'خطأ!',
+      bg: 'bg-red-700/90',
+      border: 'border-red-400',
+      glow: 'shadow-lg shadow-red-500/30',
+      wordColor: 'text-white',
+      extra: 'كلمة الفريق الخصم — انتهى الدور',
+    },
+    neutral: {
+      emoji: '⬜',
+      title: 'محايدة!',
+      bg: 'bg-slate-600/90',
+      border: 'border-slate-400',
+      glow: 'shadow-lg shadow-slate-500/20',
+      wordColor: 'text-white',
+      extra: 'كلمة محايدة — انتهى الدور',
+    },
+    assassin: {
+      emoji: '💀',
+      title: 'القاتل!',
+      bg: 'bg-gray-900/95',
+      border: 'border-red-500',
+      glow: 'shadow-lg shadow-red-900/50',
+      wordColor: 'text-red-300',
+      extra: 'خسارة فورية!',
+    },
+  }[result];
+
   return (
     <motion.div
-      initial={{ opacity: 0, y: -20, scale: 0.95 }}
-      animate={{ opacity: 1, y: 0, scale: 1 }}
-      exit={{ opacity: 0, y: -20, scale: 0.95 }}
-      transition={{ duration: 0.3 }}
-      className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-950/50 border border-emerald-500/40 shadow-lg shadow-emerald-500/10"
+      initial={{ opacity: 0, scale: 0.8 }}
+      animate={{ opacity: 1, scale: 1 }}
+      exit={{ opacity: 0, scale: 0.8 }}
+      transition={{ type: 'spring', stiffness: 300, damping: 25 }}
+      className={`absolute inset-0 z-30 flex items-center justify-center p-6 rounded-2xl ${config.bg} ${config.border} ${config.glow} backdrop-blur-sm`}
     >
-      <motion.div
-        initial={{ scale: 0 }}
-        animate={{ scale: 1 }}
-        transition={{ type: 'spring', stiffness: 300 }}
-      >
-        <Check className="w-5 h-5 text-emerald-400" />
-      </motion.div>
-      <div className="flex-1">
-        <span className="text-xs font-bold text-emerald-300">صحيح! </span>
-        <span className="text-xs text-white font-bold">{word}</span>
+      <div className="text-center">
+        <motion.div
+          initial={{ scale: 0, rotate: -20 }}
+          animate={{ scale: 1, rotate: 0 }}
+          transition={{ type: 'spring', stiffness: 400, delay: 0.1 }}
+          className="text-5xl mb-2"
+        >
+          {config.emoji}
+        </motion.div>
+        <motion.h3
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.2 }}
+          className={`text-xl font-black ${config.wordColor} mb-1`}
+        >
+          {config.title}
+        </motion.h3>
+        <motion.p
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.3 }}
+          className="text-sm font-bold text-white/90 mb-1"
+        >
+          {word}
+        </motion.p>
+        {result === 'correct' && (
+          <motion.p
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.5 }}
+            className="text-xs text-emerald-200 font-bold mt-2"
+          >
+            {config.extra}
+          </motion.p>
+        )}
+        {result !== 'correct' && (
+          <motion.p
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.5 }}
+            className="text-xs text-slate-300 mt-2"
+          >
+            {config.extra}
+          </motion.p>
+        )}
       </div>
-      {remainingGuesses > 0 && (
-        <Badge className="text-[9px] px-2 bg-emerald-500/20 text-emerald-300 border-emerald-500/30">
-          {remainingGuesses} متبقي
-        </Badge>
-      )}
     </motion.div>
   );
 }
@@ -224,13 +294,13 @@ function CardGrid({ board, showColors, onCardClick, disabled }: CardGridProps) {
     if (card.isRevealed) {
       switch (card.color) {
         case 'red':
-          return 'bg-red-500/80 border-red-400/80';
+          return 'bg-red-600 border-red-400 shadow-md shadow-red-500/30';
         case 'blue':
-          return 'bg-blue-500/80 border-blue-400/80';
+          return 'bg-blue-600 border-blue-400 shadow-md shadow-blue-500/30';
         case 'neutral':
-          return 'bg-slate-600/50 border-slate-500/60';
+          return 'bg-slate-500/70 border-slate-400 shadow-md shadow-slate-500/20';
         case 'assassin':
-          return 'bg-gray-900 border-gray-500/60';
+          return 'bg-gray-900 border-red-500/60 shadow-md shadow-red-900/30';
       }
     }
 
@@ -258,7 +328,7 @@ function CardGrid({ board, showColors, onCardClick, disabled }: CardGridProps) {
         <motion.button
           key={card.id}
           initial={{ opacity: 0, scale: 0.8 }}
-          animate={{ opacity: 1, scale: 1 }}
+          animate={card.isRevealed ? { opacity: 0.85, scale: 1 } : { opacity: 1, scale: 1 }}
           transition={{ delay: index * 0.03, duration: 0.3 }}
           whileHover={canClick ? { scale: 1.08, y: -3 } : {}}
           whileTap={canClick ? { scale: 0.93 } : {}}
@@ -272,17 +342,28 @@ function CardGrid({ board, showColors, onCardClick, disabled }: CardGridProps) {
             transition-all duration-200 select-none min-h-[44px]
             ${getCardStyle(card)}
             ${canClick ? 'cursor-pointer active:scale-95 active:bg-slate-700 hover:border-slate-400' : ''}
-            ${card.isRevealed ? 'opacity-70' : ''}
           `}
         >
           {card.isRevealed && (
             <motion.div
               initial={{ scale: 0 }}
               animate={{ scale: 1 }}
+              transition={{ type: 'spring', stiffness: 400, damping: 15 }}
               className="absolute top-0.5 right-0.5 z-10"
             >
-              <Check className="w-3 h-3 sm:w-4 sm:h-4 text-white/80" />
+              <Check className="w-3.5 h-3.5 sm:w-5 sm:h-5 text-white drop-shadow-lg" />
             </motion.div>
+          )}
+
+          {card.isRevealed && card.color === 'assassin' && (
+            <motion.span
+              initial={{ scale: 0 }}
+              animate={{ scale: 1 }}
+              transition={{ type: 'spring', stiffness: 300, delay: 0.1 }}
+              className="absolute bottom-0.5 left-0.5 text-[10px] sm:text-xs"
+            >
+              💀
+            </motion.span>
           )}
 
           {showColors && !card.isRevealed && card.color === 'assassin' && (
@@ -293,7 +374,7 @@ function CardGrid({ board, showColors, onCardClick, disabled }: CardGridProps) {
             className={`
               text-[10px] sm:text-xs md:text-sm font-bold text-center
               leading-tight break-words line-clamp-2
-              ${card.isRevealed ? 'text-white/90' : showColors ? 'text-white' : 'text-slate-100'}
+              ${card.isRevealed ? 'text-white' : showColors ? 'text-white' : 'text-slate-100'}
             `}
           >
             {card.word}
@@ -835,44 +916,35 @@ function TeamGuessingView() {
     timerDuration,
     redTeam,
     blueTeam,
-    gameMode,
-    viewMode,
-    lastGuessResult,
   } = useShifaratStore();
 
   const remainingGuesses = guessesAllowed - guessesThisTurn;
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
-  const [isProcessing, setIsProcessing] = useState(false);
-  const [showCorrectToast, setShowCorrectToast] = useState(false);
-  const [lastCorrectWord, setLastCorrectWord] = useState('');
+  const overlayTimerRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Show correct toast when correct
-  const correctToastTimerRef = useRef<NodeJS.Timeout | null>(null);
+  // Local state for the guess result overlay
+  const [guessOverlay, setGuessOverlay] = useState<{
+    result: 'correct' | 'wrong' | 'neutral' | 'assassin';
+    word: string;
+    remaining: number;
+  } | null>(null);
+
+  // Clean up overlay timer on unmount
   useEffect(() => {
-    if (lastGuessResult === 'correct') {
-      const lastRevealed = [...board].reverse().find((c) => c.isRevealed);
-      if (lastRevealed) {
-        queueMicrotask(() => {
-          setLastCorrectWord(lastRevealed.word);
-          setShowCorrectToast(true);
-        });
-        correctToastTimerRef.current = setTimeout(() => {
-          queueMicrotask(() => setShowCorrectToast(false));
-        }, 1500);
-        return () => {
-          if (correctToastTimerRef.current) clearTimeout(correctToastTimerRef.current);
-        };
-      }
-    }
-  }, [lastGuessResult, board]);
+    return () => {
+      if (intervalRef.current) clearInterval(intervalRef.current);
+      if (overlayTimerRef.current) clearTimeout(overlayTimerRef.current);
+    };
+  }, []);
 
   // Timer countdown
   useEffect(() => {
     const store = useShifaratStore.getState();
     if (store.isTimerActive && store.timerRemaining > 0) {
       intervalRef.current = setInterval(() => {
-        useShifaratStore.getState().tickTimer();
-        if (store.timerRemaining <= 10 && store.timerRemaining > 0) {
+        const currentState = useShifaratStore.getState();
+        currentState.tickTimer();
+        if (currentState.timerRemaining <= 10 && currentState.timerRemaining > 0) {
           playSound('tick');
         }
       }, 1000);
@@ -883,11 +955,15 @@ function TeamGuessingView() {
   }, []);
 
   const handleCardClick = useCallback((cardId: number) => {
-    if (isProcessing) return;
-    setIsProcessing(true);
+    // Don't allow clicks while overlay is showing
+    if (guessOverlay) return;
+
+    const card = board.find((c) => c.id === cardId);
+    if (!card || card.isRevealed) return;
 
     const { result, gameEnded } = selectCard(cardId);
 
+    // Play sound based on result
     if (result === 'correct') {
       playSound('correct');
     } else if (result === 'wrong') {
@@ -901,12 +977,31 @@ function TeamGuessingView() {
       setTimeout(() => playSound('win'), 500);
     }
 
-    setTimeout(() => setIsProcessing(false), 300);
-  }, [selectCard, isProcessing]);
+    // Calculate remaining guesses after this guess
+    const newRemaining = (guessesAllowed - guessesThisTurn) - 1;
+
+    // Show result overlay for ALL guess types
+    setGuessOverlay({
+      result,
+      word: card.word,
+      remaining: Math.max(0, newRemaining),
+    });
+
+    // For correct guesses with remaining guesses, auto-dismiss after 2 seconds
+    // For wrong/neutral/assassin, the phase will change to 'turn_result' which
+    // unmounts this component, so the overlay will disappear naturally
+    if (result === 'correct' && !gameEnded && newRemaining > 0) {
+      overlayTimerRef.current = setTimeout(() => {
+        setGuessOverlay(null);
+      }, 2000);
+    }
+  }, [selectCard, board, guessesAllowed, guessesThisTurn, guessOverlay]);
 
   const handlePass = useCallback(() => {
     passTurn();
   }, [passTurn]);
+
+  const isShowingOverlay = !!guessOverlay;
 
   return (
     <motion.div
@@ -921,18 +1016,6 @@ function TeamGuessingView() {
         redTeamName={redTeam.name}
         blueTeamName={blueTeam.name}
       />
-
-      {/* Correct guess toast */}
-      <div className="mb-3 min-h-[44px]">
-        <AnimatePresence>
-          {showCorrectToast && (
-            <CorrectToast
-              word={lastCorrectWord}
-              remainingGuesses={remainingGuesses - 1}
-            />
-          )}
-        </AnimatePresence>
-      </div>
 
       {/* Clue Display */}
       <ClueDisplay />
@@ -986,14 +1069,25 @@ function TeamGuessingView() {
         </span>
       </motion.div>
 
-      {/* 5x5 Grid — no colors shown */}
-      <div className="mb-4">
+      {/* 5x5 Grid — no colors shown, with result overlay */}
+      <div className="mb-4 relative">
         <CardGrid
           board={board}
           showColors={false}
           onCardClick={handleCardClick}
-          disabled={isProcessing}
+          disabled={isShowingOverlay}
         />
+
+        {/* Result overlay on top of the grid */}
+        <AnimatePresence>
+          {guessOverlay && (
+            <GuessResultOverlay
+              result={guessOverlay.result}
+              word={guessOverlay.word}
+              remainingGuesses={guessOverlay.remaining}
+            />
+          )}
+        </AnimatePresence>
       </div>
 
       {/* Pass button — secondary action */}
@@ -1003,8 +1097,9 @@ function TeamGuessingView() {
         </p>
         <Button
           onClick={handlePass}
+          disabled={isShowingOverlay}
           variant="outline"
-          className="w-full font-bold text-sm py-3 border-slate-700/60 text-slate-400 hover:bg-slate-800/60 hover:text-slate-300"
+          className="w-full font-bold text-sm py-3 border-slate-700/60 text-slate-400 hover:bg-slate-800/60 hover:text-slate-300 disabled:opacity-50"
           style={{ borderRadius: '0.75rem' }}
         >
           <Hand className="w-4 h-4 ml-2" />

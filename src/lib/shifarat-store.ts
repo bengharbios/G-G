@@ -390,7 +390,7 @@ export const useShifaratStore = create<ShifaratStore>()(
     }),
     {
       name: 'shifarat-game-storage',
-      version: 3,
+      version: 4,
       // If loaded state is invalid, reset to initial state
       onRehydrateStorage: () => (state) => {
         if (state) {
